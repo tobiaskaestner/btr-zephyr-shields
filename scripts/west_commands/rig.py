@@ -59,7 +59,7 @@ class BuildRig(Build):
             parser.usage = parser.usage.replace('west build', 'west build-rig')
         parser.add_argument(
             '--rig', metavar='NAME',
-            help='rig to build (btr-shields/boards/rigs/<NAME>.rig.yml): infers '
+            help='rig to build (btr-shields/boards/rigs/<NAME>/rig.yml): infers '
                  '-b <board> and the rig-runner app, then runs the expander '
                  'seam via -DRIG=<NAME>')
         return parser
@@ -68,10 +68,10 @@ class BuildRig(Build):
         rig = getattr(args, 'rig', None)
         if rig:
             root = _TOPDIR / 'btr-shields'
-            rig_file = root / 'boards' / 'rigs' / f'{rig}.rig.yml'
+            rig_file = root / 'boards' / 'rigs' / rig / 'rig.yml'
             if not rig_file.is_file():
-                avail = sorted(p.name[:-len('.rig.yml')] for p in
-                               (root / 'boards' / 'rigs').glob('*.rig.yml'))
+                avail = sorted(p.parent.name for p in
+                               (root / 'boards' / 'rigs').glob('*/rig.yml'))
                 log.die(f"--rig {rig}: no such rig ({rig_file}).\n"
                         f"  available: {', '.join(avail) or '(none)'}")
             data = yaml.safe_load(rig_file.read_text()) or {}

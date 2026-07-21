@@ -54,12 +54,56 @@ set(RIG_EXPAND_SHIELD_DIR "${_RIG_BTR_ROOT}/boards/shields"
 set(RIG_EXPAND_COMMAND ""
   CACHE STRING "Override: full command (semicolon list) to run instead of the rigexp CLI")
 
-set(_rig_yml "${_RIG_BTR_ROOT}/boards/rigs/${RIG}.rig.yml")
+# Resolve -DRIG=<name> to a rig folder via list_rigs.py — mirrors exactly how
+# the shield tail below resolves shield names via list_shields.py --json.
+list(TRANSFORM BOARD_ROOT PREPEND "--board-root=" OUTPUT_VARIABLE _rig_board_root_args)
+
+set(_list_rigs_commands
+  COMMAND ${PYTHON_EXECUTABLE} ${_RIG_BTR_ROOT}/scripts/list_rigs.py
+  ${_rig_board_root_args} --json
+)
+
+execute_process(${_list_rigs_commands}
+  OUTPUT_VARIABLE _rigs_json
+  ERROR_VARIABLE _err_rigs
+  RESULT_VARIABLE _ret_val_rigs
+)
+
+if(_ret_val_rigs)
+  message(FATAL_ERROR "Error finding rigs\nError message: ${_err_rigs}")
+endif()
+
+string(JSON _rigs_length LENGTH ${_rigs_json})
+
+set(_rig_dir)
+set(RIG_LIST)
+if(_rigs_length GREATER 0)
+  math(EXPR _rigs_length "${_rigs_length} - 1")
+
+  foreach(i RANGE ${_rigs_length})
+    string(JSON _rig_entry GET "${_rigs_json}" "${i}")
+    string(JSON _rig_entry_name GET ${_rig_entry} name)
+    string(JSON _rig_entry_dir GET ${_rig_entry} dir)
+    list(APPEND RIG_LIST ${_rig_entry_name})
+    if(_rig_entry_name STREQUAL RIG)
+      set(_rig_dir ${_rig_entry_dir})
+    endif()
+  endforeach()
+endif()
+list(SORT RIG_LIST)
+
+if(NOT _rig_dir)
+  string(REPLACE ";" "\n" _rig_string "${RIG_LIST}")
+  message(FATAL_ERROR
+    "rig: -DRIG=${RIG} does not resolve to a rig.\n"
+    "Please choose from among the following rigs:\n${_rig_string}")
+endif()
+
+set(_rig_yml "${_rig_dir}/rig.yml")
 if(NOT EXISTS "${_rig_yml}")
   message(FATAL_ERROR
-    "rig: -DRIG=${RIG} does not resolve to a rig file.\n"
-    "  Expected: ${_rig_yml}\n"
-    "  (rigs live under ${_RIG_BTR_ROOT}/boards/rigs/<name>.rig.yml)")
+    "rig: -DRIG=${RIG} resolved to '${_rig_dir}' but it has no rig.yml:\n"
+    "  Expected: ${_rig_yml}")
 endif()
 
 set(_rig_out_dir "${CMAKE_BINARY_DIR}/rig")
@@ -102,14 +146,34 @@ endif()
 
 set(EXTRA_DTC_OVERLAY_FILE "${_rig_overlay}" CACHE STRING
   "Rig-generated devicetree overlay (set by rig.cmake)" FORCE)
+
+# OVERLAY_CONFIG is a list: the expander's generated fragment (${_rig_conf},
+# e.g. Kconfig facts derived from the topology) first, then the rig folder's
+# own hand-authored rig.conf (option A — the umbrella-subsystem activation
+# layer a rig author writes so the instantiated shields' DRIVERS actually
+# build; the expander cannot know this, it only knows topology).
+set(_rig_overlay_config "")
 if(EXISTS "${_rig_conf}")
-  set(OVERLAY_CONFIG "${_rig_conf}" CACHE STRING
-    "Rig-generated Kconfig fragment (set by rig.cmake)" FORCE)
+  list(APPEND _rig_overlay_config "${_rig_conf}")
 else()
   message(STATUS "rig: no Kconfig fragment produced (expected at P2)")
 endif()
 
+set(_rig_conf_file "${_rig_dir}/rig.conf")
+if(EXISTS "${_rig_conf_file}")
+  list(APPEND _rig_overlay_config "${_rig_conf_file}")
+  message(STATUS "rig: applying ${_rig_conf_file}")
+endif()
+
+if(_rig_overlay_config)
+  set(OVERLAY_CONFIG "${_rig_overlay_config}" CACHE STRING
+    "Rig-generated + rig-authored Kconfig fragments (set by rig.cmake)" FORCE)
+endif()
+
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_rig_yml}")
+if(EXISTS "${_rig_conf_file}")
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_rig_conf_file}")
+endif()
 file(GLOB _rig_expander_sources "${_RIG_BTR_ROOT}/scripts/rigexp/*.py")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_rig_expander_sources})
 
