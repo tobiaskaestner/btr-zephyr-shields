@@ -11,7 +11,7 @@
 
 / {
 	rig-shields {
-		data_logger: adafruit-data-logger {
+		data_logger: adafruit_data_logger {
 			shield,plugs = "arduino-r3";
 			dl_plug: plug { #gpio-cells = <2>; };
 

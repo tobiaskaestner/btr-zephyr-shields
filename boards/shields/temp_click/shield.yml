@@ -1,0 +1,5 @@
+shield:
+  name: temp_click
+  full_name: MikroE Temp Click
+  vendor: mikroe
+  template: true

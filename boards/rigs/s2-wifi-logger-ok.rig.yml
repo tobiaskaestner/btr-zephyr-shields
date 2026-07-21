@@ -1,0 +1,24 @@
+# S2 (realizable) — the same WiFi data logger, made buildable by moving the
+# WINC's IRQ jumper off the RTC's D7 to D2. Nothing else changes: the CS clash
+# is resolved by allocation (SD copper-fixed D10 -> index 0; WiFi pool -> D9,
+# index 1), and expansion emits the overlay plus a config sheet listing the two
+# physical actions (set the IRQ jumper; route the allocated CS to D9).
+#
+# This is what R6 buys: a pin clash that today forces a forked overlay is now a
+# one-line instantiation parameter.
+#
+# Ported from frontend-trial/candidate-2-hybrid/s2-wifi-logger-ok.rig.yml;
+# board reference adjusted from `nucleo_f401re` to `nucleo_f401re_btr` (P3 3a).
+
+rig:
+  name: nucleo-wifi-logger-ok
+  board: nucleo_f401re_btr
+  instances:
+    - name: logger_1
+      shield: adafruit_data_logger
+      socket: nucleo_ard
+    - name: wifi_1
+      shield: adafruit_winc1500
+      socket: nucleo_ard
+      pin:
+        irq_jmp: D2                  # move IRQ off the RTC's D7

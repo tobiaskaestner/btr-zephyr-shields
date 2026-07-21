@@ -1,0 +1,14 @@
+# MikroE Quail board configuration (btr-shields clone)
+
+# Copyright (c) 2025 ThoseBoards
+# SPDX-License-Identifier: Apache-2.0
+
+if BOARD_MIKROE_QUAIL_BTR
+
+source "boards/common/usb/Kconfig.cdc_acm_serial.defconfig"
+
+config SPI_STM32_INTERRUPT
+	default y
+	depends on SPI
+
+endif # BOARD_MIKROE_QUAIL_BTR

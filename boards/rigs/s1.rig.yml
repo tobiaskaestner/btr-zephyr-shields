@@ -13,5 +13,5 @@ rig:
   board: nucleo_f401re_btr
   instances:
     - name: logger
-      shield: adafruit-data-logger
+      shield: adafruit_data_logger
       socket: nucleo_ard

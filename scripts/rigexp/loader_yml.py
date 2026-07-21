@@ -40,13 +40,19 @@ def load_shield_library(workdir: str, diags: Diagnostics, shields_dir: str | Non
     `gl_plug` etc. without colliding, and no cross-shield prefix discipline is
     needed. Merged by shield name (which is unique).
 
+    Shields live one per folder, upstream-shield-shape: `<shield-dir>/<name>/
+    <name>.shield` (alongside that folder's `shield.yml` metadata, not parsed
+    here — the `.shield` DT node name remains the sole identity source, per
+    `Shield.name = node.name` in shields.py). Hence the `*/*.shield` glob
+    (one level of shield-named subfolder) rather than a flat `*.shield`.
+
     `shields_dir` overrides the vendored default (SHIELDS_DIR) — this is how
     the CLI's `--shield-dir` reaches the loader (downstream: the real shield
     library lives outside this package, e.g. btr-shields/boards/shields/)."""
     types = load_types()
     shields = {}
     directory = shields_dir if shields_dir is not None else SHIELDS_DIR
-    for f in sorted(glob.glob(os.path.join(directory, "*.shield"))):
+    for f in sorted(glob.glob(os.path.join(directory, "*", "*.shield"))):
         name = os.path.basename(f)[: -len(".shield")]
         dt = parse_tu([f], workdir, f"shield-{name}.dts")
         shields.update(parse_shields(dt, types, diags))

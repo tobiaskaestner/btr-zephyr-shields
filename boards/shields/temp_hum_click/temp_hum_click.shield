@@ -1,0 +1,22 @@
+/* Shield: MikroE Temp&Hum Click (S4-b) — HTS221, I2C at a FIXED 0x5f
+ * (1-element address domain, no address-select). Two of these on the shared
+ * i2c1 (any two Quail sockets) are physically unrealizable (R9), regardless of
+ * which sockets — the shared-bus regime (R15). */
+
+#include <dt-bindings/connector/mikrobus.h>
+
+/ {
+	rig-shields {
+		temp_hum_click: temp_hum_click {
+			shield,plugs = "mikrobus";
+			th_plug: plug { #gpio-cells = <2>; };
+
+			i2c {
+				th_sensor: sensor@5f {
+					compatible = "st,hts221";
+					reg = <0x5f>;		/* fixed: 1-element domain */
+				};
+			};
+		};
+	};
+};

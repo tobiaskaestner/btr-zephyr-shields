@@ -1,0 +1,37 @@
+/* Shield: hypothetical Temp Click (S5) — I2C sensor, strap-selectable
+ * address. The shield declares the DOMAIN (copper knowledge); the SELECTION
+ * is instance data in the rig file, or allocated + emitted to the config
+ * sheet. Source node has neither reg nor unit-address — the expander
+ * authors both, matching (address authority rule).
+ */
+
+#include <dt-bindings/connector/mikrobus.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/ {
+	rig-shields {
+		temp_click: temp_click {
+			shield,plugs = "mikrobus";
+			tc_plug: plug { #gpio-cells = <2>; };
+
+			i2c {
+				/* symbolic unit-address = readable deferral marker
+				 * (dtlib-legal, lowercase); shield,addr-from is the
+				 * checked reference. Expander authors the real
+				 * reg + @addr pair in the output. */
+				tc_sensor: sensor@addr_strap {
+					compatible = "vnd,temp1234";
+					shield,addr-from = <&tc_addr_strap>;
+					int-gpios = <&tc_plug MIKROBUS_INT GPIO_ACTIVE_LOW>;
+				};
+			};
+
+			config {
+				tc_addr_strap: addr-strap {
+					shield,domain = <0x48 0>, <0x49 1>;	/* (address, strap) */
+					shield,sheet-label = "ADDR jumper";
+				};
+			};
+		};
+	};
+};
