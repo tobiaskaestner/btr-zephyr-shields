@@ -43,8 +43,12 @@ def load_shield_library(workdir: str, diags: Diagnostics, shields_dir: str | Non
     Shields live one per folder, upstream-shield-shape: `<shield-dir>/<name>/
     <name>.shield` (alongside that folder's `shield.yml` metadata, not parsed
     here — the `.shield` DT node name remains the sole identity source, per
-    `Shield.name = node.name` in shields.py). Hence the `*/*.shield` glob
-    (one level of shield-named subfolder) rather than a flat `*.shield`.
+    `Shield.name = node.name` in shields.py). We therefore look for exactly
+    `<dir>/<dir-basename>.shield` per subfolder, rather than a `*/*.shield`
+    glob — the folder now also holds upstream-convention Kconfig fragments
+    (`Kconfig.shield`, `Kconfig.defconfig`), which also end in the literal
+    substring ".shield" and would otherwise be mis-globbed as shield
+    templates (`Kconfig.shield` matches a bare `*.shield` wildcard).
 
     `shields_dir` overrides the vendored default (SHIELDS_DIR) — this is how
     the CLI's `--shield-dir` reaches the loader (downstream: the real shield
@@ -52,8 +56,13 @@ def load_shield_library(workdir: str, diags: Diagnostics, shields_dir: str | Non
     types = load_types()
     shields = {}
     directory = shields_dir if shields_dir is not None else SHIELDS_DIR
-    for f in sorted(glob.glob(os.path.join(directory, "*", "*.shield"))):
-        name = os.path.basename(f)[: -len(".shield")]
+    for shield_dir in sorted(glob.glob(os.path.join(directory, "*"))):
+        if not os.path.isdir(shield_dir):
+            continue
+        name = os.path.basename(shield_dir)
+        f = os.path.join(shield_dir, name + ".shield")
+        if not os.path.isfile(f):
+            continue
         dt = parse_tu([f], workdir, f"shield-{name}.dts")
         shields.update(parse_shields(dt, types, diags))
     return shields

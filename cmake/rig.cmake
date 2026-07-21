@@ -120,24 +120,36 @@ include(${_rig_out_dir}/context.cmake OPTIONAL)
 message(STATUS "rig: '${RIG_NAME}' board=${RIG_BOARD} shields=[${RIG_SHIELDS}]")
 # ---------------------------------------------------------------------------
 
-# Check that SHIELD has not changed.
-zephyr_check_cache(SHIELD WATCH)
-
-if(SHIELD)
-  message(STATUS "Shield(s): ${SHIELD}")
-endif()
-
-if(DEFINED SHIELD)
-  string(REPLACE " " ";" SHIELD_AS_LIST "${SHIELD}")
-endif()
-# SHIELD-NOTFOUND is a real CMake list, from which valid shields can be popped.
-# After processing all shields, only invalid shields will be left in this list.
-set(SHIELD-NOTFOUND ${SHIELD_AS_LIST})
+# ---------------------------------------------------------------------------
+# Shield processing, RIG_SHIELDS-driven (P3 3a rewrite of the stock tail).
+#
+# Unlike stock shields.cmake, shields here are never selected via -DSHIELD;
+# they come from the rig's own instances (RIG_SHIELDS, set by context.cmake
+# above). DT is entirely the expander's domain — it already emitted the
+# overlay set as EXTRA_DTC_OVERLAY_FILE earlier in this file — so this tail's
+# job is Kconfig + bookkeeping only:
+#   - keep the list_shields.py discovery block (SHIELD_LIST/SHIELD_DIR_<name>)
+#     unchanged: our shield folders have matching shield.yml names, so it
+#     finds them exactly as it would for a stock shield;
+#   - validate each rig shield resolves to a real shield folder, else
+#     FATAL_ERROR (retargeted from the stock "invalid SHIELD" error);
+#   - collect each shield's <name>.conf plus board-specific CONF_FILES (KCONF
+#     only — the <name>.overlay / DTS collection is dropped entirely, the
+#     expander owns DT);
+#   - set SHIELD_AS_LIST so kconfig.cmake's `shields_list_contains` (which
+#     every shield's Kconfig.shield calls) turns SHIELD_<NAME> on. Reusing
+#     SHIELD_AS_LIST here is safe: stock shields.cmake's DTS-collection use of
+#     it never runs in this file (that's the whole point of the shields.cmake
+#     fork), so there is no double-overlay risk.
+#   - drop the stock zephyr_check_cache(SHIELD WATCH) / SHIELD-from-cache
+#     seeding entirely: shields come from the rig file, already tracked via
+#     CMAKE_CONFIGURE_DEPENDS on the .rig.yml above.
+# ---------------------------------------------------------------------------
 
 # Prepare list shields command.
 # This command is used for locating the shield dir as well as printing all shields
 # in the system in the following cases:
-# - User specifies an invalid SHIELD
+# - A rig names a shield with no matching folder
 # - User invokes '<build-command> shields' target
 list(TRANSFORM BOARD_ROOT PREPEND "--board-root=" OUTPUT_VARIABLE board_root_args)
 
@@ -170,70 +182,52 @@ if(shields_length GREATER 0)
     set(SHIELD_DIR_${shield_name} ${shield_dir})
   endforeach()
 endif()
-
-# Process shields in-order
-if(DEFINED SHIELD)
-  foreach(s ${SHIELD_AS_LIST})
-    if(NOT ${s} IN_LIST SHIELD_LIST)
-      continue()
-    endif()
-
-    list(REMOVE_ITEM SHIELD-NOTFOUND ${s})
-
-    # Add <shield>.overlay to the shield_dts_files output variable.
-    list(APPEND
-      shield_dts_files
-      ${SHIELD_DIR_${s}}/${s}.overlay
-      )
-
-    # Add the shield's directory to the SHIELD_DIRS output variable.
-    list(APPEND
-      SHIELD_DIRS
-      ${SHIELD_DIR_${s}}
-      )
-
-    include(${SHIELD_DIR_${s}}/pre_dt_shield.cmake OPTIONAL)
-
-    # Search for shield/shield.conf file
-    if(EXISTS ${SHIELD_DIR_${s}}/${s}.conf)
-      list(APPEND
-        shield_conf_files
-        ${SHIELD_DIR_${s}}/${s}.conf
-        )
-    endif()
-
-    # Add board-specific .conf and .overlay files to their
-    # respective output variables.
-    zephyr_file(CONF_FILES ${SHIELD_DIR_${s}}/boards
-                DTS   shield_dts_files
-                KCONF shield_conf_files
-    )
-    zephyr_file(CONF_FILES ${SHIELD_DIR_${s}}/boards/${s}
-                DTS   shield_dts_files
-                KCONF shield_conf_files
-    )
-  endforeach()
-endif()
-
-# Prepare shield usage command printing.
-# This command prints all shields in the system in the following cases:
-# - User specifies an invalid SHIELD
-# - User invokes '<build-command> shields' target
 list(SORT SHIELD_LIST)
 
-if(DEFINED SHIELD AND NOT (SHIELD-NOTFOUND STREQUAL ""))
-  # Convert the list to pure string with newlines for printing.
-  string(REPLACE ";" "\n" shield_string "${SHIELD_LIST}")
-
-  foreach (s ${SHIELD-NOTFOUND})
+# Process the rig's shields (RIG_SHIELDS from context.cmake, not -DSHIELD).
+foreach(s ${RIG_SHIELDS})
+  if(NOT s IN_LIST SHIELD_LIST)
+    string(REPLACE ";" "\n" shield_string "${SHIELD_LIST}")
     message("No shield named '${s}' found")
-  endforeach()
-  message("Please choose from among the following shields:\n"
-          "${shield_string}"
+    message("Please choose from among the following shields:\n"
+            "${shield_string}"
+    )
+    message(FATAL_ERROR
+      "rig: '${RIG_NAME}' names shield '${s}', which has no matching shield "
+      "folder; see above.")
+  endif()
+
+  # Add the shield's directory to the SHIELD_DIRS output variable.
+  list(APPEND
+    SHIELD_DIRS
+    ${SHIELD_DIR_${s}}
+    )
+
+  include(${SHIELD_DIR_${s}}/pre_dt_shield.cmake OPTIONAL)
+
+  # Search for shield/shield.conf file (DT collection intentionally dropped —
+  # the expander already emitted the overlay set above).
+  if(EXISTS ${SHIELD_DIR_${s}}/${s}.conf)
+    list(APPEND
+      shield_conf_files
+      ${SHIELD_DIR_${s}}/${s}.conf
+      )
+  endif()
+
+  # Add board-specific .conf files to shield_conf_files (KCONF only).
+  zephyr_file(CONF_FILES ${SHIELD_DIR_${s}}/boards
+              KCONF shield_conf_files
   )
-  unset(CACHED_SHIELD CACHE)
-  message(FATAL_ERROR "Invalid SHIELD; see above.")
-endif()
+  zephyr_file(CONF_FILES ${SHIELD_DIR_${s}}/boards/${s}
+              KCONF shield_conf_files
+  )
+endforeach()
+
+# The Kconfig activation trigger: kconfig.cmake passes SHIELD_AS_LIST into
+# Kconfig, and each shield's Kconfig.shield (`def_bool
+# $(shields_list_contains,<name>)`) makes SHIELD_<NAME> true, firing its
+# Kconfig.defconfig.
+set(SHIELD_AS_LIST "${RIG_SHIELDS}")
 
 # Prepend each shield with COMMAND <cmake> -E echo <shield>" for printing.
 # Each shield is printed as new command because build files are not fond of newlines.
