@@ -1,0 +1,29 @@
+/* Trial-only stub: minimal SoC nodes so the board socket fragments can be
+ * parse-tested standalone. In reality the fragments are included by the
+ * board's own DT where these labels exist for real.
+ */
+
+/ {
+	soc-stub {
+		i2c1: i2c@1 { #address-cells = <1>; #size-cells = <0>; };
+		spi1: spi@2 { #address-cells = <1>; #size-cells = <0>; };
+		spi3: spi@3 { #address-cells = <1>; #size-cells = <0>; };
+		usart1: serial@4 {};
+		usart2: serial@5 {};
+		usart3: serial@6 {};
+		usart6: serial@7 {};
+		spi0: spi@e { #address-cells = <1>; #size-cells = <0>; };	/* frdm-k64f (S6) */
+		i2c0: i2c@f { #address-cells = <1>; #size-cells = <0>; };
+		gpioa: gpio@8 { #gpio-cells = <2>; };
+		gpiob: gpio@9 { #gpio-cells = <2>; };
+		gpioc: gpio@a { #gpio-cells = <2>; };
+		gpiod: gpio@b { #gpio-cells = <2>; };
+		gpioe: gpio@c { #gpio-cells = <2>; };
+		gpio0: gpio@d { #gpio-cells = <2>; };	/* rp2040 (Maker Pi, S4-a) */
+		porta: gpio@10 { #gpio-cells = <2>; };	/* samd21 (Seeeduino Lotus, bridle) */
+		portb: gpio@11 { #gpio-cells = <2>; };
+		tcc0: pwm@12 { #pwm-cells = <3>; };	/* timer/PWM controllers */
+		tcc1: pwm@13 { #pwm-cells = <3>; };
+		adc0: adc@14 { #io-channel-cells = <1>; };
+	};
+};

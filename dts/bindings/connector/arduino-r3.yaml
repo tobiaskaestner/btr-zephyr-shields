@@ -1,0 +1,48 @@
+# Copyright (c) 2026 btr-shields
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Arduino Uno (R3) connector, socket side (rigs Convention 1/4 typed board
+  socket). A GPIO nexus, same shape as the upstream "arduino-header-r3"
+  binding (dts/bindings/gpio/arduino-header-r3.yaml) it sits alongside on a
+  converted board: gpio-map child pins use the same ARDUINO_HEADER_R3_*
+  indices from <zephyr/dt-bindings/gpio/arduino-header-r3.h> — the
+  position-index single source of truth shared by legacy connector, socket
+  node, and shield references alike (rig-dt-syntax.md Layer 3/4).
+
+  Every bus endpoint (socket,i2c / socket,spi / socket,uart) is optional: a
+  board exposes only the subset it actually wires, declared by absence — no
+  socket,uart here, since neither Nucleo USART is routed to the Arduino
+  header on this board. socket,stackable marks the arduino-r3 socket as
+  mating more than one shield (stacking headers); socket,cs-pool gives the
+  expander's chip-select pool its ordered candidate positions (D10, D9, D8).
+
+compatible: "socket,arduino-r3"
+
+include: [gpio-nexus.yaml, base.yaml]
+
+properties:
+  "#gpio-cells":
+    type: int
+    required: true
+    const: 2
+  socket,i2c:
+    type: phandle
+    description: I2C controller reachable through this socket (absent = not offered)
+  socket,spi:
+    type: phandle
+    description: SPI controller reachable through this socket (absent = not offered)
+  socket,uart:
+    type: phandle
+    description: UART controller reachable through this socket (absent = not offered)
+  socket,stackable:
+    type: boolean
+    description: present on every arduino-r3 socket (type-level fact) — stacking headers may mate N shields
+  socket,cs-pool:
+    type: array
+    default: [16, 15, 14]
+    description: ordered chip-select candidate positions (D10, D9, D8) for expander CS-pool allocation
+
+gpio-cells:
+  - pin
+  - flags

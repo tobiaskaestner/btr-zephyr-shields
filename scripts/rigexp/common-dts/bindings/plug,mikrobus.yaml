@@ -1,0 +1,21 @@
+# ConnectorType "mikrobus", plug side — consumed by the rig loader (not
+# edtlib): validates shield structure for shield,plugs = "mikrobus".
+
+description: |
+  Contract for shields plugging a mikroBUS socket:
+  - allowed bus proxy nodes: i2c, spi, uart (children become bus devices;
+    pairing: proxy name <-> socket,<name> on the mated socket)
+  - the shield's plug node is the position reference frame; gpio-spec
+    properties use <&plug MIKROBUS_* flags>
+  - claimable positions: AN, RST, CS, PWM (optional), INT
+  - SPI CS: allocated from the socket's socket,cs-pool unless pinned by
+    shield,cs-position
+
+plug: "mikrobus"
+bus-proxies: [i2c, spi, uart]
+positions:
+  AN:  {function: analog}
+  RST: {function: gpio}
+  CS:  {function: gpio}
+  PWM: {function: gpio, optional: true}
+  INT: {function: gpio}

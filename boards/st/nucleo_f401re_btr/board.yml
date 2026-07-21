@@ -1,0 +1,6 @@
+board:
+  name: nucleo_f401re_btr
+  full_name: Nucleo F401RE (btr-shields clone, rigs Convention 4 socket node)
+  vendor: st
+  socs:
+    - name: stm32f401xe

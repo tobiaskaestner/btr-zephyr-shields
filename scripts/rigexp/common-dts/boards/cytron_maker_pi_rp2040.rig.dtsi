@@ -1,0 +1,51 @@
+/* Board-DT fragment: Cytron Maker Pi RP2040 — seven typed Grove sockets.
+ * Part of the BOARD tree (real phandles, edtlib-validated in a real build).
+ * Models the in-tree grove_header1..7 nexus nodes as socket,grove nodes.
+ *
+ * The point of S4-a (R13): header5 SIG0 and header6 SIG1 are wired to the
+ * SAME SoC pin (gpio0 26 = ADC0). The expander must discover this from net
+ * identity — two modules that both drive it collide even though they sit in
+ * different sockets. gpio-map truncated to the signal pins the trial uses.
+ */
+
+#include <dt-bindings/connector/grove.h>
+
+/ {
+	grove1: connector@1 {
+		compatible = "socket,grove";
+		#gpio-cells = <2>;
+		gpio-map = <GROVE_SIG0 0 &gpio0 0 0>, <GROVE_SIG1 0 &gpio0 1 0>;
+	};
+	grove2: connector@2 {
+		compatible = "socket,grove";
+		#gpio-cells = <2>;
+		gpio-map = <GROVE_SIG0 0 &gpio0 2 0>, <GROVE_SIG1 0 &gpio0 3 0>;
+	};
+	grove3: connector@3 {
+		compatible = "socket,grove";
+		#gpio-cells = <2>;
+		gpio-map = <GROVE_SIG0 0 &gpio0 4 0>, <GROVE_SIG1 0 &gpio0 5 0>;
+	};
+	grove4: connector@4 {
+		compatible = "socket,grove";
+		#gpio-cells = <2>;
+		gpio-map = <GROVE_SIG0 0 &gpio0 6 0>, <GROVE_SIG1 0 &gpio0 7 0>;
+	};
+	grove5: connector@5 {
+		compatible = "socket,grove";
+		#gpio-cells = <2>;
+		gpio-map = <GROVE_SIG0 0 &gpio0 26 0>,	/* ADC0 — shared with grove6 SIG1 */
+			   <GROVE_SIG1 0 &gpio0 27 0>;
+	};
+	grove6: connector@6 {
+		compatible = "socket,grove";
+		#gpio-cells = <2>;
+		gpio-map = <GROVE_SIG0 0 &gpio0 28 0>,
+			   <GROVE_SIG1 0 &gpio0 26 0>;	/* ADC0 — shared with grove5 SIG0 */
+	};
+	grove7: connector@7 {
+		compatible = "socket,grove";
+		#gpio-cells = <2>;
+		gpio-map = <GROVE_SIG0 0 &gpio0 8 0>, <GROVE_SIG1 0 &gpio0 9 0>;
+	};
+};

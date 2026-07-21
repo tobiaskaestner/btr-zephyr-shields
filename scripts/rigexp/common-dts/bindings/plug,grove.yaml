@@ -1,0 +1,13 @@
+# ConnectorType "grove", plug side — consumed by the rig loader.
+
+description: |
+  Contract for Grove modules. The two signal pins are claimable gpio
+  positions; VCC/GND are power (not claimable). Digital/analog Grove modules
+  use SIG0/SIG1 directly; I2C Grove modules would use an i2c proxy (not
+  exercised by the trial's modules).
+
+plug: "grove"
+bus-proxies: [i2c]
+positions:
+  SIG0: {function: gpio}
+  SIG1: {function: gpio}

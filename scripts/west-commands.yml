@@ -1,0 +1,8 @@
+# Downstream west extension commands for the rigs feature.
+# Keep help strings in sync with rig.py.
+west-commands:
+  - file: scripts/west_commands/rig.py
+    commands:
+      - name: build-rig
+        class: BuildRig
+        help: build a rig by name (--rig) — full `west build` plus rig expansion

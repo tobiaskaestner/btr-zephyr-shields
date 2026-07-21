@@ -1,0 +1,54 @@
+/* Board-DT fragment (EXPANDER-SIDE model): NUCLEO-F401RE-BTR typed Arduino R3
+ * socket. This is the socket description the prototype expander parses
+ * standalone (dtlib + common-dts/include) to learn the board's sockets.
+ *
+ * BRIDGE-A (P2 tech-debt): it MIRRORS the real board's socket node at
+ * btr-shields/boards/st/nucleo_f401re_btr/arduino_r3_socket.dtsi (same label
+ * `nucleo_ard`, same "socket,arduino-r3" compatible, same full 22-position
+ * gpio-map, same &i2c1/&spi1 + socket,stackable). The duplication is
+ * deliberate and temporary: the edtlib-based real expander (P0 direction)
+ * will read the actual board DT and delete this file. Keep the two in sync
+ * until then.
+ */
+
+#include <dt-bindings/connector/arduino-r3.h>
+
+/ {
+	nucleo_ard: connector_arduino_r3: connector {
+		compatible = "socket,arduino-r3";
+		#gpio-cells = <2>;
+		gpio-map-mask = <0xffffffff 0xffffffc0>;
+		gpio-map-pass-thru = <0 0x3f>;
+		gpio-map = <ARDUINO_HEADER_R3_A0  0 &gpioa 0  0>,
+			   <ARDUINO_HEADER_R3_A1  0 &gpioa 1  0>,
+			   <ARDUINO_HEADER_R3_A2  0 &gpioa 4  0>,
+			   <ARDUINO_HEADER_R3_A3  0 &gpiob 0  0>,
+			   <ARDUINO_HEADER_R3_A4  0 &gpioc 1  0>,
+			   <ARDUINO_HEADER_R3_A5  0 &gpioc 0  0>,
+			   <ARDUINO_HEADER_R3_D0  0 &gpioa 3  0>,
+			   <ARDUINO_HEADER_R3_D1  0 &gpioa 2  0>,
+			   <ARDUINO_HEADER_R3_D2  0 &gpioa 10 0>,
+			   <ARDUINO_HEADER_R3_D3  0 &gpiob 3  0>,
+			   <ARDUINO_HEADER_R3_D4  0 &gpiob 5  0>,
+			   <ARDUINO_HEADER_R3_D5  0 &gpiob 4  0>,
+			   <ARDUINO_HEADER_R3_D6  0 &gpiob 10 0>,
+			   <ARDUINO_HEADER_R3_D7  0 &gpioa 8  0>,
+			   <ARDUINO_HEADER_R3_D8  0 &gpioa 9  0>,
+			   <ARDUINO_HEADER_R3_D9  0 &gpioc 7  0>,
+			   <ARDUINO_HEADER_R3_D10 0 &gpiob 6  0>,
+			   <ARDUINO_HEADER_R3_D11 0 &gpioa 7  0>,
+			   <ARDUINO_HEADER_R3_D12 0 &gpioa 6  0>,
+			   <ARDUINO_HEADER_R3_D13 0 &gpioa 5  0>,
+			   <ARDUINO_HEADER_R3_D14 0 &gpiob 9  0>,
+			   <ARDUINO_HEADER_R3_D15 0 &gpiob 8  0>;
+		socket,i2c = <&i2c1>;
+		socket,spi = <&spi1>;
+		socket,stackable;
+		/* no socket,uart: subset exposure, declared by absence */
+	};
+};
+
+/* legacy labels during migration — unconverted shields still work */
+arduino_header: &connector_arduino_r3 {};
+arduino_i2c: &i2c1 {};
+arduino_spi: &spi1 {};

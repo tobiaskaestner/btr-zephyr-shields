@@ -1,0 +1,9 @@
+# ConnectorType "i2c-port", plug side — a bare I2C consumer (no gpio positions).
+
+description: |
+  Contract for an I2C module that just needs a bus (a sensor behind an I2C-mux
+  channel, say). One bus proxy, no claimable positions.
+
+plug: "i2c-port"
+bus-proxies: [i2c]
+positions: {}

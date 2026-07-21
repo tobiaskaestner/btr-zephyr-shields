@@ -1,0 +1,27 @@
+manifest:
+  version: "0.13"
+
+  # If not otherwise specified, the projects below should be obtained
+  # from the tiacsys remote.
+  defaults:
+    remote: tiacsys
+
+  # "remotes" is a list of locations where git repositories are cloned
+  # and fetched from.
+  remotes:
+    - name: tiacsys
+      url-base: https://github.com/tiacsys
+
+  # West-related configuration for the Bridle repository.
+  self:
+    # This repository should be cloned to workspace/bridle.
+    path: btr-shields
+    # This line configures west extensions which are currently
+    # only for internal use by TIAC maintainers; import build
+    # commands from Zephyr repo.
+    west-commands: scripts/west-commands.yml
+
+  projects:
+    - name: zephyr
+      revision: main
+      import: true
