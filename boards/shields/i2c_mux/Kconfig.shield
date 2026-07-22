@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+
+config SHIELD_I2C_MUX
+	def_bool $(shields_list_contains,i2c_mux)

@@ -1,0 +1,24 @@
+# S8 (reject) — scope-awareness cuts both ways: two fixed-0x48 sensors on the
+# SAME mux channel (ch0) share one scope, so they still collide. Confirms the
+# per-scope address check (R26) fires within a scope, not just across them.
+#
+# Ported from frontend-trial/candidate-2-hybrid/s8-mux-collision.rig.yml;
+# board reference adjusted from `nucleo_f401re` to `nucleo_f401re_btr`; shield
+# references renamed hyphen->underscore (i2c-mux -> i2c_mux, i2c-sensor ->
+# i2c_sensor).
+#
+# REJECT: no rig.conf (structural rejection, never reaches Kconfig).
+
+rig:
+  name: nucleo-mux-clash
+  board: nucleo_f401re_btr
+  instances:
+    - name: mux_1
+      shield: i2c_mux
+      socket: nucleo_ard
+    - name: sensor_a
+      shield: i2c_sensor
+      socket: mux_1.ch0             # 0x48 in channel-0 scope
+    - name: sensor_b
+      shield: i2c_sensor
+      socket: mux_1.ch0             # 0x48 in the SAME scope → conflict

@@ -1,0 +1,5 @@
+shield:
+  name: arduino_uno_click
+  full_name: MikroE Arduino UNO Click (carrier — passive interposer)
+  vendor: mikroe
+  template: true

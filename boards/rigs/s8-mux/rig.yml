@@ -1,0 +1,31 @@
+# S8 (realizable) — the active-interposer inversion. Four identical fixed-0x48
+# sensors, one per channel of an I2C mux on the Nucleo Arduino header. This is
+# exactly the topology S3 proved unrealizable (four 0x48 on one bus) — made
+# realizable by the mux, because each channel is a NEW scope. The mux itself
+# claims 0x70 on the host bus. Address uniqueness is per-scope (R26); which
+# sensor sits behind which channel is socket placement (R27).
+#
+# Ported from frontend-trial/candidate-2-hybrid/s8-mux.rig.yml; board
+# reference adjusted from `nucleo_f401re` to `nucleo_f401re_btr` (already
+# ported in P3 3a — no board work needed here); shield references renamed
+# hyphen->underscore (i2c-mux -> i2c_mux, i2c-sensor -> i2c_sensor).
+
+rig:
+  name: nucleo-mux-farm
+  board: nucleo_f401re_btr
+  instances:
+    - name: mux_1
+      shield: i2c_mux
+      socket: nucleo_ard             # tca9548a @0x70 on i2c1
+    - name: sensor_0
+      shield: i2c_sensor
+      socket: mux_1.ch0              # 0x48 in channel-0 scope
+    - name: sensor_1
+      shield: i2c_sensor
+      socket: mux_1.ch1              # 0x48 in channel-1 scope
+    - name: sensor_2
+      shield: i2c_sensor
+      socket: mux_1.ch2
+    - name: sensor_3
+      shield: i2c_sensor
+      socket: mux_1.ch3

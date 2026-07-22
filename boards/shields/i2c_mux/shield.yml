@@ -1,0 +1,5 @@
+shield:
+  name: i2c_mux
+  full_name: I2C Mux Shield (TI TCA9548A active interposer)
+  vendor: ti
+  template: true

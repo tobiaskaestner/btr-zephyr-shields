@@ -1,0 +1,44 @@
+/* Carrier/interposer: MikroE Arduino UNO Click adapter (S6). An Arduino R3
+ * shield that RE-EXPORTS two mikroBUS sockets (R19). It has no devices of its
+ * own — it is pure pass-through copper: each exposed socket's positions bind
+ * to this adapter's OWN plug positions, and its SPI/I2C are the parent
+ * Arduino socket's, passed through the plug (socket,<bus> = <&auc_plug>).
+ * The expander composes the chain: a click's mikroBUS CS resolves through the
+ * adapter to the host board's Arduino CS pin.
+ *
+ * Ported from frontend-trial/common-dts/shields/arduino-uno-click.shield;
+ * hyphenated shield identity renamed to underscored (btr-shields
+ * convention): folder, shield.yml name, DT node name and every rig.yml
+ * `shield:` reference all read `arduino_uno_click`.
+ */
+
+#include <dt-bindings/connector/arduino-r3.h>
+#include <dt-bindings/connector/mikrobus.h>
+
+/ {
+	rig-shields {
+		arduino_uno_click: arduino_uno_click {
+			shield,plugs = "arduino-r3";
+			auc_plug: plug { #gpio-cells = <2>; };
+
+			mb1 {
+				compatible = "socket,mikrobus";
+				#gpio-cells = <2>;
+				gpio-map = <MIKROBUS_CS  0 &auc_plug ARDUINO_HEADER_R3_D10 0>,
+					   <MIKROBUS_RST 0 &auc_plug ARDUINO_HEADER_R3_D6  0>,
+					   <MIKROBUS_INT 0 &auc_plug ARDUINO_HEADER_R3_D2  0>;
+				socket,spi = <&auc_plug>;
+				socket,i2c = <&auc_plug>;
+			};
+			mb2 {
+				compatible = "socket,mikrobus";
+				#gpio-cells = <2>;
+				gpio-map = <MIKROBUS_CS  0 &auc_plug ARDUINO_HEADER_R3_D9 0>,
+					   <MIKROBUS_RST 0 &auc_plug ARDUINO_HEADER_R3_D5 0>,
+					   <MIKROBUS_INT 0 &auc_plug ARDUINO_HEADER_R3_D3 0>;
+				socket,spi = <&auc_plug>;
+				socket,i2c = <&auc_plug>;
+			};
+		};
+	};
+};

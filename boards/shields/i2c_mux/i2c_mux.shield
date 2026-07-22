@@ -1,0 +1,37 @@
+/* Active interposer: I2C Mux Shield (S8) — a TCA9548A at 0x70 on the host I2C,
+ * fanning out to four downstream I2C ports. Unlike S6's passive adapter (which
+ * passes the parent bus through, socket,i2c = <&plug>), each downstream socket
+ * here is a NEW scope rooted in the mux's own device: socket,i2c = <&mux>. So
+ * a fixed 0x48 sensor behind each channel is legal — four scopes, not one.
+ *
+ * shield,channel gives the mux channel index (the downstream socket IS the
+ * channel; which sensor sits behind which is the rig's socket placement, R27).
+ * The i2c device group is authored before the channel sockets so the mux is
+ * known when they reference it.
+ *
+ * Ported from frontend-trial/common-dts/shields/i2c-mux.shield; hyphenated
+ * shield identity renamed to underscored (btr-shields convention): folder,
+ * shield.yml name, DT node name and every rig.yml `shield:` reference all
+ * read `i2c_mux`.
+ */
+
+/ {
+	rig-shields {
+		i2c_mux: i2c_mux {
+			shield,plugs = "arduino-r3";
+			mux_plug: plug { #gpio-cells = <2>; };
+
+			i2c {
+				mux: mux@70 {
+					compatible = "ti,tca9548a";
+					reg = <0x70>;			/* fixed on the host bus */
+				};
+			};
+
+			ch0 { compatible = "socket,i2c-port"; socket,i2c = <&mux>; shield,channel = <0>; };
+			ch1 { compatible = "socket,i2c-port"; socket,i2c = <&mux>; shield,channel = <1>; };
+			ch2 { compatible = "socket,i2c-port"; socket,i2c = <&mux>; shield,channel = <2>; };
+			ch3 { compatible = "socket,i2c-port"; socket,i2c = <&mux>; shield,channel = <3>; };
+		};
+	};
+};

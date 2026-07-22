@@ -1,0 +1,23 @@
+/* Board-DT fragment: NXP FRDM-K64F typed Arduino R3 socket (S6 host).
+ * Offers all of Arduino R3 incl. the SPI+I2C the adapter passes through.
+ * gpio-map truncated to the positions the S6 chain uses.
+ */
+
+#include <dt-bindings/connector/arduino-r3.h>
+
+/ {
+	frdm_ard: connector {
+		compatible = "socket,arduino-r3";
+		#gpio-cells = <2>;
+		gpio-map = <ARDUINO_HEADER_R3_D2  0 &gpioc 4 0>,
+			   <ARDUINO_HEADER_R3_D3  0 &gpioa 1 0>,
+			   <ARDUINO_HEADER_R3_D4  0 &gpioc 5 0>,
+			   <ARDUINO_HEADER_R3_D5  0 &gpioc 3 0>,
+			   <ARDUINO_HEADER_R3_D6  0 &gpioc 2 0>,
+			   <ARDUINO_HEADER_R3_D7  0 &gpioc 6 0>,
+			   <ARDUINO_HEADER_R3_D9  0 &gpioc 1 0>,
+			   <ARDUINO_HEADER_R3_D10 0 &gpiod 0 0>;	/* PTD0 — the CS pin */
+		socket,i2c = <&i2c0>;
+		socket,spi = <&spi0>;
+	};
+};

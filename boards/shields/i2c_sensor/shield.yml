@@ -1,0 +1,5 @@
+shield:
+  name: i2c_sensor
+  full_name: Generic Fixed-Address I2C Sensor (0x48)
+  vendor: generic
+  template: true
