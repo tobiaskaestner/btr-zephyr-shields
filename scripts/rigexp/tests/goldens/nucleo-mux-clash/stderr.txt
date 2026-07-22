@@ -1,0 +1,7 @@
+error[phys-addr]: I2C address 0x48 is required twice on bus &mux_1_mux_ch0 (one address space per scope):
+    - sensor_a (socket mux_1.ch0): sensor — address domain {0x48}, fixed by copper (no address-select)
+    - sensor_b (socket mux_1.ch0): sensor — address domain {0x48}, fixed by copper (no address-select)
+    two devices cannot share one address on one bus. This topology is not realizable as assembled: use a second I2C bus, put one device behind an I2C mux (scope creation, S8), or drop one instance.
+    at <REPO_ROOT>/boards/shields/i2c_sensor/i2c_sensor.shield:18 (sensor)
+    at <REPO_ROOT>/boards/rigs/s8-mux-collision/rig.yml:19 (rig.instances[1])
+    at <REPO_ROOT>/boards/rigs/s8-mux-collision/rig.yml:22 (rig.instances[2])

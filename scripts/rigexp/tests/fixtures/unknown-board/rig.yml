@@ -1,0 +1,11 @@
+# Synthetic fixture (Bridge-A saferail 1): a rig naming a board that does not
+# exist, so the expander must reject it with a `phys-board` diagnostic. The
+# real 3a/3b/3c corpus never exercises this path (every corpus rig names a
+# real board) — this is one of the "rewrite-touched paths the corpus misses"
+# saferail 1 calls out. Minimal on purpose: no instances are needed, since the
+# board lookup (boarddt.load_board) is the very first thing the analyzer
+# needs and fails before anything else is examined.
+rig:
+  name: unknown-board
+  board: nonexistent_board_xyz
+  instances: []

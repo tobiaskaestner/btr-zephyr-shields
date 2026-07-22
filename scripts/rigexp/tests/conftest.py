@@ -1,0 +1,181 @@
+"""Shared fixtures and helpers for the rig-expander golden tests.
+
+Bridge-A saferail 1 (amended 2026-07-23, `claude/rigs/implementation-plan.md`):
+freeze the CURRENT observed behavior of the rig expander for every corpus rig,
+as committed fixtures, in two tiers:
+
+  tier 1 (test_tier1_goldens.py) — expander-level, every rig, fast: verdict +
+  rendered diagnostics + emitted overlay/context.cmake/config-sheet.md/conf.
+
+  tier 2 (test_tier2_goldens.py, `@pytest.mark.build`) — the real pass-2
+  `zephyr.dts`, the structural-equivalence invariant that survives phases of
+  the rewrite that legitimately change tier 1 (e.g. step 2's nexus rewiring).
+
+This module holds only the plumbing both tiers share: the corpus table, path
+discovery (self-locating — no workspace-name literals), the expander
+subprocess runner, normalization, and the freeze/assert primitives.
+`expectations.yml` is deliberately never read here — parked to
+`claude/hw-expectations/`, never gated (see `claude/rigs/parked.md`).
+"""
+from __future__ import annotations
+
+import dataclasses
+import difflib
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+from typing import List, Optional
+
+import pytest
+import yaml
+
+TESTS_DIR = Path(__file__).resolve().parent
+REPO_ROOT = TESTS_DIR.parents[2]   # scripts/rigexp/tests -> btr-shields
+GOLDENS_DIR = TESTS_DIR / "goldens"
+FIXTURES_DIR = TESTS_DIR / "fixtures"
+SHIELD_DIR = REPO_ROOT / "boards" / "shields"
+RIGS_DIR = REPO_ROOT / "boards" / "rigs"
+DTS_EQUIV = REPO_ROOT / "scripts" / "dts_equiv.py"
+
+
+def _find_west_topdir(start: Path) -> Path:
+    """Walk upward from `start` to the west workspace root (the directory
+    holding `.west/`) — self-locating, no hardcoded workspace-name literal."""
+    for candidate in (start, *start.parents):
+        if (candidate / ".west").is_dir():
+            return candidate
+    raise RuntimeError(f"no .west/ found above {start} — is this a west workspace?")
+
+
+WEST_TOPDIR = _find_west_topdir(REPO_ROOT)
+_VENV_WEST = WEST_TOPDIR / ".venv" / "bin" / "west"
+WEST_EXE = str(_VENV_WEST) if _VENV_WEST.is_file() else "west"
+
+# RIGEXP_REFREEZE=1 rewrites goldens instead of asserting against them (both
+# tiers). Always inspect `git diff tests/goldens` after a refreeze — it must
+# reflect an INTENTIONAL, understood behavior change, never silent drift.
+REFREEZE = bool(os.environ.get("RIGEXP_REFREEZE"))
+
+_WORKDIR_RE = re.compile(r"/tmp/rigexp-[^/\s]+")
+
+
+def zephyr_base() -> str:
+    """The zephyr tree the expander / dts_equiv.py need, from $ZEPHYR_BASE."""
+    value = os.environ.get("ZEPHYR_BASE")
+    if not value:
+        pytest.fail(
+            "ZEPHYR_BASE is not set — export it (the zephyr-rigs tree), the "
+            "same way scripts/check.sh requires.")
+    return value
+
+
+def normalize(text: str, zb: str) -> str:
+    """Replace machine-/run-specific absolute paths with stable placeholders
+    before freezing/comparing (saferail 1): the expander's own temp workdir,
+    $ZEPHYR_BASE, and the repo root (in that order — repo root and zephyr
+    base can each be a prefix of the other under a shared workspace topdir, so
+    the more specific substitutions must land first). Everything else must
+    match byte-exact."""
+    text = _WORKDIR_RE.sub("<RIGEXP_WORKDIR>", text)
+    text = text.replace(zb, "<ZEPHYR_BASE>")
+    text = text.replace(str(REPO_ROOT), "<REPO_ROOT>")
+    text = text.replace(str(WEST_TOPDIR), "<WEST_TOPDIR>")
+    return text
+
+
+@dataclasses.dataclass(frozen=True)
+class RigCase:
+    """One corpus rig: its folder under `boards/rigs/`, its rig.yml identity
+    (`rig.name` — NOT the folder basename), and the expected verdict."""
+
+    folder: str
+    name: str
+    accept: bool
+    category: Optional[str] = None   # expected phys-* code, reject rigs only
+
+
+# The 3a/3b/3c corpus, per the task's expected-verdict table (verified against
+# actual `rigexp expand` output before freezing — see the handoff report).
+ACCEPT_CASES: List[RigCase] = [
+    RigCase("s1", "nucleo-datalogger", True),
+    RigCase("s5-temp-farm", "quail-temp-farm", True),
+    RigCase("s4b-sockets", "quail-sockets", True),
+    RigCase("s2-wifi-logger-ok", "nucleo-wifi-logger-ok", True),
+    RigCase("s6-eth-click", "frdm-eth-nest", True),
+    RigCase("s8-mux", "nucleo-mux-farm", True),
+    RigCase("lotus-pwm", "lotus-pwm", True),
+    RigCase("lotus-buttons", "lotus-buttons", True),
+]
+
+REJECT_CASES: List[RigCase] = [
+    RigCase("s2-wifi-logger", "nucleo-wifi-logger", False, "phys-net"),
+    RigCase("s4b-dup-addr", "quail-dup-th", False, "phys-addr"),
+    RigCase("s6-cross-layer", "frdm-cs-clash", False, "phys-cs"),
+    RigCase("s8-mux-collision", "nucleo-mux-clash", False, "phys-addr"),
+    RigCase("lotus-pwm-clash", "lotus-pwm-clash", False, "phys-channel"),
+]
+
+ALL_CASES: List[RigCase] = ACCEPT_CASES + REJECT_CASES
+
+
+def rig_yml_name(folder: str) -> str:
+    """The rig.yml `rig.name` for a corpus folder — rig identity, not the
+    folder basename (see the `RigCase` docstring)."""
+    with open(RIGS_DIR / folder / "rig.yml") as f:
+        doc = yaml.safe_load(f)
+    return str(doc["rig"]["name"])
+
+
+def run_expand(rig_yml: Path, out_dir: Path,
+               shield_dirs: Optional[List[Path]] = None
+               ) -> "subprocess.CompletedProcess[str]":
+    """Run `python -m rigexp expand` exactly as rig.cmake does — a real
+    subprocess, cwd pinned to the repo root so any process-cwd-relative path a
+    diagnostic renders (e.g. boarddt.py's unknown-board message, which uses a
+    bare `os.path.relpath`) is reproducible regardless of the caller's cwd."""
+    zb = zephyr_base()
+    env = dict(os.environ)
+    env["ZEPHYR_BASE"] = zb
+    env["PYTHONPATH"] = str(REPO_ROOT / "scripts")
+    dirs = shield_dirs if shield_dirs is not None else [SHIELD_DIR]
+    cmd = [sys.executable, "-m", "rigexp", "expand", str(rig_yml)]
+    for d in dirs:
+        cmd += ["--shield-dir", str(d)]
+    cmd += ["--out-dir", str(out_dir)]
+    return subprocess.run(cmd, env=env, cwd=str(REPO_ROOT),
+                           capture_output=True, text=True, timeout=120)
+
+
+def freeze_or_assert(golden_path: Path, content: str) -> None:
+    """Write `content` as the golden (RIGEXP_REFREEZE=1) or assert it matches
+    the committed fixture exactly, with a readable unified diff on mismatch."""
+    if REFREEZE:
+        golden_path.parent.mkdir(parents=True, exist_ok=True)
+        golden_path.write_text(content)
+        return
+    if not golden_path.is_file():
+        pytest.fail(
+            f"golden missing: {golden_path}\n"
+            f"(run with RIGEXP_REFREEZE=1 to create it, then inspect + "
+            f"commit deliberately)")
+    expected = golden_path.read_text()
+    if expected != content:
+        diff = "\n".join(difflib.unified_diff(
+            expected.splitlines(), content.splitlines(),
+            fromfile=str(golden_path), tofile="<observed>", lineterm=""))
+        pytest.fail(f"golden mismatch: {golden_path}\n{diff}")
+
+
+def assert_absent_or_refreeze(golden_path: Path) -> None:
+    """The counterpart of freeze_or_assert for an artifact the current run did
+    NOT produce: under refreeze, drop a now-stale golden; otherwise assert
+    none is committed — a golden for a file the expander no longer emits is
+    itself a drift worth catching, not something to pass silently."""
+    if REFREEZE:
+        if golden_path.is_file():
+            golden_path.unlink()
+        return
+    assert not golden_path.is_file(), (
+        f"golden {golden_path} exists but this run produced no such file")
