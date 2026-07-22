@@ -8,9 +8,7 @@
 /dts-v1/;
 #include <st/f4/stm32f401Xe.dtsi>
 #include <st/f4/stm32f401r(d-e)tx-pinctrl.dtsi>
-#include "arduino_r3_connector.dtsi"
 #include "arduino_r3_socket.dtsi"
-#include "st_morpho_connector.dtsi"
 #include <zephyr/dt-bindings/input/input-event-codes.h>
 
 / {

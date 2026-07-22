@@ -2,19 +2,15 @@
  * Board-DT fragment: NXP FRDM-K64F typed Arduino R3 socket node
  * (rigs Convention 4 — typed sockets live in the board's own devicetree).
  *
- * ADDITIVE, clone-only: this fragment adds the real "socket,arduino-r3" node
- * ALONGSIDE the untouched legacy `arduino_header` / `arduino_i2c` /
- * `arduino_spi` / `arduino_serial` labels already in frdm_k64f_btr.dts
- * (copied verbatim from upstream boards/nxp/frdm_k64f). The legacy
- * `--shield` path keeps resolving through those original labels exactly as
- * upstream; nothing here redefines or aliases them — this is a brand new
- * node with a brand new label ("frdm_ard"), so the two coexist.
+ * This "socket,arduino-r3" node (label "frdm_ard") is the sole connector
+ * description on this clone: the redundant legacy `arduino_header` nexus was
+ * dropped from frdm_k64f_btr.dts. (The board's arduino_i2c/spi/serial blocks
+ * remain — they are bus config, not connector geometry.) socket,i2c/spi/uart
+ * point at the real controllers (&i2c0/&spi0/&uart3) directly.
  *
- * gpio-map child pins reuse the SAME index header the legacy connector
- * already includes (<zephyr/dt-bindings/gpio/arduino-header-r3.h>) — the
- * position-index single source of truth (Convention 4), and the same 22
- * positions as the legacy `arduino_header` node's own gpio-map (mirrored
- * 1:1, same pins).
+ * gpio-map child pins use the upstream index header
+ * (<zephyr/dt-bindings/gpio/arduino-header-r3.h>) — the
+ * position-index single source of truth (Convention 4).
  *
  * Labels/positions match the scenario rigs (S6) and the expander-side board
  * model at scripts/rigexp/common-dts/boards/frdm_k64f_btr.rig.dtsi

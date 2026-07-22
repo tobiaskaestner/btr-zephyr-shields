@@ -2,15 +2,15 @@
  * Board-DT fragment: NUCLEO-F401RE typed Arduino R3 socket node
  * (rigs Convention 4 — typed sockets live in the board's own devicetree).
  *
- * ADDITIVE, clone-only: this fragment adds the real "socket,arduino-r3" node
- * ALONGSIDE the untouched legacy arduino_header/arduino_i2c/arduino_spi
- * labels from arduino_r3_connector.dtsi (copied verbatim, unmodified). The
- * legacy `--shield` path keeps resolving through those original labels
- * exactly as upstream; nothing here redefines or aliases them — this is a
- * brand new node with a brand new label ("nucleo_ard"), so the two coexist.
+ * This "socket,arduino-r3" node (label "nucleo_ard") is the SOLE connector
+ * description on this clone. bridle/upstream's legacy arduino_header /
+ * st_morpho_header nexus files (arduino_r3_connector.dtsi,
+ * st_morpho_connector.dtsi) were dropped: nothing referenced them and they
+ * only duplicated this socket. socket,i2c/socket,spi point at the real
+ * controllers (&i2c1/&spi1) directly, so no legacy alias is needed.
  *
- * gpio-map child pins reuse the SAME index header the legacy connector
- * already includes (<zephyr/dt-bindings/gpio/arduino-header-r3.h>) — the
+ * gpio-map child pins use the upstream index header
+ * (<zephyr/dt-bindings/gpio/arduino-header-r3.h>) — the
  * position-index single source of truth (Convention 4). No local/duplicate
  * header is authored for this clone: the real upstream header already is
  * the one true source, so both the legacy and the typed node reference it.

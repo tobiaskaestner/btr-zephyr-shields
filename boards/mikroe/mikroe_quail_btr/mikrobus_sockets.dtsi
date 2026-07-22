@@ -3,11 +3,11 @@
  * nodes (rigs Convention 4 — typed sockets live in the board's own
  * devicetree).
  *
- * ADDITIVE, clone-only: these four "socket,mikrobus" nodes sit ALONGSIDE the
- * untouched legacy mikrobus_N_header nodes in mikroe_quail_btr.dts (copied
- * verbatim from upstream boards/mikroe/quail). The legacy path keeps
- * resolving through those original labels exactly as upstream; nothing here
- * redefines or aliases them.
+ * These four "socket,mikrobus" nodes are the SOLE mikroBUS connector
+ * description on this clone: the upstream board's legacy mikrobus_N_header
+ * nexuses (and the mikrobus_* aliases) were dropped — unreferenced, and they
+ * only duplicated these sockets. socket,spi/i2c/uart point at the real
+ * controllers (&spi1/&spi3/&i2c1/&usart*) directly.
  *
  * gpio-map child pins use the MIKROBUS_* indices from
  * <dt-bindings/connector/mikrobus.h> (btr-shields' own header — no upstream
