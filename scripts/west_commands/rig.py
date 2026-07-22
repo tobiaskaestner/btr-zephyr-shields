@@ -1,10 +1,11 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# `west build-rig --rig <name>` — a thin subclass of Zephyr's own `build`
+# `west build-rig --rig <name> <app>` — a thin subclass of Zephyr's own `build`
 # command that adds a single flag, `--rig`. With --rig it reads
-# boards/rigs/<name>.rig.yml, infers the target board and the rig-runner app,
-# and injects -DRIG=<name>; every other `west build` option works unchanged
-# because we inherit Build's full parser and do_run.
+# boards/rigs/<name>/rig.yml, infers the target board, and injects -DRIG=<name>;
+# every other `west build` option works unchanged because we inherit Build's full
+# parser and do_run. The application source dir is required and always supplied by
+# the user (positional or -s) — this command never defaults it.
 #
 # We deliberately DO NOT shadow `build` (west forbids it) nor monkey-patch it;
 # this is a separate, additive command that reuses Build by subclassing.
@@ -79,14 +80,20 @@ class BuildRig(Build):
             if not board:
                 log.die(f"--rig {rig}: rig.board missing in {rig_file}")
 
-            # Fill in board + app only if the user didn't pass them explicitly.
+            # Infer the board only if the user didn't pass one explicitly.
             if not getattr(args, 'board', None):
                 args.board = board
-            if not getattr(args, 'source_dir', None):
-                args.source_dir = str(root / 'samples' / 'rigs' / 'scenario-1')
+            # The app is required and must come from the user — via -s/--source-dir
+            # (args.source_dir) or as the first positional, which Build parses out
+            # of `remainder` later (in _parse_remainder). We never default it:
+            # application locations don't belong in this command.
+            positional_app = bool(remainder) and remainder[0] != '--'
+            app = args.source_dir or (remainder[0] if positional_app else None)
+            if not app:
+                log.die(f"--rig {rig}: no application given.\n"
+                        f"  usage: west build-rig --rig {rig} <app-source-dir>")
             args.cmake_opts = list(args.cmake_opts or []) + [f'-DRIG={rig}']
-            log.inf(f'build-rig: rig={rig} board={args.board} '
-                    f'app={args.source_dir}')
+            log.inf(f'build-rig: rig={rig} board={args.board} app={app}')
         # Force the project's zephyr-rigs tree. .west/config `zephyr.base` alone
         # does NOT stick here: the manifest's `zephyr` project resolves to path
         # `zephyr`, so without this the build would use the wrong tree. An
