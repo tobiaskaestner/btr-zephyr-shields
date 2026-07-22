@@ -288,6 +288,14 @@ def _synth_nexus_nodes(s: Solved) -> list[str]:
             for child, parent, ppos in sock.nexus_rows)
         out += [f"\t{label}: {label} {{",
                 "\t\t#gpio-cells = <2>;",
+                # Match on the position cell only; mask the GPIO flag bits out
+                # of matching and pass them through to the parent — the same
+                # nexus idiom the board's own typed socket uses. Without this
+                # edtlib demands an exact specifier match, so a consumer's
+                # <&nexus pos GPIO_ACTIVE_LOW> would fail against the stored
+                # <pos 0> row (the bug that blocked nested-carrier rigs).
+                "\t\tgpio-map-mask = <0xffffffff 0xffffffc0>;",
+                "\t\tgpio-map-pass-thru = <0 0x3f>;",
                 f"\t\tgpio-map = {rows};",
                 "\t};"]
     out += ["};", ""]
