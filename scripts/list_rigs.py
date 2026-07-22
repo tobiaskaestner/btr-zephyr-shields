@@ -3,22 +3,31 @@
 # SPDX-License-Identifier: Apache-2.0
 
 # Mirrors zephyr/scripts/list_shields.py, adapted to the rig folder model:
-# a rig is a folder `boards/rigs/<name>/rig.yml` (the folder basename is the
-# rig's identity, used as -DRIG=<name>). Unlike shields, a rig has no YAML
-# schema to validate here — the rig file's *content* is the expander's job;
-# this script only needs to know where each rig lives.
+# a rig is a folder `boards/rigs/<dir>/rig.yml`. Following the same convention
+# as boards (board.yml) and shields (shield.yml), the rig's IDENTITY is the
+# `rig.name` field inside rig.yml — NOT the folder basename. The folder name is
+# conventionally the same as the rig name but is not authoritative (exactly as
+# list_shields.py takes the name from shield.yml's `name:`, not the folder).
+# Beyond the name, the rig file's *content* is the expander's job.
 #
 # This is shared code between the build system's rig resolution (rig.cmake)
 # and any future 'west rigs' extension command. If you change it, make sure
 # both consumers still work.
 #
-# (Kept stdlib-only, like list_shields.py's design intent, so it can run
-# without a west/venv environment.)
+# (Imports PyYAML like list_shields.py does — the same Zephyr venv dependency.)
 
 import argparse
 import json
+import sys
 from dataclasses import dataclass
 from pathlib import Path
+
+import yaml
+
+try:
+    from yaml import CSafeLoader as SafeLoader
+except ImportError:
+    from yaml import SafeLoader
 
 RIG_YML = 'rig.yml'
 
@@ -55,8 +64,14 @@ def find_rigs_in(root):
             continue
 
         rig_yml = maybe_rig / RIG_YML
-        if rig_yml.is_file():
-            ret.append(Rig(name=maybe_rig.name, dir=maybe_rig))
+        if not rig_yml.is_file():
+            continue
+
+        data = yaml.load(rig_yml.read_text(), Loader=SafeLoader) or {}
+        name = (data.get('rig') or {}).get('name')
+        if not name:
+            sys.exit(f'ERROR: rig has no rig.name: {rig_yml.as_posix()}')
+        ret.append(Rig(name=name, dir=maybe_rig))
 
     return sorted(ret, key=rig_key)
 

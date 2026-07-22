@@ -1,8 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # `west build-rig --rig <name> <app>` — a thin subclass of Zephyr's own `build`
-# command that adds a single flag, `--rig`. With --rig it reads
-# boards/rigs/<name>/rig.yml, infers the target board, and injects -DRIG=<name>;
+# command that adds a single flag, `--rig`. <name> is a rig's `rig.name` field
+# (NOT its folder basename — same convention as boards/shields). With --rig it
+# looks up the rig by name among boards/rigs/*/rig.yml, infers the target board
+# from it, and injects -DRIG=<name>;
 # every other `west build` option works unchanged because we inherit Build's full
 # parser and do_run. The application source dir is required and always supplied by
 # the user (positional or -s) — this command never defaults it.
@@ -69,14 +71,21 @@ class BuildRig(Build):
         rig = getattr(args, 'rig', None)
         if rig:
             root = _TOPDIR / 'btr-shields'
-            rig_file = root / 'boards' / 'rigs' / rig / 'rig.yml'
-            if not rig_file.is_file():
-                avail = sorted(p.parent.name for p in
-                               (root / 'boards' / 'rigs').glob('*/rig.yml'))
-                log.die(f"--rig {rig}: no such rig ({rig_file}).\n"
-                        f"  available: {', '.join(avail) or '(none)'}")
-            data = yaml.safe_load(rig_file.read_text()) or {}
-            board = (data.get('rig') or {}).get('board')
+            # A rig's identity is its `rig.name` field, NOT its folder basename
+            # — the same convention boards/shields follow (board.yml/shield.yml
+            # `name:`). Resolve --rig by scanning rig.yml names, mirroring how
+            # rig.cmake resolves -DRIG via list_rigs.py's `name`.
+            by_name = {}
+            for rig_yml in sorted((root / 'boards' / 'rigs').glob('*/rig.yml')):
+                rdata = (yaml.safe_load(rig_yml.read_text()) or {}).get('rig') or {}
+                name = rdata.get('name')
+                if name:
+                    by_name[name] = (rig_yml, rdata)
+            if rig not in by_name:
+                log.die(f"--rig {rig}: no such rig.\n"
+                        f"  available: {', '.join(sorted(by_name)) or '(none)'}")
+            rig_file, rdata = by_name[rig]
+            board = rdata.get('board')
             if not board:
                 log.die(f"--rig {rig}: rig.board missing in {rig_file}")
 
