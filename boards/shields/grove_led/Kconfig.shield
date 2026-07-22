@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+
+config SHIELD_GROVE_LED
+	def_bool $(shields_list_contains,grove_led)

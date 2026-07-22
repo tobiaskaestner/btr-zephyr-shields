@@ -1,0 +1,25 @@
+/* Shield: LED (bridle boards/shields/grove_led port). Ported from
+ * frontend-trial/candidate-2-hybrid/common-dts/shields/grove-led.shield. ONE
+ * shield definition replacing bridle's 64 overlays. MCU drives the LED on
+ * the Grove signal pin; default active-high (bridle grove_led_d0.overlay).
+ * Placement = socket; polarity = per-instance `invert:`.
+ */
+
+#include <dt-bindings/connector/grove.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/ {
+	rig-shields {
+		grove_led: grove_led {
+			shield,plugs = "grove";
+			gl_plug: plug { #gpio-cells = <2>; };
+
+			gpio {
+				gl_led: led {
+					shield,collect = "gpio-leds";	/* an entry in the shared gpio-leds collection */
+					gpios = <&gl_plug GROVE_SIG0 GPIO_ACTIVE_HIGH>;
+				};
+			};
+		};
+	};
+};

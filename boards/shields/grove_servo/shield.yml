@@ -1,0 +1,5 @@
+shield:
+  name: grove_servo
+  full_name: Grove Servo (PWM)
+  vendor: seeed
+  template: true

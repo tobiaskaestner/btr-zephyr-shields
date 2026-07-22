@@ -1,0 +1,25 @@
+/* Shield: Grove analog light sensor (ADC). Ported from
+ * frontend-trial/candidate-2-hybrid/common-dts/shields/grove-light.shield
+ * (Slice A). Uses the Grove signal pin as an ADC input: `io-channels`
+ * targets the plug in the adc function (#io-channel-cells = 1: position);
+ * the expander resolves the position through the socket's adc-map to a
+ * (adc, channel). Same multi-function machinery as PWM, different nexus.
+ */
+
+#include <dt-bindings/connector/grove.h>
+
+/ {
+	rig-shields {
+		grove_light: grove_light {
+			shield,plugs = "grove";
+			gl_plug: plug { #gpio-cells = <2>; #io-channel-cells = <1>; };
+
+			adc {
+				light: light {
+					compatible = "vnd,light-sensor";
+					io-channels = <&gl_plug GROVE_SIG0>;
+				};
+			};
+		};
+	};
+};

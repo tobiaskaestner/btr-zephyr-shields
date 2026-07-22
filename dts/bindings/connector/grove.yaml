@@ -1,0 +1,49 @@
+# Copyright (c) 2026 btr-shields
+# SPDX-License-Identifier: Apache-2.0
+
+description: |
+  Grove connector, socket side (rigs Convention 1/4 typed board socket). A
+  GPIO nexus, additive alongside bridle's "seeed,grove-connector" binding
+  (boards/seeed/seeeduino_lotus/*_connector.dtsi) that a converted board
+  keeps unmodified: gpio-map child pins use the GROVE_* indices from
+  <dt-bindings/connector/grove.h> — the position-index single source of
+  truth shared by legacy connector, socket node, and shield references alike
+  (rig-dt-syntax.md Layer 3/4), mirroring how mikrobus.yaml was authored in
+  3a (no upstream dt-bindings header for Grove position indices either, so
+  btr-shields authors its own).
+
+  A Grove socket exposes two claimable signal positions (SIG0/SIG1); some are
+  digital-only (gpio-map only), some are also PWM- or ADC-capable — real
+  per-pin dual-function copper (Slice A / ontology Refinement 1: functions
+  live on endpoints, not nets). Which positions are PWM/ADC-capable, and
+  which (controller, channel) each one reaches, is modeled ONLY on the
+  expander's own board copy (scripts/rigexp/common-dts/boards/
+  seeeduino_lotus_btr.rig.dtsi, socket,pwm-map / socket,adc-map: 5-cell rows
+  shaped like gpio-map, read by scripts/rigexp/boarddt.py with raw dtlib, no
+  binding schema involved) — deliberately NOT declared here nor instantiated
+  on the real board node (R21 finding, P3 3c): edtlib's devicetree.edtlib
+  auto-treats ANY property whose name ends in "-map" as a full DT
+  nexus (Node.maps()), which then requires a matching "#<name>-cells"
+  property on BOTH the node carrying it AND the phandle target (&tcc0/&adc)
+  — neither of which exists (real core SoC nodes should not be decorated
+  with invented cells properties just to satisfy this). Harmless to omit
+  here: the emitter never resolves a PWM/ADC claim back through the socket
+  node at the real-DTS layer — the resolved `pwms`/`io-channels` it emits
+  (scripts/rigexp/emitter.py `_device_node`) reference &tcc0 / &adc0
+  directly, bypassing the socket entirely. gpio-map is unaffected by this
+  hazard: its parent targets (&porta/&portb) are real GPIO controllers that
+  already declare "#gpio-cells" on both sides.
+
+compatible: "socket,grove"
+
+include: [gpio-nexus.yaml, base.yaml]
+
+properties:
+  "#gpio-cells":
+    type: int
+    required: true
+    const: 2
+
+gpio-cells:
+  - pin
+  - flags

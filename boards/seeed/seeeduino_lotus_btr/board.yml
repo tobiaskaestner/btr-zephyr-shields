@@ -1,0 +1,6 @@
+board:
+  name: seeeduino_lotus_btr
+  full_name: Seeeduino Lotus Cortex-M0+ (btr-shields clone, rigs Convention 4 socket nodes)
+  vendor: seeed
+  socs:
+    - name: samd21g18a

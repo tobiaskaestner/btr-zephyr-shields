@@ -1,0 +1,5 @@
+shield:
+  name: grove_light
+  full_name: Grove Light Sensor (ADC)
+  vendor: seeed
+  template: true

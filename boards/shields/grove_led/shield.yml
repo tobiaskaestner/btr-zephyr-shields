@@ -1,0 +1,5 @@
+shield:
+  name: grove_led
+  full_name: Grove LED (bridle grove_led port)
+  vendor: seeed
+  template: true

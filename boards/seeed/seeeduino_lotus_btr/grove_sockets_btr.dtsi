@@ -1,0 +1,123 @@
+/*
+ * Board-DT fragment: Seeeduino Lotus (btr-shields clone) typed "socket,grove"
+ * nodes (rigs Convention 4 — typed sockets live in the board's own
+ * devicetree).
+ *
+ * ADDITIVE, clone-only: these eight "socket,grove" nodes sit ALONGSIDE the
+ * untouched legacy grove_dN_header / grove_aN_header / grove_laced_if_lotus
+ * nodes (copied verbatim from bridle's boards/seeed/seeeduino_lotus). The
+ * legacy path keeps resolving through those original labels exactly as
+ * bridle does; nothing here redefines or aliases the legacy nodes.
+ *
+ * gpio-map child pins use the GROVE_SIG0/GROVE_SIG1 indices from
+ * <dt-bindings/connector/grove.h>. Pin mapping (which SoC pin each position
+ * reaches) mirrors scripts/rigexp/common-dts/boards/seeeduino_lotus.rig.dtsi
+ * exactly (the expander-side board model this real board must agree with) —
+ * including the daisy-lacing (SIG1 of one connector == SIG0 of the next) and
+ * the real bridle fact that D2 and D4 share TCC0 channel 0.
+ *
+ * adc0: is an ADDITIVE second label on the SoC's existing &adc node — the
+ * expander's board model (and its _soc-stubs.dtsi) calls the ADC controller
+ * "adc0"; the real SAMD21 dtsi (dts/arm/atmel/samd2x.dtsi) labels it "adc"
+ * (singular, no controller instance number — SAMD21 has exactly one ADC).
+ * `adc0: &adc {};` is the standard Zephyr idiom for attaching an extra label
+ * to an existing node (e.g. `zephyr_udc0: &usb0 { ... };` in bridle's own
+ * seeeduino_lotus.dts) — it does not redefine or move anything, only gives
+ * the expander's emitted `&adc0 { status = "okay"; };` fragment a real node
+ * to resolve against.
+ *
+ * NOTE — socket,pwm-map / socket,adc-map deliberately NOT carried here
+ * (R21 finding, see the task report): the expander-side board model has
+ * them (scripts/rigexp/boarddt.py parses them with raw dtlib, no schema),
+ * but on a REAL board compiled through edtlib, any property whose name ends
+ * in "-map" is auto-treated as a full DT nexus by
+ * devicetree.edtlib.Node.maps() — it demands a matching "#<name>-cells"
+ * property on BOTH this node AND the phandle target (&tcc0/&adc), which
+ * neither side declares (and &tcc0/&adc are real core SoC nodes we should
+ * not decorate with invented cells properties just to satisfy this). This
+ * is harmless to omit: the emitter never resolves a PWM/ADC claim through
+ * the socket's own nexus at the real-DTS layer anyway — the resolved
+ * `pwms`/`io-channels` (see scripts/rigexp/emitter.py `_device_node`)
+ * reference &tcc0 / &adc0 directly, bypassing the socket node entirely.
+ * gpio-map is unaffected: its parent targets (&porta/&portb) are already
+ * real GPIO controllers that declare "#gpio-cells" themselves.
+ */
+
+#include <dt-bindings/connector/grove.h>
+
+adc0: &adc {};
+
+/ {
+	/* Digital Grove sockets. D2/D4 both reach TCC0 channel 0 (real bridle
+	 * fact, see grove_d2_connector.dtsi / grove_d4_connector.dtsi's
+	 * GROVE_PWM_D2_PINCTRL / GROVE_PWM_D4_PINCTRL) — the channel clash
+	 * lotus-pwm-clash exercises. That fact lives in the expander-side
+	 * board model's socket,pwm-map (scripts/rigexp/common-dts/boards/
+	 * seeeduino_lotus_btr.rig.dtsi); not repeated here (see NOTE above). */
+	grove_d2: connector_grove_d2 {
+		compatible = "socket,grove";
+		#gpio-cells = <2>;
+		gpio-map-mask = <0xffffffff 0xffffffc0>;
+		gpio-map-pass-thru = <0 0x3f>;
+		gpio-map = <GROVE_SIG0 0 &porta 14 0>, <GROVE_SIG1 0 &porta 9 0>;
+	};
+	grove_d3: connector_grove_d3 {
+		compatible = "socket,grove";
+		#gpio-cells = <2>;
+		gpio-map-mask = <0xffffffff 0xffffffc0>;
+		gpio-map-pass-thru = <0 0x3f>;
+		gpio-map = <GROVE_SIG0 0 &porta 9 0>, <GROVE_SIG1 0 &porta 8 0>;
+	};
+	grove_d4: connector_grove_d4 {
+		compatible = "socket,grove";
+		#gpio-cells = <2>;
+		gpio-map-mask = <0xffffffff 0xffffffc0>;
+		gpio-map-pass-thru = <0 0x3f>;
+		gpio-map = <GROVE_SIG0 0 &porta 8 0>, <GROVE_SIG1 0 &porta 15 0>;
+	};
+	grove_d5: connector_grove_d5 {
+		compatible = "socket,grove";
+		#gpio-cells = <2>;
+		gpio-map-mask = <0xffffffff 0xffffffc0>;
+		gpio-map-pass-thru = <0 0x3f>;
+		gpio-map = <GROVE_SIG0 0 &porta 15 0>, <GROVE_SIG1 0 &porta 20 0>;
+	};
+	grove_d6: connector_grove_d6 {
+		compatible = "socket,grove";
+		#gpio-cells = <2>;
+		gpio-map-mask = <0xffffffff 0xffffffc0>;
+		gpio-map-pass-thru = <0 0x3f>;
+		gpio-map = <GROVE_SIG0 0 &porta 20 0>, <GROVE_SIG1 0 &porta 21 0>;
+	};
+	grove_d7: connector_grove_d7 {
+		compatible = "socket,grove";
+		#gpio-cells = <2>;
+		gpio-map-mask = <0xffffffff 0xffffffc0>;
+		gpio-map-pass-thru = <0 0x3f>;
+		gpio-map = <GROVE_SIG0 0 &porta 21 0>, <GROVE_SIG1 0 &porta 6 0>;
+	};
+
+	/* Analog Grove sockets. adc0 channel per position lives in the
+	 * expander-side board model's socket,adc-map (not repeated here). */
+	grove_a0: connector_grove_a0 {
+		compatible = "socket,grove";
+		#gpio-cells = <2>;
+		gpio-map-mask = <0xffffffff 0xffffffc0>;
+		gpio-map-pass-thru = <0 0x3f>;
+		gpio-map = <GROVE_SIG0 0 &porta 2 0>, <GROVE_SIG1 0 &portb 8 0>;
+	};
+	grove_a1: connector_grove_a1 {
+		compatible = "socket,grove";
+		#gpio-cells = <2>;
+		gpio-map-mask = <0xffffffff 0xffffffc0>;
+		gpio-map-pass-thru = <0 0x3f>;
+		gpio-map = <GROVE_SIG0 0 &portb 8 0>, <GROVE_SIG1 0 &portb 9 0>;
+	};
+	grove_a2: connector_grove_a2 {
+		compatible = "socket,grove";
+		#gpio-cells = <2>;
+		gpio-map-mask = <0xffffffff 0xffffffc0>;
+		gpio-map-pass-thru = <0 0x3f>;
+		gpio-map = <GROVE_SIG0 0 &portb 9 0>, <GROVE_SIG1 0 &porta 4 0>;
+	};
+};

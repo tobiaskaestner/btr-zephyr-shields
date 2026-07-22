@@ -1,0 +1,26 @@
+/*
+ * R21 pinctrl fragment (the "deep half") for rig `lotus-pwm`.
+ *
+ * The expander enables the controller (`&tcc0 { status = "okay"; }`) and names
+ * the pin in the config sheet, but it deliberately does NOT author SoC pinmux —
+ * that is board knowledge. `seeeduino_lotus_btr`'s `tcc0_pwm_default` pinctrl
+ * state ships EMPTY (see seeeduino_lotus_btr-pinctrl.dtsi), so without this the
+ * grove_d2 servo's TCC0 output is enabled but never routed to its pad.
+ *
+ * This is the rig author's DT counterpart to rig.conf: rig.cmake appends
+ * rig.overlay to EXTRA_DTC_OVERLAY_FILE after the expander's overlay. The
+ * fragment is the real bridle fact, sourced verbatim from
+ * bridle/boards/seeed/seeeduino_lotus/grove_d2_connector.dtsi
+ * (GROVE_PWM_D2_PINCTRL): grove D2 SIG0 -> PA14 / TCC0 WO4.
+ *
+ * (The grove_a0 ADC needs no fragment here — the board's adc pinctrl already
+ * carries its pad entries.)
+ */
+
+#include <dt-bindings/pinctrl/samd21-da1gXabcd-pinctrl.h>
+
+&tcc0_pwm_default {
+	group4 {
+		pinmux = <PA14F_TCC0_WO4>;
+	};
+};
