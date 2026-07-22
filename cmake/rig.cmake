@@ -165,8 +165,22 @@ if(NOT EXISTS "${_rig_overlay}")
     "rig: expand reported success but wrote no overlay:\n  ${_rig_overlay}")
 endif()
 
-set(EXTRA_DTC_OVERLAY_FILE "${_rig_overlay}" CACHE STRING
-  "Rig-generated devicetree overlay (set by rig.cmake)" FORCE)
+# EXTRA_DTC_OVERLAY_FILE is a list, symmetric with OVERLAY_CONFIG below: the
+# expander's generated overlay first, then the rig folder's own hand-authored
+# `rig.overlay` (if present). The latter is the DT counterpart of rig.conf — a
+# rig author supplies DT the expander cannot emit, notably the board pinctrl
+# pinmux fragment a function needs to route on real silicon (R21 deep half):
+# the expander only enables the controller (status="okay") and names the pin in
+# the config sheet; it does not author SoC pinmux. Applied after the expander
+# overlay so it can augment nodes the expander created.
+set(_rig_overlay_files "${_rig_overlay}")
+set(_rig_user_overlay "${_rig_dir}/rig.overlay")
+if(EXISTS "${_rig_user_overlay}")
+  list(APPEND _rig_overlay_files "${_rig_user_overlay}")
+  message(STATUS "rig: applying ${_rig_user_overlay}")
+endif()
+set(EXTRA_DTC_OVERLAY_FILE "${_rig_overlay_files}" CACHE STRING
+  "Rig-generated + rig-authored devicetree overlays (set by rig.cmake)" FORCE)
 
 # OVERLAY_CONFIG is a list: the expander's generated fragment (${_rig_conf},
 # e.g. Kconfig facts derived from the topology) first, then the rig folder's
@@ -194,6 +208,9 @@ endif()
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_rig_yml}")
 if(EXISTS "${_rig_conf_file}")
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_rig_conf_file}")
+endif()
+if(EXISTS "${_rig_user_overlay}")
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_rig_user_overlay}")
 endif()
 file(GLOB _rig_expander_sources "${_RIG_BTR_ROOT}/scripts/rigexp/*.py")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_rig_expander_sources})
