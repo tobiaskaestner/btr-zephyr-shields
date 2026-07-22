@@ -1,0 +1,38 @@
+# Dev-tooling configuration only (mypy / pytest) — btr-shields is a Zephyr
+# module, not a Python distribution. The commit gate is scripts/check.sh.
+
+[tool.mypy]
+check_untyped_defs = true
+# yaml has no stubs here; the devicetree package (dtlib/edtlib) resolves with
+# real types via MYPYPATH, which scripts/check.sh derives from $ZEPHYR_BASE.
+ignore_missing_imports = true
+
+# Zephyr's python-devicetree (via MYPYPATH): consume its type annotations at
+# our call sites, but never report ITS internal errors — upstream is not ours
+# to gate on (saferail 10: consume, don't patch).
+[[tool.mypy.overrides]]
+module = ["devicetree.*"]
+ignore_errors = true
+
+# Legacy rigexp modules awaiting their Bridge-A rewrite phase. Their errors
+# are ignored (NOT their whole files — new call sites elsewhere still check).
+# RULE (saferail 16 — idiom conformance rides the rewrite): the commit that
+# migrates a module MUST drop it from this list and leave it mypy-clean.
+# model.py is frozen (saferail 9); its entry stays until the freeze lifts.
+[[tool.mypy.overrides]]
+module = [
+    "rigexp.analyzer",
+    "rigexp.emitter",
+    "rigexp.loader_yml",
+    "rigexp.model",
+    "rigexp.shields",
+]
+ignore_errors = true
+
+[tool.pytest.ini_options]
+# Top-level tests/ is reserved for twister test apps (Zephyr-module
+# convention); python tests live with the package.
+testpaths = ["scripts/rigexp/tests"]
+markers = [
+    "build: runs west/cmake builds (slow tier-2 goldens); deselect with -m 'not build'",
+]
