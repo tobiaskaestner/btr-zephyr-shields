@@ -36,6 +36,7 @@ RIG_YML = 'rig.yml'
 class Rig:
     name: str
     dir: Path
+    board: str | None = None
 
 
 def rig_key(rig):
@@ -68,10 +69,12 @@ def find_rigs_in(root):
             continue
 
         data = yaml.load(rig_yml.read_text(), Loader=SafeLoader) or {}
-        name = (data.get('rig') or {}).get('name')
+        rig_data = data.get('rig') or {}
+        name = rig_data.get('name')
         if not name:
             sys.exit(f'ERROR: rig has no rig.name: {rig_yml.as_posix()}')
-        ret.append(Rig(name=name, dir=maybe_rig))
+        ret.append(Rig(name=name, dir=maybe_rig,
+                       board=rig_data.get('board')))
 
     return sorted(ret, key=rig_key)
 
@@ -97,7 +100,8 @@ def add_args_formatting(parser):
 def dump_rigs(rigs, args):
     if args.json:
         print(
-            json.dumps([{'dir': rig.dir.as_posix(), 'name': rig.name} for rig in rigs])
+            json.dumps([{'dir': rig.dir.as_posix(), 'name': rig.name,
+                         'board': rig.board} for rig in rigs])
         )
     else:
         for rig in rigs:
