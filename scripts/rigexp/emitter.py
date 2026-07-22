@@ -160,6 +160,12 @@ def _collection_entry(s, types, inst, dev, socket) -> list[str]:
     LEDs). The entry keeps its identity — aggregation, not S3 collapse."""
     lbl = f"{inst.name}_{dev.label}"
     lines = [f"\t{lbl}: {lbl} {{", f'\t\tlabel = "{lbl}";']
+    # Carry through the device's passthrough properties — a collected child is
+    # still a real device node and its driver may require them (e.g. the
+    # gpio-keys driver mandates `zephyr,code`). Same emission as _device_node;
+    # aggregation only composes the label/gpio, it must not drop the rest.
+    for _pname, rendered in dev.extra_props:
+        lines.append(f"\t\t{rendered}")
     ctype = types[socket.type_name]
     for ref in dev.gpio_refs:
         pos = s.positions.get((inst.name, dev.name, ref.prop), ref.position)
