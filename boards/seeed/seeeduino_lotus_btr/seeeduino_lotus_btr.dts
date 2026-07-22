@@ -4,19 +4,21 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * btr-shields clone of boards/seeed/seeeduino_lotus (bridle), adding typed
- * "socket,grove" socket nodes (rigs Convention 4) via grove_sockets_btr.dtsi.
- * The legacy grove_dN_header / grove_aN_header / grove_laced_if_lotus /
- * arduino_header nodes below are copied verbatim, unmodified — the legacy
- * path keeps working exactly as bridle upstream.
+ * btr-shields clone of boards/seeed/seeeduino_lotus (bridle). The connectors
+ * are described ONCE, by the rigs typed "socket,grove" nodes (Convention 4) in
+ * grove_sockets_btr.dtsi. Bridle's legacy per-connector nexus files (the
+ * grove_*_connector.dtsi / grove_connectors.dtsi / arduino_r3_connector.dtsi
+ * `*_header` model) were deliberately NOT carried over: on this clone they had
+ * no consumer (no shield, rig, alias, or chosen referenced them) and only
+ * duplicated the typed sockets — exactly the per-connector file proliferation
+ * the rigs model replaces. A board that wants the legacy `--shield` path can
+ * still add them back; this clone exists purely to host rig builds.
  */
 
 /dts-v1/;
 #include <atmel/samd21.dtsi>
 #include <atmel/samx2xx18.dtsi>
 #include "seeeduino_lotus_btr-pinctrl.dtsi"
-#include "arduino_r3_connector.dtsi"
-#include "grove_connectors.dtsi"
 #include "grove_sockets_btr.dtsi"
 
 #include <zephyr/dt-bindings/gpio/gpio.h>

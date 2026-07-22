@@ -3,11 +3,9 @@
  * nodes (rigs Convention 4 — typed sockets live in the board's own
  * devicetree).
  *
- * ADDITIVE, clone-only: these eight "socket,grove" nodes sit ALONGSIDE the
- * untouched legacy grove_dN_header / grove_aN_header / grove_laced_if_lotus
- * nodes (copied verbatim from bridle's boards/seeed/seeeduino_lotus). The
- * legacy path keeps resolving through those original labels exactly as
- * bridle does; nothing here redefines or aliases the legacy nodes.
+ * These eight "socket,grove" nodes are the SOLE connector description on this
+ * clone: bridle's legacy per-connector `*_header` files were dropped (they had
+ * no consumer here and only duplicated these sockets — see the .dts header).
  *
  * gpio-map child pins use the GROVE_SIG0/GROVE_SIG1 indices from
  * <dt-bindings/connector/grove.h>. Pin mapping (which SoC pin each position
@@ -49,9 +47,9 @@ adc0: &adc {};
 
 / {
 	/* Digital Grove sockets. D2/D4 both reach TCC0 channel 0 (real bridle
-	 * fact, see grove_d2_connector.dtsi / grove_d4_connector.dtsi's
-	 * GROVE_PWM_D2_PINCTRL / GROVE_PWM_D4_PINCTRL) — the channel clash
-	 * lotus-pwm-clash exercises. That fact lives in the expander-side
+	 * fact, per bridle's GROVE_PWM_D2/D4_PINCTRL in its upstream
+	 * grove_d2/d4_connector.dtsi) — the channel clash lotus-pwm-clash
+	 * exercises. That fact lives in the expander-side
 	 * board model's socket,pwm-map (scripts/rigexp/common-dts/boards/
 	 * seeeduino_lotus_btr.rig.dtsi); not repeated here (see NOTE above). */
 	grove_d2: connector_grove_d2 {
