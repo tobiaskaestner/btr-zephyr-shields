@@ -45,8 +45,11 @@ include(python)
 get_filename_component(_RIG_BTR_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 
 # Overrideable knobs (a probe/test can substitute a stub via RIG_EXPAND_COMMAND).
-set(RIG_EXPAND_PYTHON "/wrk/z/ws-up/.venv/bin/python"
-  CACHE FILEPATH "Python interpreter used to run the rigexp expander")
+# The interpreter is NOT a knob: we use Zephyr's PYTHON_EXECUTABLE (set by the
+# `python` module included above, and already used for list_rigs.py below) so
+# the expander runs in the same venv as the rest of the build — no hardcoded
+# path. The other two are module-relative (derived from _RIG_BTR_ROOT, i.e.
+# this module's own tree), so they are already workspace-independent.
 set(RIG_EXPAND_PYTHONPATH "${_RIG_BTR_ROOT}/scripts"
   CACHE PATH "PYTHONPATH so 'python -m rigexp' finds btr-shields/scripts/rigexp")
 set(RIG_EXPAND_SHIELD_DIR "${_RIG_BTR_ROOT}/boards/shields"
@@ -118,7 +121,7 @@ if(RIG_EXPAND_COMMAND)
 else()
   set(_rig_cmd
     "${CMAKE_COMMAND}" -E env "PYTHONPATH=${RIG_EXPAND_PYTHONPATH}"
-    "${RIG_EXPAND_PYTHON}" -m rigexp expand "${_rig_yml}"
+    "${PYTHON_EXECUTABLE}" -m rigexp expand "${_rig_yml}"
     --shield-dir "${RIG_EXPAND_SHIELD_DIR}"
     --out-dir "${_rig_out_dir}")
 endif()
