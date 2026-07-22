@@ -12,8 +12,17 @@ import tempfile
 
 from .diag import ROOT, Diagnostic, LoadError, SrcRef
 
-ZEPHYR_DT_SRC = "/wrk/z/ws-up/zephyr-rigs/scripts/dts/python-devicetree/src"
-ZEPHYR_INC = "/wrk/z/ws-up/zephyr-rigs/include"
+# The zephyr tree (dtlib source + includes) is located via $ZEPHYR_BASE, which
+# the build sets and rig.cmake passes through to the expander explicitly — no
+# hardcoded checkout path. For standalone/API use, export ZEPHYR_BASE first.
+_ZEPHYR_BASE = os.environ.get("ZEPHYR_BASE")
+if not _ZEPHYR_BASE:
+    raise RuntimeError(
+        "rigexp: $ZEPHYR_BASE is not set — it is required to locate zephyr's "
+        "devicetree library and includes. The build (rig.cmake) passes it "
+        "automatically; for standalone use, export ZEPHYR_BASE=<zephyr tree>.")
+ZEPHYR_DT_SRC = os.path.join(_ZEPHYR_BASE, "scripts", "dts", "python-devicetree", "src")
+ZEPHYR_INC = os.path.join(_ZEPHYR_BASE, "include")
 COMMON = os.path.join(ROOT, "common-dts")
 COMMON_INC = os.path.join(COMMON, "include")
 

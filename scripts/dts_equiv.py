@@ -9,9 +9,8 @@ properties, with phandle/path references resolved to their TARGET node PATH.
   python3 dts_equiv.py <golden.dts> <candidate.dts>
 
 Exit 0 if equivalent (modulo the excluded root node), 1 if differences remain.
-Reuses zephyr's dtlib; point PYTHONPATH at
-zephyr-rigs/scripts/dts/python-devicetree/src or rely on the sys.path shim
-below.
+Reuses zephyr's dtlib; locate it by exporting $ZEPHYR_BASE (the sys.path shim
+below derives the python-devicetree path from it).
 
 NOTE ON LOCATION: this lives in the source tree (btr-shields/scripts/), NOT in
 a `west build -d` output directory — build dirs are wiped by `-p always`.
@@ -21,8 +20,13 @@ from __future__ import annotations
 import os
 import sys
 
-# Locate dtlib without requiring the caller to set PYTHONPATH.
-_DTLIB_SRC = "/wrk/z/ws-up/zephyr-rigs/scripts/dts/python-devicetree/src"
+# Locate dtlib via $ZEPHYR_BASE — no hardcoded checkout path. Export
+# ZEPHYR_BASE (pointing at your zephyr tree) before running this tool.
+_ZEPHYR_BASE = os.environ.get("ZEPHYR_BASE")
+if not _ZEPHYR_BASE:
+    sys.exit("dts_equiv: $ZEPHYR_BASE is not set — export it (pointing at your "
+             "zephyr tree) so dtlib can be located.")
+_DTLIB_SRC = os.path.join(_ZEPHYR_BASE, "scripts", "dts", "python-devicetree", "src")
 if _DTLIB_SRC not in sys.path:
     sys.path.insert(0, _DTLIB_SRC)
 

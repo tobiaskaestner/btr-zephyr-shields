@@ -28,9 +28,13 @@ import list_rigs  # noqa: E402  (resolved via sys.path above)
 
 
 def _add_zephyr_scripts():
-    # zephyr_ext_common / zephyr_module live in the zephyr tree west runs
-    # against; add its script dirs so module-root discovery works exactly as it
-    # does inside `west shields`. Prefer zephyr-rigs (the project's tree).
+    # zephyr_ext_common / zephyr_module live in the zephyr tree; add its script
+    # dirs so module-root discovery works exactly as it does inside `west
+    # shields`. For a listing command the specific tree is immaterial (the
+    # module code is identical across checkouts), so we just discover one —
+    # the 'zephyr-rigs'/'zephyr' names are a heuristic, not a requirement. We
+    # do NOT trust the ambient $ZEPHYR_BASE (a shell profile often points it at
+    # the plain tree), consistent with build-rig's resolution.
     for cand in (_TOPDIR / 'zephyr-rigs', _TOPDIR / 'zephyr'):
         wc = cand / 'scripts' / 'west_commands'
         if (wc / 'zephyr_ext_common.py').is_file():

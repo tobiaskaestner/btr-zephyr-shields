@@ -12,9 +12,10 @@
 # We deliberately DO NOT shadow `build` (west forbids it) nor monkey-patch it;
 # this is a separate, additive command that reuses Build by subclassing.
 #
-# Coupling note: this imports Zephyr's Build by path (from the zephyr-rigs tree
-# west is configured against). That couples us to Zephyr's west_commands layout
-# — accepted per design decision; if Zephyr moves build.py, update _find_build.
+# Coupling note: this imports Zephyr's Build by path (from the zephyr tree
+# resolved by _resolve_zephyr_base). That couples us to Zephyr's west_commands
+# layout — accepted per design decision; if Zephyr moves build.py, update
+# _resolve_zephyr_base.
 
 import os
 import sys
@@ -23,23 +24,49 @@ from pathlib import Path
 import yaml
 from west import log
 
-# btr-shields/scripts/west_commands/rig.py -> workspace topdir is 3 parents up.
-_TOPDIR = Path(__file__).resolve().parents[3]
+# This command lives at btr-shields/scripts/west_commands/rig.py, so it can
+# locate BOTH its own module root and the workspace topdir purely by walking up
+# — no hardcoded directory names.
+_MODULE_ROOT = Path(__file__).resolve().parents[2]   # the btr-shields module
+_TOPDIR = Path(__file__).resolve().parents[3]         # the west workspace
 
 
-def _find_build_dir():
-    # Prefer the tree west builds against (zephyr-rigs per .west/config base).
-    for cand in (_TOPDIR / 'zephyr-rigs', _TOPDIR / 'zephyr'):
-        wc = cand / 'scripts' / 'west_commands'
-        if (wc / 'build.py').is_file():
-            return wc
-    raise ImportError('could not locate zephyr build.py under '
-                      f'{_TOPDIR}/(zephyr-rigs|zephyr)/scripts/west_commands')
+def _abs_under_topdir(value):
+    if not value:
+        return None
+    p = Path(value)
+    return p if p.is_absolute() else _TOPDIR / p
+
+
+def _resolve_zephyr_base(explicit=None, configured=None):
+    """Locate the zephyr tree to build against — WITHOUT hardcoding its name.
+    Priority: --zephyr-base > west config `zephyr.base` > a checkout discovered
+    under the workspace. This project's `.west/config` sets `zephyr.base =
+    zephyr-rigs` (the rig-enabled worktree), so that config IS the source of the
+    name — no literal here beyond the last-resort discovery heuristic below.
+
+    The ambient $ZEPHYR_BASE is deliberately NOT trusted: a shell profile
+    commonly exports the plain manifest `zephyr`, which is the WRONG tree for
+    rig builds — overriding that (via the explicit env we set in do_run) is the
+    whole reason this resolution exists."""
+    for cand in (_abs_under_topdir(explicit), _abs_under_topdir(configured)):
+        if cand and (cand / 'scripts' / 'west_commands' / 'build.py').is_file():
+            return cand
+    for name in ('zephyr-rigs', 'zephyr'):
+        cand = _TOPDIR / name
+        if (cand / 'scripts' / 'west_commands' / 'build.py').is_file():
+            return cand
+    return None
 
 
 # build.py imports sibling modules (build_helpers, zcmake, zephyr_ext_common),
-# so its directory must be on sys.path before we import it.
-_BUILD_WC = _find_build_dir()
+# so its directory must be on sys.path before we import it. (The specific tree
+# used for a given build is (re)resolved in do_run, honoring --zephyr-base.)
+_ZEPHYR_BASE = _resolve_zephyr_base()
+if _ZEPHYR_BASE is None:
+    raise ImportError('could not locate a zephyr build.py — set $ZEPHYR_BASE '
+                      f'or keep a zephyr-rigs/zephyr checkout under {_TOPDIR}')
+_BUILD_WC = _ZEPHYR_BASE / 'scripts' / 'west_commands'
 if str(_BUILD_WC) not in sys.path:
     sys.path.insert(0, str(_BUILD_WC))
 
@@ -62,15 +89,19 @@ class BuildRig(Build):
             parser.usage = parser.usage.replace('west build', 'west build-rig')
         parser.add_argument(
             '--rig', metavar='NAME',
-            help='rig to build (btr-shields/boards/rigs/<NAME>/rig.yml): infers '
-                 '-b <board> and the rig-runner app, then runs the expander '
-                 'seam via -DRIG=<NAME>')
+            help='rig to build (by rig.yml `rig.name`): infers -b <board>, '
+                 'then runs the expander seam via -DRIG=<NAME>. The app source '
+                 'dir is still required (positional or -s).')
+        parser.add_argument(
+            '--zephyr-base', metavar='DIR',
+            help='zephyr tree to build against (default: $ZEPHYR_BASE, else a '
+                 'zephyr-rigs/ or zephyr/ checkout under the workspace)')
         return parser
 
     def do_run(self, args, remainder):
         rig = getattr(args, 'rig', None)
         if rig:
-            root = _TOPDIR / 'btr-shields'
+            root = _MODULE_ROOT
             # A rig's identity is its `rig.name` field, NOT its folder basename
             # — the same convention boards/shields follow (board.yml/shield.yml
             # `name:`). Resolve --rig by scanning rig.yml names, mirroring how
@@ -103,9 +134,13 @@ class BuildRig(Build):
                         f"  usage: west build-rig --rig {rig} <app-source-dir>")
             args.cmake_opts = list(args.cmake_opts or []) + [f'-DRIG={rig}']
             log.inf(f'build-rig: rig={rig} board={args.board} app={app}')
-        # Force the project's zephyr-rigs tree. .west/config `zephyr.base` alone
-        # does NOT stick here: the manifest's `zephyr` project resolves to path
-        # `zephyr`, so without this the build would use the wrong tree. An
-        # explicit ZEPHYR_BASE env wins over the manifest resolution.
-        os.environ['ZEPHYR_BASE'] = str(_TOPDIR / 'zephyr-rigs')
+        # Pin ZEPHYR_BASE explicitly for the build. A shell profile or the
+        # manifest can leave the ambient ZEPHYR_BASE pointing at the plain
+        # `zephyr` tree, so we overwrite it with the resolved rig tree (from
+        # --zephyr-base or west config `zephyr.base`). An explicit env var wins
+        # over west's own manifest resolution. The worktree name lives in
+        # config, not in this code.
+        zb = _resolve_zephyr_base(getattr(args, 'zephyr_base', None),
+                                  self.config.get('zephyr.base')) or _ZEPHYR_BASE
+        os.environ['ZEPHYR_BASE'] = str(zb)
         return super().do_run(args, remainder)

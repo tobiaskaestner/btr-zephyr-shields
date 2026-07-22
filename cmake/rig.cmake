@@ -138,6 +138,7 @@ if(RIG_EXPAND_COMMAND)
 else()
   set(_rig_cmd
     "${CMAKE_COMMAND}" -E env "PYTHONPATH=${RIG_EXPAND_PYTHONPATH}"
+    "ZEPHYR_BASE=${ZEPHYR_BASE}"
     "${PYTHON_EXECUTABLE}" -m rigexp expand "${_rig_yml}"
     ${_rig_shield_dir_args}
     --out-dir "${_rig_out_dir}")
