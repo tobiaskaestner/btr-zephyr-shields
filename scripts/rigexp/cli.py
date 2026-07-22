@@ -2,7 +2,7 @@
 
 Mirrors `frontend-trial/scripts/run_trials.py:run_one` / `investigate`:
 
-  rig    = loader_yml.load(path, workdir, diags, shields_dir)
+  rig    = loader_yml.load(path, workdir, diags, shield_dirs)
   solved = analyzer.analyze(rig, workdir, diags)
   outputs = emitter.emit(solved)     # strong contract: cannot fail here
 
@@ -23,21 +23,22 @@ from .diag import Diagnostics, LoadError
 from . import analyzer, emitter, loader_yml
 
 
-def _expand(rig_path: str, shield_dir: str, out_dir: str) -> int:
+def _expand(rig_path: str, shield_dirs: list[str], out_dir: str) -> int:
     # Resolve to absolute paths up front: the loader parses each shield in a
     # temp workdir and cpp-includes it by the glob'd path, so a relative
     # --shield-dir yields a relative #include that cpp cannot find from the
     # temp dir. The cmake seam runs this CLI from the build dir, so all inputs
     # must be cwd-independent.
     rig_path = os.path.abspath(rig_path)
-    shield_dir = os.path.abspath(shield_dir)
+    if shield_dirs is not None:
+        shield_dirs = [os.path.abspath(d) for d in shield_dirs]
     out_dir = os.path.abspath(out_dir)
 
     diags = Diagnostics()
     workdir = tempfile.mkdtemp(prefix="rigexp-")
 
     try:
-        rig = loader_yml.load(rig_path, workdir, diags, shields_dir=shield_dir)
+        rig = loader_yml.load(rig_path, workdir, diags, shield_dirs=shield_dirs)
     except LoadError as e:
         diags.append(e.diag)
         print(diags.render(), file=sys.stderr)
@@ -85,8 +86,13 @@ def _add_expand(sub: argparse._SubParsersAction) -> None:
         help="run one rig through load -> analyze -> emit and write the "
              "outputs to --out-dir")
     p.add_argument("rig", help="path to the <rig>.rig.yml file")
-    p.add_argument("--shield-dir", required=True,
-                    help="directory of .shield templates (the shield library)")
+    p.add_argument("--shield-dir", dest="shield_dirs", action="append",
+                    metavar="DIR", default=None,
+                    help="a shield-library root (a boards/shields directory); "
+                         "may be given more than once. Templates are unioned "
+                         "across all of them — shields may live in any "
+                         "board_root of any Zephyr module. Omit to use the "
+                         "vendored default (direct/API use only).")
     p.add_argument("--out-dir", required=True,
                     help="directory to write overlay / config-sheet.md / "
                          "expectations.yml into")
@@ -101,7 +107,7 @@ def main(argv: list[str] | None = None) -> int:
 
     args = ap.parse_args(argv)
     if args.command == "expand":
-        return _expand(args.rig, args.shield_dir, args.out_dir)
+        return _expand(args.rig, args.shield_dirs, args.out_dir)
     ap.error(f"unknown command {args.command!r}")
     return 2   # unreachable; ap.error() exits
 

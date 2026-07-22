@@ -34,7 +34,8 @@ from .shields import parse_shields
 SHIELDS_DIR = os.path.join(COMMON, "shields")
 
 
-def load_shield_library(workdir: str, diags: Diagnostics, shields_dir: str | None = None):
+def load_shield_library(workdir: str, diags: Diagnostics,
+                        shield_dirs: list[str] | None = None):
     """Load every shield template. Each `.shield` file is its OWN translation
     unit (Ground rule 3), so labels are shield-scoped — two shields may reuse
     `gl_plug` etc. without colliding, and no cross-shield prefix discipline is
@@ -48,23 +49,31 @@ def load_shield_library(workdir: str, diags: Diagnostics, shields_dir: str | Non
     glob — the folder now also holds upstream-convention Kconfig fragments
     (`Kconfig.shield`, `Kconfig.defconfig`), which also end in the literal
     substring ".shield" and would otherwise be mis-globbed as shield
-    templates (`Kconfig.shield` matches a bare `*.shield` wildcard).
+    templates (`Kconfig.shield` matches a bare `*.shield` wildcard). This
+    `<name>.shield`-presence check is also what self-filters a shields
+    directory: legacy (non-rig) shields ship a `<name>.overlay`, not a
+    `.shield`, so scanning a whole `boards/shields` tree picks up ONLY rig
+    templates and silently skips the rest.
 
-    `shields_dir` overrides the vendored default (SHIELDS_DIR) — this is how
-    the CLI's `--shield-dir` reaches the loader (downstream: the real shield
-    library lives outside this package, e.g. btr-shields/boards/shields/)."""
+    `shield_dirs` is a LIST of shield-library roots (each a `boards/shields`
+    directory), unioned into one library — because rig shield templates are
+    ordinary discoverable content that may live in ANY board_root of ANY
+    Zephyr module, not just this one. The build system (rig.cmake) derives the
+    list from BOARD_ROOT, exactly as list_shields.py does; None falls back to
+    the vendored default (SHIELDS_DIR), used only by direct API / tests."""
     types = load_types()
     shields = {}
-    directory = shields_dir if shields_dir is not None else SHIELDS_DIR
-    for shield_dir in sorted(glob.glob(os.path.join(directory, "*"))):
-        if not os.path.isdir(shield_dir):
-            continue
-        name = os.path.basename(shield_dir)
-        f = os.path.join(shield_dir, name + ".shield")
-        if not os.path.isfile(f):
-            continue
-        dt = parse_tu([f], workdir, f"shield-{name}.dts")
-        shields.update(parse_shields(dt, types, diags))
+    directories = shield_dirs if shield_dirs is not None else [SHIELDS_DIR]
+    for directory in directories:
+        for shield_dir in sorted(glob.glob(os.path.join(directory, "*"))):
+            if not os.path.isdir(shield_dir):
+                continue
+            name = os.path.basename(shield_dir)
+            f = os.path.join(shield_dir, name + ".shield")
+            if not os.path.isfile(f):
+                continue
+            dt = parse_tu([f], workdir, f"shield-{name}.dts")
+            shields.update(parse_shields(dt, types, diags))
     return shields
 
 
@@ -114,8 +123,8 @@ def _require(mapping: _Val, key: str, ctx: str, diags) -> _Val | None:
 # ---------------------------------------------------------------- loader
 
 def load(rig_path: str, workdir: str, diags: Diagnostics,
-        shields_dir: str | None = None) -> Rig | None:
-    shields = load_shield_library(workdir, diags, shields_dir)
+        shield_dirs: list[str] | None = None) -> Rig | None:
+    shields = load_shield_library(workdir, diags, shield_dirs)
 
     with open(rig_path) as f:
         try:

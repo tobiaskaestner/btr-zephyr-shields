@@ -48,12 +48,15 @@ get_filename_component(_RIG_BTR_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 # The interpreter is NOT a knob: we use Zephyr's PYTHON_EXECUTABLE (set by the
 # `python` module included above, and already used for list_rigs.py below) so
 # the expander runs in the same venv as the rest of the build — no hardcoded
-# path. The other two are module-relative (derived from _RIG_BTR_ROOT, i.e.
-# this module's own tree), so they are already workspace-independent.
+# path. RIG_EXPAND_PYTHONPATH is module-relative (derived from _RIG_BTR_ROOT,
+# this module's own tree — that is the location of OUR mechanics, the rigexp
+# package, which is legitimately ours). The shield LIBRARY, by contrast, is
+# discoverable CONTENT, not mechanics: rig shield templates may live in any
+# board_root of any Zephyr module (btr-shields ships some as default content,
+# but must not be hardcoded as THE source). So it is derived from BOARD_ROOT
+# below, exactly as list_shields.py discovers shields — not a fixed knob.
 set(RIG_EXPAND_PYTHONPATH "${_RIG_BTR_ROOT}/scripts"
   CACHE PATH "PYTHONPATH so 'python -m rigexp' finds btr-shields/scripts/rigexp")
-set(RIG_EXPAND_SHIELD_DIR "${_RIG_BTR_ROOT}/boards/shields"
-  CACHE PATH "--shield-dir passed to the rigexp expander")
 set(RIG_EXPAND_COMMAND ""
   CACHE STRING "Override: full command (semicolon list) to run instead of the rigexp CLI")
 
@@ -116,13 +119,27 @@ file(MAKE_DIRECTORY "${_rig_out_dir}")
 set(_rig_overlay "${_rig_out_dir}/overlay")
 set(_rig_conf "${_rig_out_dir}/conf")
 
+# Shield-library roots: every board_root's boards/shields, mirroring how
+# list_shields.py itself discovers shields (root/boards/shields). The expander
+# unions them and self-filters to rig templates (a folder is a template iff it
+# holds <name>.shield). btr-shields contributes its own shields via its own
+# board_root here, no differently from any other module — mechanics (this
+# module's cmake/scripts) stay separate from content (shields, wherever they
+# live).
+set(_rig_shield_dir_args)
+foreach(_root ${BOARD_ROOT})
+  if(EXISTS "${_root}/boards/shields")
+    list(APPEND _rig_shield_dir_args --shield-dir "${_root}/boards/shields")
+  endif()
+endforeach()
+
 if(RIG_EXPAND_COMMAND)
   set(_rig_cmd ${RIG_EXPAND_COMMAND})
 else()
   set(_rig_cmd
     "${CMAKE_COMMAND}" -E env "PYTHONPATH=${RIG_EXPAND_PYTHONPATH}"
     "${PYTHON_EXECUTABLE}" -m rigexp expand "${_rig_yml}"
-    --shield-dir "${RIG_EXPAND_SHIELD_DIR}"
+    ${_rig_shield_dir_args}
     --out-dir "${_rig_out_dir}")
 endif()
 
