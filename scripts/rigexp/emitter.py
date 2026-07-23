@@ -252,17 +252,22 @@ def _device_node(s, types, inst, dev, socket, unit=None, reg=None) -> list[str]:
                 (inst.name, dev.name, ref.prop)]
             pos = s.positions.get((inst.name, dev.name, ref.prop), ref.position)
             if ref.function == "pwm":
-                if flags:
-                    # The shield authored a nonzero PWM flag (e.g. polarity)
-                    # that this 2-cell socket geometry has no cell to carry
-                    # (2a design decision — flags-less, matching the
-                    # target's own #pwm-cells=2). No shield in the corpus
-                    # does this today; surfaced loudly rather than silently
-                    # dropped, since it is real wiring information.
-                    raise ValueError(
-                        f"{inst.name}/{dev.name}: {ref.prop} sets PWM flags "
-                        f"{flags:#x}, but the socket's pwm-map (#pwm-cells "
-                        "= 2: position, period) has no cell to carry them")
+                # Nonzero PWM flags are now REJECTED upstream, by the
+                # analyzer (analyzer.py:_collect_channel, category
+                # phys-function) — a device with such a ref never earns a
+                # `solved.channels` entry, so `cli.py` exits on `diags.errors`
+                # before `emitter.emit()` is ever called (its "cannot fail"
+                # contract, cli.py:56-59, would otherwise be violated by a
+                # raised ValueError here). This assert documents the
+                # invariant rather than re-deriving the diagnostic; tripping
+                # it means the analyzer's guarantee broke, not that a rig
+                # author did something wrong.
+                if flags:   # not `assert` — must survive python -O (review)
+                    raise AssertionError(
+                        f"{inst.name}/{dev.name}: {ref.prop} reached the "
+                        f"emitter with nonzero PWM flags {flags:#x} — the "
+                        "analyzer should have rejected this (phys-function) "
+                        "before emission")
                 lines.append(
                     f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {period}>;"
                     f"\t/* {ctype.posname(pos)} */")

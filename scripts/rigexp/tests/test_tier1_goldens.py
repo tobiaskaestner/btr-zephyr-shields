@@ -172,3 +172,37 @@ def test_not_rig_enabled_golden(tmp_path: Path) -> None:
 
     for fname in _EMITTED_FILES:
         assert_absent_or_refreeze(golden_dir / fname)
+
+
+@pytest.mark.build
+def test_pwm_nonzero_flags_golden(tmp_path: Path,
+                                  tmp_path_factory: "pytest.TempPathFactory") -> None:
+    """Synthetic fixture (analyzer bundle, 2026-07-23): a servo shield
+    authoring a nonzero PWM flags value (PWM_POLARITY_INVERTED) on a real
+    PWM-capable Grove socket -- every corpus shield authors flags=0, so this
+    is the only fixture locking the analyzer's `phys-function` rejection
+    (analyzer.py:_collect_channel), moved from the emitter's former
+    `ValueError` (which violated the emitter's "cannot fail" contract,
+    cli.py). Needs a real board recipe (seeeduino_lotus_btr), like the corpus
+    cases -- hence @pytest.mark.build, unlike the loader-level fixtures above."""
+    fixture = FIXTURES_DIR / "pwm-nonzero-flags"
+    board = "seeeduino_lotus_btr"
+    plain_build = plain_build_for(board, tmp_path_factory)
+    out_dir = tmp_path / "out"
+    result = run_expand(
+        fixture / "rig.yml", out_dir,
+        shield_dirs=[fixture / "shields"],
+        board_dts=REPO_ROOT / BOARD_DTS[board],
+        build_info=plain_build.build_info)
+
+    assert result.returncode != 0, "nonzero PWM flags must be rejected"
+    assert "[phys-function]" in result.stderr, result.stderr
+    assert "PWM flags" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "pwm-nonzero-flags"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+    for fname in _EMITTED_FILES:
+        assert_absent_or_refreeze(golden_dir / fname)

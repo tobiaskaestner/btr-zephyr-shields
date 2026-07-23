@@ -91,14 +91,29 @@ def _project_socket(node: edtlib.Node, compat: str) -> BoardSocket:
             raise ValueError(f"bus controller {bus_node.path} has no label")
         buses[kind] = BusRef(label=bus_node.labels[0], path=bus_node.path)
 
-    # NOTE (Bridge-A saferail 2, AMENDED): edtlib back-fills the binding
-    # default here when the socket doesn't author `socket,cs-pool` (grove
-    # doesn't even declare the property -- absent from node.props entirely).
-    # This is EXPECTED and matches the analyzer's own effective-value merge
-    # (analyzer.py:533: `socket.cs_pool if not None else ctype.cs_pool`) --
-    # once backfilled, this value already IS the effective one -- the
-    # (retired) dual-read test computed the common-dts side's effective
-    # value the same way for an apples-to-apples comparison.
+    # NOTE (Bridge-A saferail 2, AMENDED, post-flip cs-pool merge investigation
+    # 2026-07-23): edtlib back-fills the binding default here when the socket
+    # doesn't author `socket,cs-pool` itself, PROVIDED the type's binding
+    # declares the property with a `default:` (arduino-r3.yaml, mikrobus.yaml
+    # both do). For those types this value is already the EFFECTIVE one, same
+    # as the analyzer's own merge would compute (analyzer.py's
+    # `socket.cs_pool if not None else ctype.cs_pool`) -- so for a REAL board
+    # socket of such a type, `cs_pool` here is NEVER None and that merge's
+    # ctype-fallback branch is inert.
+    #
+    # This does NOT make the analyzer's merge dead code in general, and this
+    # function is not the only source of a `BoardSocket`: grove.yaml declares
+    # no `socket,cs-pool` property at all (Grove never exposes SPI/CS), so a
+    # grove socket's `cs_pool` stays None here too -- harmlessly, since
+    # `_allocate_cs` never reaches a socket with no "spi" bus. More
+    # significantly, `analyzer.py`'s carrier/mux composition
+    # (`_compose_exposed_socket`) builds SYNTHESIZED `BoardSocket`s from
+    # `model.ExposedSocket.cs_pool`, which comes from `shields.py` -- a plain
+    # dtlib parse of the carrier `.shield` template with NO binding-default
+    # backfill at all. A carrier that never authors `socket,cs-pool` on its
+    # exposed socket node (arduino_uno_click, i2c_mux) yields `cs_pool=None`
+    # there regardless of the connector type's binding default, so the
+    # analyzer's ctype-fallback branch is very much alive for THAT path.
     cs_pool: Optional[List[int]] = None
     cs_prop = node.props.get("socket,cs-pool")
     if cs_prop is not None:

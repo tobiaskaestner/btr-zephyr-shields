@@ -17,6 +17,7 @@ next to the drive-type refinement).
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Optional
 
 from .boarddt import load_board
 from .ctypes_registry import load_types
@@ -40,8 +41,8 @@ class NetClaim:
     device: Device | None
     what: str            # "rtc@…: int1-gpios" / "sdhc: CS (copper-fixed)" / pad name
     role: str            # driver | listener | dedicated
-    socket: BoardSocket = None
-    position: int = None
+    socket: Optional[BoardSocket] = None
+    position: Optional[int] = None
     src: object = None
 
 
@@ -293,6 +294,24 @@ def _collect_channel(inst, dev, ref, socket, ctype, solved, diags):
             f"'{socket.label}' offers no {fn} on it (no socket,{fn}-map entry)",
             [ref.src, socket.src])
         return
+    if fn == "pwm" and ref.flags:
+        # The expander's PWM emission (Bridge-A rewrite step 2b) is
+        # flags-less by design: the socket-relative pwm-map nexus carries
+        # only (position, period) -- matching the board's own
+        # #pwm-cells=2 (atmel,sam0-tcc-pwm has no flags cell at all). A
+        # nonzero flags value here is real wiring information (e.g.
+        # polarity) that has nowhere to go, so reject rather than silently
+        # drop it -- moved from the emitter (which must never fail, cli.py
+        # never calls it inside a try/except) into this physically-worded
+        # diagnostic, the one place `ref.flags` is visible before emission.
+        diags.error(
+            "phys-function",
+            f"'{inst.name}/{dev.name}: {ref.prop}' authors PWM flags "
+            f"{ref.flags:#x} at position {ctype.posname(ref.position)}, "
+            "but the expander's PWM emission carries only (position, "
+            "period) — there is no cell for flags",
+            [ref.src, socket.src])
+        return
     ctrl, channel = resolved
     solved.channels[(inst.name, dev.name, ref.prop)] = (
         fn, ctrl, channel, ref.period, ref.flags, ref.position)
@@ -534,6 +553,17 @@ def _allocate_cs(rig, solved, types, diags):
                     role="dedicated", src=dev.src))
                 placed.append((inst, dev, socket, pos))
                 continue
+            # cs_pool None-if-absent merge: inert for a REAL board socket
+            # whose connector type declares a `socket,cs-pool` default
+            # (board_edt.py backfills it, so `socket.cs_pool` is never None
+            # there) -- but still LIVE for a shield-SYNTHESIZED socket
+            # (carrier/mux `ExposedSocket`, composed into a `BoardSocket` by
+            # `_compose_exposed_socket` above): those come from a plain
+            # dtlib parse of the carrier `.shield` template (shields.py) with
+            # no binding-default backfill, so `cs_pool` stays None unless the
+            # carrier authors `socket,cs-pool` itself (arduino_uno_click,
+            # i2c_mux do not) -- the ctype fallback is what supplies their
+            # pool. Keep this merge; do not assume it is now dead.
             pool = socket.cs_pool if socket.cs_pool is not None else ctype.cs_pool
             pos = next((p for p in pool
                         if _soc_net(socket, p) not in solved.nets), None)

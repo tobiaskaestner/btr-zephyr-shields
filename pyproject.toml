@@ -18,10 +18,11 @@ ignore_errors = true
 # are ignored (NOT their whole files — new call sites elsewhere still check).
 # RULE (saferail 16 — idiom conformance rides the rewrite): the commit that
 # migrates a module MUST drop it from this list and leave it mypy-clean.
-# model.py is frozen (saferail 9); its entry stays until the freeze lifts.
+# analyzer.py migrated 2026-07-23 (Optional annotations on NetClaim's None
+# defaults, no semantic change) and left this list. Only model.py remains —
+# it is FROZEN (saferail 9); its entry stays until the freeze lifts.
 [[tool.mypy.overrides]]
 module = [
-    "rigexp.analyzer",
     "rigexp.model",
 ]
 ignore_errors = true
