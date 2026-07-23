@@ -23,7 +23,6 @@ if not _ZEPHYR_BASE:
         "automatically; for standalone use, export ZEPHYR_BASE=<zephyr tree>.")
 ZEPHYR_DT_SRC = os.path.join(_ZEPHYR_BASE, "scripts", "dts", "python-devicetree", "src")
 ZEPHYR_INC = os.path.join(_ZEPHYR_BASE, "include")
-COMMON = os.path.join(ROOT, "common-dts")
 
 # The module root (self-located the same way ROOT is: two levels up from
 # scripts/rigexp/), and its real include/ tree -- the single source for the

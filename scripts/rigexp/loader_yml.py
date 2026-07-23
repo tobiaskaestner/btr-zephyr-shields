@@ -27,11 +27,14 @@ import yaml
 
 from .ctypes_registry import load_types
 from .diag import Diagnostic, Diagnostics, LoadError, SrcRef
-from .dtsio import COMMON, parse_tu
+from .dtsio import MODULE_ROOT, parse_tu
 from .model import Instance, Rig, Strap, Wire, WireEnd
 from .shields import parse_shields
 
-SHIELDS_DIR = os.path.join(COMMON, "shields")
+# The vendored default shield library (direct API / test use only — see
+# load_shield_library below): this module's OWN boards/shields, the real
+# location (no longer a bundled common-dts copy, Bridge-A rewrite saferail 8).
+SHIELDS_DIR = os.path.join(MODULE_ROOT, "boards", "shields")
 
 
 def load_shield_library(workdir: str, diags: Diagnostics,

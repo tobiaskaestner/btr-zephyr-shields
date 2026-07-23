@@ -1,24 +1,22 @@
 # SPDX-License-Identifier: Apache-2.0
 """Board DT reader, edtlib-based (Bridge-A rewrite, phase 1 -- the READ side).
 
-Projects a real board's own devicetree, read via a standalone
-`edtlib.EDT` (see `edt_build.py`), onto the SAME `model.Board` /
-`model.BoardSocket` dataclasses `boarddt.load_board` populates from the
-common-dts scaffold (Conv. 4: "the expander reads the board DT to find
-socket nodes by compatible"). `model.py` is FROZEN (saferail 9) -- this
-module only populates it.
-
-This is the SHADOW reader for saferail 2: during the rewrite, both this
-module and `boarddt.py` read a board and their `Board` models are compared
-for equality (see `tests/test_board_dualread.py`). It is not yet wired into
-the production expander path -- `boarddt.load_board` stays the authority
-until the whole corpus passes dual-read (saferail 2/6).
+THE FLIP: this is now the PRODUCTION reader `boarddt.load_board` delegates
+to. It projects a real board's own devicetree, read via a standalone
+`edtlib.EDT` (see `edt_build.py`), onto `model.Board` / `model.BoardSocket`
+(Conv. 4: "the expander reads the board DT to find socket nodes by
+compatible"). `model.py` is FROZEN (saferail 9) -- this module only
+populates it. Its predecessor, a bundled `common-dts` scaffold parsed
+standalone with dtlib, is gone (saferail 8: deleted in full); a shadow
+dual-read against it (saferail 2) proved this reader produces the exact same
+`Board` on every rig-relevant axis, for all four board clones, before the
+flip (see `tests/test_board_dualread.py`, now the production-plumbing guard
+that replaced it).
 
 pwm_map / adc_map (Bridge-A phase 2a) project the socket node's standard
 `pwm-map` / `io-channel-map` nexuses -- read the same way `gpio-map` already
-is, via `edtlib.Node.maps()` -- onto the SAME position -> (controller label,
-channel) shape `boarddt.load_board` derives from the common-dts scaffold's
-`socket,pwm-map` / `socket,adc-map` (see
+is, via `edtlib.Node.maps()` -- onto a position -> (controller label,
+channel) shape (see
 `boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi`). Not every socket
 carries these maps (only PWM/ADC-capable ones do); `node.maps` simply omits
 the key for a `*-map` property the node doesn't author, so the loops below
@@ -34,6 +32,7 @@ from typing import Dict, List, Optional, Tuple, cast
 from .edt_build import BuildRecipe, build_edt
 from devicetree import edtlib
 
+from .diag import SrcRef
 from .model import Board, BoardSocket, BusRef
 
 _BUS_PROPS = {"socket,i2c": "i2c", "socket,spi": "spi", "socket,uart": "uart"}
@@ -97,9 +96,9 @@ def _project_socket(node: edtlib.Node, compat: str) -> BoardSocket:
     # doesn't even declare the property -- absent from node.props entirely).
     # This is EXPECTED and matches the analyzer's own effective-value merge
     # (analyzer.py:533: `socket.cs_pool if not None else ctype.cs_pool`) --
-    # once backfilled, this value already IS the effective one; the dual-read
-    # test computes the common-dts side's effective value the same way for
-    # an apples-to-apples comparison.
+    # once backfilled, this value already IS the effective one -- the
+    # (retired) dual-read test computed the common-dts side's effective
+    # value the same way for an apples-to-apples comparison.
     cs_pool: Optional[List[int]] = None
     cs_prop = node.props.get("socket,cs-pool")
     if cs_prop is not None:
@@ -121,7 +120,8 @@ def _project_socket(node: edtlib.Node, compat: str) -> BoardSocket:
     return BoardSocket(
         label=label, path=node.path, type_name=type_name,
         gpio_map=gpio_map, buses=buses, cs_pool=cs_pool,
-        pwm_map=pwm_map, adc_map=adc_map)
+        pwm_map=pwm_map, adc_map=adc_map,
+        src=SrcRef(node.filename, node.lineno, label))
 
 
 def _controller_label(node: edtlib.Node) -> str:
@@ -131,10 +131,11 @@ def _controller_label(node: edtlib.Node) -> str:
     `grove_sockets_btr.dtsi`) is appended to `Node.labels` without
     displacing the primary label the SoC dtsi already gave the node
     (dtlib's label list is append-only, first-wins on duplicates, never
-    reordered). This projects onto the SAME label the common-dts scaffold's
-    board stub uses for that controller (dual-read comparability, saferail
-    2) -- both name one real node; single-labeled nodes (e.g. &tcc0) are
-    unaffected, since labels[-1] == labels[0] there.
+    reordered). Before THE FLIP, this projected onto the SAME label the
+    (now-retired) common-dts scaffold's board stub used for that controller
+    (dual-read comparability, saferail 2); both named one real node --
+    single-labeled nodes (e.g. &tcc0) are unaffected, since labels[-1] ==
+    labels[0] there.
 
     INVARIANT (review 2026-07-23): what this must return is the
     board-conventional alias the emitter will emit verbatim into overlays
@@ -142,8 +143,8 @@ def _controller_label(node: edtlib.Node) -> str:
     from the `labels[0]` used for gpio/bus targets solely on RE-ALIASED
     nodes (today: lotus adc). It is order-fragile by construction: a later
     include attaching yet another label to a `*-map` target silently
-    changes the emitted label, and once common-dts is deleted (saferail 8)
-    the dual-read no longer guards this -- only tier-1 overlay text does
+    changes the emitted label, and now that common-dts is deleted (saferail
+    8) nothing but tier-1 overlay text guards this floor label choice
     (tier-2 dts_equiv resolves labels away). Treat any change here as
     overlay-affecting, never cosmetic."""
     if not node.labels:

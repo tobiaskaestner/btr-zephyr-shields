@@ -32,6 +32,7 @@ import sys
 from pathlib import Path
 
 import pytest
+import yaml
 
 from conftest import (
     ACCEPT_CASES,
@@ -47,7 +48,7 @@ from conftest import (
 )
 
 # Triggers python-devicetree onto sys.path (from $ZEPHYR_BASE) as an
-# import-time side effect, exactly like test_board_dualread.py -- needed to
+# import-time side effect, exactly like test_board_read.py -- needed to
 # unpickle a real edt.pickle below (its classes live in `devicetree.edtlib`).
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigexp import edt_build  # noqa: E402,F401
@@ -160,3 +161,39 @@ def test_tier2_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
         f"light io-channels resolved to {adc_spec.controller!r}, expected adc0")
     assert adc_spec.data == {"input": 0}, (
         f"light io-channels resolved to {adc_spec.data!r}, expected input 0")
+
+
+def test_tier2_build_info_rig_provenance(tmp_path: Path) -> None:
+    """rig-build provenance (NEW requirement): a rig build must record what
+    it looked at into `build_info.yml`, via zephyr's own `build_info()`
+    (cmake/rig.cmake). It lands under `cmake.vendor-specific.rig.*` (the
+    schema's own downstream-owned escape hatch, NOT the naively-expected
+    `cmake.rig.*` -- build-schema.yaml is upstream, not ours to extend; see
+    cmake/rig.cmake and the handoff report). Deliberately uses frdm-eth-nest:
+    it names TWO distinct shields (arduino_uno_click, eth_click carried by
+    THREE instances) -- the case that caught a real bug (build_info()'s
+    vendor-specific VALUE silently truncates a multi-element CMake list to
+    its first entry unless pre-JOINed)."""
+    build_dir = tmp_path / "build"
+    result = _run_build("frdm-eth-nest", build_dir)
+    assert result.returncode == 0, (
+        f"frdm-eth-nest: expected `west build-rig --cmake-only` to configure "
+        f"clean\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+
+    with open(build_dir / "build_info.yml") as f:
+        build_info = yaml.safe_load(f)
+    rig = build_info["cmake"]["vendor-specific"]["rig"]
+
+    assert rig["name"] == "frdm-eth-nest"
+    assert rig["board"] == "frdm_k64f_btr"
+    assert rig["rig-yml"].endswith("boards/rigs/s6-eth-click/rig.yml")
+    assert rig["board-dts"].endswith(
+        "boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts")
+
+    shields = {s.strip() for s in rig["shields"].split(",")}
+    assert shields == {"arduino_uno_click", "eth_click"}, (
+        f"rig-provenance 'shields' must list BOTH distinct shields "
+        f"(not truncated to the first): {rig['shields']!r}")
+    assert "arduino_uno_click" in rig["shield-dirs"]
+    assert "eth_click" in rig["shield-dirs"]
+    assert Path(rig["out-dir"]).is_dir()

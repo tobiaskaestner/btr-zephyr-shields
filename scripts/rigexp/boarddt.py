@@ -1,101 +1,111 @@
 """Board DT reader — expander-side input (Conv. 4: 'the expander reads the
-board DT to find socket nodes by compatible'). In the real build these
-nodes live in the board's own devicetree and are edtlib-validated; the
-trial parses the board fragment + SoC stubs standalone with dtlib.
+board DT to find socket nodes by compatible'). THE FLIP (Bridge-A rewrite,
+saferails 2/6/8): this module used to parse a bundled `common-dts` scaffold
+standalone with dtlib; it now delegates entirely to `board_edt`/`edt_build`'s
+real `edtlib.EDT` reader over the board's OWN devicetree — the shadow
+dual-read (`tests/test_board_read.py`, formerly `test_board_dualread.py`)
+proved this produces the SAME `model.Board` the scaffold did, on every axis,
+for all four board clones.
+
+This module keeps two responsibilities of its own, both about board
+RESOLUTION rather than DT mechanics (those live in `board_edt`/`edt_build`):
+
+  * board NAME -> `.dts` path, explicit (the in-build path: rig.cmake already
+    resolved BOARD_DIR via boards.cmake, so it passes `--board-dts` directly)
+    or discovered (the standalone/CLI fallback, via zephyr's own
+    `list_boards.py` — consumed, not forked, mirroring how `list_shields.py`
+    is consumed elsewhere in this tree).
+
+  * the two board-level diagnostics that keep `phys-board` physically
+    meaningful: a board that does not exist at all (discovery finds no such
+    directory) vs. a board that exists but never opted in (its devicetree
+    declares no `socket,*` node — Conv. 4's opt-in mechanism).
 """
 from __future__ import annotations
 
+import argparse
 import os
+import sys
+from pathlib import Path
+from typing import Optional
 
-from .diag import Diagnostic, Diagnostics, LoadError
-from .dtsio import COMMON, dtlib, parse_tu, src_of, words
-from .model import Board, BoardSocket, BusRef
-
-BOARDS = os.path.join(COMMON, "boards")
-
-_BUS_PROPS = {"socket,i2c": "i2c", "socket,spi": "spi", "socket,uart": "uart"}
-
-
-def known_boards() -> list[str]:
-    return sorted(
-        f[: -len(".rig.dtsi")] for f in os.listdir(BOARDS)
-        if f.endswith(".rig.dtsi") and not f.startswith("_"))
+from . import board_edt
+from .diag import Diagnostics
+from .dtsio import MODULE_ROOT
+from .edt_build import BuildRecipe
+from .model import Board
 
 
-def load_board(name: str, workdir: str, diags: Diagnostics) -> Board | None:
-    """None (+ diagnostic) if the board is unknown — the rig,board string is
-    a cross-tree reference, so this is the earliest it can be checked."""
-    frag = os.path.join(BOARDS, f"{name}.rig.dtsi")
-    if not os.path.isfile(frag):
+def load_board(name: str, workdir: str, diags: Diagnostics,
+               board_dts: Optional[str] = None,
+               recipe: Optional[BuildRecipe] = None) -> Optional[Board]:
+    """Resolve board `name` to a `model.Board`, or None (+ a `phys-board`
+    Diagnostic) if it can't be read at all.
+
+    `board_dts` / `recipe` are the two inputs `board_edt.load_board` needs
+    (see `edt_build.BuildRecipe`). The IN-BUILD path (rig.cmake) always
+    passes both explicitly — BOARD_DIR is already resolved by boards.cmake
+    long before the expander runs, and rig.cmake computes the recipe itself
+    (saferail 13). Leaving `board_dts` None triggers the standalone/CLI
+    discovery fallback below; leaving `recipe` None (whether or not
+    `board_dts` was given) is a caller-configuration gap, reported the same
+    way as any other board-resolution failure — see the `recipe is None`
+    branch.
+    """
+    if board_dts is None:
+        board_dts = _discover_board_dts(name, diags)
+        if board_dts is None:
+            return None
+    elif not os.path.isfile(board_dts):
+        diags.error(
+            "phys-board",
+            f"board '{name}': no such devicetree file\n  {board_dts}")
+        return None
+
+    if recipe is None:
+        diags.error(
+            "phys-board",
+            f"board '{name}': no devicetree-reading recipe available "
+            f"({board_dts})\n"
+            "pass --include-dir/--bindings-dir (repeatable), or --build-info "
+            "<build_info.yml> from a real build, to read its devicetree — a "
+            "rig build (rig.cmake) supplies this automatically")
+        return None
+
+    board = board_edt.load_board(name, board_dts, recipe, workdir)
+    if not board.sockets:
+        diags.error(
+            "phys-board",
+            f"board '{name}' has a devicetree ({os.path.relpath(board_dts)}) "
+            "but declares no socket,* nodes — it exists, but is not "
+            "rig-enabled (Conv. 4: a board opts in with a typed socket node)")
+        return None
+    return board
+
+
+def _discover_board_dts(name: str, diags: Diagnostics) -> Optional[str]:
+    """Standalone/CLI fallback: resolve a board NAME to its own `.dts` by
+    CONSUMING zephyr's own `scripts/list_boards.py` (not forking it — the
+    same choice `list_shields.py` gets elsewhere in this tree; list_boards.py
+    has no `--json` mode to subprocess+parse the way list_shields.py does, so
+    a direct import is the cleaner half of that pattern here). Searches only
+    this module's OWN board root (`MODULE_ROOT`) — every board this rig
+    tooling can ever reference is one of its own clones."""
+    zephyr_base = os.environ["ZEPHYR_BASE"]
+    scripts_dir = os.path.join(zephyr_base, "scripts")
+    if scripts_dir not in sys.path:
+        sys.path.insert(0, scripts_dir)
+    import list_boards  # noqa: E402  (zephyr script, consumed not forked)
+
+    args = argparse.Namespace(
+        board_roots=[Path(MODULE_ROOT)], soc_roots=[Path(zephyr_base)],
+        board=None, board_dir=[])
+    boards = list_boards.find_v2_boards(args)
+    if name not in boards:
         diags.error(
             "phys-board",
             f"unknown board '{name}'\n"
-            f"no rig-enabled board DT found ({os.path.relpath(frag)})\n"
-            f"rig-enabled boards: {', '.join(known_boards())}")
+            f"no such board directory under {os.path.relpath(MODULE_ROOT)}/boards\n"
+            f"known boards: {', '.join(sorted(boards)) or '(none)'}")
         return None
-
-    dt = parse_tu([os.path.join(BOARDS, "_soc-stubs.dtsi"), frag],
-                  workdir, f"board-{name}.dts")
-
-    sockets: dict[str, BoardSocket] = {}
-    for node in dt.node_iter():
-        compat = node.props.get("compatible")
-        if not compat or not compat.to_string().startswith("socket,"):
-            continue
-        type_name = compat.to_string().split(",", 1)[1]
-
-        gpio_map = {}
-        for entry in _gpio_map_entries(node):
-            child_pin, _child_flags, phandle, parent_pin, parent_flags = entry
-            ctrl = dt.phandle2node[phandle]
-            gpio_map[child_pin] = (ctrl.labels[0], parent_pin, parent_flags)
-
-        buses = {}
-        for prop_name, kind in _BUS_PROPS.items():
-            if prop_name in node.props:
-                bus_node = node.props[prop_name].to_node()
-                buses[kind] = BusRef(label=bus_node.labels[0], path=bus_node.path)
-
-        cs_pool = None
-        if "socket,cs-pool" in node.props:
-            cs_pool = list(node.props["socket,cs-pool"].to_nums())
-
-        # multi-function nexus (Slice A): position -> (controller, channel) for
-        # the pwm / adc function-views, alongside gpio-map's position -> pin.
-        pwm_map = {}
-        for pos, _f, phandle, chan, _cf in _map_entries(node, "socket,pwm-map"):
-            pwm_map[pos] = (dt.phandle2node[phandle].labels[0], chan)
-        adc_map = {}
-        for pos, _f, phandle, chan, _cf in _map_entries(node, "socket,adc-map"):
-            adc_map[pos] = (dt.phandle2node[phandle].labels[0], chan)
-
-        if not node.labels:
-            raise LoadError(Diagnostic(
-                "error", "phys-board",
-                f"socket node {node.path} in board '{name}' has no label — "
-                "rig,socket references sockets by label", [src_of(node)]))
-        sockets[node.labels[0]] = BoardSocket(
-            label=node.labels[0], path=node.path, type_name=type_name,
-            gpio_map=gpio_map, buses=buses, cs_pool=cs_pool,
-            pwm_map=pwm_map, adc_map=adc_map, src=src_of(node))
-
-    return Board(name=name, sockets=sockets)
-
-
-def _gpio_map_entries(node: dtlib.Node):
-    return _map_entries(node, "gpio-map")
-
-
-def _map_entries(node: dtlib.Node, prop: str):
-    """Nexus map rows: <position pos_flags &ctrl out_index out_flags>. Uniform
-    5-cell rows (the trial's socket,pwm-map / socket,adc-map are rig-model data
-    read here, not dtc nexuses; gpio-map is the real thing, same shape)."""
-    if prop not in node.props:
-        return
-    cells = words(node.props[prop])
-    if len(cells) % 5:
-        raise LoadError(Diagnostic(
-            "error", "phys-board",
-            f"{prop} of {node.path} is not made of 5-cell rows", [src_of(node)]))
-    for i in range(0, len(cells), 5):
-        yield cells[i:i + 5]
+    return str(boards[name].dir / f"{name}.dts")

@@ -8,8 +8,15 @@ of `overlay` / `context.cmake` / `config-sheet.md` / `conf` the emitter
 produced. `expectations.yml` is deliberately excluded — parked to
 `claude/hw-expectations/`, never gated (see `claude/rigs/parked.md`).
 
-This is the FAST tier: no `west`/CMake, just the expander subprocess, safe to
-run on every commit.
+THE FLIP changed what "fast" means here: pass 1 now reads the REAL board
+devicetree (boarddt/board_edt/edt_build), which needs a real recipe (cpp
+include dirs + edtlib bindings dirs) — the cached-plain-build pattern
+(`conftest.plain_build_for`) supplies it via one real `west build
+--cmake-only` PER BOARD, memoized for the whole test session (4 boards, not
+13 rigs) rather than 13 independent configures. `test_tier1_golden` is
+therefore `@pytest.mark.build` now; `test_unknown_board_golden` stays
+UNMARKED — an unknown board is rejected by name-discovery alone (list_boards.py),
+before any recipe would even be needed, so it needs no build at all.
 
 Refreeze: set RIGEXP_REFREEZE=1 in the environment to rewrite the fixtures
 under tests/goldens/<rig-name>/ instead of asserting against them, e.g.:
@@ -28,13 +35,17 @@ import pytest
 
 from conftest import (
     ALL_CASES,
+    BOARD_DTS,
     FIXTURES_DIR,
     GOLDENS_DIR,
+    REPO_ROOT,
     RIGS_DIR,
     RigCase,
     assert_absent_or_refreeze,
     freeze_or_assert,
     normalize,
+    plain_build_for,
+    rig_board_name,
     rig_yml_name,
     run_expand,
     zephyr_base,
@@ -60,10 +71,17 @@ def test_corpus_complete() -> None:
     assert live == {c.folder for c in ALL_CASES}
 
 
+@pytest.mark.build
 @pytest.mark.parametrize("case", ALL_CASES, ids=lambda c: c.name)
-def test_tier1_golden(case: RigCase, tmp_path: Path) -> None:
+def test_tier1_golden(case: RigCase, tmp_path: Path,
+                      tmp_path_factory: "pytest.TempPathFactory") -> None:
+    board = rig_board_name(case.folder)
+    plain_build = plain_build_for(board, tmp_path_factory)
     out_dir = tmp_path / "out"
-    result = run_expand(RIGS_DIR / case.folder / "rig.yml", out_dir)
+    result = run_expand(
+        RIGS_DIR / case.folder / "rig.yml", out_dir,
+        board_dts=REPO_ROOT / BOARD_DTS[board],
+        build_info=plain_build.build_info)
 
     assert (result.returncode == 0) == case.accept, (
         f"{case.name}: expander exited {result.returncode}, expected "
@@ -106,6 +124,29 @@ def test_unknown_board_golden(tmp_path: Path) -> None:
 
     zb = zephyr_base()
     golden_dir = GOLDENS_DIR / "unknown-board"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_not_rig_enabled_golden(tmp_path: Path) -> None:
+    """Synthetic fixture (flip review finding 3): a board whose devicetree
+    EXISTS but declares no `socket,*` node must be rejected with the DISTINCT
+    "exists, but is not rig-enabled" phys-board diagnostic — the other half
+    of the pair test_unknown_board_golden covers. Fast (no build): the
+    fixture .dts is include-free, so the recipe is just zephyr's bindings dir
+    passed explicitly — no configured board context needed."""
+    out_dir = tmp_path / "out"
+    fixture = FIXTURES_DIR / "not-rig-enabled"
+    zb = zephyr_base()
+    result = run_expand(fixture / "rig.yml", out_dir,
+                        board_dts=fixture / "socketless_board.dts",
+                        bindings_dirs=[Path(zb) / "dts" / "bindings"])
+
+    assert result.returncode != 0, "a socket-less board must be rejected"
+    assert "[phys-board]" in result.stderr, result.stderr
+    assert "not rig-enabled" in result.stderr, result.stderr
+
+    golden_dir = GOLDENS_DIR / "not-rig-enabled"
     freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
 

@@ -3,7 +3,10 @@
 # Every commit must pass this (plus reviewer acceptance — see .claude/agents/).
 #
 # Usage:  ZEPHYR_BASE=<zephyr tree> scripts/check.sh
-#   CHECK_FAST=1   skip tests marked 'build' (slow tier-2 goldens)
+#   CHECK_FAST=1   skip tests marked 'build' — NOTE: since THE FLIP this
+#                  includes the tier-1 golden comparisons too (pass 1 reads
+#                  the real board DT, which needs a configured board recipe),
+#                  so the fast gate checks NO overlay goldens at all.
 #
 # Run it with the workspace venv active (or PYTHON=<venv python>) so mypy and
 # pytest are the pinned ones.

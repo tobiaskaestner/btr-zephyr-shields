@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from .boarddt import load_board
 from .ctypes_registry import load_types
 from .diag import Diagnostics
+from .edt_build import BuildRecipe
 from .model import Board, BoardSocket, BusRef, Device, Instance, Rig
 
 _DRIVER_HINTS = ("int", "irq")
@@ -67,8 +68,10 @@ def _key(inst: Instance, dev: Device):
     return (inst.socket, inst.name, dev.name)
 
 
-def analyze(rig: Rig, workdir: str, diags: Diagnostics) -> Solved | None:
-    board = load_board(rig.board, workdir, diags)
+def analyze(rig: Rig, workdir: str, diags: Diagnostics,
+            board_dts: str | None = None,
+            recipe: BuildRecipe | None = None) -> Solved | None:
+    board = load_board(rig.board, workdir, diags, board_dts, recipe)
     if board is None:
         return None
     solved = Solved(rig=rig, board=board)

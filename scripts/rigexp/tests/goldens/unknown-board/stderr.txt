@@ -1,3 +1,3 @@
 error[phys-board]: unknown board 'nonexistent_board_xyz'
-    no rig-enabled board DT found (scripts/rigexp/common-dts/boards/nonexistent_board_xyz.rig.dtsi)
-    rig-enabled boards: cytron_maker_pi_rp2040, frdm_k64f, frdm_k64f_btr, mikroe_quail, mikroe_quail_btr, nucleo_f401re, nucleo_f401re_btr, seeeduino_lotus, seeeduino_lotus_btr
+    no such board directory under ./boards
+    known boards: frdm_k64f_btr, mikroe_quail_btr, nucleo_f401re_btr, seeeduino_lotus_btr

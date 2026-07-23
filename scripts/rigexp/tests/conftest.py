@@ -26,7 +26,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import pytest
 import yaml
@@ -38,6 +38,18 @@ FIXTURES_DIR = TESTS_DIR / "fixtures"
 SHIELD_DIR = REPO_ROOT / "boards" / "shields"
 RIGS_DIR = REPO_ROOT / "boards" / "rigs"
 DTS_EQUIV = REPO_ROOT / "scripts" / "dts_equiv.py"
+
+# board name -> its OWN .dts, relative to the repo root (Conv. 4: typed
+# socket nodes live in the board's own devicetree). Shared by test_tier1_
+# goldens.py (--board-dts per rig) and test_board_read.py (the plain-build /
+# edt.pickle-cross-check corpus).
+BOARD_DTS: Dict[str, str] = {
+    "nucleo_f401re_btr": "boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts",
+    "mikroe_quail_btr": "boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts",
+    "frdm_k64f_btr": "boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts",
+    "seeeduino_lotus_btr": "boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts",
+}
+BOARDS: List[str] = list(BOARD_DTS)
 
 
 def _find_west_topdir(start: Path) -> Path:
@@ -128,13 +140,93 @@ def rig_yml_name(folder: str) -> str:
     return str(doc["rig"]["name"])
 
 
+def rig_board_name(folder: str) -> str:
+    """The rig.yml `rig.board` for a corpus folder — which of `BOARDS` this
+    rig needs a plain build (and --board-dts) for."""
+    with open(RIGS_DIR / folder / "rig.yml") as f:
+        doc = yaml.safe_load(f)
+    return str(doc["rig"]["board"])
+
+
+# ---------------------------------------------------------------- cached plain builds
+
+
+@dataclasses.dataclass(frozen=True)
+class PlainBuild:
+    """One board's plain (no shield, no rig) `west build --cmake-only` — the
+    "cached-plain-build pattern" (Bridge-A saferail 13): the real recipe
+    (cpp include dirs + edtlib bindings dirs) a Zephyr configure computed for
+    this board, recovered from its own `build_info.yml` rather than
+    re-deriving `cmake/rig.cmake`'s pre_dt.cmake mirror a second time in
+    Python. Session-memoized by board (see `plain_build_for`) — every rig
+    naming the same board reuses ONE configure."""
+    board: str
+    build_dir: Path
+
+    @property
+    def build_info(self) -> Path:
+        return self.build_dir / "build_info.yml"
+
+    @property
+    def edt_pickle(self) -> Path:
+        return self.build_dir / "zephyr" / "edt.pickle"
+
+
+# Any app works for a cmake-only PLAIN configure; hello_world is the corpus's
+# own reference app (see test_tier2_goldens.py).
+_PLAIN_BUILD_APP = "zephyr/samples/hello_world"
+
+_plain_build_cache: Dict[str, PlainBuild] = {}
+
+
+def _run_plain_build(board: str, build_dir: Path) -> "subprocess.CompletedProcess[str]":
+    """`west build --cmake-only -b <board>` of `hello_world` — deliberately
+    PLAIN: no `--shield`, no `-DRIG`, so this exercises the legacy/plain
+    board path a board conversion must never break (saferail 11)."""
+    zb = zephyr_base()
+    env = dict(os.environ)
+    env["ZEPHYR_BASE"] = zb
+    cmd = [WEST_EXE, "build", "--cmake-only", "-b", board, _PLAIN_BUILD_APP,
+           "-p", "always", "-d", str(build_dir)]
+    return subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=env,
+                           capture_output=True, text=True, timeout=600)
+
+
+def plain_build_for(board: str, tmp_path_factory: "pytest.TempPathFactory") -> PlainBuild:
+    """The cached-plain-build pattern: build `board` once per test session
+    (memoized across every test in every file that asks for it — a plain
+    function rather than a `@pytest.fixture(params=...)`, so a rig case can
+    request the ONE board it names without pytest cross-producting every rig
+    case against every board)."""
+    if board not in _plain_build_cache:
+        build_dir = tmp_path_factory.mktemp(f"plain-{board}")
+        result = _run_plain_build(board, build_dir)
+        assert result.returncode == 0, (
+            f"{board}: plain `west build --cmake-only` (no shield, no rig) "
+            f"must configure clean — saferail 11\n--- stdout ---\n"
+            f"{result.stdout}\n--- stderr ---\n{result.stderr}")
+        _plain_build_cache[board] = PlainBuild(board=board, build_dir=build_dir)
+    return _plain_build_cache[board]
+
+
 def run_expand(rig_yml: Path, out_dir: Path,
-               shield_dirs: Optional[List[Path]] = None
+               shield_dirs: Optional[List[Path]] = None,
+               board_dts: Optional[Path] = None,
+               build_info: Optional[Path] = None,
+               bindings_dirs: Optional[List[Path]] = None,
                ) -> "subprocess.CompletedProcess[str]":
-    """Run `python -m rigexp expand` exactly as rig.cmake does — a real
-    subprocess, cwd pinned to the repo root so any process-cwd-relative path a
+    """Run `python -m rigexp expand` exactly as rig.cmake does (modulo the
+    recipe form: rig.cmake passes --include-dir/--bindings-dir explicitly;
+    this harness reuses a cached plain build's --build-info instead, per the
+    cached-plain-build pattern — see `plain_build_for`) — a real subprocess,
+    cwd pinned to the repo root so any process-cwd-relative path a
     diagnostic renders (e.g. boarddt.py's unknown-board message, which uses a
-    bare `os.path.relpath`) is reproducible regardless of the caller's cwd."""
+    bare `os.path.relpath`) is reproducible regardless of the caller's cwd.
+
+    `board_dts`/`build_info` are both None for the unknown-board fixture —
+    deliberately, so the CLI exercises boarddt's own name->dts DISCOVERY
+    (list_boards.py) and its "board not found" diagnostic, exactly as a bare
+    standalone invocation would."""
     zb = zephyr_base()
     env = dict(os.environ)
     env["ZEPHYR_BASE"] = zb
@@ -143,6 +235,12 @@ def run_expand(rig_yml: Path, out_dir: Path,
     cmd = [sys.executable, "-m", "rigexp", "expand", str(rig_yml)]
     for d in dirs:
         cmd += ["--shield-dir", str(d)]
+    if board_dts is not None:
+        cmd += ["--board-dts", str(board_dts)]
+    if build_info is not None:
+        cmd += ["--build-info", str(build_info)]
+    for b in bindings_dirs or []:
+        cmd += ["--bindings-dir", str(b)]
     cmd += ["--out-dir", str(out_dir)]
     return subprocess.run(cmd, env=env, cwd=str(REPO_ROOT),
                            capture_output=True, text=True, timeout=120)

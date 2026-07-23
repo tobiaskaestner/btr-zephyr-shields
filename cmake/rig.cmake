@@ -133,6 +133,99 @@ foreach(_root ${BOARD_ROOT})
   endif()
 endforeach()
 
+# ---------------------------------------------------------------------------
+# Pass-1 recipe (THE FLIP; Bridge-A saferail 13, AMENDED): the board .dts +
+# the cpp include dirs / edtlib bindings dirs the expander's OWN edtlib.EDT
+# needs to read the REAL board devicetree (boarddt.py / board_edt.py /
+# edt_build.py). A real build's build_info.yml normally carries this
+# (dts.cmake:441-442, dts_build_info_output()), but that file does not exist
+# yet here — it is written by dts.cmake AFTER this module runs in a fresh
+# build dir (chicken-and-egg). `include(pre_dt)` is unsafe here too: its
+# arch_include loop needs ARCH_V2_NAME_LIST, which hwm_v2 sets — a module
+# that runs AFTER this one (shields@95 < hwm_v2@97 < pre_dt_board@103) — and
+# pre_dt.cmake's own include_guard(GLOBAL) would turn dts.cmake's later,
+# correct include(pre_dt) into a silent no-op, freezing
+# DTS_ROOT_SYSTEM_INCLUDE_DIRS at THIS incomplete result for the rest of the
+# configure. So this block COMPUTES the dirs itself, mirroring
+# cmake/modules/pre_dt.cmake's derivation by hand (verified against a real
+# build's build_info.yml — see the handoff report); saferail 3's edt.pickle
+# cross-check (tests/test_board_dualread.py) is the equivalence guard that
+# this mirror stays correct against pass-2's real one.
+#
+# DTS_ROOT already carries every Zephyr module's own `dts_root` setting (set
+# by the zephyr_module module, which — like boards — runs before shields).
+# pre_dt.cmake also folds in APPLICATION_SOURCE_DIR, BOARD_DIR, SHIELD_DIRS
+# and ZEPHYR_BASE; of those, only BOARD_DIR (boards.cmake has already run)
+# and ZEPHYR_BASE apply here — APPLICATION_SOURCE_DIR is deliberately
+# EXCLUDED (saferail 12: pass 1 reads only the board's own devicetree, with
+# no app/overlay context), and SHIELD_DIRS is not yet known at this point in
+# the file (RIG_SHIELDS comes from the expander's OWN output, resolved
+# below) — moot anyway, since the board-DTS read never needs shield
+# bindings.
+set(_rig_dts_root ${DTS_ROOT} "${BOARD_DIR}" "${ZEPHYR_BASE}")
+set(_rig_dts_root_real)
+foreach(_rig_dts_dir ${_rig_dts_root})
+  file(REAL_PATH "${_rig_dts_dir}" _rig_dts_real_dir)
+  list(APPEND _rig_dts_root_real "${_rig_dts_real_dir}")
+endforeach()
+list(REMOVE_DUPLICATES _rig_dts_root_real)
+
+# Arch include dirs: pre_dt.cmake builds `dts/<arch>` per entry of
+# ARCH_V2_NAME_LIST (unavailable here, see above). Glob
+# `${ZEPHYR_BASE}/dts/*` instead: every arch name is itself a subdirectory of
+# zephyr's own `dts/` (dts/arm, dts/riscv, …), so this recovers the same
+# name set without ARCH_V2_NAME_LIST. It also picks up `dts/common`,
+# `dts/vendor`, `dts/bindings` as spurious extra names — already covered
+# below by their own fixed entries, or (bindings) simply an unused extra -I
+# directory — a harmless superset for a C preprocessor search path.
+file(GLOB _rig_dts_arch_candidates LIST_DIRECTORIES true "${ZEPHYR_BASE}/dts/*")
+set(_rig_dts_arch_names)
+foreach(_rig_dts_arch_dir ${_rig_dts_arch_candidates})
+  if(IS_DIRECTORY "${_rig_dts_arch_dir}")
+    get_filename_component(_rig_dts_arch_name "${_rig_dts_arch_dir}" NAME)
+    list(APPEND _rig_dts_arch_names "${_rig_dts_arch_name}")
+  endif()
+endforeach()
+
+# Finalize the two lists dts.cmake itself derives from DTS_ROOT: system
+# include dirs (DTS_ROOT_SYSTEM_INCLUDE_DIRS, pre_dt.cmake) and bindings dirs
+# (DTS_ROOT_BINDINGS, dts.cmake) — existing directories only, per-root.
+set(_rig_dts_include_dirs)
+set(_rig_dts_bindings_dirs)
+foreach(_rig_dts_root_dir ${_rig_dts_root_real})
+  foreach(_rig_dts_sub include include/zephyr dts/common dts/vendor dts)
+    if(EXISTS "${_rig_dts_root_dir}/${_rig_dts_sub}")
+      list(APPEND _rig_dts_include_dirs "${_rig_dts_root_dir}/${_rig_dts_sub}")
+    endif()
+  endforeach()
+  foreach(_rig_dts_arch_name ${_rig_dts_arch_names})
+    if(EXISTS "${_rig_dts_root_dir}/dts/${_rig_dts_arch_name}")
+      list(APPEND _rig_dts_include_dirs "${_rig_dts_root_dir}/dts/${_rig_dts_arch_name}")
+    endif()
+  endforeach()
+  if(EXISTS "${_rig_dts_root_dir}/dts/bindings")
+    list(APPEND _rig_dts_bindings_dirs "${_rig_dts_root_dir}/dts/bindings")
+  endif()
+endforeach()
+
+# The board's own devicetree (Conv. 4). Our clones are simple hwmv2 boards —
+# single SoC, no board revision suffix — so this is exactly
+# dts.cmake:dts_configuration_files()'s DTS_SOURCE for this board:
+# `${BOARD_DIR}/${BOARD}.dts`. The in-build path always passes this
+# explicitly (--board-dts below); boarddt.py's own name->dts discovery
+# (list_boards.py) is the standalone/CLI-only fallback for when it isn't.
+set(_rig_board_dts "${BOARD_DIR}/${BOARD}.dts")
+
+set(_rig_include_dir_args)
+foreach(_rig_dts_dir ${_rig_dts_include_dirs})
+  list(APPEND _rig_include_dir_args --include-dir "${_rig_dts_dir}")
+endforeach()
+set(_rig_bindings_dir_args)
+foreach(_rig_dts_dir ${_rig_dts_bindings_dirs})
+  list(APPEND _rig_bindings_dir_args --bindings-dir "${_rig_dts_dir}")
+endforeach()
+# ---------------------------------------------------------------------------
+
 if(RIG_EXPAND_COMMAND)
   set(_rig_cmd ${RIG_EXPAND_COMMAND})
 else()
@@ -141,6 +234,9 @@ else()
     "ZEPHYR_BASE=${ZEPHYR_BASE}"
     "${PYTHON_EXECUTABLE}" -m rigexp expand "${_rig_yml}"
     ${_rig_shield_dir_args}
+    --board-dts "${_rig_board_dts}"
+    ${_rig_include_dir_args}
+    ${_rig_bindings_dir_args}
     --out-dir "${_rig_out_dir}")
 endif()
 
@@ -338,3 +434,37 @@ list(TRANSFORM SHIELD_LIST PREPEND "COMMAND;${CMAKE_COMMAND};-E;echo;"
 )
 
 add_custom_target(shields ${shields_target_cmd} USES_TERMINAL)
+
+# ---------------------------------------------------------------------------
+# Build-info provenance (rig-build provenance requirement): record what THIS
+# rig build looked at, via zephyr's own build_info() (cmake/modules/
+# extensions.cmake) — the same mechanism dts.cmake:441-442 uses for its own
+# devicetree section. "rig" is not one of build-schema.yaml's own cmake.*
+# tags, and that file is upstream (zephyr-rigs/scripts/schemas/
+# build-schema.yaml) — not ours to extend — so this rides the schema's own
+# downstream-owned escape hatch, `vendor-specific`, whose own schema entry is
+# `cmake.vendor-specific.<key>.<subkey>: string` (exactly two levels, string
+# leaves only). Verified empirically (see the handoff report): this lands at
+# cmake.vendor-specific.rig.* in build_info.yml, NOT the naively-expected
+# cmake.rig.*. Multi-valued facts (shields, their resolved dirs) are JOINed
+# into ONE string before the call: build_info()'s vendor-specific path always
+# forces its underlying yaml_set() KEY type to VALUE (never LIST), and an
+# un-joined CMake list silently truncates to its first element there
+# (verified: a 2-shield rig recorded only the first shield until joined).
+list(JOIN RIG_SHIELDS ", " _rig_shields_joined)
+list(JOIN SHIELD_DIRS ", " _rig_shield_dirs_joined)
+
+build_info(vendor-specific rig name VALUE "${RIG_NAME}")
+build_info(vendor-specific rig board VALUE "${RIG_BOARD}")
+build_info(vendor-specific rig rig-yml VALUE "${_rig_yml}")
+build_info(vendor-specific rig board-dts VALUE "${_rig_board_dts}")
+build_info(vendor-specific rig shields VALUE "${_rig_shields_joined}")
+build_info(vendor-specific rig shield-dirs VALUE "${_rig_shield_dirs_joined}")
+build_info(vendor-specific rig out-dir VALUE "${_rig_out_dir}")
+if(EXISTS "${_rig_conf_file}")
+  build_info(vendor-specific rig rig-conf VALUE "${_rig_conf_file}")
+endif()
+if(EXISTS "${_rig_user_overlay}")
+  build_info(vendor-specific rig rig-overlay VALUE "${_rig_user_overlay}")
+endif()
+# ---------------------------------------------------------------------------

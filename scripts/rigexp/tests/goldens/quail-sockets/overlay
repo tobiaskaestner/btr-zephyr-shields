@@ -10,9 +10,9 @@
 	};
 };
 
-&spi1 {
-	cs-gpios = <&quail_sock1 2 1 /* ACTIVE_LOW */>;
-	flash_1_fc_nor: nor@0 {
+&spi3 {
+	cs-gpios = <&quail_sock3 2 1 /* ACTIVE_LOW */>;
+	flash_3_fc_nor: nor@0 {
 		compatible = "jedec,spi-nor";
 		spi-max-frequency = <8000000>;
 		jedec-id = [c8 40 15];
@@ -22,9 +22,9 @@
 	};
 };
 
-&spi3 {
-	cs-gpios = <&quail_sock3 2 1 /* ACTIVE_LOW */>;
-	flash_3_fc_nor: nor@0 {
+&spi1 {
+	cs-gpios = <&quail_sock1 2 1 /* ACTIVE_LOW */>;
+	flash_1_fc_nor: nor@0 {
 		compatible = "jedec,spi-nor";
 		spi-max-frequency = <8000000>;
 		jedec-id = [c8 40 15];

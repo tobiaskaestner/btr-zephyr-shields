@@ -1,0 +1,9 @@
+/dts-v1/;
+
+/* A valid but rig-oblivious board devicetree: parses clean, builds an EDT,
+ * contains no socket,* node. Deliberately include-free so the test needs no
+ * configured include dirs (the recipe is just a bindings dir). */
+/ {
+	model = "Socketless Fixture Board";
+	compatible = "vnd,socketless-board";
+};
