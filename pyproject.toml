@@ -22,7 +22,6 @@ ignore_errors = true
 [[tool.mypy.overrides]]
 module = [
     "rigexp.analyzer",
-    "rigexp.emitter",
     "rigexp.loader_yml",
     "rigexp.model",
     "rigexp.shields",

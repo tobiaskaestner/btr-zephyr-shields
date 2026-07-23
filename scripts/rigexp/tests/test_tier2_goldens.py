@@ -26,6 +26,7 @@ same rule as tier 1.
 from __future__ import annotations
 
 import os
+import pickle
 import subprocess
 import sys
 from pathlib import Path
@@ -38,11 +39,18 @@ from conftest import (
     GOLDENS_DIR,
     REFREEZE,
     REJECT_CASES,
+    REPO_ROOT,
     RigCase,
     WEST_EXE,
     WEST_TOPDIR,
     zephyr_base,
 )
+
+# Triggers python-devicetree onto sys.path (from $ZEPHYR_BASE) as an
+# import-time side effect, exactly like test_board_dualread.py -- needed to
+# unpickle a real edt.pickle below (its classes live in `devicetree.edtlib`).
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from rigexp import edt_build  # noqa: E402,F401
 
 pytestmark = pytest.mark.build
 
@@ -109,3 +117,46 @@ def test_tier2_reject_configure_fails(case: RigCase, tmp_path: Path) -> None:
         f"{case.name}: expected diagnostic category [{case.category}] in "
         f"the build output (diagnostic parity through west/CMake, saferail "
         f"4)\n{combined}")
+
+
+def test_tier2_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
+    """The PERMANENT semantic invariant Bridge-A step 2b's socket-relative
+    pwm/adc emission must hold (review finding, 2026-07-23): pass-2's own
+    `edt.pickle` -- the resolved `ControllerAndData` edtlib built while
+    compiling the real devicetree -- must show the servo's `pwms` and the
+    light sensor's `io-channels` landing on the SAME (controller, channel/
+    input, period) as before the socket-relative rewrite, now that
+    `vnd,pwm-servo`/`vnd,light-sensor` are typed (dts/bindings/test/) and
+    pass-2 actually resolves the nexus instead of leaving the props inert.
+    This is the REAL ground truth the vacuous devicetree_generated.h
+    identity check (phase 2b's original proof) failed to be, since neither
+    compatible had a binding typing these props at the time."""
+    build_dir = tmp_path / "build"
+    result = _run_build("lotus-pwm", build_dir)
+    assert result.returncode == 0, (
+        f"lotus-pwm: expected `west build-rig --cmake-only` to configure "
+        f"clean\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+
+    with open(build_dir / "zephyr" / "edt.pickle", "rb") as f:
+        edt = pickle.load(f)
+    nodes = {node.path: node for node in edt.nodes}
+
+    servo = nodes["/servo_1/servo"]
+    assert len(servo.props["pwms"].val) == 1, (
+        "servo pwms must resolve to exactly ONE entry — a trailing bogus "
+        "element means a flags cell crept back into the 2-cell emission")
+    pwm_spec = servo.props["pwms"].val[0]
+    assert "tcc0" in pwm_spec.controller.labels, (
+        f"servo pwms resolved to {pwm_spec.controller!r}, expected tcc0")
+    assert pwm_spec.data == {"channel": 0, "period": 20000000}, (
+        f"servo pwms resolved to {pwm_spec.data!r}, expected "
+        "channel 0 / period 20000000ns")
+
+    light = nodes["/light_1/light"]
+    assert len(light.props["io-channels"].val) == 1, (
+        "light io-channels must resolve to exactly ONE entry")
+    adc_spec = light.props["io-channels"].val[0]
+    assert "adc0" in adc_spec.controller.labels, (
+        f"light io-channels resolved to {adc_spec.controller!r}, expected adc0")
+    assert adc_spec.data == {"input": 0}, (
+        f"light io-channels resolved to {adc_spec.data!r}, expected input 0")

@@ -233,16 +233,43 @@ def _device_node(s, types, inst, dev, socket, unit=None, reg=None) -> list[str]:
                 f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {flags:#x}>;"
                 f"\t/* {ctype.posname(pos)}{' inverted' if inst.invert else ''} */")
         else:
-            # pwm/adc (Slice A): resolved form — these references are not
-            # nexuses in idiom. Position resolved to (controller, channel).
-            _fn, ctrl, ch, period, flags, _pos = s.channels[(inst.name, dev.name, ref.prop)]
-            posname = ctype.posname(ref.position)
+            # pwm/adc (Bridge-A rewrite step 2b): SOCKET-RELATIVE, unified
+            # with the gpio idiom above — dtc chases the socket's real
+            # pwm-map/io-channel-map nexus (step 2a) to the controller and
+            # channel; the expander no longer resolves the channel itself
+            # (that special case is retired).
+            #
+            # PWM cells: the 2a nexus's own #pwm-cells is 2 (position,
+            # period) — matching upstream atmel,sam0-tcc-pwm's flags-less
+            # 2-cell convention (channel, period). pwm-map-pass-thru
+            # <0x0 0xffffffff> carries exactly ONE cell through: period.
+            # There is NO cell for flags — a 3rd cell here is not absorbed
+            # by the map at all; dtlib parses it as the start of a BOGUS
+            # trailing phandle-array element (silently a spurious null
+            # entry when it happens to be 0, a hard EDTError otherwise).
+            # So flags must never be emitted here; see below.
+            _fn, _ctrl, _ch, period, flags, _pos = s.channels[
+                (inst.name, dev.name, ref.prop)]
+            pos = s.positions.get((inst.name, dev.name, ref.prop), ref.position)
             if ref.function == "pwm":
-                lines.append(f"\t\t{ref.prop} = <&{ctrl} {ch} {period} {flags:#x}>;"
-                             f"\t/* {posname} → {ctrl} ch{ch} */")
+                if flags:
+                    # The shield authored a nonzero PWM flag (e.g. polarity)
+                    # that this 2-cell socket geometry has no cell to carry
+                    # (2a design decision — flags-less, matching the
+                    # target's own #pwm-cells=2). No shield in the corpus
+                    # does this today; surfaced loudly rather than silently
+                    # dropped, since it is real wiring information.
+                    raise ValueError(
+                        f"{inst.name}/{dev.name}: {ref.prop} sets PWM flags "
+                        f"{flags:#x}, but the socket's pwm-map (#pwm-cells "
+                        "= 2: position, period) has no cell to carry them")
+                lines.append(
+                    f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {period}>;"
+                    f"\t/* {ctype.posname(pos)} */")
             else:  # adc
-                lines.append(f"\t\t{ref.prop} = <&{ctrl} {ch}>;"
-                             f"\t/* {posname} → {ctrl} ch{ch} */")
+                lines.append(
+                    f"\t\t{ref.prop} = <&{_nexus(socket)} {pos}>;"
+                    f"\t/* {ctype.posname(pos)} */")
     # R2/T6 gap #1: every device the analyzer accepted is, by definition,
     # installed hardware -- match the legacy shield convention of an
     # explicit status = "okay" on each instantiated device (not just its
@@ -359,12 +386,12 @@ def _sheet(s: Solved) -> str:
     if s.cs:
         types = load_types()
         out += ["", "## Chip-selects", ""]
-        for (inst, dev), (index, pos) in sorted(s.cs.items()):
-            socket = s.sockets[inst]
+        for (inst_name, dev_name), (index, pos) in sorted(s.cs.items()):
+            socket = s.sockets[inst_name]
             posname = types[socket.type_name].posname(pos)
             mapping = socket.gpio_map.get(pos)
             soc = f" → SoC {mapping[0]} pin {mapping[1]}" if mapping else ""
-            out.append(f"- {inst}/{dev}: CS index {index}, {posname}{soc}")
+            out.append(f"- {inst_name}/{dev_name}: CS index {index}, {posname}{soc}")
     return "\n".join(out) + "\n"
 
 
