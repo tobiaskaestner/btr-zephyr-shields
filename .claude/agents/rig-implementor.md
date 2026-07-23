@@ -46,6 +46,13 @@ criteria; do that task, nothing more.
   modules listed in `pyproject.toml` `[[tool.mypy.overrides]]`, remove it
   from that list in the same change. Never add a module to it.
 
+- **cmake layer (2026-07-23)**: never reintroduce per-board knowledge
+  tables in cmake — consume boards.cmake / list_boards outputs (hard Tobi
+  rule). The STRUCTURE of the cmake layer (what lives in the shields fork
+  vs rig.cmake vs anything else under cmake/) is UNDER REVIEW — a
+  driver-level analysis is pending before V1/V2; until it lands, do not
+  add new files under cmake/ without an explicit task instruction.
+
 # Verification before you hand off
 
 - Run the commit gate and get it fully green:
