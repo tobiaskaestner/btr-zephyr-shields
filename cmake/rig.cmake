@@ -32,6 +32,10 @@ include_guard(GLOBAL)
 
 include(extensions)
 include(python)
+# _rig_resolve_board_dts() is defined in cmake/shields.cmake (the fork
+# point that include()s this file for a -DRIG build, AFTER defining it) --
+# functions are global once defined, so it is already visible here; not
+# redefined to avoid duplicating zephyr's own board-target naming logic.
 
 # ---------------------------------------------------------------------------
 # Debuggability: render a command line copy-pasteably into a shell (zsh/bash),
@@ -253,17 +257,40 @@ foreach(_rig_dts_root_dir ${_rig_dts_root_real})
   endif()
 endforeach()
 
-# The board's own devicetree (Conv. 4). Our clones are simple hwmv2 boards —
-# single SoC, no board revision suffix — so this is exactly
-# dts.cmake:dts_configuration_files()'s DTS_SOURCE for this board:
-# `${BOARD_DIR}/${BOARD}.dts`. The in-build path always passes this
-# explicitly (--board-dts below); boarddt.py's own name->dts discovery
-# (list_boards.py) is the standalone/CLI-only fallback for when it isn't.
-set(_rig_board_dts "${BOARD_DIR}/${BOARD}.dts")
+# The board's own devicetree (Conv. 4). RE-USE zephyr's own board-target
+# naming via the SHARED helper (cmake/board_dts.cmake's
+# `_rig_resolve_board_dts` — also used by cmake/shields.cmake's fork, so
+# the naming logic is never duplicated between the two): for a PLAIN,
+# unextended board (BOARD_DIRECTORIES has one entry) this is exactly the
+# previous `${BOARD_DIR}/${BOARD}.dts` result; for an hwmv2 board
+# EXTENSION variant (e.g. `nucleo_f401re/stm32f401xe/rig` --
+# boards/extend/st/nucleo_f401re/) BOARD_DIRECTORIES also carries the
+# extension dir(s) registered against the base board by list_boards.py's
+# own `extend_v2_boards()`, so the variant's own
+# `nucleo_f401re_stm32f401xe_rig.dts` is found there.
+_rig_resolve_board_dts(_rig_board_dts)
+
+if(NOT _rig_board_dts)
+  message(FATAL_ERROR
+    "rig: could not locate a board .dts for BOARD=${BOARD} "
+    "BOARD_QUALIFIERS=${BOARD_QUALIFIERS} in any of: ${BOARD_DIRECTORIES}")
+endif()
 
 set(_rig_include_dir_args)
 foreach(_rig_dts_dir ${_rig_dts_include_dirs})
   list(APPEND _rig_include_dir_args --include-dir "${_rig_dts_dir}")
+endforeach()
+# BOARD_DIRECTORIES themselves (not just the fixed subpaths pre_dt.cmake
+# derives, mirrored into _rig_dts_include_dirs above) so an hwmv2 board
+# EXTENSION variant's own dts (which lives in a DIFFERENT directory than
+# the base board it `#include`s) can resolve that quoted include via the
+# ordinary cpp search-path fallback -- pass 1's own analog of
+# cmake/shields.cmake's DTS_EXTRA_CPPFLAGS fix for pass 2 (see that file
+# for the full gap description). A no-op for a plain, unextended board
+# (BOARD_DIRECTORIES == [BOARD_DIR], already covered by
+# _rig_dts_include_dirs's own BOARD_DIR entry).
+foreach(_rig_bdir ${BOARD_DIRECTORIES})
+  list(APPEND _rig_include_dir_args --include-dir "${_rig_bdir}")
 endforeach()
 set(_rig_bindings_dir_args)
 foreach(_rig_dts_dir ${_rig_dts_bindings_dirs})

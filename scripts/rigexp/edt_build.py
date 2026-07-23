@@ -64,12 +64,27 @@ def recipe_from_build_info(build_info_path: str) -> BuildRecipe:
     `cmake.devicetree.include-dirs` / `cmake.devicetree.bindings-dirs` --
     this is a *read of that record*, not a re-derivation, so it stays
     correct across Zephyr versions without mirroring `pre_dt.cmake`.
+
+    Also appends `cmake.board.path` (written by `boards.cmake`:
+    `build_info(board path PATH ${BOARD_DIRECTORIES})` -- every board
+    directory the configure resolved, base board first, then any hwmv2
+    board-EXTENSION directories registered against it). Plain boards get
+    exactly one entry here (their own dir, already implied by
+    `include-dirs`' subpaths); an extension variant's own dts lives in a
+    DIFFERENT directory than the base board it `#include`s, so its base
+    directory must be on the cpp search path too for that quoted include
+    to resolve -- this is the standalone-read analog of
+    `cmake/rig.cmake` appending the same `BOARD_DIRECTORIES` list to the
+    expander's `--include-dir` args for the in-build path.
     """
     with open(build_info_path) as f:
         doc = yaml.safe_load(f)
     devicetree = doc["cmake"]["devicetree"]
+    board_paths = doc["cmake"].get("board", {}).get("path", [])
+    if isinstance(board_paths, str):
+        board_paths = [board_paths]
     return BuildRecipe(
-        include_dirs=list(devicetree["include-dirs"]),
+        include_dirs=list(devicetree["include-dirs"]) + list(board_paths),
         bindings_dirs=list(devicetree["bindings-dirs"]))
 
 

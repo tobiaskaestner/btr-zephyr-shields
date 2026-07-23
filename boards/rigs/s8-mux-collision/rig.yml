@@ -3,7 +3,8 @@
 # per-scope address check (R26) fires within a scope, not just across them.
 #
 # Ported from frontend-trial/candidate-2-hybrid/s8-mux-collision.rig.yml;
-# board reference adjusted from `nucleo_f401re` to `nucleo_f401re_btr`; shield
+# board reference migrated (E1) to the hwmv2 board EXTENSION `rig` variant
+# of the real upstream nucleo_f401re — was `nucleo_f401re_btr`; shield
 # references renamed hyphen->underscore (i2c-mux -> i2c_mux, i2c-sensor ->
 # i2c_sensor).
 #
@@ -11,7 +12,7 @@
 
 rig:
   name: nucleo-mux-clash
-  board: nucleo_f401re_btr
+  board: nucleo_f401re/stm32f401xe/rig
   instances:
     - name: mux_1
       shield: i2c_mux

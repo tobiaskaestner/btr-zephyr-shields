@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# hwmv2 board extension: `rig` variant defconfig, mirrors the base board's
+# own nucleo_f401re_defconfig (BOARD_NUCLEO_F401RE selection already comes
+# from the base board's Kconfig.nucleo_f401re, osourced unconditionally).
+
+# Enable MPU
+CONFIG_ARM_MPU=y
+
+# Enable HW stack protection
+CONFIG_HW_STACK_PROTECTION=y
+
+CONFIG_SERIAL=y
+
+# console
+CONFIG_CONSOLE=y
+CONFIG_UART_CONSOLE=y

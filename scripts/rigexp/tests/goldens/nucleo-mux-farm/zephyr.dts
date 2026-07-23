@@ -2,32 +2,32 @@
 
 /* node '/' defined in zephyr-rigs/dts/common/skeleton.dtsi:9 */
 / {
-	#address-cells = < 0x1 >;                                                  /* in zephyr-rigs/dts/common/skeleton.dtsi:10 */
-	#size-cells = < 0x1 >;                                                     /* in zephyr-rigs/dts/common/skeleton.dtsi:11 */
-	model = "STMicroelectronics STM32F401RE-NUCLEO board (btr-shields clone)"; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:15 */
-	compatible = "st,stm32f401re-nucleo-btr";                                  /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:16 */
+	#address-cells = < 0x1 >;                              /* in zephyr-rigs/dts/common/skeleton.dtsi:10 */
+	#size-cells = < 0x1 >;                                 /* in zephyr-rigs/dts/common/skeleton.dtsi:11 */
+	model = "STMicroelectronics STM32F401RE-NUCLEO board"; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:16 */
+	compatible = "st,stm32f401re-nucleo";                  /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:17 */
 
 	/* node '/chosen' defined in zephyr-rigs/dts/common/skeleton.dtsi:13 */
 	chosen {
 		zephyr,flash-controller = &flash;         /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:26 */
 		zephyr,system-timer-companion = &rtc;     /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:27 */
-		zephyr,console = &usart2;                 /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:19 */
-		zephyr,shell-uart = &usart2;              /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:20 */
-		zephyr,sram = &sram0;                     /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:21 */
-		zephyr,flash = &flash0;                   /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:22 */
-		zephyr,code-partition = &slot0_partition; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:23 */
+		zephyr,console = &usart2;                 /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:20 */
+		zephyr,shell-uart = &usart2;              /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:21 */
+		zephyr,sram = &sram0;                     /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:22 */
+		zephyr,flash = &flash0;                   /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:23 */
+		zephyr,code-partition = &slot0_partition; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:24 */
 	};
 
 	/* node '/aliases' defined in zephyr-rigs/dts/common/skeleton.dtsi:15 */
 	aliases {
-		led0 = &green_led_2;       /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:54 */
-		sw0 = &user_button;        /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:55 */
-		pwm-led0 = &green_pwm_led; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:56 */
-		watchdog0 = &wwdg;         /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:57 */
-		die-temp0 = &die_temp;     /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:58 */
-		rtc = &rtc;                /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:59 */
-		volt-sensor0 = &vref;      /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:60 */
-		volt-sensor1 = &vbat;      /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:61 */
+		led0 = &green_led_2;       /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:55 */
+		sw0 = &user_button;        /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:56 */
+		pwm-led0 = &green_pwm_led; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:57 */
+		watchdog0 = &wwdg;         /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:58 */
+		die-temp0 = &die_temp;     /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:59 */
+		rtc = &rtc;                /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:60 */
+		volt-sensor0 = &vref;      /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:61 */
+		volt-sensor1 = &vbat;      /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:62 */
 	};
 
 	/* node '/soc' defined in zephyr-rigs/dts/arm/armv7-m.dtsi:6 */
@@ -79,39 +79,39 @@
 				reg = < 0x8000000 0x80000 >;        /* in zephyr-rigs/dts/arm/st/f4/stm32f401Xe.dtsi:17 */
 				ranges = < 0x0 0x8000000 0x80000 >; /* in zephyr-rigs/dts/arm/st/f4/stm32f401Xe.dtsi:18 */
 
-				/* node '/soc/flash-controller@40023c00/flash@8000000/partitions' defined in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:139 */
+				/* node '/soc/flash-controller@40023c00/flash@8000000/partitions' defined in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:140 */
 				partitions {
-					#address-cells = < 0x1 >; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:140 */
-					#size-cells = < 0x1 >;    /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:141 */
-					ranges;                   /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:142 */
+					#address-cells = < 0x1 >; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:141 */
+					#size-cells = < 0x1 >;    /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:142 */
+					ranges;                   /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:143 */
 
-					/* node '/soc/flash-controller@40023c00/flash@8000000/partitions/partition@0' defined in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:144 */
+					/* node '/soc/flash-controller@40023c00/flash@8000000/partitions/partition@0' defined in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:145 */
 					boot_partition: partition@0 {
-						compatible = "zephyr,mapped-partition"; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:145 */
-						label = "mcuboot";                      /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:146 */
-						reg = < 0x0 0x10000 >;                  /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:147 */
-						read-only;                              /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:148 */
+						compatible = "zephyr,mapped-partition"; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:146 */
+						label = "mcuboot";                      /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:147 */
+						reg = < 0x0 0x10000 >;                  /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:148 */
+						read-only;                              /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:149 */
 					};
 
-					/* node '/soc/flash-controller@40023c00/flash@8000000/partitions/partition@20000' defined in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:156 */
+					/* node '/soc/flash-controller@40023c00/flash@8000000/partitions/partition@20000' defined in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:157 */
 					slot0_partition: partition@20000 {
-						compatible = "zephyr,mapped-partition"; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:157 */
-						label = "image-0";                      /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:158 */
-						reg = < 0x20000 0x20000 >;              /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:159 */
+						compatible = "zephyr,mapped-partition"; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:158 */
+						label = "image-0";                      /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:159 */
+						reg = < 0x20000 0x20000 >;              /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:160 */
 					};
 
-					/* node '/soc/flash-controller@40023c00/flash@8000000/partitions/partition@40000' defined in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:162 */
+					/* node '/soc/flash-controller@40023c00/flash@8000000/partitions/partition@40000' defined in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:163 */
 					slot1_partition: partition@40000 {
-						compatible = "zephyr,mapped-partition"; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:163 */
-						label = "image-1";                      /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:164 */
-						reg = < 0x40000 0x20000 >;              /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:165 */
+						compatible = "zephyr,mapped-partition"; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:164 */
+						label = "image-1";                      /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:165 */
+						reg = < 0x40000 0x20000 >;              /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:166 */
 					};
 
-					/* node '/soc/flash-controller@40023c00/flash@8000000/partitions/partition@60000' defined in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:168 */
+					/* node '/soc/flash-controller@40023c00/flash@8000000/partitions/partition@60000' defined in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:169 */
 					scratch_partition: partition@60000 {
-						compatible = "zephyr,mapped-partition"; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:169 */
-						label = "image-scratch";                /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:170 */
-						reg = < 0x60000 0x20000 >;              /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:171 */
+						compatible = "zephyr,mapped-partition"; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:170 */
+						label = "image-scratch";                /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:171 */
+						reg = < 0x60000 0x20000 >;              /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:172 */
 					};
 				};
 			};
@@ -166,11 +166,11 @@
 			compatible = "st,stm32f4-rcc";   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:179 */
 			#clock-cells = < 0x2 >;          /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:180 */
 			reg = < 0x40023800 0x400 >;      /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:181 */
-			clocks = < &pll >;               /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:85 */
-			clock-frequency = < 0x501bd00 >; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:86 */
-			ahb-prescaler = < 0x1 >;         /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:87 */
-			apb1-prescaler = < 0x2 >;        /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:88 */
-			apb2-prescaler = < 0x1 >;        /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:89 */
+			clocks = < &pll >;               /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:86 */
+			clock-frequency = < 0x501bd00 >; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:87 */
+			ahb-prescaler = < 0x1 >;         /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:88 */
+			apb1-prescaler = < 0x2 >;        /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:89 */
+			apb2-prescaler = < 0x1 >;        /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:90 */
 			phandle = < 0x3 >;               /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:195 */
 
 			/* node '/soc/rcc@40023800/reset-controller' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:183 */
@@ -227,7 +227,7 @@
 				#gpio-cells = < 0x2 >;        /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:214 */
 				reg = < 0x40020000 0x400 >;   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:215 */
 				clocks = < &rcc 0x30 0x1 >;   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:216 */
-				phandle = < 0xe >;            /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:118 */
+				phandle = < 0xe >;            /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:119 */
 			};
 
 			/* node '/soc/pin-controller@40020000/gpio@40020400' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:219 */
@@ -237,7 +237,7 @@
 				#gpio-cells = < 0x2 >;        /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:222 */
 				reg = < 0x40020400 0x400 >;   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:223 */
 				clocks = < &rcc 0x30 0x2 >;   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:224 */
-				phandle = < 0xb >;            /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:109 */
+				phandle = < 0xb >;            /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:110 */
 			};
 
 			/* node '/soc/pin-controller@40020000/gpio@40020800' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:227 */
@@ -247,7 +247,7 @@
 				#gpio-cells = < 0x2 >;        /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:230 */
 				reg = < 0x40020800 0x400 >;   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:231 */
 				clocks = < &rcc 0x30 0x4 >;   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:232 */
-				phandle = < 0xf >;            /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:119 */
+				phandle = < 0xf >;            /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:120 */
 			};
 
 			/* node '/soc/pin-controller@40020000/gpio@40020c00' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:235 */
@@ -257,6 +257,7 @@
 				#gpio-cells = < 0x2 >;        /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:238 */
 				reg = < 0x40020c00 0x400 >;   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:239 */
 				clocks = < &rcc 0x30 0x8 >;   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:240 */
+				phandle = < 0x24 >;           /* in zephyr-rigs/boards/st/nucleo_f401re/st_morpho_connector.dtsi:15 */
 			};
 
 			/* node '/soc/pin-controller@40020000/gpio@40021000' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:243 */
@@ -293,12 +294,13 @@
 				#gpio-cells = < 0x2 >;        /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:270 */
 				reg = < 0x40021c00 0x400 >;   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:271 */
 				clocks = < &rcc 0x30 0x80 >;  /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:272 */
+				phandle = < 0x25 >;           /* in zephyr-rigs/boards/st/nucleo_f401re/st_morpho_connector.dtsi:15 */
 			};
 
 			/* node '/soc/pin-controller@40020000/adc1_in0_pa0' defined in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:13 */
 			adc1_in0_pa0: adc1_in0_pa0 {
 				pinmux = < 0x10 >;  /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:14 */
-				phandle = < 0x15 >; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:193 */
+				phandle = < 0x15 >; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:194 */
 			};
 
 			/* node '/soc/pin-controller@40020000/i2c1_scl_pb8' defined in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:287 */
@@ -306,7 +308,7 @@
 				pinmux = < 0x304 >; /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:288 */
 				bias-pull-up;       /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:289 */
 				drive-open-drain;   /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:290 */
-				phandle = < 0x9 >;  /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:107 */
+				phandle = < 0x9 >;  /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:108 */
 			};
 
 			/* node '/soc/pin-controller@40020000/i2c3_scl_pa8' defined in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:299 */
@@ -314,7 +316,7 @@
 				pinmux = < 0x104 >; /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:300 */
 				bias-pull-up;       /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:301 */
 				drive-open-drain;   /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:302 */
-				phandle = < 0xc >;  /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:116 */
+				phandle = < 0xc >;  /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:117 */
 			};
 
 			/* node '/soc/pin-controller@40020000/i2c1_sda_pb9' defined in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:313 */
@@ -322,7 +324,7 @@
 				pinmux = < 0x324 >; /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:314 */
 				bias-pull-up;       /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:315 */
 				drive-open-drain;   /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:316 */
-				phandle = < 0xa >;  /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:107 */
+				phandle = < 0xa >;  /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:108 */
 			};
 
 			/* node '/soc/pin-controller@40020000/i2c3_sda_pc9' defined in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:331 */
@@ -330,7 +332,7 @@
 				pinmux = < 0x524 >; /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:332 */
 				bias-pull-up;       /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:333 */
 				drive-open-drain;   /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:334 */
-				phandle = < 0xd >;  /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:116 */
+				phandle = < 0xd >;  /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:117 */
 			};
 
 			/* node '/soc/pin-controller@40020000/spi1_miso_pa6' defined in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:522 */
@@ -338,7 +340,7 @@
 				pinmux = < 0xc5 >;             /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:523 */
 				bias-pull-down;                /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:524 */
 				slew-rate = "very-high-speed"; /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:525 */
-				phandle = < 0x11 >;            /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:125 */
+				phandle = < 0x11 >;            /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:126 */
 			};
 
 			/* node '/soc/pin-controller@40020000/spi2_miso_pb14' defined in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:534 */
@@ -346,7 +348,7 @@
 				pinmux = < 0x3c5 >;            /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:535 */
 				bias-pull-down;                /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:536 */
 				slew-rate = "very-high-speed"; /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:537 */
-				phandle = < 0x18 >;            /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:132 */
+				phandle = < 0x18 >;            /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:133 */
 			};
 
 			/* node '/soc/pin-controller@40020000/spi1_mosi_pa7' defined in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:560 */
@@ -354,7 +356,7 @@
 				pinmux = < 0xe5 >;             /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:561 */
 				bias-pull-down;                /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:562 */
 				slew-rate = "very-high-speed"; /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:563 */
-				phandle = < 0x12 >;            /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:125 */
+				phandle = < 0x12 >;            /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:126 */
 			};
 
 			/* node '/soc/pin-controller@40020000/spi2_mosi_pb15' defined in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:572 */
@@ -362,7 +364,7 @@
 				pinmux = < 0x3e5 >;            /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:573 */
 				bias-pull-down;                /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:574 */
 				slew-rate = "very-high-speed"; /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:575 */
-				phandle = < 0x19 >;            /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:132 */
+				phandle = < 0x19 >;            /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:133 */
 			};
 
 			/* node '/soc/pin-controller@40020000/spi2_nss_pb12' defined in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:616 */
@@ -370,7 +372,7 @@
 				pinmux = < 0x385 >;            /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:617 */
 				bias-pull-up;                  /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:618 */
 				slew-rate = "very-high-speed"; /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:619 */
-				phandle = < 0x16 >;            /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:132 */
+				phandle = < 0x16 >;            /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:133 */
 			};
 
 			/* node '/soc/pin-controller@40020000/spi1_sck_pa5' defined in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:636 */
@@ -378,7 +380,7 @@
 				pinmux = < 0xa5 >;             /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:637 */
 				bias-pull-down;                /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:638 */
 				slew-rate = "very-high-speed"; /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:639 */
-				phandle = < 0x10 >;            /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:125 */
+				phandle = < 0x10 >;            /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:126 */
 			};
 
 			/* node '/soc/pin-controller@40020000/spi2_sck_pb13' defined in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:654 */
@@ -386,39 +388,39 @@
 				pinmux = < 0x3a5 >;            /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:655 */
 				bias-pull-down;                /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:656 */
 				slew-rate = "very-high-speed"; /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:657 */
-				phandle = < 0x17 >;            /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:132 */
+				phandle = < 0x17 >;            /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:133 */
 			};
 
 			/* node '/soc/pin-controller@40020000/tim2_ch1_pa5' defined in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:748 */
 			tim2_ch1_pa5: tim2_ch1_pa5 {
 				pinmux = < 0xa1 >;  /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:749 */
-				phandle = < 0x14 >; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:181 */
+				phandle = < 0x14 >; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:182 */
 			};
 
 			/* node '/soc/pin-controller@40020000/usart1_rx_pb7' defined in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:874 */
 			usart1_rx_pb7: usart1_rx_pb7 {
 				pinmux = < 0x2e7 >; /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:875 */
-				phandle = < 0x6 >;  /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:93 */
+				phandle = < 0x6 >;  /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:94 */
 			};
 
 			/* node '/soc/pin-controller@40020000/usart2_rx_pa3' defined in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:878 */
 			usart2_rx_pa3: usart2_rx_pa3 {
 				pinmux = < 0x67 >; /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:879 */
-				phandle = < 0x8 >; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:100 */
+				phandle = < 0x8 >; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:101 */
 			};
 
 			/* node '/soc/pin-controller@40020000/usart1_tx_pb6' defined in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:897 */
 			usart1_tx_pb6: usart1_tx_pb6 {
 				pinmux = < 0x2c7 >; /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:898 */
 				bias-pull-up;       /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:899 */
-				phandle = < 0x5 >;  /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:93 */
+				phandle = < 0x5 >;  /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:94 */
 			};
 
 			/* node '/soc/pin-controller@40020000/usart2_tx_pa2' defined in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:902 */
 			usart2_tx_pa2: usart2_tx_pa2 {
 				pinmux = < 0x47 >; /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:903 */
 				bias-pull-up;      /* in modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi:904 */
-				phandle = < 0x7 >; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:100 */
+				phandle = < 0x7 >; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:101 */
 			};
 		};
 
@@ -435,7 +437,7 @@
 			reg = < 0x40002c00 0x400 >;              /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:284 */
 			clocks = < &rcc 0x40 0x800 >;            /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:285 */
 			interrupts = < 0x0 0x0 >;                /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:286 */
-			status = "okay";                         /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:205 */
+			status = "okay";                         /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:206 */
 		};
 
 		/* node '/soc/serial@40011000' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:290 */
@@ -446,10 +448,10 @@
 			clocks = < &rcc 0x44 0x10 >;                   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:293 */
 			resets = < &rctl 0x484 >;                      /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:294 */
 			interrupts = < 0x25 0x0 >;                     /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:295 */
-			pinctrl-0 = < &usart1_tx_pb6 &usart1_rx_pb7 >; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:93 */
-			pinctrl-names = "default";                     /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:94 */
-			current-speed = < 0x1c200 >;                   /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:95 */
-			status = "okay";                               /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:96 */
+			pinctrl-0 = < &usart1_tx_pb6 &usart1_rx_pb7 >; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:94 */
+			pinctrl-names = "default";                     /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:95 */
+			current-speed = < 0x1c200 >;                   /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:96 */
+			status = "okay";                               /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:97 */
 		};
 
 		/* node '/soc/serial@40004400' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:299 */
@@ -460,10 +462,10 @@
 			clocks = < &rcc 0x40 0x20000 >;                /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:302 */
 			resets = < &rctl 0x411 >;                      /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:303 */
 			interrupts = < 0x26 0x0 >;                     /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:304 */
-			pinctrl-0 = < &usart2_tx_pa2 &usart2_rx_pa3 >; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:100 */
-			pinctrl-names = "default";                     /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:101 */
-			current-speed = < 0x1c200 >;                   /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:102 */
-			status = "okay";                               /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:103 */
+			pinctrl-0 = < &usart2_tx_pa2 &usart2_rx_pa3 >; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:101 */
+			pinctrl-names = "default";                     /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:102 */
+			current-speed = < 0x1c200 >;                   /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:103 */
+			status = "okay";                               /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:104 */
 		};
 
 		/* node '/soc/serial@40011400' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:308 */
@@ -478,7 +480,7 @@
 		};
 
 		/* node '/soc/i2c@40005400' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:317 */
-		i2c1: i2c@40005400 {
+		i2c1: arduino_i2c: i2c@40005400 {
 			compatible = "st,stm32-i2c-v1";              /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:318 */
 			#address-cells = < 0x1 >;                    /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:320 */
 			#size-cells = < 0x0 >;                       /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:321 */
@@ -488,12 +490,12 @@
 			             < 0x20 0x0 >;                   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:324 */
 			interrupt-names = "event",
 			                  "error";                   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:325 */
-			pinctrl-0 = < &i2c1_scl_pb8 &i2c1_sda_pb9 >; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:107 */
-			pinctrl-names = "default";                   /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:108 */
-			scl-gpios = < &gpiob 0x8 0x0 >;              /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:109 */
-			sda-gpios = < &gpiob 0x9 0x0 >;              /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:110 */
-			status = "okay";                             /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:111 */
-			clock-frequency = < 0x61a80 >;               /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:112 */
+			pinctrl-0 = < &i2c1_scl_pb8 &i2c1_sda_pb9 >; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:108 */
+			pinctrl-names = "default";                   /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:109 */
+			scl-gpios = < &gpiob 0x8 0x0 >;              /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:110 */
+			sda-gpios = < &gpiob 0x9 0x0 >;              /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:111 */
+			status = "okay";                             /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:112 */
+			clock-frequency = < 0x61a80 >;               /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:113 */
 			phandle = < 0x21 >;                          /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:707 */
 
 			/* node '/soc/i2c@40005400/mux@70' defined in <RIGEXP_BUILD>/rig/overlay:6 */
@@ -588,17 +590,17 @@
 			             < 0x49 0x0 >;                   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:348 */
 			interrupt-names = "event",
 			                  "error";                   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:349 */
-			pinctrl-0 = < &i2c3_scl_pa8 &i2c3_sda_pc9 >; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:116 */
-			pinctrl-names = "default";                   /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:117 */
-			scl-gpios = < &gpioa 0x8 0x0 >;              /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:118 */
-			sda-gpios = < &gpioc 0x9 0x0 >;              /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:119 */
-			status = "okay";                             /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:120 */
-			clock-frequency = < 0x61a80 >;               /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:121 */
+			pinctrl-0 = < &i2c3_scl_pa8 &i2c3_sda_pc9 >; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:117 */
+			pinctrl-names = "default";                   /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:118 */
+			scl-gpios = < &gpioa 0x8 0x0 >;              /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:119 */
+			sda-gpios = < &gpioc 0x9 0x0 >;              /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:120 */
+			status = "okay";                             /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:121 */
+			clock-frequency = < 0x61a80 >;               /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:122 */
 			phandle = < 0x23 >;                          /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:723 */
 		};
 
 		/* node '/soc/spi@40013000' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:353 */
-		spi1: spi@40013000 {
+		spi1: arduino_spi: spi@40013000 {
 			compatible = "st,stm32-spi";                                 /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:354 */
 			#address-cells = < 0x1 >;                                    /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:355 */
 			#size-cells = < 0x0 >;                                       /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:356 */
@@ -606,11 +608,11 @@
 			clocks = < &rcc 0x44 0x1000 >;                               /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:358 */
 			interrupts = < 0x23 0x0 >;                                   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:359 */
 			st,spi-data-width = "limited-8-16-bit";                      /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:360 */
-			pinctrl-0 = < &spi1_sck_pa5 &spi1_miso_pa6 &spi1_mosi_pa7 >; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:125 */
-			pinctrl-names = "default";                                   /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:126 */
-			cs-gpios = < &gpiob 0x6 0x11 >;                              /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:127 */
-			status = "okay";                                             /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:128 */
-			phandle = < 0x24 >;                                          /* in btr-shields/boards/st/nucleo_f401re_btr/arduino_r3_socket.dtsi:52 */
+			pinctrl-0 = < &spi1_sck_pa5 &spi1_miso_pa6 &spi1_mosi_pa7 >; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:126 */
+			pinctrl-names = "default";                                   /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:127 */
+			cs-gpios = < &gpiob 0x6 0x11 >;                              /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:128 */
+			status = "okay";                                             /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:129 */
+			phandle = < 0x27 >;                                          /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:55 */
 		};
 
 		/* node '/soc/usb@50000000' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:364 */
@@ -677,16 +679,16 @@
 			interrupts = < 0x1c 0x0 >;      /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:413 */
 			interrupt-names = "global";     /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:414 */
 			st,prescaler = < 0x0 >;         /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:415 */
-			status = "okay";                /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:177 */
+			status = "okay";                /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:178 */
 
 			/* node '/soc/timers@40000000/pwm' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:418 */
 			pwm2: pwm {
 				compatible = "st,stm32-pwm";   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:419 */
 				#pwm-cells = < 0x3 >;          /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:421 */
-				status = "okay";               /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:180 */
-				pinctrl-0 = < &tim2_ch1_pa5 >; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:181 */
-				pinctrl-names = "default";     /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:182 */
-				phandle = < 0x25 >;            /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:39 */
+				status = "okay";               /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:181 */
+				pinctrl-0 = < &tim2_ch1_pa5 >; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:182 */
+				pinctrl-names = "default";     /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:183 */
+				phandle = < 0x26 >;            /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:40 */
 			};
 
 			/* node '/soc/timers@40000000/counter' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:424 */
@@ -889,8 +891,8 @@
 			alarms-count = < 0x2 >;            /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:598 */
 			alrm-exti-line = < 0x11 >;         /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:599 */
 			clocks = < &rcc 0x40 0x10000000 >,
-			         < &rcc 0x3 0x2280070 >;   /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:187 */
-			status = "okay";                   /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:189 */
+			         < &rcc 0x3 0x2280070 >;   /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:188 */
+			status = "okay";                   /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:190 */
 
 			/* node '/soc/rtc@40002800/backup_regs' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:602 */
 			bbram: backup_regs {
@@ -915,11 +917,11 @@
 			st,adc-oversampler = "none";                                 /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:620 */
 			st,adc-internal-regulator = "none";                          /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:621 */
 			st,adc-has-injected-support;                                 /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:622 */
-			pinctrl-0 = < &adc1_in0_pa0 >;                               /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:193 */
-			pinctrl-names = "default";                                   /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:194 */
-			st,adc-clock-source = "SYNC";                                /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:195 */
-			st,adc-prescaler = < 0x2 >;                                  /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:196 */
-			status = "okay";                                             /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:197 */
+			pinctrl-0 = < &adc1_in0_pa0 >;                               /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:194 */
+			pinctrl-names = "default";                                   /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:195 */
+			st,adc-clock-source = "SYNC";                                /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:196 */
+			st,adc-prescaler = < 0x2 >;                                  /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:197 */
+			status = "okay";                                             /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:198 */
 			phandle = < 0x1f >;                                          /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:679 */
 		};
 
@@ -965,9 +967,9 @@
 			clocks = < &rcc 0x40 0x4000 >;                                                 /* in zephyr-rigs/dts/arm/st/f4/stm32f401.dtsi:26 */
 			interrupts = < 0x24 0x0 >;                                                     /* in zephyr-rigs/dts/arm/st/f4/stm32f401.dtsi:27 */
 			st,spi-data-width = "limited-8-16-bit";                                        /* in zephyr-rigs/dts/arm/st/f4/stm32f401.dtsi:28 */
-			pinctrl-0 = < &spi2_nss_pb12 &spi2_sck_pb13 &spi2_miso_pb14 &spi2_mosi_pb15 >; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:132 */
-			pinctrl-names = "default";                                                     /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:134 */
-			status = "okay";                                                               /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:135 */
+			pinctrl-0 = < &spi2_nss_pb12 &spi2_sck_pb13 &spi2_miso_pb14 &spi2_mosi_pb15 >; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:133 */
+			pinctrl-names = "default";                                                     /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:135 */
+			status = "okay";                                                               /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:136 */
 		};
 
 		/* node '/soc/spi@40003c00' defined in zephyr-rigs/dts/arm/st/f4/stm32f401.dtsi:32 */
@@ -1067,10 +1069,10 @@
 		clk_hse: clk-hse {
 			#clock-cells = < 0x0 >;            /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:64 */
 			compatible = "st,stm32-hse-clock"; /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:65 */
-			hse-bypass;                        /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:70 */
-			clock-frequency = < 0x7a1200 >;    /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:71 */
-			status = "okay";                   /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:72 */
-			phandle = < 0x1c >;                /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:80 */
+			hse-bypass;                        /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:71 */
+			clock-frequency = < 0x7a1200 >;    /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:72 */
+			status = "okay";                   /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:73 */
+			phandle = < 0x1c >;                /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:81 */
 		};
 
 		/* node '/clocks/clk-hsi' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:69 */
@@ -1094,20 +1096,20 @@
 			#clock-cells = < 0x0 >;       /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:84 */
 			compatible = "fixed-clock";   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:85 */
 			clock-frequency = < 0x7d00 >; /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:86 */
-			status = "okay";              /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:66 */
+			status = "okay";              /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:67 */
 		};
 
 		/* node '/clocks/pll' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:90 */
 		pll: pll {
 			#clock-cells = < 0x0 >;              /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:91 */
 			compatible = "st,stm32fx-pll-clock"; /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:92 */
-			div-m = < 0x8 >;                     /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:76 */
-			mul-n = < 0x150 >;                   /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:77 */
-			div-p = < 0x4 >;                     /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:78 */
-			div-q = < 0x7 >;                     /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:79 */
-			clocks = < &clk_hse >;               /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:80 */
-			status = "okay";                     /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:81 */
-			phandle = < 0x2 >;                   /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:85 */
+			div-m = < 0x8 >;                     /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:77 */
+			mul-n = < 0x150 >;                   /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:78 */
+			div-p = < 0x4 >;                     /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:79 */
+			div-q = < 0x7 >;                     /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:80 */
+			clocks = < &clk_hse >;               /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:81 */
+			status = "okay";                     /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:82 */
+			phandle = < 0x2 >;                   /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:86 */
 		};
 
 		/* node '/clocks/plli2s' defined in zephyr-rigs/dts/arm/st/f4/stm32f401.dtsi:11 */
@@ -1163,7 +1165,7 @@
 		ts-cal2-temp = < 0x6e >;          /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:677 */
 		ts-cal-vrefanalog = < 0xce4 >;    /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:678 */
 		io-channels = < &adc1 0x10 >;     /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:679 */
-		status = "okay";                  /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:201 */
+		status = "okay";                  /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:202 */
 	};
 
 	/* node '/vref' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:683 */
@@ -1172,7 +1174,7 @@
 		nvmem-cells = < &vrefint_otp >; /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:685 */
 		vrefint-cal-mv = < 0xce4 >;     /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:686 */
 		io-channels = < &adc1 0x11 >;   /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:687 */
-		status = "okay";                /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:209 */
+		status = "okay";                /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:210 */
 	};
 
 	/* node '/vbat' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:691 */
@@ -1180,7 +1182,7 @@
 		compatible = "st,stm32-vbat"; /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:692 */
 		ratio = < 0x4 >;              /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:693 */
 		io-channels = < &adc1 0x12 >; /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:694 */
-		status = "okay";              /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:213 */
+		status = "okay";              /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:214 */
 	};
 
 	/* node '/otgfs_phy' defined in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:698 */
@@ -1217,12 +1219,12 @@
 		status = "disabled";           /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:724 */
 	};
 
-	/* node '/connector_arduino_r3' defined in btr-shields/boards/st/nucleo_f401re_btr/arduino_r3_socket.dtsi:24 */
-	nucleo_ard: connector_arduino_r3 {
-		compatible = "socket,arduino-r3";          /* in btr-shields/boards/st/nucleo_f401re_btr/arduino_r3_socket.dtsi:25 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/st/nucleo_f401re_btr/arduino_r3_socket.dtsi:26 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/st/nucleo_f401re_btr/arduino_r3_socket.dtsi:27 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/st/nucleo_f401re_btr/arduino_r3_socket.dtsi:28 */
+	/* node '/connector' defined in zephyr-rigs/boards/st/nucleo_f401re/arduino_r3_connector.dtsi:10 */
+	arduino_header: connector {
+		compatible = "arduino-header-r3";          /* in zephyr-rigs/boards/st/nucleo_f401re/arduino_r3_connector.dtsi:11 */
+		#gpio-cells = < 0x2 >;                     /* in zephyr-rigs/boards/st/nucleo_f401re/arduino_r3_connector.dtsi:12 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in zephyr-rigs/boards/st/nucleo_f401re/arduino_r3_connector.dtsi:13 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in zephyr-rigs/boards/st/nucleo_f401re/arduino_r3_connector.dtsi:14 */
 		gpio-map = < 0x0 0x0 &gpioa 0x0 0x0 >,
 		           < 0x1 0x0 &gpioa 0x1 0x0 >,
 		           < 0x2 0x0 &gpioa 0x4 0x0 >,
@@ -1244,42 +1246,130 @@
 		           < 0x12 0x0 &gpioa 0x6 0x0 >,
 		           < 0x13 0x0 &gpioa 0x5 0x0 >,
 		           < 0x14 0x0 &gpiob 0x9 0x0 >,
-		           < 0x15 0x0 &gpiob 0x8 0x0 >;    /* in btr-shields/boards/st/nucleo_f401re_btr/arduino_r3_socket.dtsi:29 */
-		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/st/nucleo_f401re_btr/arduino_r3_socket.dtsi:51 */
-		socket,spi = < &spi1 >;                    /* in btr-shields/boards/st/nucleo_f401re_btr/arduino_r3_socket.dtsi:52 */
-		socket,stackable;                          /* in btr-shields/boards/st/nucleo_f401re_btr/arduino_r3_socket.dtsi:53 */
+		           < 0x15 0x0 &gpiob 0x8 0x0 >;    /* in zephyr-rigs/boards/st/nucleo_f401re/arduino_r3_connector.dtsi:15 */
 	};
 
-	/* node '/leds' defined in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:26 */
+	/* node '/st-morpho-header' defined in zephyr-rigs/boards/st/nucleo_f401re/st_morpho_connector.dtsi:10 */
+	st_morpho_header: st-morpho-header {
+		compatible = "st-morpho-header";        /* in zephyr-rigs/boards/st/nucleo_f401re/st_morpho_connector.dtsi:11 */
+		#gpio-cells = < 0x2 >;                  /* in zephyr-rigs/boards/st/nucleo_f401re/st_morpho_connector.dtsi:12 */
+		gpio-map-mask = < 0xff 0x0 >;           /* in zephyr-rigs/boards/st/nucleo_f401re/st_morpho_connector.dtsi:13 */
+		gpio-map-pass-thru = < 0x0 0x7f >;      /* in zephyr-rigs/boards/st/nucleo_f401re/st_morpho_connector.dtsi:14 */
+		gpio-map = < 0x0 0x0 &gpioc 0xa 0x0 >,
+		           < 0x1 0x0 &gpioc 0xb 0x0 >,
+		           < 0x2 0x0 &gpioc 0xc 0x0 >,
+		           < 0x3 0x0 &gpiod 0x2 0x0 >,
+		           < 0xc 0x0 &gpioa 0xd 0x0 >,
+		           < 0xe 0x0 &gpioa 0xe 0x0 >,
+		           < 0x10 0x0 &gpioa 0xf 0x0 >,
+		           < 0x14 0x0 &gpiob 0x7 0x0 >,
+		           < 0x16 0x0 &gpioc 0xd 0x0 >,
+		           < 0x18 0x0 &gpioc 0xe 0x0 >,
+		           < 0x1a 0x0 &gpioc 0xf 0x0 >,
+		           < 0x1b 0x0 &gpioa 0x0 0x0 >,
+		           < 0x1c 0x0 &gpioh 0x0 0x0 >,
+		           < 0x1d 0x0 &gpioa 0x1 0x0 >,
+		           < 0x1e 0x0 &gpioh 0x1 0x0 >,
+		           < 0x1f 0x0 &gpioa 0x4 0x0 >,
+		           < 0x21 0x0 &gpiob 0x0 0x0 >,
+		           < 0x22 0x0 &gpioc 0x2 0x0 >,
+		           < 0x23 0x0 &gpioc 0x1 0x0 >,
+		           < 0x24 0x0 &gpioc 0x3 0x0 >,
+		           < 0x25 0x0 &gpioc 0x0 0x0 >,
+		           < 0x48 0x0 &gpioc 0x9 0x0 >,
+		           < 0x49 0x0 &gpioc 0x8 0x0 >,
+		           < 0x4a 0x0 &gpiob 0x8 0x0 >,
+		           < 0x4b 0x0 &gpioc 0x6 0x0 >,
+		           < 0x4c 0x0 &gpiob 0x9 0x0 >,
+		           < 0x4d 0x0 &gpioc 0x5 0x0 >,
+		           < 0x52 0x0 &gpioa 0x5 0x0 >,
+		           < 0x53 0x0 &gpioa 0xc 0x0 >,
+		           < 0x54 0x0 &gpioa 0x6 0x0 >,
+		           < 0x55 0x0 &gpioa 0xb 0x0 >,
+		           < 0x56 0x0 &gpioa 0x7 0x0 >,
+		           < 0x57 0x0 &gpiob 0xc 0x0 >,
+		           < 0x58 0x0 &gpiob 0x6 0x0 >,
+		           < 0x5a 0x0 &gpioc 0x7 0x0 >,
+		           < 0x5c 0x0 &gpioa 0x9 0x0 >,
+		           < 0x5d 0x0 &gpiob 0x2 0x0 >,
+		           < 0x5e 0x0 &gpioa 0x8 0x0 >,
+		           < 0x5f 0x0 &gpiob 0x1 0x0 >,
+		           < 0x60 0x0 &gpiob 0xa 0x0 >,
+		           < 0x61 0x0 &gpiob 0xf 0x0 >,
+		           < 0x62 0x0 &gpiob 0x4 0x0 >,
+		           < 0x63 0x0 &gpiob 0xe 0x0 >,
+		           < 0x64 0x0 &gpiob 0x5 0x0 >,
+		           < 0x65 0x0 &gpiob 0xd 0x0 >,
+		           < 0x66 0x0 &gpiob 0x3 0x0 >,
+		           < 0x68 0x0 &gpioa 0xa 0x0 >,
+		           < 0x69 0x0 &gpioc 0x4 0x0 >,
+		           < 0x6a 0x0 &gpioa 0x2 0x0 >,
+		           < 0x6c 0x0 &gpioa 0x3 0x0 >; /* in zephyr-rigs/boards/st/nucleo_f401re/st_morpho_connector.dtsi:15 */
+	};
+
+	/* node '/leds' defined in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:27 */
 	leds: leds {
-		compatible = "gpio-leds"; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:27 */
+		compatible = "gpio-leds"; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:28 */
 
-		/* node '/leds/led_2' defined in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:29 */
+		/* node '/leds/led_2' defined in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:30 */
 		green_led_2: led_2 {
-			gpios = < &gpioa 0x5 0x0 >; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:30 */
-			label = "User LD2";         /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:31 */
+			gpios = < &gpioa 0x5 0x0 >; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:31 */
+			label = "User LD2";         /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:32 */
 		};
 	};
 
-	/* node '/pwmleds' defined in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:35 */
+	/* node '/pwmleds' defined in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:36 */
 	pwmleds {
-		compatible = "pwm-leds"; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:36 */
+		compatible = "pwm-leds"; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:37 */
 
-		/* node '/pwmleds/green_pwm_led' defined in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:38 */
+		/* node '/pwmleds/green_pwm_led' defined in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:39 */
 		green_pwm_led: green_pwm_led {
-			pwms = < &pwm2 0x1 0x1312d00 0x0 >; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:39 */
+			pwms = < &pwm2 0x1 0x1312d00 0x0 >; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:40 */
 		};
 	};
 
-	/* node '/gpio_keys' defined in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:43 */
+	/* node '/gpio_keys' defined in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:44 */
 	gpio_keys {
-		compatible = "gpio-keys"; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:44 */
+		compatible = "gpio-keys"; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:45 */
 
-		/* node '/gpio_keys/button' defined in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:46 */
+		/* node '/gpio_keys/button' defined in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:47 */
 		user_button: button {
-			label = "User";             /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:47 */
-			gpios = < &gpioc 0xd 0x1 >; /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:48 */
-			zephyr,code = < 0xb >;      /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:49 */
+			label = "User";             /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:48 */
+			gpios = < &gpioc 0xd 0x1 >; /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:49 */
+			zephyr,code = < 0xb >;      /* in zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts:50 */
 		};
+	};
+
+	/* node '/connector_arduino_r3' defined in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:27 */
+	nucleo_ard: connector_arduino_r3 {
+		compatible = "socket,arduino-r3";          /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:28 */
+		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:29 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:30 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:31 */
+		gpio-map = < 0x0 0x0 &gpioa 0x0 0x0 >,
+		           < 0x1 0x0 &gpioa 0x1 0x0 >,
+		           < 0x2 0x0 &gpioa 0x4 0x0 >,
+		           < 0x3 0x0 &gpiob 0x0 0x0 >,
+		           < 0x4 0x0 &gpioc 0x1 0x0 >,
+		           < 0x5 0x0 &gpioc 0x0 0x0 >,
+		           < 0x6 0x0 &gpioa 0x3 0x0 >,
+		           < 0x7 0x0 &gpioa 0x2 0x0 >,
+		           < 0x8 0x0 &gpioa 0xa 0x0 >,
+		           < 0x9 0x0 &gpiob 0x3 0x0 >,
+		           < 0xa 0x0 &gpiob 0x5 0x0 >,
+		           < 0xb 0x0 &gpiob 0x4 0x0 >,
+		           < 0xc 0x0 &gpiob 0xa 0x0 >,
+		           < 0xd 0x0 &gpioa 0x8 0x0 >,
+		           < 0xe 0x0 &gpioa 0x9 0x0 >,
+		           < 0xf 0x0 &gpioc 0x7 0x0 >,
+		           < 0x10 0x0 &gpiob 0x6 0x0 >,
+		           < 0x11 0x0 &gpioa 0x7 0x0 >,
+		           < 0x12 0x0 &gpioa 0x6 0x0 >,
+		           < 0x13 0x0 &gpioa 0x5 0x0 >,
+		           < 0x14 0x0 &gpiob 0x9 0x0 >,
+		           < 0x15 0x0 &gpiob 0x8 0x0 >;    /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:32 */
+		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:54 */
+		socket,spi = < &spi1 >;                    /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:55 */
+		socket,stackable;                          /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:56 */
 	};
 };

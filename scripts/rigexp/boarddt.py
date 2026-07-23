@@ -98,22 +98,70 @@ def _discover_board_dts(name: str, diags: Diagnostics) -> Optional[str]:
     has no `--json` mode to subprocess+parse the way list_shields.py does, so
     a direct import is the cleaner half of that pattern here). Searches only
     this module's OWN board root (`MODULE_ROOT`) — every board this rig
-    tooling can ever reference is one of its own clones."""
+    tooling can ever reference on its OWN is one of its own clones.
+
+    `name` may carry hwmv2 qualifiers (`<board>/<qualifiers...>`, e.g. an
+    extension variant `nucleo_f401re/stm32f401xe/rig` —
+    boards/extend/st/nucleo_f401re/): the qualifiers select a
+    `<board>_<qualifiers>[.dts]` file (full form, falling back to the
+    single-SoC SHORT form that drops the leading SoC segment — the same
+    two candidates `dts.cmake`'s own `dts_configuration_files()` tries),
+    never a bespoke naming rule. KNOWN GAP: this fallback cannot complete
+    an extension whose BASE board lives OUTSIDE `MODULE_ROOT` (e.g. a real
+    upstream board in `$ZEPHYR_BASE`, our nucleo_f401re case) —
+    `list_boards.find_v2_boards()` only attaches a `board.yml` `extend:`
+    entry to a base it can already see, so a MODULE_ROOT-only scan never
+    learns of `nucleo_f401re` at all and reports it unknown. The in-build
+    path (rig.cmake) never hits this: BOARD_DIR/BOARD_DIRECTORIES are
+    already resolved by boards.cmake (which scans every real BOARD_ROOT)
+    long before the expander runs, so `--board-dts` is always passed
+    explicitly for a real build. Widening this fallback's own board root
+    to include `$ZEPHYR_BASE` would fix it but pulls the ENTIRE upstream
+    board catalog into the "unknown board" diagnostic's "known boards"
+    listing — not attempted here; out of scope for this migration slice.
+    """
     zephyr_base = os.environ["ZEPHYR_BASE"]
     scripts_dir = os.path.join(zephyr_base, "scripts")
     if scripts_dir not in sys.path:
         sys.path.insert(0, scripts_dir)
     import list_boards  # noqa: E402  (zephyr script, consumed not forked)
 
+    board_name, _, qualifiers = name.partition("/")
     args = argparse.Namespace(
         board_roots=[Path(MODULE_ROOT)], soc_roots=[Path(zephyr_base)],
         board=None, board_dir=[])
     boards = list_boards.find_v2_boards(args)
-    if name not in boards:
+    if board_name not in boards:
         diags.error(
             "phys-board",
             f"unknown board '{name}'\n"
             f"no such board directory under {os.path.relpath(MODULE_ROOT)}/boards\n"
             f"known boards: {', '.join(sorted(boards)) or '(none)'}")
         return None
-    return str(boards[name].dir / f"{name}.dts")
+
+    board = boards[board_name]
+    directories = (board.directories if isinstance(board.directories, list)
+                   else [board.directories])
+    if not qualifiers:
+        candidates = [board_name]
+    else:
+        segments = qualifiers.split("/")
+        candidates = ["_".join([board_name] + segments)]
+        socs = len(board.socs) if board.socs else 0
+        if socs == 1 and len(segments) > 1:
+            candidates.append("_".join([board_name] + segments[1:]))
+
+    # Later directories win on a naming collision, matching dts.cmake's own
+    # (no-break, last-match-overwrites) BOARD_DIRECTORIES search loop.
+    for directory in reversed(directories):
+        for candidate in candidates:
+            path = directory / f"{candidate}.dts"
+            if path.is_file():
+                return str(path)
+
+    diags.error(
+        "phys-board",
+        f"unknown board '{name}'\n"
+        f"no '{candidates[0]}.dts' (or short form) found in any of: "
+        f"{', '.join(str(d) for d in directories)}")
+    return None

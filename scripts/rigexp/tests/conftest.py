@@ -43,8 +43,16 @@ DTS_EQUIV = REPO_ROOT / "scripts" / "dts_equiv.py"
 # socket nodes live in the board's own devicetree). Shared by test_tier1_
 # goldens.py (--board-dts per rig) and test_board_read.py (the plain-build /
 # edt.pickle-cross-check corpus).
+#
+# nucleo_f401re: hwmv2 board EXTENSION (E1 slice, board-extension-
+# migration.md), not a clone -- `board:` is the FULL qualified target
+# (rig.yml names it explicitly, no expander-side sugar) and its .dts lives
+# under boards/extend/, layered on top of the REAL upstream
+# zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts via `#include`. The
+# other three boards stay `_btr` clones (E2/E3 -- untouched by this slice).
 BOARD_DTS: Dict[str, str] = {
-    "nucleo_f401re_btr": "boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts",
+    "nucleo_f401re/stm32f401xe/rig":
+        "boards/extend/st/nucleo_f401re/nucleo_f401re_stm32f401xe_rig.dts",
     "mikroe_quail_btr": "boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts",
     "frdm_k64f_btr": "boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts",
     "seeeduino_lotus_btr": "boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts",
@@ -222,7 +230,10 @@ def plain_build_for(board: str, tmp_path_factory: "pytest.TempPathFactory") -> P
     request the ONE board it names without pytest cross-producting every rig
     case against every board)."""
     if board not in _plain_build_cache:
-        build_dir = tmp_path_factory.mktemp(f"plain-{board}")
+        # A qualified hwmv2 target (e.g. "nucleo_f401re/stm32f401xe/rig")
+        # carries "/" -- sanitize for the tmp-dir BASENAME only; `board`
+        # itself is passed to `-b` unchanged just below.
+        build_dir = tmp_path_factory.mktemp(f"plain-{board.replace('/', '_')}")
         result = _run_plain_build(board, build_dir)
         assert result.returncode == 0, (
             f"{board}: plain `west build --cmake-only` (no shield, no rig) "

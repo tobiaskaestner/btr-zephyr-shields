@@ -6,13 +6,14 @@
 # sensor sits behind which channel is socket placement (R27).
 #
 # Ported from frontend-trial/candidate-2-hybrid/s8-mux.rig.yml; board
-# reference adjusted from `nucleo_f401re` to `nucleo_f401re_btr` (already
-# ported in P3 3a — no board work needed here); shield references renamed
-# hyphen->underscore (i2c-mux -> i2c_mux, i2c-sensor -> i2c_sensor).
+# reference migrated (E1) to the hwmv2 board EXTENSION `rig` variant of the
+# real upstream nucleo_f401re — was `nucleo_f401re_btr` (P3 3a); shield
+# references renamed hyphen->underscore (i2c-mux -> i2c_mux, i2c-sensor ->
+# i2c_sensor).
 
 rig:
   name: nucleo-mux-farm
-  board: nucleo_f401re_btr
+  board: nucleo_f401re/stm32f401xe/rig
   instances:
     - name: mux_1
       shield: i2c_mux

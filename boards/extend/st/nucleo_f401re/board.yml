@@ -1,0 +1,5 @@
+board:
+  extend: nucleo_f401re
+  variants:
+    - name: rig
+      qualifier: stm32f401xe

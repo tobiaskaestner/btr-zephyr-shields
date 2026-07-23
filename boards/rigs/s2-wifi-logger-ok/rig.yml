@@ -8,11 +8,12 @@
 # one-line instantiation parameter.
 #
 # Ported from frontend-trial/candidate-2-hybrid/s2-wifi-logger-ok.rig.yml;
-# board reference adjusted from `nucleo_f401re` to `nucleo_f401re_btr` (P3 3a).
+# board reference migrated (E1) to the hwmv2 board EXTENSION `rig` variant
+# of the real upstream nucleo_f401re — was `nucleo_f401re_btr` (P3 3a).
 
 rig:
   name: nucleo-wifi-logger-ok
-  board: nucleo_f401re_btr
+  board: nucleo_f401re/stm32f401xe/rig
   instances:
     - name: logger_1
       shield: adafruit_data_logger

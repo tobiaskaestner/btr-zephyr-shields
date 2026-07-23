@@ -1,0 +1,13 @@
+/*
+ * hwmv2 board EXTENSION (E1, board-extension-migration.md): `rig` variant
+ * of the real upstream nucleo_f401re board (board.yml `extend:`). Pulls in
+ * the REAL base board dts verbatim (its legacy arduino_r3_connector/
+ * st_morpho_connector nexus nodes come along unmodified -- that is
+ * intended, not a regression: closer to what a converted upstream board
+ * looks like) and adds the typed rig socket layer on top (Convention 4).
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include "nucleo_f401re.dts"
+#include "arduino_r3_socket.dtsi"
