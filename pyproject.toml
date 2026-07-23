@@ -24,7 +24,6 @@ module = [
     "rigexp.analyzer",
     "rigexp.loader_yml",
     "rigexp.model",
-    "rigexp.shields",
 ]
 ignore_errors = true
 

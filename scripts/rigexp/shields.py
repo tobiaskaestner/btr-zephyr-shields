@@ -311,7 +311,7 @@ def _parse_exposed(node, plug, shield, diags) -> ExposedSocket:
                 continue
             gpio_map[pos] = (parent_pos, parent_flags)
 
-    buses = {}
+    buses: dict[str, object] = {}
     for prop_name, kind in _BUS_PROPS.items():
         if prop_name not in node.props:
             continue
@@ -350,14 +350,14 @@ def _parse_pad(node, diags) -> Pad:
 
 
 def _parse_strap(node) -> Strap:
-    dom = words(node.props["shield,domain"])
+    dom = node.props["shield,domain"].to_nums()
     domain = [(dom[i], dom[i + 1]) for i in range(0, len(dom), 2)]
     return Strap(name=node.name, label=node.labels[0] if node.labels else node.name,
                  domain=domain, sheet_label=_sheet_label(node), src=src_of(node))
 
 
 def _parse_jumper(node) -> Jumper:
-    dom = words(node.props["shield,position-domain"])
+    dom = node.props["shield,position-domain"].to_nums()
     domain = [(dom[i], dom[i + 1]) for i in range(0, len(dom), 2)]
     return Jumper(name=node.name, label=node.labels[0] if node.labels else node.name,
                   domain=domain, sheet_label=_sheet_label(node), src=src_of(node))

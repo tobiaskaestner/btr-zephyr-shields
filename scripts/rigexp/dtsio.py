@@ -1,6 +1,12 @@
-"""DTS plumbing shared by everything that reads DTS-shaped input: CPP
-invocation (one translation unit, Ground rule 3), stock-dtlib parsing,
-dt-bindings header parsing, and generic property rendering for passthrough.
+"""DTS plumbing for the SHIELD-template side only (Bridge-A rewrite step 4;
+`854712e` moved all BOARD reading to `board_edt`/`edt_build`'s real
+`edtlib.EDT`, so this module no longer touches the board DT at all). What's
+left: CPP + stock dtlib parsing of `.shield` translation units (Ground rule
+3), which stays dtlib by design — shield templates are pre-instantiation
+text with no binding/schema to validate against, so there is nothing for
+edtlib to attach type info to; and dt-bindings/connector/*.h position-index
+header parsing (the module's own real headers, shared by both the real
+gpio-map and the expander).
 """
 from __future__ import annotations
 
@@ -8,7 +14,6 @@ import os
 import re
 import subprocess
 import sys
-import tempfile
 
 from .diag import ROOT, Diagnostic, LoadError, SrcRef
 
@@ -35,7 +40,7 @@ sys.path.insert(0, ZEPHYR_DT_SRC)
 from devicetree import dtlib  # noqa: E402
 
 
-def src_of(obj) -> SrcRef:
+def src_of(obj: dtlib.Node | dtlib.Property) -> SrcRef:
     """SrcRef from a dtlib Node or Prop (both carry filename/lineno)."""
     label = ""
     if isinstance(obj, dtlib.Node):
@@ -61,7 +66,8 @@ def run_cpp(dts_path: str, out_path: str) -> None:
 
 def parse_dts(dts_path: str, workdir: str) -> dtlib.DT:
     """CPP + stock dtlib. dtlib reads the CPP linemarkers, so node/prop
-    source references point at the ORIGINAL files — free for candidate-1."""
+    source references point at the ORIGINAL `.shield` files, not the
+    generated translation unit — free provenance for diagnostics."""
     os.makedirs(workdir, exist_ok=True)
     pre = os.path.join(workdir, os.path.basename(dts_path) + ".pre")
     run_cpp(dts_path, pre)
@@ -72,7 +78,9 @@ def parse_dts(dts_path: str, workdir: str) -> dtlib.DT:
 
 
 def parse_tu(includes: list[str], workdir: str, name: str) -> dtlib.DT:
-    """Build + parse a one-off translation unit that includes the given files."""
+    """Build + parse a one-off translation unit that includes the given
+    files — the shield-TU entry point (one `.shield` per call, per
+    loader_yml)."""
     os.makedirs(workdir, exist_ok=True)
     tu = os.path.join(workdir, name)
     with open(tu, "w") as f:
@@ -97,17 +105,40 @@ def parse_header_indices(type_name: str) -> dict[str, int]:
     return {name[len(prefix):]: val for name, val in defines.items()}
 
 
-def words(prop) -> list[int]:
-    """Raw 32-bit cells of a property value."""
+def words(prop: dtlib.Property) -> list[int]:
+    """Raw 32-bit cells of a property value.
+
+    Only for `Type.PHANDLES_AND_NUMS` — dtlib has no typed accessor for that
+    shape (`to_nums` requires pure NUM/NUMS, `to_nodes` requires pure
+    PHANDLE/PHANDLES); a real gap (saferail 10: consume dtlib as-is, report
+    the gap rather than fork it), not a style choice. Every other cell shape
+    goes through `to_num`/`to_nums` directly at the call site instead."""
     v = prop.value
     return [int.from_bytes(v[i:i + 4], "big") for i in range(0, len(v) - len(v) % 4, 4)]
 
 
-def render_prop(prop) -> str | None:
+def render_prop(prop: dtlib.Property) -> str | None:
     """Generic passthrough rendering for props the rig model doesn't
     interpret (compatible, spi-max-frequency, jedec-id, ...). Returns a
-    complete 'name = value;' string, or None if the type can't passthrough
-    (phandles — those must have been interpreted upstream)."""
+    complete 'name = value;' string, or None if the type can't passthrough.
+
+    Deliberately renders via dtlib's typed accessors (to_num/to_nums/
+    to_strings/value) with its OWN stable formatting, NOT `str(prop)`:
+
+      - `str(prop)` cannot preserve authored numeric form — every NUM/NUMS
+        renders as hex with padded spacing regardless of source radix (a
+        shield-authored `spi-max-frequency = <8000000>;` comes back as
+        `spi-max-frequency = < 0x7a1200 >;`, verified against dtlib).
+      - the None-for-phandles branch is LOAD-BEARING: `str(prop)` renders
+        phandle-typed values via their DTS label (e.g. `< &plug >`), but
+        that label is a shield-template parsing artifact with no
+        counterpart in the composed output (the emitter mints its own
+        `<instance>_<shield-local-label>` names) — rendering it would leak
+        a dangling, wrong-scope reference into the emitted overlay.
+        Phandle-shaped props must already have been interpreted upstream
+        (gpio/pwm/adc nexus refs); anything left un-interpreted is
+        correctly dropped here (with a diagnostic), never guessed at.
+    """
     T = dtlib.Type
     t = prop.type
     if t is T.EMPTY:
