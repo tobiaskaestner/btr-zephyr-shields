@@ -1,6 +1,18 @@
-/* Board-DT fragment: NXP FRDM-K64F typed Arduino R3 socket (S6 host).
- * Offers all of Arduino R3 incl. the SPI+I2C the adapter passes through.
- * gpio-map truncated to the positions the S6 chain uses.
+/* Board-DT fragment (EXPANDER-SIDE model): NXP FRDM-K64F-BTR typed Arduino R3
+ * socket. This is the socket description the prototype expander parses
+ * standalone (dtlib + common-dts/include) to learn the board's sockets.
+ *
+ * BRIDGE-A (P2 tech-debt): it MIRRORS the real board's socket node at
+ * btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi (same label
+ * `frdm_ard`, same "socket,arduino-r3" compatible, same full 22-position
+ * gpio-map, same &i2c0/&spi0/&uart3 + socket,stackable). The duplication is
+ * deliberate and temporary: the edtlib-based real expander (P0 direction)
+ * will read the actual board DT and delete this file. Keep the two in sync
+ * until then. (Fixed 2026-07-23 per the phase-1 dual-read shadow-read
+ * findings, `scripts/rigexp/tests/test_board_dualread.py`: five wrong pins
+ * -- D2, D4, D5, D7, D9 -- and a truncated 8/22-position map were caught
+ * against the real clone / upstream `zephyr-rigs/boards/nxp/frdm_k64f/
+ * frdm_k64f.dts`.)
  */
 
 #include <dt-bindings/connector/arduino-r3.h>
@@ -9,15 +21,34 @@
 	frdm_ard: connector {
 		compatible = "socket,arduino-r3";
 		#gpio-cells = <2>;
-		gpio-map = <ARDUINO_HEADER_R3_D2  0 &gpioc 4 0>,
-			   <ARDUINO_HEADER_R3_D3  0 &gpioa 1 0>,
-			   <ARDUINO_HEADER_R3_D4  0 &gpioc 5 0>,
-			   <ARDUINO_HEADER_R3_D5  0 &gpioc 3 0>,
-			   <ARDUINO_HEADER_R3_D6  0 &gpioc 2 0>,
-			   <ARDUINO_HEADER_R3_D7  0 &gpioc 6 0>,
-			   <ARDUINO_HEADER_R3_D9  0 &gpioc 1 0>,
-			   <ARDUINO_HEADER_R3_D10 0 &gpiod 0 0>;	/* PTD0 — the CS pin */
+		gpio-map-mask = <0xffffffff 0xffffffc0>;
+		gpio-map-pass-thru = <0 0x3f>;
+		gpio-map = <ARDUINO_HEADER_R3_A0  0 &gpiob 2  0>,
+			   <ARDUINO_HEADER_R3_A1  0 &gpiob 3  0>,
+			   <ARDUINO_HEADER_R3_A2  0 &gpiob 10 0>,
+			   <ARDUINO_HEADER_R3_A3  0 &gpiob 11 0>,
+			   <ARDUINO_HEADER_R3_A4  0 &gpioc 11 0>,
+			   <ARDUINO_HEADER_R3_A5  0 &gpioc 10 0>,
+			   <ARDUINO_HEADER_R3_D0  0 &gpioc 16 0>,
+			   <ARDUINO_HEADER_R3_D1  0 &gpioc 17 0>,
+			   <ARDUINO_HEADER_R3_D2  0 &gpiob 9  0>,
+			   <ARDUINO_HEADER_R3_D3  0 &gpioa 1  0>,
+			   <ARDUINO_HEADER_R3_D4  0 &gpiob 23 0>,
+			   <ARDUINO_HEADER_R3_D5  0 &gpioa 2  0>,
+			   <ARDUINO_HEADER_R3_D6  0 &gpioc 2  0>,
+			   <ARDUINO_HEADER_R3_D7  0 &gpioc 3  0>,
+			   /* NOTE: HW Rev E and on use PTC12 (matches legacy) */
+			   <ARDUINO_HEADER_R3_D8  0 &gpioc 12 0>,
+			   <ARDUINO_HEADER_R3_D9  0 &gpioc 4  0>,
+			   <ARDUINO_HEADER_R3_D10 0 &gpiod 0  0>,
+			   <ARDUINO_HEADER_R3_D11 0 &gpiod 2  0>,
+			   <ARDUINO_HEADER_R3_D12 0 &gpiod 3  0>,
+			   <ARDUINO_HEADER_R3_D13 0 &gpiod 1  0>,
+			   <ARDUINO_HEADER_R3_D14 0 &gpioe 25 0>,
+			   <ARDUINO_HEADER_R3_D15 0 &gpioe 24 0>;
 		socket,i2c = <&i2c0>;
 		socket,spi = <&spi0>;
+		socket,uart = <&uart3>;
+		socket,stackable;
 	};
 };

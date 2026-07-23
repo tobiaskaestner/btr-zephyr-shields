@@ -24,10 +24,11 @@ break the plain/legacy build path): see the `plain_build` fixture.
 
 Nothing here changes `boarddt.py`, `model.py`, or the production expander
 path -- `boarddt.load_board` stays the sole authority until the whole corpus
-passes dual-read (saferail 2/6). Known, pre-existing common-dts/real-board
-divergences this shadow read caught are marked `xfail(strict=True)` with the
-exact diff in the reason -- NOT silently normalized away in the predicate
-(see the handoff report for the full table).
+passes dual-read (saferail 2/6). The gpio_map (quail, frdm) and buses (frdm)
+axes were `xfail(strict=True)` pending common-dts fixes; those fixes landed
+(the two scaffold `.rig.dtsi` files were corrected/un-truncated against the
+real board clones -- see the handoff report for the full position-by-position
+table), so those axes are now hard asserts like every other axis.
 """
 from __future__ import annotations
 
@@ -183,43 +184,6 @@ def _effective_cs_pool_edt(socket) -> list:
     return socket.cs_pool if socket.cs_pool is not None else []
 
 
-# ---------------------------------------------------------------- known, pre-existing
-# common-dts/real-board divergences this shadow read caught (saferail 2 doing its
-# job). NOT fixed here: common-dts is out of this task's scope, and editing it
-# would change the frozen tier-1/tier-2 goldens (forbidden by this task). See the
-# handoff report for the full detail.
-
-_KNOWN_GPIO_MAP_GAPS = {
-    "mikroe_quail_btr": (
-        "common-dts (mikroe_quail_btr.rig.dtsi) truncates every mikroBUS "
-        "socket to 2 of the real board's 12 gpio-map positions (RST/CS only "
-        "-- the file's own comment says 'gpio-map truncated to CS/RST for "
-        "the trial'). The 2 modeled positions MATCH the real board exactly; "
-        "this is a coverage gap, not a wrong value."),
-    "frdm_k64f_btr": (
-        "common-dts (frdm_k64f_btr.rig.dtsi) truncates the arduino-r3 socket "
-        "to 8 of the real board's 22 gpio-map positions, AND 5 of those 8 "
-        "(D2, D4, D5, D7, D9) hold WRONG SoC pins relative to the real "
-        "board's arduino_r3_socket.dtsi -- e.g. D2: common-dts &gpioc 4 vs "
-        "real &gpiob 9; D9: common-dts &gpioc 1 vs real &gpioc 4. This is a "
-        "genuine pre-existing bug the shadow read caught: the S6 rig "
-        "`frdm-eth-nest` (boards/rigs/s6-eth-click) routes its two nested "
-        "mikroBUS sockets through exactly D2/D5/D9, so its frozen tier-2 "
-        "golden currently encodes wrong-vs-hardware GPIO pins for those "
-        "positions (self-consistent, never checked against the real board "
-        "before this reader existed)."),
-}
-
-_KNOWN_BUS_GAPS = {
-    "frdm_k64f_btr": (
-        "common-dts (frdm_k64f_btr.rig.dtsi) models only socket,i2c/"
-        "socket,spi on the arduino-r3 socket; the real board's "
-        "arduino_r3_socket.dtsi ALSO offers socket,uart = <&uart3> (frdm's "
-        "Arduino header does carry a UART on this clone) -- a coverage gap, "
-        "not a wrong value."),
-}
-
-
 # ---------------------------------------------------------------- saferail 2: dual-read
 
 
@@ -236,11 +200,7 @@ def test_dualread_socket_set_and_type(plain_build: PlainBuild,
 
 
 @pytest.mark.build
-def test_dualread_gpio_map(plain_build: PlainBuild, tmp_path: Path,
-                            request: "pytest.FixtureRequest") -> None:
-    if plain_build.board in _KNOWN_GPIO_MAP_GAPS:
-        request.node.add_marker(pytest.mark.xfail(
-            reason=_KNOWN_GPIO_MAP_GAPS[plain_build.board], strict=True))
+def test_dualread_gpio_map(plain_build: PlainBuild, tmp_path: Path) -> None:
     common = _common_dts_board(plain_build.board, tmp_path)
     edtb = _edtlib_board(plain_build, tmp_path)
     for label, socket in common.sockets.items():
@@ -252,15 +212,11 @@ def test_dualread_gpio_map(plain_build: PlainBuild, tmp_path: Path,
 
 
 @pytest.mark.build
-def test_dualread_buses(plain_build: PlainBuild, tmp_path: Path,
-                         request: "pytest.FixtureRequest") -> None:
+def test_dualread_buses(plain_build: PlainBuild, tmp_path: Path) -> None:
     """Buses compared by (kind -> controller LABEL) -- the emission target
     (`&i2c1`, `&spi1`, ...); dtlib paths are expected to differ between the
     common-dts scaffold's `_soc-stubs.dtsi` and the real SoC tree (nucleo
     spike finding), so path is deliberately not part of this comparison."""
-    if plain_build.board in _KNOWN_BUS_GAPS:
-        request.node.add_marker(pytest.mark.xfail(
-            reason=_KNOWN_BUS_GAPS[plain_build.board], strict=True))
     common = _common_dts_board(plain_build.board, tmp_path)
     edtb = _edtlib_board(plain_build, tmp_path)
     for label, socket in common.sockets.items():

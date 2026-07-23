@@ -15,4 +15,4 @@ Board: **frdm_k64f_btr**
 ## Chip-selects
 
 - eth_1/eth: CS index 0, CS → SoC gpiod pin 0
-- eth_2/eth: CS index 1, CS → SoC gpioc pin 1
+- eth_2/eth: CS index 1, CS → SoC gpioc pin 4

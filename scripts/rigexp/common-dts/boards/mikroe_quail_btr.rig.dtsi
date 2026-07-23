@@ -1,8 +1,18 @@
-/* Board-DT fragment: MikroE Quail — four typed mikroBUS sockets.
- * Part of the BOARD tree: real phandles, upstreamable as plain DT.
- * Replaces the 16-label matrix (mikroe_quail.dts:335-365); the per-socket
- * nexus nodes Quail already has upstream become these socket nodes.
- * gpio-map truncated to CS/RST for the trial.
+/* Board-DT fragment (EXPANDER-SIDE model): MikroE Quail — four typed
+ * mikroBUS sockets. This is the socket description the prototype expander
+ * parses standalone (dtlib + common-dts/include) to learn the board's
+ * sockets.
+ *
+ * BRIDGE-A (P2 tech-debt): it MIRRORS the real board's socket nodes at
+ * btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi (same
+ * labels quail_sock1..quail_sock4, same "socket,mikrobus" compatible, same
+ * full 12-position gpio-map per socket, same bus phandles). The duplication
+ * is deliberate and temporary: the edtlib-based real expander (P0 direction)
+ * will read the actual board DT and delete this file. Keep the two in sync
+ * until then. (Un-truncated 2026-07-23 per the phase-1 dual-read shadow-read
+ * findings, `scripts/rigexp/tests/test_board_dualread.py`: this file modeled
+ * only 2 of the real board's 12 gpio-map positions per socket -- CS/RST --
+ * both values already correct, just a coverage gap.)
  */
 
 #include <dt-bindings/connector/mikrobus.h>
@@ -13,8 +23,18 @@
 		#gpio-cells = <2>;
 		gpio-map-mask = <0xffffffff 0xffffffc0>;
 		gpio-map-pass-thru = <0 0x3f>;
-		gpio-map = <MIKROBUS_RST 0 &gpioa 2 0>,
-			   <MIKROBUS_CS  0 &gpioa 3 0>;
+		gpio-map = <MIKROBUS_AN   0 &gpioa 6  0>,
+			   <MIKROBUS_RST  0 &gpioa 2  0>,
+			   <MIKROBUS_CS   0 &gpioa 3  0>,
+			   <MIKROBUS_SCK  0 &gpiob 3  0>,
+			   <MIKROBUS_MISO 0 &gpiob 4  0>,
+			   <MIKROBUS_MOSI 0 &gpiob 5  0>,
+			   <MIKROBUS_PWM  0 &gpioe 9  0>,
+			   <MIKROBUS_INT  0 &gpioa 1  0>,
+			   <MIKROBUS_RX   0 &gpiod 9  0>,
+			   <MIKROBUS_TX   0 &gpiod 8  0>,
+			   <MIKROBUS_SCL  0 &gpiob 6  0>,
+			   <MIKROBUS_SDA  0 &gpiob 7  0>;
 		socket,spi = <&spi1>;
 		socket,i2c = <&i2c1>;
 		socket,uart = <&usart3>;
@@ -24,8 +44,18 @@
 		#gpio-cells = <2>;
 		gpio-map-mask = <0xffffffff 0xffffffc0>;
 		gpio-map-pass-thru = <0 0x3f>;
-		gpio-map = <MIKROBUS_RST 0 &gpioe 1 0>,
-			   <MIKROBUS_CS  0 &gpioe 0 0>;
+		gpio-map = <MIKROBUS_AN   0 &gpioa 4  0>,
+			   <MIKROBUS_RST  0 &gpioe 1  0>,
+			   <MIKROBUS_CS   0 &gpioe 0  0>,
+			   <MIKROBUS_SCK  0 &gpiob 3  0>,
+			   <MIKROBUS_MISO 0 &gpiob 4  0>,
+			   <MIKROBUS_MOSI 0 &gpiob 5  0>,
+			   <MIKROBUS_PWM  0 &gpiod 15 0>,
+			   <MIKROBUS_INT  0 &gpiob 9  0>,
+			   <MIKROBUS_RX   0 &gpiod 6  0>,
+			   <MIKROBUS_TX   0 &gpiod 5  0>,
+			   <MIKROBUS_SCL  0 &gpiob 6  0>,
+			   <MIKROBUS_SDA  0 &gpiob 7  0>;
 		socket,spi = <&spi1>;
 		socket,i2c = <&i2c1>;
 		socket,uart = <&usart2>;
@@ -35,8 +65,18 @@
 		#gpio-cells = <2>;
 		gpio-map-mask = <0xffffffff 0xffffffc0>;
 		gpio-map-pass-thru = <0 0x3f>;
-		gpio-map = <1 0 &gpiod 8  0>,
-			   <2 0 &gpiod 11 0>;
+		gpio-map = <MIKROBUS_AN   0 &gpioa 7  0>,
+			   <MIKROBUS_RST  0 &gpiod 8  0>,
+			   <MIKROBUS_CS   0 &gpiod 11 0>,
+			   <MIKROBUS_SCK  0 &gpioc 10 0>,
+			   <MIKROBUS_MISO 0 &gpioc 11 0>,
+			   <MIKROBUS_MOSI 0 &gpioc 12 0>,
+			   <MIKROBUS_PWM  0 &gpiod 13 0>,
+			   <MIKROBUS_INT  0 &gpioc 8  0>,
+			   <MIKROBUS_RX   0 &gpioc 7  0>,
+			   <MIKROBUS_TX   0 &gpioc 6  0>,
+			   <MIKROBUS_SCL  0 &gpiob 6  0>,
+			   <MIKROBUS_SDA  0 &gpiob 7  0>;
 		socket,spi = <&spi3>;
 		socket,i2c = <&i2c1>;
 		socket,uart = <&usart6>;
@@ -46,8 +86,18 @@
 		#gpio-cells = <2>;
 		gpio-map-mask = <0xffffffff 0xffffffc0>;
 		gpio-map-pass-thru = <0 0x3f>;
-		gpio-map = <MIKROBUS_RST 0 &gpiod 0 0>,
-			   <MIKROBUS_CS  0 &gpiod 1 0>;
+		gpio-map = <MIKROBUS_AN   0 &gpioa 5  0>,
+			   <MIKROBUS_RST  0 &gpiod 0  0>,
+			   <MIKROBUS_CS   0 &gpiod 1  0>,
+			   <MIKROBUS_SCK  0 &gpioc 10 0>,
+			   <MIKROBUS_MISO 0 &gpioc 11 0>,
+			   <MIKROBUS_MOSI 0 &gpioc 12 0>,
+			   <MIKROBUS_PWM  0 &gpiod 14 0>,
+			   <MIKROBUS_INT  0 &gpioa 14 0>,
+			   <MIKROBUS_RX   0 &gpioa 10 0>,
+			   <MIKROBUS_TX   0 &gpioa 9  0>,
+			   <MIKROBUS_SCL  0 &gpiob 6  0>,
+			   <MIKROBUS_SDA  0 &gpiob 7  0>;
 		socket,spi = <&spi3>;
 		socket,i2c = <&i2c1>;
 		socket,uart = <&usart1>;

@@ -13,6 +13,7 @@
 		usart3: serial@6 {};
 		usart6: serial@7 {};
 		spi0: spi@e { #address-cells = <1>; #size-cells = <0>; };	/* frdm-k64f (S6) */
+		uart3: serial@15 {};	/* frdm-k64f arduino_r3 socket,uart */
 		i2c0: i2c@f { #address-cells = <1>; #size-cells = <0>; };
 		gpioa: gpio@8 { #gpio-cells = <2>; };
 		gpiob: gpio@9 { #gpio-cells = <2>; };
