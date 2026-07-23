@@ -1,4 +1,6 @@
-# ConnectorType "grove", plug side — consumed by the rig loader.
+# ConnectorType "grove", plug side — consumed by the rig loader
+# (yaml.safe_load, not edtlib). See dts/connectors/README.md for why this
+# lives here and not under dts/bindings/.
 
 description: |
   Contract for Grove modules. The two signal pins are claimable gpio

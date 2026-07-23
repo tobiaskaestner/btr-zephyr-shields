@@ -1,6 +1,15 @@
-/* Arduino R3 position indices. Mirrors upstream
- * include/zephyr/dt-bindings/gpio/arduino-header-r3.h (same values/names) —
- * trial-local copy so the trial is self-contained.
+/* Arduino Uno (R3) position indices, as consumed by shield `.shield`
+ * templates (`#include <dt-bindings/connector/arduino-r3.h>`) and by
+ * `rigexp.ctypes_registry` (the same header, single source of truth for
+ * both consumers — Bridge-A rewrite step 3).
+ *
+ * The real board socket node (e.g.
+ * boards/st/nucleo_f401re_btr/arduino_r3_socket.dtsi) instead includes
+ * upstream's own <zephyr/dt-bindings/gpio/arduino-header-r3.h> directly —
+ * values are IDENTICAL (checked at promotion time), so this is not a second
+ * source of truth for the *values*, just the path shields/the expander
+ * already depend on (pre-dating this rewrite; out of scope to unify further,
+ * Bridge-A step 3 touches connector-type data sources only).
  */
 #ifndef DT_BINDINGS_CONNECTOR_ARDUINO_R3_H_
 #define DT_BINDINGS_CONNECTOR_ARDUINO_R3_H_

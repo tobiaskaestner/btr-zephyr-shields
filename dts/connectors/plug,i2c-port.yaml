@@ -1,0 +1,25 @@
+# ConnectorType "i2c-port", plug side — a bare I2C consumer (no gpio positions).
+# Consumed by the rig loader (yaml.safe_load, not edtlib).
+#
+# Carries its SOCKET-side facts too (the `socket:` key below), unlike the
+# other three types: "socket,i2c-port" sockets are shield-synthesized only
+# (an I2C-mux channel or bare I2C port authored inside a .shield's own DT,
+# e.g. boards/shields/i2c_mux/i2c_mux.shield's ch0..ch3) and never reach a
+# real board devicetree / pass-2 edtlib load — the emitter lowers them to
+# plain `channel@N` mux children before anything reaches pass 2. So there is
+# no real dts/bindings/connector/i2c-port.yaml to hold cs-pool/stackable
+# facts in (see dts/connectors/README.md, "The i2c-port exception").
+
+description: |
+  Contract for an I2C module that just needs a bus (a sensor behind an I2C-mux
+  channel, say). One bus proxy, no claimable positions.
+
+plug: "i2c-port"
+bus-proxies: [i2c]
+positions: {}
+
+socket:
+  # An I2C bus hosts many devices — N modules may share the port.
+  stackable: true
+  # No CS pool — an I2C port doesn't allocate chip-selects.
+  cs-pool: []

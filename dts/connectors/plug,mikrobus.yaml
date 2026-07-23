@@ -1,5 +1,7 @@
 # ConnectorType "mikrobus", plug side — consumed by the rig loader (not
-# edtlib): validates shield structure for shield,plugs = "mikrobus".
+# edtlib): validates shield structure for shield,plugs = "mikrobus". See
+# dts/connectors/README.md for why this lives here and not under
+# dts/bindings/.
 
 description: |
   Contract for shields plugging a mikroBUS socket:

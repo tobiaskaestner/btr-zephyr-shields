@@ -24,7 +24,13 @@ if not _ZEPHYR_BASE:
 ZEPHYR_DT_SRC = os.path.join(_ZEPHYR_BASE, "scripts", "dts", "python-devicetree", "src")
 ZEPHYR_INC = os.path.join(_ZEPHYR_BASE, "include")
 COMMON = os.path.join(ROOT, "common-dts")
-COMMON_INC = os.path.join(COMMON, "include")
+
+# The module root (self-located the same way ROOT is: two levels up from
+# scripts/rigexp/), and its real include/ tree -- the single source for the
+# dt-bindings/connector/*.h position-index headers (Bridge-A rewrite step 3;
+# common-dts no longer carries its own copies).
+MODULE_ROOT = os.path.dirname(os.path.dirname(ROOT))
+MODULE_INC = os.path.join(MODULE_ROOT, "include")
 
 sys.path.insert(0, ZEPHYR_DT_SRC)
 from devicetree import dtlib  # noqa: E402
@@ -43,7 +49,7 @@ def src_of(obj) -> SrcRef:
 def run_cpp(dts_path: str, out_path: str) -> None:
     cmd = [
         "gcc", "-E", "-x", "assembler-with-cpp", "-nostdinc",
-        "-I", ZEPHYR_INC, "-I", COMMON_INC,
+        "-I", ZEPHYR_INC, "-I", MODULE_INC,
         "-undef", "-D__DTS__", dts_path, "-o", out_path,
     ]
     res = subprocess.run(cmd, capture_output=True, text=True)
@@ -81,10 +87,11 @@ _DEFINE_RE = re.compile(r"^\s*#define\s+(\w+)\s+(\d+|0x[0-9a-fA-F]+)\s*$", re.M)
 
 
 def parse_header_indices(type_name: str) -> dict[str, int]:
-    """dt-bindings/connector/<type>.h — the position-index single source of
-    truth. Returns {short position name: index} with the common macro prefix
-    stripped (ARDUINO_HEADER_R3_D7 -> D7)."""
-    path = os.path.join(COMMON_INC, "dt-bindings", "connector", f"{type_name}.h")
+    """include/dt-bindings/connector/<type>.h -- the module's REAL
+    position-index single source of truth (Bridge-A rewrite step 3; no
+    longer a bundled common-dts copy). Returns {short position name: index}
+    with the common macro prefix stripped (ARDUINO_HEADER_R3_D7 -> D7)."""
+    path = os.path.join(MODULE_INC, "dt-bindings", "connector", f"{type_name}.h")
     with open(path) as f:
         defines = {m[1]: int(m[2], 0) for m in _DEFINE_RE.finditer(f.read())}
     prefix = os.path.commonprefix(list(defines))

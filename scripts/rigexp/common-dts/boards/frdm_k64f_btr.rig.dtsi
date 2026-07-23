@@ -1,6 +1,6 @@
 /* Board-DT fragment (EXPANDER-SIDE model): NXP FRDM-K64F-BTR typed Arduino R3
  * socket. This is the socket description the prototype expander parses
- * standalone (dtlib + common-dts/include) to learn the board's sockets.
+ * standalone (dtlib + the module include/) to learn the board's sockets.
  *
  * BRIDGE-A (P2 tech-debt): it MIRRORS the real board's socket node at
  * btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi (same label

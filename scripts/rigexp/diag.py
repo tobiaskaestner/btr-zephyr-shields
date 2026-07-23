@@ -11,8 +11,12 @@ from dataclasses import dataclass, field
 # btr-shields/scripts/rigexp/ — the vendored package directory itself. Downstream
 # vendored copy: unlike the frontend-trial prototype (which sat three levels
 # under its tree root, frontend-trial/scripts/rigexp/diag.py), this package
-# IS the root — it carries its own common-dts/ (bindings/boards/include)
-# alongside it, so no reference back into claude/ is needed at runtime.
+# IS the root — it carries its own common-dts/boards/ (the board-model
+# scaffold + soc stubs boarddt.py still reads) alongside it, so no reference
+# back into claude/ is needed at runtime. common-dts/bindings/ and
+# common-dts/include/ are gone (Bridge-A rewrite step 3): connector-type
+# facts now come from the real dts/bindings/connector/ + dts/connectors/ +
+# include/dt-bindings/connector/ trees (see ctypes_registry.py / dtsio.py).
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
 

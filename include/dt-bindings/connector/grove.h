@@ -6,11 +6,8 @@
  * references, binding docs. (Pattern: include/dt-bindings/connector/mikrobus.h
  * from 3a; no upstream dt-bindings header exists for Grove position indices
  * either, so btr-shields is the one true source for its own typed socket
- * clones. Content-identical to
- * scripts/rigexp/common-dts/include/dt-bindings/connector/grove.h, the
- * expander-side copy of this same header — kept in sync by hand, same as
- * mikrobus.h has no expander-side counterpart because mikroBUS carries no
- * multi-function positions.)
+ * clones. The former expander-side copy under common-dts/include was
+ * retired 2026-07-23 — the expander reads THIS header now.)
  *
  * A Grove connector is 4 pins: two signal + VCC + GND. The two signal pins
  * are the claimable positions (they double as SCL/SDA on an I2C Grove
