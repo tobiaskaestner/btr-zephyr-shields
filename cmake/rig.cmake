@@ -34,6 +34,45 @@ include(extensions)
 include(python)
 
 # ---------------------------------------------------------------------------
+# Debuggability: render a command line copy-pasteably into a shell (zsh/bash),
+# for `message(VERBOSE ...)` below and for rerun-expand.sh. Activate VERBOSE
+# output with `west build-rig ... -- -DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE`
+# (reuses CMake's own log-level machinery — no new flag of our own).
+#
+# _rig_shell_quote_argv: wraps every argument in single quotes (POSIX
+# '...'-quoting — safe for ANY content, including spaces/globs/embedded
+# quotes; an embedded `'` becomes `'\''`), for plain positional arguments.
+function(_rig_shell_quote_argv out_var)
+  set(_rig_rendered "")
+  foreach(_rig_tok ${ARGN})
+    string(REPLACE "'" "'\\''" _rig_tok_esc "${_rig_tok}")
+    string(APPEND _rig_rendered "'${_rig_tok_esc}' ")
+  endforeach()
+  string(STRIP "${_rig_rendered}" _rig_rendered)
+  set(${out_var} "${_rig_rendered}" PARENT_SCOPE)
+endfunction()
+
+# _rig_shell_quote_env: renders a list of "NAME=value" strings as
+# `NAME='value'` (value single-quoted, NAME left bare) — a shell only
+# recognizes `NAME=value` as an env-assignment prefix when NAME itself is
+# UNQUOTED (verified: quoting the whole token, e.g. `'NAME=value'`, makes
+# both bash and zsh treat it as the command to run, not an assignment).
+function(_rig_shell_quote_env out_var)
+  set(_rig_rendered "")
+  foreach(_rig_pair ${ARGN})
+    string(FIND "${_rig_pair}" "=" _rig_eq_pos)
+    string(SUBSTRING "${_rig_pair}" 0 ${_rig_eq_pos} _rig_name)
+    math(EXPR _rig_val_start "${_rig_eq_pos} + 1")
+    string(SUBSTRING "${_rig_pair}" ${_rig_val_start} -1 _rig_value)
+    string(REPLACE "'" "'\\''" _rig_value_esc "${_rig_value}")
+    string(APPEND _rig_rendered "${_rig_name}='${_rig_value_esc}' ")
+  endforeach()
+  string(STRIP "${_rig_rendered}" _rig_rendered)
+  set(${out_var} "${_rig_rendered}" PARENT_SCOPE)
+endfunction()
+# ---------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------------
 # Rig expansion (folded in from the former default.cmake seam + rig_expand.cmake).
 #
 # rig.cmake is reached ONLY for a rig build (the shields.cmake fork dispatches
@@ -64,10 +103,16 @@ set(RIG_EXPAND_COMMAND ""
 # the shield tail below resolves shield names via list_shields.py --json.
 list(TRANSFORM BOARD_ROOT PREPEND "--board-root=" OUTPUT_VARIABLE _rig_board_root_args)
 
-set(_list_rigs_commands
-  COMMAND ${PYTHON_EXECUTABLE} ${_RIG_BTR_ROOT}/scripts/list_rigs.py
-  ${_rig_board_root_args} --json
-)
+set(_rig_list_rigs_argv
+  ${PYTHON_EXECUTABLE} ${_RIG_BTR_ROOT}/scripts/list_rigs.py
+  ${_rig_board_root_args} --json)
+
+set(_list_rigs_commands COMMAND ${_rig_list_rigs_argv})
+
+# No env prefix applies here (list_rigs.py needs neither PYTHONPATH nor
+# ZEPHYR_BASE) — just the plain, copy-pasteable argv.
+_rig_shell_quote_argv(_rig_list_rigs_render ${_rig_list_rigs_argv})
+message(VERBOSE "rig: list_rigs command:\n${_rig_list_rigs_render}")
 
 execute_process(${_list_rigs_commands}
   OUTPUT_VARIABLE _rigs_json
@@ -226,19 +271,67 @@ foreach(_rig_dts_dir ${_rig_dts_bindings_dirs})
 endforeach()
 # ---------------------------------------------------------------------------
 
+# _rig_debug_env / _rig_debug_argv split out the env-prefix from the argv
+# (rather than composing _rig_cmd's `cmake -E env ...` tokens directly) so
+# BOTH the VERBOSE render below AND rerun-expand.sh can show the invocation
+# in native shell syntax (`NAME=val NAME=val exe args...`), not cmake's own
+# `-E env` spelling — that's what's actually copy-pasteable into zsh with a
+# debugger prepended (e.g. `python3 -m pdb -m rigexp expand ...`). _rig_cmd
+# (what execute_process actually runs) is composed FROM them, unchanged
+# behavior-wise from before this split.
 if(RIG_EXPAND_COMMAND)
+  set(_rig_debug_env "")
+  set(_rig_debug_argv ${RIG_EXPAND_COMMAND})
   set(_rig_cmd ${RIG_EXPAND_COMMAND})
 else()
-  set(_rig_cmd
-    "${CMAKE_COMMAND}" -E env "PYTHONPATH=${RIG_EXPAND_PYTHONPATH}"
-    "ZEPHYR_BASE=${ZEPHYR_BASE}"
+  set(_rig_debug_env
+    "PYTHONPATH=${RIG_EXPAND_PYTHONPATH}"
+    "ZEPHYR_BASE=${ZEPHYR_BASE}")
+  set(_rig_debug_argv
     "${PYTHON_EXECUTABLE}" -m rigexp expand "${_rig_yml}"
     ${_rig_shield_dir_args}
     --board-dts "${_rig_board_dts}"
     ${_rig_include_dir_args}
     ${_rig_bindings_dir_args}
     --out-dir "${_rig_out_dir}")
+  set(_rig_cmd "${CMAKE_COMMAND}" -E env ${_rig_debug_env} ${_rig_debug_argv})
 endif()
+
+_rig_shell_quote_env(_rig_expand_env_render ${_rig_debug_env})
+_rig_shell_quote_argv(_rig_expand_argv_render ${_rig_debug_argv})
+if(_rig_expand_env_render)
+  set(_rig_expand_render "${_rig_expand_env_render} ${_rig_expand_argv_render}")
+else()
+  set(_rig_expand_render "${_rig_expand_argv_render}")
+endif()
+message(VERBOSE "rig: expand command:\n${_rig_expand_render}")
+
+# rerun-expand.sh: always written, BEFORE execute_process — so even a FAILED
+# expand leaves behind a standalone, executable re-run of the exact pass-1
+# invocation (e.g. `python3 -m pdb -m rigexp expand ...`, copied from the
+# exec line below). Rewritten every configure; nothing here is durable.
+set(_rig_rerun_script "${_rig_out_dir}/rerun-expand.sh")
+set(_rig_rerun_lines
+  "#!/bin/sh"
+  "# regenerate: this file is rewritten on every configure -- edits here do not persist."
+  "# Re-runs cmake/rig.cmake's pass-1 expander invocation standalone (e.g. under"
+  "# a debugger: copy the env + argv below into 'python3 -m pdb -m rigexp expand ...')."
+  "set -e")
+foreach(_rig_env_pair ${_rig_debug_env})
+  string(FIND "${_rig_env_pair}" "=" _rig_eq_pos)
+  string(SUBSTRING "${_rig_env_pair}" 0 ${_rig_eq_pos} _rig_env_name)
+  math(EXPR _rig_val_start "${_rig_eq_pos} + 1")
+  string(SUBSTRING "${_rig_env_pair}" ${_rig_val_start} -1 _rig_env_value)
+  string(REPLACE "'" "'\\''" _rig_env_value_esc "${_rig_env_value}")
+  list(APPEND _rig_rerun_lines "export ${_rig_env_name}='${_rig_env_value_esc}'")
+endforeach()
+list(APPEND _rig_rerun_lines "exec ${_rig_expand_argv_render} \"$@\"")
+list(JOIN _rig_rerun_lines "\n" _rig_rerun_content)
+file(WRITE "${_rig_rerun_script}" "${_rig_rerun_content}\n")
+file(CHMOD "${_rig_rerun_script}" PERMISSIONS
+  OWNER_READ OWNER_WRITE OWNER_EXECUTE
+  GROUP_READ GROUP_EXECUTE
+  WORLD_READ WORLD_EXECUTE)
 
 message(STATUS "rig: expanding ${_rig_yml} -> ${_rig_out_dir}")
 execute_process(
@@ -310,12 +403,31 @@ if(EXISTS "${_rig_user_overlay}")
 endif()
 file(GLOB _rig_expander_sources "${_RIG_BTR_ROOT}/scripts/rigexp/*.py")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_rig_expander_sources})
+# The -DRIG=<name> resolver itself (list_rigs.py) — an obvious static miss:
+# renaming/adding a rig.yml `rig.name` changes what -DRIG resolves to.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
+  "${_RIG_BTR_ROOT}/scripts/list_rigs.py")
 
 # Handoff: the expander wrote context.cmake telling us what the rig instantiated
 # (RIG_NAME / RIG_BOARD / RIG_SHIELDS). The cloned shield-processing tail below
 # will drive its Kconfig/bookkeeping loop over RIG_SHIELDS instead of -DSHIELD.
 include(${_rig_out_dir}/context.cmake OPTIONAL)
 message(STATUS "rig: '${RIG_NAME}' board=${RIG_BOARD} shields=[${RIG_SHIELDS}]")
+
+# Dependency-tracking handoff (dynamic half): RIG_DEPENDS is every real
+# source-tree file THIS expand actually read — rig.yml, every parsed
+# `.shield` template (+ its cpp-included files), connector plug/socket
+# bindings, index headers, the board .dts — the expander is the single
+# authority on what pass 1 opened, so it is the one that reports this, not a
+# glob re-derived here. Appended on top of the static registrations above,
+# which cover the PRE-expansion trigger set (rig.yml itself, the expander's
+# own sources, list_rigs.py): editing e.g. a .shield template not yet named
+# by any instance in this rig is untracked until the rig names it and one
+# configure runs to pick it up (a one-configure lag, acceptable — the static
+# set guarantees that configure happens whenever the rig FILE itself changes).
+if(DEFINED RIG_DEPENDS AND RIG_DEPENDS)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${RIG_DEPENDS})
+endif()
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------

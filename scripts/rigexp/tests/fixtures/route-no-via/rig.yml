@@ -1,0 +1,20 @@
+# Synthetic fixture (cmake-debug review, 2026-07-23): a wire whose `route:`
+# is a mapping that names no `via:` key — must be rejected by the LOADER
+# with the lang-schema diagnostic loader_yml.py added when Wire.route's
+# None-leak was fixed (the mypy error the exemption removal exposed). No
+# corpus rig uses wires at all, so this fixture is the only thing locking
+# that diagnostic's wording and verdict.
+rig:
+  name: route-no-via
+  board: nucleo_f401re_btr
+  instances:
+    - name: a
+      shield: adafruit_data_logger
+      socket: nucleo_ard
+    - name: b
+      shield: adafruit_data_logger
+      socket: nucleo_ard
+  wires:
+    - from: a.sq
+      to: b.led-1
+      route: {}

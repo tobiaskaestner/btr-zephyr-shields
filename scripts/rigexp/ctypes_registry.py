@@ -33,6 +33,7 @@ import os
 
 import yaml
 
+from .diag import Depends
 from .dtsio import MODULE_ROOT, parse_header_indices
 from .model import ConnectorType, Position
 
@@ -40,12 +41,15 @@ CONNECTORS = os.path.join(MODULE_ROOT, "dts", "connectors")
 BINDINGS = os.path.join(MODULE_ROOT, "dts", "bindings", "connector")
 
 
-def _socket_facts(name: str, plug: dict) -> tuple[bool, list[int]]:
+def _socket_facts(name: str, plug: dict,
+                  deps: Depends | None) -> tuple[bool, list[int]]:
     """(stackable, cs_pool) -- the socket-side type facts. Real binding if
     one exists for this type; else the plug YAML's own inline `socket:` key
     (the i2c-port exception, see module docstring)."""
     socket_path = os.path.join(BINDINGS, f"{name}.yaml")
     if os.path.exists(socket_path):
+        if deps is not None:
+            deps.see(socket_path)
         with open(socket_path) as f:
             socket = yaml.safe_load(f)
         sprops = socket.get("properties", {})
@@ -60,16 +64,18 @@ def _socket_facts(name: str, plug: dict) -> tuple[bool, list[int]]:
     return bool(inline.get("stackable", False)), list(inline.get("cs-pool", []))
 
 
-def load_types() -> dict[str, ConnectorType]:
+def load_types(deps: Depends | None = None) -> dict[str, ConnectorType]:
     types = {}
     for plug_path in sorted(glob.glob(os.path.join(CONNECTORS, "plug,*.yaml"))):
+        if deps is not None:
+            deps.see(plug_path)
         with open(plug_path) as f:
             plug = yaml.safe_load(f)
         name = plug["plug"]
 
-        stackable, cs_pool = _socket_facts(name, plug)
+        stackable, cs_pool = _socket_facts(name, plug, deps)
 
-        indices = parse_header_indices(name)
+        indices = parse_header_indices(name, deps)
         positions = {}
         for pname, meta in plug.get("positions", {}).items():
             if pname not in indices:

@@ -80,3 +80,23 @@ class LoadError(Exception):
     def __init__(self, diag: Diagnostic):
         self.diag = diag
         super().__init__(diag.render())
+
+
+class Depends(set):
+    """Absolute paths of every real source-tree file one `expand` run
+    actually opened -- rig.yml, `.shield` templates (+ their cpp-included
+    files), connector plug/socket bindings, index headers, the board `.dts`.
+    Threaded through the pipeline the same way `Diagnostics` is: an optional,
+    mutable accumulator passed down to whichever module does the actual
+    open(). `cli.py` sorts + writes it into `context.cmake` as `RIG_DEPENDS`,
+    which `cmake/rig.cmake` appends to `CMAKE_CONFIGURE_DEPENDS` -- so editing
+    any of these files retriggers configure (one-configure lag: this reflects
+    what THIS run read, not the edited file itself, until the next run).
+
+    Deliberately a plain `set`, not a dataclass: membership (has this file
+    been seen) is the only operation needed, insertion order is irrelevant,
+    and every caller already has a path string in hand -- `see()` just
+    normalizes it to absolute before adding."""
+
+    def see(self, path: str) -> None:
+        self.add(os.path.abspath(path))

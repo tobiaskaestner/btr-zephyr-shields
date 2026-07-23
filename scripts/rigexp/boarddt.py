@@ -30,7 +30,7 @@ from pathlib import Path
 from typing import Optional
 
 from . import board_edt
-from .diag import Diagnostics
+from .diag import Depends, Diagnostics
 from .dtsio import MODULE_ROOT
 from .edt_build import BuildRecipe
 from .model import Board
@@ -38,7 +38,8 @@ from .model import Board
 
 def load_board(name: str, workdir: str, diags: Diagnostics,
                board_dts: Optional[str] = None,
-               recipe: Optional[BuildRecipe] = None) -> Optional[Board]:
+               recipe: Optional[BuildRecipe] = None,
+               deps: Optional[Depends] = None) -> Optional[Board]:
     """Resolve board `name` to a `model.Board`, or None (+ a `phys-board`
     Diagnostic) if it can't be read at all.
 
@@ -51,6 +52,11 @@ def load_board(name: str, workdir: str, diags: Diagnostics,
     `board_dts` was given) is a caller-configuration gap, reported the same
     way as any other board-resolution failure — see the `recipe is None`
     branch.
+
+    `deps`, if given, records the board's own `.dts` (not its cpp-included
+    files — those are the board's own concern, covered elsewhere; a rig
+    build's dependency tracking cares about the ONE file naming the board,
+    matching what `--board-dts` itself takes as a single path).
     """
     if board_dts is None:
         board_dts = _discover_board_dts(name, diags)
@@ -72,6 +78,8 @@ def load_board(name: str, workdir: str, diags: Diagnostics,
             "rig build (rig.cmake) supplies this automatically")
         return None
 
+    if deps is not None:
+        deps.see(board_dts)
     board = board_edt.load_board(name, board_dts, recipe, workdir)
     if not board.sockets:
         diags.error(

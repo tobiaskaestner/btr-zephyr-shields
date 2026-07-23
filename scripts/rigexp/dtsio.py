@@ -15,7 +15,7 @@ import re
 import subprocess
 import sys
 
-from .diag import ROOT, Diagnostic, LoadError, SrcRef
+from .diag import ROOT, Depends, Diagnostic, LoadError, SrcRef
 
 # The zephyr tree (dtlib source + includes) is located via $ZEPHYR_BASE, which
 # the build sets and rig.cmake passes through to the expander explicitly — no
@@ -93,16 +93,39 @@ def parse_tu(includes: list[str], workdir: str, name: str) -> dtlib.DT:
 _DEFINE_RE = re.compile(r"^\s*#define\s+(\w+)\s+(\d+|0x[0-9a-fA-F]+)\s*$", re.M)
 
 
-def parse_header_indices(type_name: str) -> dict[str, int]:
+def parse_header_indices(type_name: str,
+                         deps: Depends | None = None) -> dict[str, int]:
     """include/dt-bindings/connector/<type>.h -- the module's REAL
     position-index single source of truth (Bridge-A rewrite step 3; no
     longer a bundled common-dts copy). Returns {short position name: index}
     with the common macro prefix stripped (ARDUINO_HEADER_R3_D7 -> D7)."""
     path = os.path.join(MODULE_INC, "dt-bindings", "connector", f"{type_name}.h")
+    if deps is not None:
+        deps.see(path)
     with open(path) as f:
         defines = {m[1]: int(m[2], 0) for m in _DEFINE_RE.finditer(f.read())}
     prefix = os.path.commonprefix(list(defines))
     return {name[len(prefix):]: val for name, val in defines.items()}
+
+
+def source_files(dt: dtlib.DT, exclude_dir: str) -> list[str]:
+    """Every REAL source-tree file `dt` was parsed from, recovered from cpp
+    linemarkers via each `Node`/`Property`'s own `.filename` (dtlib records
+    these as it walks the preprocessed token stream, so they name the
+    ORIGINAL included files, not the preprocessed temp file). EXCLUDES
+    `exclude_dir` (and anything under it): the synthesized translation unit
+    `parse_tu` builds there is a generated artifact, not a real source file
+    -- only its real `#include`d files belong in a dependency list."""
+    exclude = os.path.realpath(exclude_dir)
+    names = set()
+    for node in dt.node_iter():
+        names.add(node.filename)
+        for prop in node.props.values():
+            names.add(prop.filename)
+    return sorted(
+        name for name in names
+        if name and os.path.realpath(name) != exclude
+        and not os.path.realpath(name).startswith(exclude + os.sep))
 
 
 def words(prop: dtlib.Property) -> list[int]:

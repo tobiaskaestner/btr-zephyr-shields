@@ -197,3 +197,37 @@ def test_tier2_build_info_rig_provenance(tmp_path: Path) -> None:
     assert "arduino_uno_click" in rig["shield-dirs"]
     assert "eth_click" in rig["shield-dirs"]
     assert Path(rig["out-dir"]).is_dir()
+
+
+def test_tier2_rig_depends_provenance(tmp_path: Path) -> None:
+    """Dependency-tracking handoff (RIG_DEPENDS): `cmake/rig.cmake` appends
+    the expander's own generated `context.cmake` `RIG_DEPENDS` list to
+    CMAKE_CONFIGURE_DEPENDS, so editing a `.shield` template or a connector
+    binding — not just rig.yml/rig.conf/rig.overlay, the pre-existing static
+    registrations — retriggers configure. What's testable HERE, without
+    mutating any corpus file (forbidden — modifying fixtures in a test would
+    make the test self-fulfilling): that `context.cmake`, as ACTUALLY written
+    into a real build dir, carries the rig.yml, at least one `.shield`, one
+    connector plug YAML, and the board `.dts`. The other half — that CMake
+    actually retriggers configure when a CMAKE_CONFIGURE_DEPENDS-listed file
+    changes — is CMake's own long-standing guarantee for that property, not
+    something this project needs to (or reasonably can, without touching
+    corpus files) re-prove; `set_property(... APPEND PROPERTY
+    CMAKE_CONFIGURE_DEPENDS ...)` in rig.cmake is the whole of our contribution."""
+    build_dir = tmp_path / "build"
+    result = _run_build("lotus-pwm", build_dir)
+    assert result.returncode == 0, (
+        f"lotus-pwm: expected `west build-rig --cmake-only` to configure "
+        f"clean\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+
+    context_cmake = (build_dir / "rig" / "context.cmake").read_text()
+    depends_line = next(
+        (line for line in context_cmake.splitlines() if "RIG_DEPENDS" in line),
+        None)
+    assert depends_line is not None, (
+        f"no RIG_DEPENDS in generated context.cmake:\n{context_cmake}")
+
+    assert "boards/rigs/lotus-pwm/rig.yml" in depends_line
+    assert "boards/shields/grove_servo/grove_servo.shield" in depends_line
+    assert "dts/connectors/plug,grove.yaml" in depends_line
+    assert "boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts" in depends_line

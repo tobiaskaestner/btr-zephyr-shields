@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 
 from .boarddt import load_board
 from .ctypes_registry import load_types
-from .diag import Diagnostics
+from .diag import Depends, Diagnostics
 from .edt_build import BuildRecipe
 from .model import Board, BoardSocket, BusRef, Device, Instance, Rig
 
@@ -70,12 +70,13 @@ def _key(inst: Instance, dev: Device):
 
 def analyze(rig: Rig, workdir: str, diags: Diagnostics,
             board_dts: str | None = None,
-            recipe: BuildRecipe | None = None) -> Solved | None:
-    board = load_board(rig.board, workdir, diags, board_dts, recipe)
+            recipe: BuildRecipe | None = None,
+            deps: Depends | None = None) -> Solved | None:
+    board = load_board(rig.board, workdir, diags, board_dts, recipe, deps)
     if board is None:
         return None
     solved = Solved(rig=rig, board=board)
-    types = load_types()
+    types = load_types(deps)
 
     _check_matings(rig, board, types, solved, diags)
     # instances whose mating failed are absent from solved.sockets; every

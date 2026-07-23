@@ -128,6 +128,26 @@ def test_unknown_board_golden(tmp_path: Path) -> None:
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
 
 
+def test_route_no_via_golden(tmp_path: Path) -> None:
+    """Synthetic fixture (cmake-debug review finding): a wire `route:` that
+    is a mapping without a `via:` key must be rejected by the LOADER with
+    the lang-schema diagnostic that replaced Wire.route's None-leak. No
+    corpus rig uses wires, so only this fixture locks that path. Fast: the
+    loader rejects before any board recipe is needed."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "route-no-via" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, "route:{} without via: must be rejected"
+    assert "[lang-schema]" in result.stderr, result.stderr
+    assert "names no 'via' key" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "route-no-via"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
 def test_not_rig_enabled_golden(tmp_path: Path) -> None:
     """Synthetic fixture (flip review finding 3): a board whose devicetree
     EXISTS but declares no `socket,*` node must be rejected with the DISTINCT

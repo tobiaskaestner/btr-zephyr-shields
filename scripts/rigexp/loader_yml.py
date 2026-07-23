@@ -26,9 +26,9 @@ import os
 import yaml
 
 from .ctypes_registry import load_types
-from .diag import Diagnostic, Diagnostics, LoadError, SrcRef
-from .dtsio import MODULE_ROOT, parse_tu
-from .model import Instance, Rig, Strap, Wire, WireEnd
+from .diag import Depends, Diagnostic, Diagnostics, LoadError, SrcRef
+from .dtsio import MODULE_ROOT, parse_tu, source_files
+from .model import Instance, Rig, Shield, Strap, Wire, WireEnd
 from .shields import parse_shields
 
 # The vendored default shield library (direct API / test use only — see
@@ -38,7 +38,8 @@ SHIELDS_DIR = os.path.join(MODULE_ROOT, "boards", "shields")
 
 
 def load_shield_library(workdir: str, diags: Diagnostics,
-                        shield_dirs: list[str] | None = None):
+                        shield_dirs: list[str] | None = None,
+                        deps: Depends | None = None) -> dict[str, Shield]:
     """Load every shield template. Each `.shield` file is its OWN translation
     unit (Ground rule 3), so labels are shield-scoped — two shields may reuse
     `gl_plug` etc. without colliding, and no cross-shield prefix discipline is
@@ -63,8 +64,14 @@ def load_shield_library(workdir: str, diags: Diagnostics,
     ordinary discoverable content that may live in ANY board_root of ANY
     Zephyr module, not just this one. The build system (rig.cmake) derives the
     list from BOARD_ROOT, exactly as list_shields.py does; None falls back to
-    the vendored default (SHIELDS_DIR), used only by direct API / tests."""
-    types = load_types()
+    the vendored default (SHIELDS_DIR), used only by direct API / tests.
+
+    `deps`, if given, records every `.shield` file this call parses, plus
+    (via `dtsio.source_files`) whatever real files each one's translation
+    unit `#include`s — the temp `workdir` the TU is synthesized in is
+    excluded, since it holds a generated file with no counterpart in the
+    source tree."""
+    types = load_types(deps)
     shields = {}
     directories = shield_dirs if shield_dirs is not None else [SHIELDS_DIR]
     for directory in directories:
@@ -75,7 +82,12 @@ def load_shield_library(workdir: str, diags: Diagnostics,
             f = os.path.join(shield_dir, name + ".shield")
             if not os.path.isfile(f):
                 continue
+            if deps is not None:
+                deps.see(f)
             dt = parse_tu([f], workdir, f"shield-{name}.dts")
+            if deps is not None:
+                for src in source_files(dt, workdir):
+                    deps.see(src)
             shields.update(parse_shields(dt, types, diags))
     return shields
 
@@ -126,8 +138,11 @@ def _require(mapping: _Val, key: str, ctx: str, diags) -> _Val | None:
 # ---------------------------------------------------------------- loader
 
 def load(rig_path: str, workdir: str, diags: Diagnostics,
-        shield_dirs: list[str] | None = None) -> Rig | None:
-    shields = load_shield_library(workdir, diags, shield_dirs)
+        shield_dirs: list[str] | None = None,
+        deps: Depends | None = None) -> Rig | None:
+    if deps is not None:
+        deps.see(rig_path)
+    shields = load_shield_library(workdir, diags, shield_dirs, deps)
 
     with open(rig_path) as f:
         try:
@@ -218,7 +233,12 @@ def _parse_wire(item: _Val, by_name, diags) -> Wire | None:
         return None
     if isinstance(route_v.v, dict):
         via_v = route_v.v.get("via")
-        route = via_v.v if via_v else None   # position NAME; analyzer maps to index
+        if via_v is None:
+            diags.error("lang-schema",
+                        "wire: route is a mapping but names no 'via' key",
+                        [route_v.src])
+            return None
+        route = via_v.v   # position NAME; analyzer maps to index
     else:
         route = route_v.v
     return Wire(frm=frm, to=to, route=route, src=item.src)
