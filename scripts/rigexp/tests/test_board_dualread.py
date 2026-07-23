@@ -270,31 +270,25 @@ def test_dualread_cs_pool_effective(plain_build: PlainBuild,
 
 
 @pytest.mark.build
-def test_dualread_pwm_adc_known_phase2_gap(plain_build: PlainBuild,
-                                            tmp_path: Path) -> None:
-    """pwm_map/adc_map: the real board sockets carry no standard `pwm-map`/
-    `io-channel-map` nexus yet -- that is Bridge-A phase 2 ("PWM/ADC via real
-    nexuses"), explicitly NOT in this task's scope. Assert equality wherever
-    common-dts already has them empty (nucleo, quail, frdm, and lotus's
-    non-multi-function grove sockets); where common-dts is non-empty (lotus's
-    PWM/ADC-capable grove sockets, grove_d2-4/grove_a0-1), assert the edtlib
-    side is the documented, EXPECTED empty phase-2 gap -- not a surprise."""
+def test_dualread_pwm_adc(plain_build: PlainBuild, tmp_path: Path) -> None:
+    """pwm_map/adc_map (Bridge-A phase 2a): the real board sockets now carry
+    standard `pwm-map`/`io-channel-map` nexuses wherever common-dts's
+    `socket,pwm-map`/`socket,adc-map` says a position is PWM/ADC-capable
+    (lotus's grove_d2-4/grove_a0-1; nucleo/quail/frdm have none -- both sides
+    empty there) -- hard equality on all four boards, D2/D4-share-tcc0-ch0
+    included, no known gap."""
     common = _common_dts_board(plain_build.board, tmp_path)
     edtb = _edtlib_board(plain_build, tmp_path)
     for label, socket in common.sockets.items():
         edt_socket = edtb.sockets[label]
-        if socket.pwm_map:
-            assert edt_socket.pwm_map == {}, (
-                f"{plain_build.board}/{label}: expected the documented "
-                f"phase-2 pwm_map gap (empty), got {edt_socket.pwm_map}")
-        else:
-            assert edt_socket.pwm_map == {}
-        if socket.adc_map:
-            assert edt_socket.adc_map == {}, (
-                f"{plain_build.board}/{label}: expected the documented "
-                f"phase-2 adc_map gap (empty), got {edt_socket.adc_map}")
-        else:
-            assert edt_socket.adc_map == {}
+        assert edt_socket.pwm_map == socket.pwm_map, (
+            f"{plain_build.board}/{label}: pwm_map mismatch\n"
+            f"  edtlib:    {sorted(edt_socket.pwm_map.items())}\n"
+            f"  common-dts:{sorted(socket.pwm_map.items())}")
+        assert edt_socket.adc_map == socket.adc_map, (
+            f"{plain_build.board}/{label}: adc_map mismatch\n"
+            f"  edtlib:    {sorted(edt_socket.adc_map.items())}\n"
+            f"  common-dts:{sorted(socket.adc_map.items())}")
 
 
 # ---------------------------------------------------------------- saferail 3: edt.pickle

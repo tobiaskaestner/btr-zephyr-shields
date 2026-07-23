@@ -14,12 +14,15 @@ for equality (see `tests/test_board_dualread.py`). It is not yet wired into
 the production expander path -- `boarddt.load_board` stays the authority
 until the whole corpus passes dual-read (saferail 2/6).
 
-pwm_map / adc_map are intentionally left EMPTY here: the real board sockets
-carry no standard `pwm-map`/`io-channel-map` nexus yet (that is Bridge-A
-phase 2, "PWM/ADC via real nexuses" -- lotus/quail's multi-function routing
-currently lives ONLY in the common-dts scaffold's `socket,pwm-map` /
-`socket,adc-map`, a rig-model-only convention no real board node carries,
-see `boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi`'s NOTE).
+pwm_map / adc_map (Bridge-A phase 2a) project the socket node's standard
+`pwm-map` / `io-channel-map` nexuses -- read the same way `gpio-map` already
+is, via `edtlib.Node.maps()` -- onto the SAME position -> (controller label,
+channel) shape `boarddt.load_board` derives from the common-dts scaffold's
+`socket,pwm-map` / `socket,adc-map` (see
+`boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi`). Not every socket
+carries these maps (only PWM/ADC-capable ones do); `node.maps` simply omits
+the key for a `*-map` property the node doesn't author, so the loops below
+are no-ops for sockets without one.
 """
 from __future__ import annotations
 
@@ -103,6 +106,46 @@ def _project_socket(node: edtlib.Node, compat: str) -> BoardSocket:
         assert isinstance(cs_prop.val, list)
         cs_pool = cast(List[int], cs_prop.val)
 
+    pwm_map: Dict[int, Tuple[str, int]] = {}
+    for entry in node.maps.get("pwm", []):
+        pos, _pos_period = entry.child_specifiers
+        channel, _channel_period = entry.parent_specifiers
+        pwm_map[pos] = (_controller_label(entry.parent), channel)
+
+    adc_map: Dict[int, Tuple[str, int]] = {}
+    for entry in node.maps.get("io-channel", []):
+        (pos,) = entry.child_specifiers
+        (channel,) = entry.parent_specifiers
+        adc_map[pos] = (_controller_label(entry.parent), channel)
+
     return BoardSocket(
         label=label, path=node.path, type_name=type_name,
-        gpio_map=gpio_map, buses=buses, cs_pool=cs_pool)
+        gpio_map=gpio_map, buses=buses, cs_pool=cs_pool,
+        pwm_map=pwm_map, adc_map=adc_map)
+
+
+def _controller_label(node: edtlib.Node) -> str:
+    """The controller's own label for a `*-map` target, preferring the LAST
+    one attached over the SoC dtsi's original (first) one: a socket-file
+    alias attached after the fact (e.g. `adc0: &adc {};` in
+    `grove_sockets_btr.dtsi`) is appended to `Node.labels` without
+    displacing the primary label the SoC dtsi already gave the node
+    (dtlib's label list is append-only, first-wins on duplicates, never
+    reordered). This projects onto the SAME label the common-dts scaffold's
+    board stub uses for that controller (dual-read comparability, saferail
+    2) -- both name one real node; single-labeled nodes (e.g. &tcc0) are
+    unaffected, since labels[-1] == labels[0] there.
+
+    INVARIANT (review 2026-07-23): what this must return is the
+    board-conventional alias the emitter will emit verbatim into overlays
+    (`&adc0 ...`) -- "last-attached" is only a proxy for that, diverging
+    from the `labels[0]` used for gpio/bus targets solely on RE-ALIASED
+    nodes (today: lotus adc). It is order-fragile by construction: a later
+    include attaching yet another label to a `*-map` target silently
+    changes the emitted label, and once common-dts is deleted (saferail 8)
+    the dual-read no longer guards this -- only tier-1 overlay text does
+    (tier-2 dts_equiv resolves labels away). Treat any change here as
+    overlay-affecting, never cosmetic."""
+    if not node.labels:
+        raise ValueError(f"controller node {node.path} has no label")
+    return node.labels[-1]

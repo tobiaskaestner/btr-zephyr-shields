@@ -16,23 +16,20 @@ description: |
   digital-only (gpio-map only), some are also PWM- or ADC-capable — real
   per-pin dual-function copper (Slice A / ontology Refinement 1: functions
   live on endpoints, not nets). Which positions are PWM/ADC-capable, and
-  which (controller, channel) each one reaches, is modeled ONLY on the
-  expander's own board copy (scripts/rigexp/common-dts/boards/
-  seeeduino_lotus_btr.rig.dtsi, socket,pwm-map / socket,adc-map: 5-cell rows
-  shaped like gpio-map, read by scripts/rigexp/boarddt.py with raw dtlib, no
-  binding schema involved) — deliberately NOT declared here nor instantiated
-  on the real board node (R21 finding, P3 3c): edtlib's devicetree.edtlib
-  auto-treats ANY property whose name ends in "-map" as a full DT
-  nexus (Node.maps()), which then requires a matching "#<name>-cells"
-  property on BOTH the node carrying it AND the phandle target (&tcc0/&adc)
-  — neither of which exists (real core SoC nodes should not be decorated
-  with invented cells properties just to satisfy this). Harmless to omit
-  here: the emitter never resolves a PWM/ADC claim back through the socket
-  node at the real-DTS layer — the resolved `pwms`/`io-channels` it emits
-  (scripts/rigexp/emitter.py `_device_node`) reference &tcc0 / &adc0
-  directly, bypassing the socket entirely. gpio-map is unaffected by this
-  hazard: its parent targets (&porta/&portb) are real GPIO controllers that
-  already declare "#gpio-cells" on both sides.
+  which (controller, channel) each one reaches, is declared with standard
+  `pwm-map` / `io-channel-map` nexus properties (Bridge-A rewrite phase 2a),
+  parallel to `gpio-map` above — real socket nodes on
+  boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi instantiate them for
+  the PWM/ADC-capable positions, and `scripts/rigexp/board_edt.py` reads them
+  the standard way, via `edtlib.Node.maps()`. They are declared OPTIONAL here
+  (not via `include: [pwm-nexus.yaml, io-channel-nexus.yaml]`, the upstream
+  gpio-nexus analogues for this role — their maps are `required: true` and
+  dtschema `include:` merge cannot downgrade an included property's
+  `required: true` to `false`) because not every Grove socket carries a
+  PWM/ADC-reachable position (only some SIG positions reach a timer/ADC
+  channel) — unlike gpio-map, which every socket carries. Cell shapes/roles
+  match the upstream bindings exactly (pwm-map: compound, #pwm-cells: int;
+  same for io-channel-*), just optional rather than required.
 
 compatible: "socket,grove"
 
@@ -43,6 +40,23 @@ properties:
     type: int
     required: true
     const: 2
+
+  pwm-map:
+    type: compound
+  pwm-map-mask:
+    type: array
+  pwm-map-pass-thru:
+    type: array
+  "#pwm-cells":
+    type: int
+  io-channel-map:
+    type: compound
+  io-channel-map-mask:
+    type: array
+  io-channel-map-pass-thru:
+    type: array
+  "#io-channel-cells":
+    type: int
 
 gpio-cells:
   - pin
