@@ -44,6 +44,7 @@ from conftest import (
     RigCase,
     WEST_EXE,
     WEST_TOPDIR,
+    normalize_dts_provenance,
     zephyr_base,
 )
 
@@ -87,7 +88,7 @@ def test_tier2_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
     golden = GOLDENS_DIR / case.name / "zephyr.dts"
     if REFREEZE:
         golden.parent.mkdir(parents=True, exist_ok=True)
-        golden.write_text(candidate.read_text())
+        golden.write_text(normalize_dts_provenance(candidate.read_text()))
         return
 
     if not golden.is_file():

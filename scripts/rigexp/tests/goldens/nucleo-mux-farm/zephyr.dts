@@ -496,66 +496,66 @@
 			clock-frequency = < 0x61a80 >;               /* in btr-shields/boards/st/nucleo_f401re_btr/nucleo_f401re_btr.dts:112 */
 			phandle = < 0x21 >;                          /* in zephyr-rigs/dts/arm/st/f4/stm32f4.dtsi:707 */
 
-			/* node '/soc/i2c@40005400/mux@70' defined in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:6 */
+			/* node '/soc/i2c@40005400/mux@70' defined in <RIGEXP_BUILD>/rig/overlay:6 */
 			mux_1_mux: mux@70 {
-				compatible = "ti,tca9548a"; /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:7 */
-				reg = < 0x70 >;             /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:8 */
-				#address-cells = < 0x1 >;   /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:9 */
-				#size-cells = < 0x0 >;      /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:10 */
+				compatible = "ti,tca9548a"; /* in <RIGEXP_BUILD>/rig/overlay:7 */
+				reg = < 0x70 >;             /* in <RIGEXP_BUILD>/rig/overlay:8 */
+				#address-cells = < 0x1 >;   /* in <RIGEXP_BUILD>/rig/overlay:9 */
+				#size-cells = < 0x0 >;      /* in <RIGEXP_BUILD>/rig/overlay:10 */
 
-				/* node '/soc/i2c@40005400/mux@70/channel@0' defined in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:11 */
+				/* node '/soc/i2c@40005400/mux@70/channel@0' defined in <RIGEXP_BUILD>/rig/overlay:11 */
 				channel@0 {
-					reg = < 0x0 >;            /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:12 */
-					#address-cells = < 0x1 >; /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:13 */
-					#size-cells = < 0x0 >;    /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:14 */
+					reg = < 0x0 >;            /* in <RIGEXP_BUILD>/rig/overlay:12 */
+					#address-cells = < 0x1 >; /* in <RIGEXP_BUILD>/rig/overlay:13 */
+					#size-cells = < 0x0 >;    /* in <RIGEXP_BUILD>/rig/overlay:14 */
 
-					/* node '/soc/i2c@40005400/mux@70/channel@0/sensor@48' defined in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:15 */
+					/* node '/soc/i2c@40005400/mux@70/channel@0/sensor@48' defined in <RIGEXP_BUILD>/rig/overlay:15 */
 					sensor_0_sensor: sensor@48 {
-						compatible = "vnd,temp0x48"; /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:16 */
-						reg = < 0x48 >;              /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:17 */
-						status = "okay";             /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:18 */
+						compatible = "vnd,temp0x48"; /* in <RIGEXP_BUILD>/rig/overlay:16 */
+						reg = < 0x48 >;              /* in <RIGEXP_BUILD>/rig/overlay:17 */
+						status = "okay";             /* in <RIGEXP_BUILD>/rig/overlay:18 */
 					};
 				};
 
-				/* node '/soc/i2c@40005400/mux@70/channel@1' defined in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:21 */
+				/* node '/soc/i2c@40005400/mux@70/channel@1' defined in <RIGEXP_BUILD>/rig/overlay:21 */
 				channel@1 {
-					reg = < 0x1 >;            /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:22 */
-					#address-cells = < 0x1 >; /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:23 */
-					#size-cells = < 0x0 >;    /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:24 */
+					reg = < 0x1 >;            /* in <RIGEXP_BUILD>/rig/overlay:22 */
+					#address-cells = < 0x1 >; /* in <RIGEXP_BUILD>/rig/overlay:23 */
+					#size-cells = < 0x0 >;    /* in <RIGEXP_BUILD>/rig/overlay:24 */
 
-					/* node '/soc/i2c@40005400/mux@70/channel@1/sensor@48' defined in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:25 */
+					/* node '/soc/i2c@40005400/mux@70/channel@1/sensor@48' defined in <RIGEXP_BUILD>/rig/overlay:25 */
 					sensor_1_sensor: sensor@48 {
-						compatible = "vnd,temp0x48"; /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:26 */
-						reg = < 0x48 >;              /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:27 */
-						status = "okay";             /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:28 */
+						compatible = "vnd,temp0x48"; /* in <RIGEXP_BUILD>/rig/overlay:26 */
+						reg = < 0x48 >;              /* in <RIGEXP_BUILD>/rig/overlay:27 */
+						status = "okay";             /* in <RIGEXP_BUILD>/rig/overlay:28 */
 					};
 				};
 
-				/* node '/soc/i2c@40005400/mux@70/channel@2' defined in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:31 */
+				/* node '/soc/i2c@40005400/mux@70/channel@2' defined in <RIGEXP_BUILD>/rig/overlay:31 */
 				channel@2 {
-					reg = < 0x2 >;            /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:32 */
-					#address-cells = < 0x1 >; /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:33 */
-					#size-cells = < 0x0 >;    /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:34 */
+					reg = < 0x2 >;            /* in <RIGEXP_BUILD>/rig/overlay:32 */
+					#address-cells = < 0x1 >; /* in <RIGEXP_BUILD>/rig/overlay:33 */
+					#size-cells = < 0x0 >;    /* in <RIGEXP_BUILD>/rig/overlay:34 */
 
-					/* node '/soc/i2c@40005400/mux@70/channel@2/sensor@48' defined in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:35 */
+					/* node '/soc/i2c@40005400/mux@70/channel@2/sensor@48' defined in <RIGEXP_BUILD>/rig/overlay:35 */
 					sensor_2_sensor: sensor@48 {
-						compatible = "vnd,temp0x48"; /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:36 */
-						reg = < 0x48 >;              /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:37 */
-						status = "okay";             /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:38 */
+						compatible = "vnd,temp0x48"; /* in <RIGEXP_BUILD>/rig/overlay:36 */
+						reg = < 0x48 >;              /* in <RIGEXP_BUILD>/rig/overlay:37 */
+						status = "okay";             /* in <RIGEXP_BUILD>/rig/overlay:38 */
 					};
 				};
 
-				/* node '/soc/i2c@40005400/mux@70/channel@3' defined in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:41 */
+				/* node '/soc/i2c@40005400/mux@70/channel@3' defined in <RIGEXP_BUILD>/rig/overlay:41 */
 				channel@3 {
-					reg = < 0x3 >;            /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:42 */
-					#address-cells = < 0x1 >; /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:43 */
-					#size-cells = < 0x0 >;    /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:44 */
+					reg = < 0x3 >;            /* in <RIGEXP_BUILD>/rig/overlay:42 */
+					#address-cells = < 0x1 >; /* in <RIGEXP_BUILD>/rig/overlay:43 */
+					#size-cells = < 0x0 >;    /* in <RIGEXP_BUILD>/rig/overlay:44 */
 
-					/* node '/soc/i2c@40005400/mux@70/channel@3/sensor@48' defined in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:45 */
+					/* node '/soc/i2c@40005400/mux@70/channel@3/sensor@48' defined in <RIGEXP_BUILD>/rig/overlay:45 */
 					sensor_3_sensor: sensor@48 {
-						compatible = "vnd,temp0x48"; /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:46 */
-						reg = < 0x48 >;              /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:47 */
-						status = "okay";             /* in ../../../tmp/pytest-of-tobi/pytest-3/test_tier2_accept_zephyr_dts_n2/build/rig/overlay:48 */
+						compatible = "vnd,temp0x48"; /* in <RIGEXP_BUILD>/rig/overlay:46 */
+						reg = < 0x48 >;              /* in <RIGEXP_BUILD>/rig/overlay:47 */
+						status = "okay";             /* in <RIGEXP_BUILD>/rig/overlay:48 */
 					};
 				};
 			};

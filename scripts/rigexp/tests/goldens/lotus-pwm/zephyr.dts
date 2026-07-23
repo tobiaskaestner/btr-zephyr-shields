@@ -457,7 +457,7 @@
 			atmel,assigned-clock-names = "GCLK";   /* in zephyr-rigs/dts/arm/atmel/samd21.dtsi:175 */
 			pinctrl-0 = < &adc_default >;          /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:164 */
 			pinctrl-names = "default";             /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:165 */
-			status = "okay";                       /* in ../../../tmp/pytest-of-tobi/pytest-52/test_tier2_accept_zephyr_dts_l0/build/rig/overlay:25 */
+			status = "okay";                       /* in <RIGEXP_BUILD>/rig/overlay:25 */
 			phandle = < 0x11 >;                    /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:137 */
 		};
 
@@ -529,7 +529,7 @@
 			#pwm-cells = < 0x2 >;                  /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:127 */
 			pinctrl-0 = < &tcc0_pwm_default >;     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:129 */
 			pinctrl-names = "default";             /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:130 */
-			status = "okay";                       /* in ../../../tmp/pytest-of-tobi/pytest-52/test_tier2_accept_zephyr_dts_l0/build/rig/overlay:26 */
+			status = "okay";                       /* in <RIGEXP_BUILD>/rig/overlay:26 */
 			phandle = < 0xf >;                     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:72 */
 		};
 
@@ -617,7 +617,7 @@
 		pwm-map-pass-thru = < 0x0 0xffffffff >;    /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:71 */
 		pwm-map = < 0x0 0x0 &tcc0 0x0 0x0 >,
 		          < 0x1 0x0 &tcc0 0x1 0x0 >;       /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:72 */
-		phandle = < 0x14 >;                        /* in ../../../tmp/pytest-of-tobi/pytest-52/test_tier2_accept_zephyr_dts_l0/build/rig/overlay:16 */
+		phandle = < 0x14 >;                        /* in <RIGEXP_BUILD>/rig/overlay:16 */
 	};
 
 	/* node '/connector_grove_d3' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:74 */
@@ -693,7 +693,7 @@
 		io-channel-map-pass-thru = < 0x0 >;        /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:136 */
 		io-channel-map = < 0x0 &adc0 0x0 >,
 		                 < 0x1 &adc0 0x1 >;        /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:137 */
-		phandle = < 0x13 >;                        /* in ../../../tmp/pytest-of-tobi/pytest-52/test_tier2_accept_zephyr_dts_l0/build/rig/overlay:9 */
+		phandle = < 0x13 >;                        /* in <RIGEXP_BUILD>/rig/overlay:9 */
 	};
 
 	/* node '/connector_grove_a1' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:139 */
@@ -754,25 +754,25 @@
 		};
 	};
 
-	/* node '/light_1' defined in ../../../tmp/pytest-of-tobi/pytest-52/test_tier2_accept_zephyr_dts_l0/build/rig/overlay:6 */
+	/* node '/light_1' defined in <RIGEXP_BUILD>/rig/overlay:6 */
 	light_1 {
 
-		/* node '/light_1/light' defined in ../../../tmp/pytest-of-tobi/pytest-52/test_tier2_accept_zephyr_dts_l0/build/rig/overlay:7 */
+		/* node '/light_1/light' defined in <RIGEXP_BUILD>/rig/overlay:7 */
 		light_1_light: light {
-			compatible = "vnd,light-sensor"; /* in ../../../tmp/pytest-of-tobi/pytest-52/test_tier2_accept_zephyr_dts_l0/build/rig/overlay:8 */
-			io-channels = < &grove_a0 0x0 >; /* in ../../../tmp/pytest-of-tobi/pytest-52/test_tier2_accept_zephyr_dts_l0/build/rig/overlay:9 */
-			status = "okay";                 /* in ../../../tmp/pytest-of-tobi/pytest-52/test_tier2_accept_zephyr_dts_l0/build/rig/overlay:10 */
+			compatible = "vnd,light-sensor"; /* in <RIGEXP_BUILD>/rig/overlay:8 */
+			io-channels = < &grove_a0 0x0 >; /* in <RIGEXP_BUILD>/rig/overlay:9 */
+			status = "okay";                 /* in <RIGEXP_BUILD>/rig/overlay:10 */
 		};
 	};
 
-	/* node '/servo_1' defined in ../../../tmp/pytest-of-tobi/pytest-52/test_tier2_accept_zephyr_dts_l0/build/rig/overlay:13 */
+	/* node '/servo_1' defined in <RIGEXP_BUILD>/rig/overlay:13 */
 	servo_1 {
 
-		/* node '/servo_1/servo' defined in ../../../tmp/pytest-of-tobi/pytest-52/test_tier2_accept_zephyr_dts_l0/build/rig/overlay:14 */
+		/* node '/servo_1/servo' defined in <RIGEXP_BUILD>/rig/overlay:14 */
 		servo_1_servo: servo {
-			compatible = "vnd,pwm-servo";       /* in ../../../tmp/pytest-of-tobi/pytest-52/test_tier2_accept_zephyr_dts_l0/build/rig/overlay:15 */
-			pwms = < &grove_d2 0x0 0x1312d00 >; /* in ../../../tmp/pytest-of-tobi/pytest-52/test_tier2_accept_zephyr_dts_l0/build/rig/overlay:16 */
-			status = "okay";                    /* in ../../../tmp/pytest-of-tobi/pytest-52/test_tier2_accept_zephyr_dts_l0/build/rig/overlay:17 */
+			compatible = "vnd,pwm-servo";       /* in <RIGEXP_BUILD>/rig/overlay:15 */
+			pwms = < &grove_d2 0x0 0x1312d00 >; /* in <RIGEXP_BUILD>/rig/overlay:16 */
+			status = "okay";                    /* in <RIGEXP_BUILD>/rig/overlay:17 */
 		};
 	};
 };

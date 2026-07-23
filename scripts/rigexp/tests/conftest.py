@@ -72,6 +72,29 @@ REFREEZE = bool(os.environ.get("RIGEXP_REFREEZE"))
 
 _WORKDIR_RE = re.compile(r"/tmp/rigexp-[^/\s]+")
 
+# A tier-2 `zephyr.dts`'s own DT provenance comments (`/* in PATH:LINE */`,
+# `/* node 'X' defined in PATH:LINE */`) render PATH relative to the build's
+# cwd (WEST_TOPDIR) — e.g. `../../../tmp/pytest-of-tobi/pytest-52/
+# test_tier2_accept_zephyr_dts_l0/build/rig/overlay:25` — which embeds
+# pytest's OWN per-session tmp dir (`tmp_path`, a fresh directory every test
+# run: `test_tier2_goldens._run_build` builds into `tmp_path / "build"`).
+# Byte-freezing that raw text would make every refreeze session rewrite all
+# 8 tier-2 goldens on this fragment alone, with no content change at all.
+# `(?:\.\./)+` (not a fixed count) tolerates whatever depth WEST_TOPDIR sits
+# at under the filesystem root on a given machine.
+_DTS_BUILD_PROVENANCE_RE = re.compile(
+    r"(?:\.\./)+tmp/pytest-of-[^/\s]+/pytest-\d+/[^/\s]+/build/(rig/[^:\s*]+):(\d+)")
+
+
+def normalize_dts_provenance(text: str) -> str:
+    """Replace a tier-2 `zephyr.dts`'s pytest-tmp-dir-dependent provenance
+    comment paths with a stable placeholder, keeping the meaningful
+    generated-file-relative part (`rig/<file>:<line>`) intact — comments
+    only; the DT content itself is untouched, and dts_equiv.py's structural
+    comparison ignores comments regardless (assert-mode was never affected;
+    this is purely a refreeze-churn fix, see test_tier2_goldens.py)."""
+    return _DTS_BUILD_PROVENANCE_RE.sub(r"<RIGEXP_BUILD>/\1:\2", text)
+
 
 def zephyr_base() -> str:
     """The zephyr tree the expander / dts_equiv.py need, from $ZEPHYR_BASE."""
