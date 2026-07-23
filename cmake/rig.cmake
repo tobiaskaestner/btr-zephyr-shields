@@ -481,6 +481,16 @@ endif()
 
 string(JSON shields_length LENGTH ${shields_json})
 
+# Collect every candidate dir per shield name first (list_shields.py's own
+# output is unfiltered stock-Zephyr content: BOARD_ROOT commonly contains
+# BOTH btr-shields and the ZEPHYR_BASE tree it builds against, and a name
+# collision is real -- e.g. zephyr-rigs ships its own stock
+# boards/shields/adafruit_data_logger, a plain upstream shield with no
+# <name>.shield rig-template marker, alongside btr-shields' rig-template
+# shield of the same name). A single overwriting pass (last-wins) would
+# silently resolve to whichever root happens to sort last, with no relation
+# to which one is actually a rig template.
+set(SHIELD_LIST)
 if(shields_length GREATER 0)
   math(EXPR shields_length "${shields_length} - 1")
 
@@ -488,11 +498,67 @@ if(shields_length GREATER 0)
     string(JSON shield GET "${shields_json}" "${i}")
     string(JSON shield_name GET ${shield} name)
     string(JSON shield_dir GET ${shield} dir)
-    list(APPEND SHIELD_LIST ${shield_name})
-    set(SHIELD_DIR_${shield_name} ${shield_dir})
+    if(NOT shield_name IN_LIST SHIELD_LIST)
+      list(APPEND SHIELD_LIST ${shield_name})
+    endif()
+    list(APPEND _rig_shield_candidate_dirs_${shield_name} ${shield_dir})
   endforeach()
 endif()
 list(SORT SHIELD_LIST)
+
+# Resolve each name's candidate(s) to ONE dir. Discovery rule (matches the
+# expander's own `load_shield_library`, loader_yml.py): a folder is a rig
+# TEMPLATE iff it holds `<name>.shield`, so on a collision that marker is
+# what the expander actually used to build the overlay -- prefer it. A
+# single dir needs no resolution; report an ambiguity (0 or >=2 marked
+# candidates) so it's visible instead of silently picking whichever root
+# came last.
+foreach(shield_name ${SHIELD_LIST})
+  set(_rig_shield_candidates ${_rig_shield_candidate_dirs_${shield_name}})
+  list(REMOVE_DUPLICATES _rig_shield_candidates)
+  list(LENGTH _rig_shield_candidates _rig_shield_ncand)
+  if(_rig_shield_ncand EQUAL 1)
+    list(GET _rig_shield_candidates 0 _rig_shield_chosen)
+  else()
+    set(_rig_shield_marked)
+    foreach(_rig_shield_cand ${_rig_shield_candidates})
+      if(EXISTS "${_rig_shield_cand}/${shield_name}.shield")
+        list(APPEND _rig_shield_marked "${_rig_shield_cand}")
+      endif()
+    endforeach()
+    list(LENGTH _rig_shield_marked _rig_shield_nmarked)
+    if(_rig_shield_nmarked EQUAL 1)
+      # Exactly one candidate is a rig template -- the unambiguous, expected
+      # case for a same-named stock/rig-template collision. No warning.
+      list(GET _rig_shield_marked 0 _rig_shield_chosen)
+    else()
+      # 0 or >=2 candidates carry the marker: genuinely ambiguous. Choose
+      # deterministically (alphabetically first among the marked dirs if
+      # any are marked, else alphabetically first among all candidates) and
+      # say so loudly, naming every candidate.
+      if(_rig_shield_nmarked GREATER 0)
+        set(_rig_shield_pool ${_rig_shield_marked})
+      else()
+        set(_rig_shield_pool ${_rig_shield_candidates})
+      endif()
+      list(SORT _rig_shield_pool)
+      list(GET _rig_shield_pool 0 _rig_shield_chosen)
+      string(REPLACE ";" "\n  " _rig_shield_candidates_str "${_rig_shield_candidates}")
+      if(_rig_shield_nmarked GREATER 0)
+        set(_rig_shield_pool_desc "alphabetically first among the marked candidates")
+      else()
+        set(_rig_shield_pool_desc "alphabetically first among all candidates (none marked)")
+      endif()
+      message(WARNING
+        "rig: shield name '${shield_name}' is offered by ${_rig_shield_ncand} "
+        "different BOARD_ROOT directories, and ${_rig_shield_nmarked} of them "
+        "carry the rig-template marker '${shield_name}.shield' (expected "
+        "exactly 1):\n  ${_rig_shield_candidates_str}\n"
+        "rig: choosing (${_rig_shield_pool_desc}): ${_rig_shield_chosen}")
+    endif()
+  endif()
+  set(SHIELD_DIR_${shield_name} ${_rig_shield_chosen})
+endforeach()
 
 # Process the rig's shields (RIG_SHIELDS from context.cmake, not -DSHIELD).
 foreach(s ${RIG_SHIELDS})

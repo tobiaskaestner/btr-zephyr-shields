@@ -199,6 +199,44 @@ def test_tier2_build_info_rig_provenance(tmp_path: Path) -> None:
     assert Path(rig["out-dir"]).is_dir()
 
 
+def test_tier2_build_info_shield_dir_collision(tmp_path: Path) -> None:
+    """Shield name-collision across BOARD_ROOT (review finding, 2026-07-23):
+    BOARD_ROOT holds both btr-shields and $ZEPHYR_BASE (zephyr-rigs), and the
+    latter ships its own stock `boards/shields/adafruit_data_logger` -- a
+    plain upstream shield (no `<name>.shield` rig-template marker), same name
+    as btr-shields' rig-template shield. `cmake/rig.cmake`'s shield tail must
+    resolve the collision to OUR (rig-template) folder, not whichever root
+    `list_shields.py` happened to sort last. `nucleo-datalogger` (s1) is the
+    corpus rig naming `adafruit_data_logger`, so it's the collision witness."""
+    build_dir = tmp_path / "build"
+    result = _run_build("nucleo-datalogger", build_dir)
+    assert result.returncode == 0, (
+        f"nucleo-datalogger: expected `west build-rig --cmake-only` to "
+        f"configure clean\n--- stdout ---\n{result.stdout}\n"
+        f"--- stderr ---\n{result.stderr}")
+    assert "shield name 'adafruit_data_logger' is offered by" not in (
+        result.stdout + result.stderr), (
+        "unexpected ambiguity warning -- the marker-preference rule should "
+        "have resolved this collision silently")
+
+    with open(build_dir / "build_info.yml") as f:
+        build_info = yaml.safe_load(f)
+    rig = build_info["cmake"]["vendor-specific"]["rig"]
+
+    shield_dir = rig["shield-dirs"]
+    assert "adafruit_data_logger" in shield_dir
+    assert str(REPO_ROOT) in shield_dir, (
+        f"shield-dirs must record btr-shields' OWN adafruit_data_logger "
+        f"folder (the rig-template one, marked by "
+        f"adafruit_data_logger.shield), not $ZEPHYR_BASE's stock shield of "
+        f"the same name: {shield_dir!r}")
+    zb = zephyr_base()
+    assert not shield_dir.startswith(zb), (
+        f"shield-dirs resolved into $ZEPHYR_BASE ({zb}) -- the stock, "
+        f"non-rig-template adafruit_data_logger folder won the collision: "
+        f"{shield_dir!r}")
+
+
 def test_tier2_rig_depends_provenance(tmp_path: Path) -> None:
     """Dependency-tracking handoff (RIG_DEPENDS): `cmake/rig.cmake` appends
     the expander's own generated `context.cmake` `RIG_DEPENDS` list to
