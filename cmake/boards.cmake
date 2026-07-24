@@ -6,11 +6,29 @@
 # `build: cmake-modules: cmake`), so zephyr_default.cmake's `include(boards)`
 # resolves to THIS file, shadowing ${ZEPHYR_BASE}/cmake/modules/boards.cmake.
 #
-# Runs the REAL boards module first, unconditionally (rig build or plain —
-# this fork never dispatches on -DRIG; every build needs BOARD/BOARD_DIR/
-# BOARD_DIRECTORIES resolved the stock way), reached by absolute path (NOT
-# `include(boards)`, which would recurse back into this file via the
-# prepended module path). After that, this fork owns the rig-specific
+# TWO jobs now (cmake-alone-rig-entry-brief.md, ratified 2026-07-24, design
+# rule 3 amended same day to mutual exclusivity — supersedes an earlier
+# canonical-mismatch-check design that briefly lived here and is gone
+# without a trace below):
+#
+#   1. -DRIG rig->board inference + the RIG/BOARD exclusivity guard, BEFORE
+#      the real include (this inverts the fork's OLD top-of-file order): RIG
+#      and BOARD are MUTUALLY EXCLUSIVE — BOARD is DERIVED data of the rig
+#      coordinate, so a user-passed BOARD is a category error even when it
+#      happens to match (never compared/canonicalized against anything). If
+#      RIG is defined and BOARD is not, ask the resolver
+#      (scripts/list_rigs.py's new query mode) for the FULL, verbatim
+#      `${RIG}` target string and `set(BOARD ...)` from its answer — the real
+#      module below needs BOARD defined before its own
+#      `zephyr_check_cache(BOARD REQUIRED)`, which is exactly where a
+#      `-DRIG=<name>`-only build (no `-DBOARD`, west absent) used to fail.
+#   2. the REAL boards module, unconditionally (rig build or plain -- this
+#      fork never dispatches away from it; every build needs BOARD/BOARD_DIR/
+#      BOARD_DIRECTORIES resolved the stock way), reached by absolute path
+#      (NOT `include(boards)`, which would recurse back into this file via
+#      the prepended module path).
+#
+# After that, this fork (unchanged by this slice) owns the rig-specific
 # board-DTS resolution mechanics that later forks (shields, dts) need:
 #
 #   - _rig_resolve_board_dts(): resolve the current board target's own
@@ -23,9 +41,105 @@
 
 include_guard(GLOBAL)
 
-include(${ZEPHYR_BASE}/cmake/modules/boards.cmake)
-
 include(extensions)
+
+# ---------------------------------------------------------------------------
+# Step 1: -DRIG rig->board inference + the RIG/BOARD exclusivity guard
+# (cmake-alone-rig-entry-brief.md, design rule 3). One resolver call serves
+# both outcomes below (the exclusivity check when BOARD is already given, the
+# CACHE assignment when it is not), so -DRIG resolves via list_rigs.py
+# exactly once per configure.
+if(DEFINED RIG)
+  list(TRANSFORM BOARD_ROOT PREPEND "--board-root=" OUTPUT_VARIABLE _rig_broot_args)
+  execute_process(
+    COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/../scripts/list_rigs.py
+      ${_rig_broot_args} --rig=${RIG} --cmakeformat={NAME}\;{DIR}\;{BOARD}
+    OUTPUT_VARIABLE _rig_resolve_out
+    ERROR_VARIABLE _rig_resolve_err
+    RESULT_VARIABLE _rig_resolve_rv)
+  if(_rig_resolve_rv)
+    message(FATAL_ERROR "rig: -DRIG=${RIG} did not resolve:\n${_rig_resolve_err}")
+  endif()
+  string(STRIP "${_rig_resolve_out}" _rig_resolve_out)
+  # `_RIG_RESOLVED_*` (cmake_parse_arguments' own prefix-derived names) is a
+  # DELIBERATE cross-file handoff surface, not internal scratch: this is a
+  # plain (non-cache, non-function-scoped) variable, so it survives at
+  # FILE/directory scope for the rest of THIS configure -- the dts.cmake
+  # fork's step 3 consumes `_RIG_RESOLVED_DIR` to kill the double resolution
+  # that used to run list_rigs.py a second time for the exact same `${RIG}`
+  # target (see that file).
+  cmake_parse_arguments(_RIG_RESOLVED "" "NAME;DIR;BOARD" "" ${_rig_resolve_out})
+
+  # Exclusivity guard (design rule 3, ratified/amended 2026-07-24, FATAL not
+  # warned): RIG and BOARD are mutually exclusive, so this does NOT compare
+  # the two board strings for agreement (there is no canonicalization
+  # anywhere in this file any more) -- it only asks "did the USER pass
+  # BOARD", which is not the same question as "is BOARD defined": BOARD is
+  # legitimately in the CACHE on a reconfigure of an existing rig build dir,
+  # re-supplied by cmake itself from the FIRST configure's own inference
+  # below, with no -DBOARD on the command line at all. `RIG_INFERRED_BOARD`
+  # (a CACHE INTERNAL marker set alongside BOARD, below) records exactly the
+  # value WE inferred, so "BOARD is defined but does not equal the marker" is
+  # the precise test for "a user gave BOARD" that survives reconfigures:
+  #   - fresh dir, both given: BOARD defined, no marker yet -> FATAL.
+  #   - fresh dir, RIG only: BOARD undefined -> infer + set the marker.
+  #   - reconfigure, no -DBOARD repeated: BOARD defined FROM THE CACHE, equal
+  #     to the marker (both are our own old inferred value) -> passes.
+  #   - reconfigure, user repeats the SAME -DBOARD value: indistinguishable
+  #     from the cache case above -- accepted residual (not fixed; the
+  #     brief's own call).
+  #   - reconfigure with a CONFLICTING -DBOARD: BOARD differs from the
+  #     marker -> the both-given FATAL below.
+  #   - reconfigure with a CHANGED -DRIG: the rig-swap guard just below.
+
+  # Rig-swap guard: the marker also pins the BUILD DIR to the rig's board.
+  # zephyr_check_cache(BOARD) makes BOARD immutable per build dir, but RIG
+  # is not cache-watched -- without this check, changing -DRIG in an
+  # existing dir sails past the exclusivity guard (cached BOARD == marker,
+  # both stale) with inference SKIPPED, and the expander then reads the OLD
+  # board's dts under the NEW rig's declared board name: phys-socket
+  # diagnostics that blame the wrong board (verified live: lotus-buttons
+  # into a nucleo-datalogger dir reports "board 'seeeduino_lotus_btr' has
+  # no socket grove_d2" -- it does), or, for two boards whose socket names
+  # coincide, a clean build against the wrong hardware. A swap to another
+  # rig on the SAME board stays legal (the marker still matches).
+  if(DEFINED RIG_INFERRED_BOARD
+     AND NOT "${_RIG_RESOLVED_BOARD}" STREQUAL "${RIG_INFERRED_BOARD}")
+    message(FATAL_ERROR
+      "rig: -DRIG=${RIG} resolves to board '${_RIG_RESOLVED_BOARD}', but "
+      "this build directory was configured for '${RIG_INFERRED_BOARD}'. "
+      "Changing to a rig on a different board requires a pristine build "
+      "(-p always).")
+  endif()
+
+  if(DEFINED BOARD)
+    if(NOT DEFINED RIG_INFERRED_BOARD OR NOT "${BOARD}" STREQUAL "${RIG_INFERRED_BOARD}")
+      message(FATAL_ERROR
+        "rig: -DRIG=${RIG} and -DBOARD=${BOARD} were both given. BOARD is "
+        "derived data of the rig coordinate, never a separate one to pass "
+        "yourself -- even a MATCHING value is rejected. Drop -DBOARD; the "
+        "rig owns the board (it resolves to '${_RIG_RESOLVED_BOARD}' here).")
+    endif()
+  else()
+    set(BOARD "${_RIG_RESOLVED_BOARD}" CACHE STRING
+      "Board inferred from -DRIG=${RIG} (rig.yml's board:, no -DBOARD given)")
+    set(RIG_INFERRED_BOARD "${_RIG_RESOLVED_BOARD}" CACHE INTERNAL
+      "Exclusivity-guard marker: the board value this fork inferred from \
+-DRIG=${RIG}. Compared against a later cache-carried BOARD so a \
+reconfigure of the SAME build dir is not mistaken for a user-passed \
+-DBOARD (cmake-alone-rig-entry-brief.md, design rule 3).")
+  endif()
+
+  # Provenance line, mirroring the real module's own "Board:" message that
+  # follows just below: WHICH rig file won the -DRIG resolution and what
+  # board it projected to -- the two facts a reader of the configure log
+  # cannot otherwise reconstruct (BOARD arrives with no visible source).
+  message(STATUS "Rig: ${_RIG_RESOLVED_NAME} (${_RIG_RESOLVED_DIR}/rig.yml), board: ${_RIG_RESOLVED_BOARD}")
+endif()
+# ---------------------------------------------------------------------------
+
+# Step 2: the real boards module, unconditionally (rig build or plain).
+include(${ZEPHYR_BASE}/cmake/modules/boards.cmake)
 
 # ---------------------------------------------------------------------------
 # _rig_resolve_board_dts(<out-var>): resolve the CURRENT board target's own

@@ -25,7 +25,12 @@
 #                                  (step 1's output) + BOARD_DIRECTORIES;
 #                                  board dts via _rig_resolve_board_dts()
 #                                  (boards.cmake fork)
-#   3. run the expander        -- list_rigs resolution, VERBOSE render,
+#   3. run the expander        -- rig->folder resolution (reuses the
+#                                  boards.cmake fork's _RIG_RESOLVED_DIR
+#                                  stash, kill-the-double-resolution,
+#                                  cmake-alone-rig-entry-brief.md; falls back
+#                                  to its own list_rigs.py --json run if that
+#                                  stash is absent), VERBOSE render,
 #                                  rerun-expand.sh, RIG_EXPAND_COMMAND knob,
 #                                  error reporting
 #   4. context.cmake handoff   -- RIG_NAME/RIG_BOARD/RIG_SHIELDS, RIG_DEPENDS
@@ -201,56 +206,78 @@ endif()
 # ---------------------------------------------------------------------------
 # Step 3: run the expander.
 
-# Resolve -DRIG=<name> to a rig folder via list_rigs.py — mirrors exactly how
-# the shield resolution step below resolves shield names via
-# list_shields.py --json.
-list(TRANSFORM BOARD_ROOT PREPEND "--board-root=" OUTPUT_VARIABLE _rig_board_root_args)
+# Resolve -DRIG=<name> to a rig folder. THE DOUBLE RESOLUTION KILL
+# (cmake-alone-rig-entry-brief.md): the boards.cmake fork (slot 10, runs
+# before this file in the normal module chain) already resolved -DRIG once —
+# to infer BOARD (or reject a user-given -DBOARD, the exclusivity guard) —
+# and stashes the rig directory it found in
+# `_RIG_RESOLVED_DIR` (a plain, non-cache, file/directory-scope variable that
+# is still in scope here: `include()` does not introduce a new variable
+# scope, so a `set()` in one included file is visible to a later one in the
+# same configure, exactly like BOARD_DIRECTORIES itself). Reuse it instead of
+# asking list_rigs.py the same question a second time per configure.
+#
+# Fall back to a fresh list_rigs.py --json enumeration (unchanged from
+# before this slice) only if that stash is absent — e.g. a standalone
+# SUB_COMPONENTS configure that reaches `dts` without ever loading `boards`.
+if(DEFINED _RIG_RESOLVED_DIR AND NOT "${_RIG_RESOLVED_DIR}" STREQUAL "")
+  set(_rig_dir "${_RIG_RESOLVED_DIR}")
+else()
+  message(VERBOSE
+    "rig: _RIG_RESOLVED_DIR is unset -- boards.cmake's fork did not run "
+    "before this file in this configure; resolving -DRIG=${RIG} again via "
+    "list_rigs.py --json.")
 
-set(_rig_list_rigs_argv
-  ${PYTHON_EXECUTABLE} ${_RIG_BTR_ROOT}/scripts/list_rigs.py
-  ${_rig_board_root_args} --json)
+  # Mirrors exactly how the shield resolution step below resolves shield
+  # names via list_shields.py --json.
+  list(TRANSFORM BOARD_ROOT PREPEND "--board-root=" OUTPUT_VARIABLE _rig_board_root_args)
 
-set(_list_rigs_commands COMMAND ${_rig_list_rigs_argv})
+  set(_rig_list_rigs_argv
+    ${PYTHON_EXECUTABLE} ${_RIG_BTR_ROOT}/scripts/list_rigs.py
+    ${_rig_board_root_args} --json)
 
-# No env prefix applies here (list_rigs.py needs neither PYTHONPATH nor
-# ZEPHYR_BASE) — just the plain, copy-pasteable argv.
-_rig_shell_quote_argv(_rig_list_rigs_render ${_rig_list_rigs_argv})
-message(VERBOSE "rig: list_rigs command:\n${_rig_list_rigs_render}")
+  set(_list_rigs_commands COMMAND ${_rig_list_rigs_argv})
 
-execute_process(${_list_rigs_commands}
-  OUTPUT_VARIABLE _rigs_json
-  ERROR_VARIABLE _err_rigs
-  RESULT_VARIABLE _ret_val_rigs
-)
+  # No env prefix applies here (list_rigs.py needs neither PYTHONPATH nor
+  # ZEPHYR_BASE) — just the plain, copy-pasteable argv.
+  _rig_shell_quote_argv(_rig_list_rigs_render ${_rig_list_rigs_argv})
+  message(VERBOSE "rig: list_rigs command:\n${_rig_list_rigs_render}")
 
-if(_ret_val_rigs)
-  message(FATAL_ERROR "Error finding rigs\nError message: ${_err_rigs}")
-endif()
+  execute_process(${_list_rigs_commands}
+    OUTPUT_VARIABLE _rigs_json
+    ERROR_VARIABLE _err_rigs
+    RESULT_VARIABLE _ret_val_rigs
+  )
 
-string(JSON _rigs_length LENGTH ${_rigs_json})
+  if(_ret_val_rigs)
+    message(FATAL_ERROR "Error finding rigs\nError message: ${_err_rigs}")
+  endif()
 
-set(_rig_dir)
-set(RIG_LIST)
-if(_rigs_length GREATER 0)
-  math(EXPR _rigs_length "${_rigs_length} - 1")
+  string(JSON _rigs_length LENGTH ${_rigs_json})
 
-  foreach(i RANGE ${_rigs_length})
-    string(JSON _rig_entry GET "${_rigs_json}" "${i}")
-    string(JSON _rig_entry_name GET ${_rig_entry} name)
-    string(JSON _rig_entry_dir GET ${_rig_entry} dir)
-    list(APPEND RIG_LIST ${_rig_entry_name})
-    if(_rig_entry_name STREQUAL RIG)
-      set(_rig_dir ${_rig_entry_dir})
-    endif()
-  endforeach()
-endif()
-list(SORT RIG_LIST)
+  set(_rig_dir)
+  set(RIG_LIST)
+  if(_rigs_length GREATER 0)
+    math(EXPR _rigs_length "${_rigs_length} - 1")
 
-if(NOT _rig_dir)
-  string(REPLACE ";" "\n" _rig_string "${RIG_LIST}")
-  message(FATAL_ERROR
-    "rig: -DRIG=${RIG} does not resolve to a rig.\n"
-    "Please choose from among the following rigs:\n${_rig_string}")
+    foreach(i RANGE ${_rigs_length})
+      string(JSON _rig_entry GET "${_rigs_json}" "${i}")
+      string(JSON _rig_entry_name GET ${_rig_entry} name)
+      string(JSON _rig_entry_dir GET ${_rig_entry} dir)
+      list(APPEND RIG_LIST ${_rig_entry_name})
+      if(_rig_entry_name STREQUAL RIG)
+        set(_rig_dir ${_rig_entry_dir})
+      endif()
+    endforeach()
+  endif()
+  list(SORT RIG_LIST)
+
+  if(NOT _rig_dir)
+    string(REPLACE ";" "\n" _rig_string "${RIG_LIST}")
+    message(FATAL_ERROR
+      "rig: -DRIG=${RIG} does not resolve to a rig.\n"
+      "Please choose from among the following rigs:\n${_rig_string}")
+  endif()
 endif()
 
 set(_rig_yml "${_rig_dir}/rig.yml")
@@ -556,6 +583,10 @@ foreach(s ${RIG_SHIELDS})
     SHIELD_DIRS
     ${SHIELD_DIR_${s}}
     )
+
+  # Provenance: which folder won for this shield name — non-obvious whenever
+  # the rig-template-marker collision preference above had a choice to make.
+  message(STATUS "rig: shield '${s}' <- ${SHIELD_DIR_${s}}")
 
   include(${SHIELD_DIR_${s}}/pre_dt_shield.cmake OPTIONAL)
 

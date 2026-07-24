@@ -3,11 +3,34 @@
 # `west build-rig --rig <name> <app>` — a thin subclass of Zephyr's own `build`
 # command that adds a single flag, `--rig`. <name> is a rig's `rig.name` field
 # (NOT its folder basename — same convention as boards/shields). With --rig it
-# looks up the rig by name among boards/rigs/*/rig.yml, infers the target board
-# from it, and injects -DRIG=<name>;
-# every other `west build` option works unchanged because we inherit Build's full
-# parser and do_run. The application source dir is required and always supplied by
-# the user (positional or -s) — this command never defaults it.
+# forwards -DRIG=<name> to cmake; every other `west build` option works
+# unchanged because we inherit Build's full parser and do_run. The application
+# source dir is required and always supplied by the user (positional or -s) —
+# this command never defaults it.
+#
+# ZERO rig knowledge here (ratified 2026-07-24, design rule 2,
+# claude/rigs/cmake-alone-rig-entry-brief.md): this command is a pure wrapper
+# around the cmake invocation. It does NOT scan boards/rigs/*/rig.yml or infer
+# a board — cmake's own boards.cmake fork resolves -DRIG to a board target
+# itself (the cmake-alone rig entry slice), the same way a bare
+# `cmake -DRIG=<name>` (west absent) would. `args.board`/`args.shields` are
+# deliberately left completely untouched by this command: RIG is MUTUALLY
+# EXCLUSIVE with both BOARD (design rule 3) and SHIELD (design rule 4,
+# amended/added 2026-07-24) — if the user ALSO passes `-b`/`--board` or
+# `--shield` to `build-rig`, Zephyr's own Build machinery folds them into
+# `-DBOARD=...`/`-DSHIELD=...` alongside our `-DRIG=...`, and cmake's
+# boards.cmake/shields.cmake forks FATAL on that combination unconditionally
+# (even a matching value), teaching "drop -DBOARD/-DSHIELD, the rig owns
+# it" — this command passes NO board or shield of its own, ever.
+#
+# EMPIRICAL (recorded in the cmake-alone-rig-entry-brief.md handoff): a fresh
+# `west build` build dir with no -b/--board given does NOT refuse to run
+# cmake — Zephyr's own Build._run_cmake only WARNS ("This looks like a fresh
+# build and BOARD is unknown") and still invokes cmake with whatever
+# cmake_opts it has (zephyr/scripts/west_commands/build.py, _run_cmake). So
+# there is no west-side gate to bypass here: this command's only remaining
+# job is UX sugar (resolve the rig BY NAME once via -DRIG=<name>, so the user
+# need not remember `-- -DRIG=<name>` themselves) — never board inference.
 #
 # We deliberately DO NOT shadow `build` (west forbids it) nor monkey-patch it;
 # this is a separate, additive command that reuses Build by subclassing.
@@ -21,13 +44,11 @@ import os
 import sys
 from pathlib import Path
 
-import yaml
 from west import log
 
 # This command lives at btr-shields/scripts/west_commands/rig.py, so it can
-# locate BOTH its own module root and the workspace topdir purely by walking up
-# — no hardcoded directory names.
-_MODULE_ROOT = Path(__file__).resolve().parents[2]   # the btr-shields module
+# locate the west workspace topdir purely by walking up — no hardcoded
+# directory names.
 _TOPDIR = Path(__file__).resolve().parents[3]         # the west workspace
 
 
@@ -89,9 +110,13 @@ class BuildRig(Build):
             parser.usage = parser.usage.replace('west build', 'west build-rig')
         parser.add_argument(
             '--rig', metavar='NAME',
-            help='rig to build (by rig.yml `rig.name`): infers -b <board>, '
-                 'then runs the expander seam via -DRIG=<NAME>. The app source '
-                 'dir is still required (positional or -s).')
+            help='rig to build (by rig.yml `rig.name`): forwarded verbatim '
+                 'as -DRIG=<NAME>. The board comes back from cmake\'s own '
+                 'rig->board resolution (boards.cmake), not from this '
+                 'command -- do NOT also pass -b/--board (or --shield): RIG '
+                 'and BOARD/SHIELD are mutually exclusive, even a matching '
+                 'value is a configure-time FATAL_ERROR. The app source dir '
+                 'is still required (positional or -s).')
         parser.add_argument(
             '--zephyr-base', metavar='DIR',
             help='zephyr tree to build against (default: $ZEPHYR_BASE, else a '
@@ -101,39 +126,19 @@ class BuildRig(Build):
     def do_run(self, args, remainder):
         rig = getattr(args, 'rig', None)
         if rig:
-            root = _MODULE_ROOT
-            # A rig's identity is its `rig.name` field, NOT its folder basename
-            # — the same convention boards/shields follow (board.yml/shield.yml
-            # `name:`). Resolve --rig by scanning rig.yml names, mirroring how
-            # rig.cmake resolves -DRIG via list_rigs.py's `name`.
-            by_name = {}
-            for rig_yml in sorted((root / 'boards' / 'rigs').glob('*/rig.yml')):
-                rdata = (yaml.safe_load(rig_yml.read_text()) or {}).get('rig') or {}
-                name = rdata.get('name')
-                if name:
-                    by_name[name] = (rig_yml, rdata)
-            if rig not in by_name:
-                log.die(f"--rig {rig}: no such rig.\n"
-                        f"  available: {', '.join(sorted(by_name)) or '(none)'}")
-            rig_file, rdata = by_name[rig]
-            board = rdata.get('board')
-            if not board:
-                log.die(f"--rig {rig}: rig.board missing in {rig_file}")
-
-            # Infer the board only if the user didn't pass one explicitly.
-            if not getattr(args, 'board', None):
-                args.board = board
-            # The app is required and must come from the user — via -s/--source-dir
-            # (args.source_dir) or as the first positional, which Build parses out
-            # of `remainder` later (in _parse_remainder). We never default it:
-            # application locations don't belong in this command.
+            # Zero rig knowledge: no rig.yml scan, no board inference (see the
+            # module docstring above). The app is required and must come from
+            # the user — via -s/--source-dir (args.source_dir) or as the
+            # first positional, which Build parses out of `remainder` later
+            # (in _parse_remainder). We never default it: application
+            # locations don't belong in this command.
             positional_app = bool(remainder) and remainder[0] != '--'
             app = args.source_dir or (remainder[0] if positional_app else None)
             if not app:
                 log.die(f"--rig {rig}: no application given.\n"
                         f"  usage: west build-rig --rig {rig} <app-source-dir>")
             args.cmake_opts = list(args.cmake_opts or []) + [f'-DRIG={rig}']
-            log.inf(f'build-rig: rig={rig} board={args.board} app={app}')
+            log.inf(f'build-rig: rig={rig} app={app}')
         # Pin ZEPHYR_BASE explicitly for the build. A shell profile or the
         # manifest can leave the ambient ZEPHYR_BASE pointing at the plain
         # `zephyr` tree, so we overwrite it with the resolved rig tree (from
