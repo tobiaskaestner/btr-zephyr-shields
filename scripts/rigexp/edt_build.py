@@ -74,7 +74,7 @@ def recipe_from_build_info(build_info_path: str) -> BuildRecipe:
     DIFFERENT directory than the base board it `#include`s, so its base
     directory must be on the cpp search path too for that quoted include
     to resolve -- this is the standalone-read analog of
-    `cmake/rig.cmake` appending the same `BOARD_DIRECTORIES` list to the
+    `cmake/dts.cmake` appending the same `BOARD_DIRECTORIES` list to the
     expander's `--include-dir` args for the in-build path.
     """
     with open(build_info_path) as f:

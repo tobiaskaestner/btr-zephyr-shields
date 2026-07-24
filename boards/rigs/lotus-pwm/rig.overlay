@@ -7,7 +7,7 @@
  * state ships EMPTY (see seeeduino_lotus_btr-pinctrl.dtsi), so without this the
  * grove_d2 servo's TCC0 output is enabled but never routed to its pad.
  *
- * This is the rig author's DT counterpart to rig.conf: rig.cmake appends
+ * This is the rig author's DT counterpart to rig.conf: dts.cmake appends
  * rig.overlay to EXTRA_DTC_OVERLAY_FILE after the expander's overlay. The
  * fragment is the real bridle fact, sourced verbatim from
  * bridle/boards/seeed/seeeduino_lotus/grove_d2_connector.dtsi

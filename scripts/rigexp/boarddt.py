@@ -10,7 +10,7 @@ for all four board clones.
 This module keeps two responsibilities of its own, both about board
 RESOLUTION rather than DT mechanics (those live in `board_edt`/`edt_build`):
 
-  * board NAME -> `.dts` path, explicit (the in-build path: rig.cmake already
+  * board NAME -> `.dts` path, explicit (the in-build path: dts.cmake already
     resolved BOARD_DIR via boards.cmake, so it passes `--board-dts` directly)
     or discovered (the standalone/CLI fallback, via zephyr's own
     `list_boards.py` — consumed, not forked, mirroring how `list_shields.py`
@@ -44,9 +44,9 @@ def load_board(name: str, workdir: str, diags: Diagnostics,
     Diagnostic) if it can't be read at all.
 
     `board_dts` / `recipe` are the two inputs `board_edt.load_board` needs
-    (see `edt_build.BuildRecipe`). The IN-BUILD path (rig.cmake) always
+    (see `edt_build.BuildRecipe`). The IN-BUILD path (dts.cmake) always
     passes both explicitly — BOARD_DIR is already resolved by boards.cmake
-    long before the expander runs, and rig.cmake computes the recipe itself
+    long before the expander runs, and dts.cmake computes the recipe itself
     (saferail 13). Leaving `board_dts` None triggers the standalone/CLI
     discovery fallback below; leaving `recipe` None (whether or not
     `board_dts` was given) is a caller-configuration gap, reported the same
@@ -75,7 +75,7 @@ def load_board(name: str, workdir: str, diags: Diagnostics,
             f"({board_dts})\n"
             "pass --include-dir/--bindings-dir (repeatable), or --build-info "
             "<build_info.yml> from a real build, to read its devicetree — a "
-            "rig build (rig.cmake) supplies this automatically")
+            "rig build (dts.cmake) supplies this automatically")
         return None
 
     if deps is not None:
@@ -112,7 +112,7 @@ def _discover_board_dts(name: str, diags: Diagnostics) -> Optional[str]:
     `list_boards.find_v2_boards()` only attaches a `board.yml` `extend:`
     entry to a base it can already see, so a MODULE_ROOT-only scan never
     learns of `nucleo_f401re` at all and reports it unknown. The in-build
-    path (rig.cmake) never hits this: BOARD_DIR/BOARD_DIRECTORIES are
+    path (dts.cmake) never hits this: BOARD_DIR/BOARD_DIRECTORIES are
     already resolved by boards.cmake (which scans every real BOARD_ROOT)
     long before the expander runs, so `--board-dts` is always passed
     explicitly for a real build. Widening this fallback's own board root

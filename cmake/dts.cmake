@@ -143,9 +143,8 @@ include(pre_dt)
 # bindings dirs the expander's OWN edtlib.EDT needs to read the REAL board
 # devicetree (boarddt.py / board_edt.py / edt_build.py) -- derived directly
 # from step 1's real DTS_ROOT / DTS_ROOT_SYSTEM_INCLUDE_DIRS, no hand-rolled
-# mirror: this fork runs AFTER hwm_v2 (unlike the old shields-fork rig.cmake,
-# which ran before it and had to fake ARCH_V2_NAME_LIST's effect by hand),
-# so pre_dt's own computation is already correct for pass 1.
+# mirror: this fork runs AFTER hwm_v2, so ARCH_V2_NAME_LIST is set and
+# pre_dt's own computation is already correct for pass 1.
 #
 # Known, accepted delta vs the old mirror: pre_dt folds
 # APPLICATION_SOURCE_DIR into DTS_ROOT, so the app dir's include/bindings
@@ -289,10 +288,11 @@ endif()
 
 set(_rig_out_dir "${CMAKE_BINARY_DIR}/rig")
 file(MAKE_DIRECTORY "${_rig_out_dir}")
-# The CLI writes the literal emitter keys into --out-dir: "overlay",
-# "config-sheet.md", "expectations.yml" (no rig-name prefix, no extension).
-set(_rig_overlay "${_rig_out_dir}/overlay")
-set(_rig_conf "${_rig_out_dir}/conf")
+# The CLI writes the literal emitter keys into --out-dir: "rig-gen.overlay",
+# "config-sheet.md", "expectations.yml" (rig-gen.* = generated counterparts
+# of the rig folder's hand-authored rig.overlay/rig.conf).
+set(_rig_overlay "${_rig_out_dir}/rig-gen.overlay")
+set(_rig_conf "${_rig_out_dir}/rig-gen.conf")
 
 # The rig folder's own hand-authored fragments (paths only -- existence is
 # checked wherever each is used: the static CMAKE_CONFIGURE_DEPENDS

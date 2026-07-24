@@ -14,15 +14,16 @@ this file now guards:
     reader builds -- now read through the PRODUCTION entry point,
     `boarddt.load_board`, exactly as the expander itself calls it -- must
     agree with pass-2's OWN `edt.pickle` from the same board: proof that
-    `cmake/rig.cmake`'s mirrored recipe (saferail 13) is equivalent to
-    `dts.cmake`'s real one.
+    the pass-1 recipe (cmake/dts.cmake's fork derives it from the real
+    pre_dt outputs; standalone runs derive it from a cached build's
+    build_info.yml) is equivalent to pass 2's real one (saferail 3).
 
   * `test_recipe_from_build_info`: a pure-function unit test for
     `edt_build.recipe_from_build_info`.
 
   * the production-plumbing guard that REPLACED the shadow dual-read
     (saferail 2/6): for every board, `boarddt.load_board` (given the same
-    `--board-dts` + recipe rig.cmake would pass) must produce the exact same
+    `--board-dts` + recipe the dts.cmake fork would pass) must produce the exact same
     `model.Board` as a DIRECT `board_edt.load_board` call -- the flip
     changed WHO calls board_edt, never what it returns.
 """

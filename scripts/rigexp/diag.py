@@ -89,7 +89,7 @@ class Depends(set):
     Threaded through the pipeline the same way `Diagnostics` is: an optional,
     mutable accumulator passed down to whichever module does the actual
     open(). `cli.py` sorts + writes it into `context.cmake` as `RIG_DEPENDS`,
-    which `cmake/rig.cmake` appends to `CMAKE_CONFIGURE_DEPENDS` -- so editing
+    which `cmake/dts.cmake` appends to `CMAKE_CONFIGURE_DEPENDS` -- so editing
     any of these files retriggers configure (one-configure lag: this reflects
     what THIS run read, not the edited file itself, until the next run).
 

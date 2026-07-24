@@ -53,7 +53,7 @@ from conftest import (
 
 # The artifact filenames the emitter may produce, per saferail 1. Order is
 # stable so a refreeze's `git diff` stays readable.
-_EMITTED_FILES = ("overlay", "context.cmake", "config-sheet.md", "conf")
+_EMITTED_FILES = ("rig-gen.overlay", "context.cmake", "config-sheet.md", "rig-gen.conf")
 
 
 @pytest.mark.parametrize("case", ALL_CASES, ids=lambda c: c.name)

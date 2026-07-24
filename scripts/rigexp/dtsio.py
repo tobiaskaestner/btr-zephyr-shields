@@ -18,13 +18,13 @@ import sys
 from .diag import ROOT, Depends, Diagnostic, LoadError, SrcRef
 
 # The zephyr tree (dtlib source + includes) is located via $ZEPHYR_BASE, which
-# the build sets and rig.cmake passes through to the expander explicitly — no
+# the build sets and dts.cmake passes through to the expander explicitly — no
 # hardcoded checkout path. For standalone/API use, export ZEPHYR_BASE first.
 _ZEPHYR_BASE = os.environ.get("ZEPHYR_BASE")
 if not _ZEPHYR_BASE:
     raise RuntimeError(
         "rigexp: $ZEPHYR_BASE is not set — it is required to locate zephyr's "
-        "devicetree library and includes. The build (rig.cmake) passes it "
+        "devicetree library and includes. The build (dts.cmake) passes it "
         "automatically; for standalone use, export ZEPHYR_BASE=<zephyr tree>.")
 ZEPHYR_DT_SRC = os.path.join(_ZEPHYR_BASE, "scripts", "dts", "python-devicetree", "src")
 ZEPHYR_INC = os.path.join(_ZEPHYR_BASE, "include")

@@ -62,7 +62,7 @@ def load_shield_library(workdir: str, diags: Diagnostics,
     `shield_dirs` is a LIST of shield-library roots (each a `boards/shields`
     directory), unioned into one library — because rig shield templates are
     ordinary discoverable content that may live in ANY board_root of ANY
-    Zephyr module, not just this one. The build system (rig.cmake) derives the
+    Zephyr module, not just this one. The build system (dts.cmake) derives the
     list from BOARD_ROOT, exactly as list_shields.py does; None falls back to
     the vendored default (SHIELDS_DIR), used only by direct API / tests.
 

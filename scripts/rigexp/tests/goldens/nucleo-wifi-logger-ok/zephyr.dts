@@ -499,14 +499,14 @@
 			clock-frequency = < 0x61a80 >;               /* in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:113 */
 			phandle = < 0x22 >;                          /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:708 */
 
-			/* node '/soc/i2c@40005400/rtc@68' defined in <RIGEXP_BUILD>/rig/overlay:6 */
+			/* node '/soc/i2c@40005400/rtc@68' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:6 */
 			logger_1_dl_rtc: rtc@68 {
-				compatible = "nxp,pcf8523";            /* in <RIGEXP_BUILD>/rig/overlay:7 */
-				alarms-count = < 0x1 >;                /* in <RIGEXP_BUILD>/rig/overlay:8 */
-				battery-switch-over = "standard";      /* in <RIGEXP_BUILD>/rig/overlay:9 */
-				reg = < 0x68 >;                        /* in <RIGEXP_BUILD>/rig/overlay:10 */
-				int1-gpios = < &nucleo_ard 0xd 0x11 >; /* in <RIGEXP_BUILD>/rig/overlay:11 */
-				status = "okay";                       /* in <RIGEXP_BUILD>/rig/overlay:12 */
+				compatible = "nxp,pcf8523";            /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:7 */
+				alarms-count = < 0x1 >;                /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:8 */
+				battery-switch-over = "standard";      /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:9 */
+				reg = < 0x68 >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:10 */
+				int1-gpios = < &nucleo_ard 0xd 0x11 >; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:11 */
+				status = "okay";                       /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:12 */
 			};
 		};
 
@@ -559,33 +559,33 @@
 			pinctrl-names = "default";                                   /* in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:127 */
 			status = "okay";                                             /* in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:129 */
 			cs-gpios = < &nucleo_ard 0x10 0x1 >,
-			           < &nucleo_ard 0xf 0x1 >;                          /* in <RIGEXP_BUILD>/rig/overlay:17 */
+			           < &nucleo_ard 0xf 0x1 >;                          /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:17 */
 			phandle = < 0x28 >;                                          /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:55 */
 
-			/* node '/soc/spi@40013000/sdhc@0' defined in <RIGEXP_BUILD>/rig/overlay:18 */
+			/* node '/soc/spi@40013000/sdhc@0' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:18 */
 			logger_1_dl_sd: sdhc@0 {
-				compatible = "zephyr,sdhc-spi-slot"; /* in <RIGEXP_BUILD>/rig/overlay:19 */
-				spi-max-frequency = < 0x16e3600 >;   /* in <RIGEXP_BUILD>/rig/overlay:20 */
-				reg = < 0x0 >;                       /* in <RIGEXP_BUILD>/rig/overlay:21 */
-				status = "okay";                     /* in <RIGEXP_BUILD>/rig/overlay:22 */
+				compatible = "zephyr,sdhc-spi-slot"; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:19 */
+				spi-max-frequency = < 0x16e3600 >;   /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:20 */
+				reg = < 0x0 >;                       /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:21 */
+				status = "okay";                     /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:22 */
 
-				/* node '/soc/spi@40013000/sdhc@0/sdmmc' defined in <RIGEXP_BUILD>/rig/overlay:23 */
+				/* node '/soc/spi@40013000/sdhc@0/sdmmc' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:23 */
 				sdmmc {
-					compatible = "zephyr,sdmmc-disk"; /* in <RIGEXP_BUILD>/rig/overlay:24 */
-					disk-name = "SD";                 /* in <RIGEXP_BUILD>/rig/overlay:25 */
-					status = "okay";                  /* in <RIGEXP_BUILD>/rig/overlay:26 */
+					compatible = "zephyr,sdmmc-disk"; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:24 */
+					disk-name = "SD";                 /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:25 */
+					status = "okay";                  /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:26 */
 				};
 			};
 
-			/* node '/soc/spi@40013000/wifi@1' defined in <RIGEXP_BUILD>/rig/overlay:29 */
+			/* node '/soc/spi@40013000/wifi@1' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:29 */
 			wifi_1_w_wifi: wifi@1 {
-				compatible = "atmel,winc1500";          /* in <RIGEXP_BUILD>/rig/overlay:30 */
-				spi-max-frequency = < 0x16e3600 >;      /* in <RIGEXP_BUILD>/rig/overlay:31 */
-				reg = < 0x1 >;                          /* in <RIGEXP_BUILD>/rig/overlay:32 */
-				irq-gpios = < &nucleo_ard 0x8 0x1 >;    /* in <RIGEXP_BUILD>/rig/overlay:33 */
-				reset-gpios = < &nucleo_ard 0xb 0x1 >;  /* in <RIGEXP_BUILD>/rig/overlay:34 */
-				enable-gpios = < &nucleo_ard 0xc 0x0 >; /* in <RIGEXP_BUILD>/rig/overlay:35 */
-				status = "okay";                        /* in <RIGEXP_BUILD>/rig/overlay:36 */
+				compatible = "atmel,winc1500";          /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:30 */
+				spi-max-frequency = < 0x16e3600 >;      /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:31 */
+				reg = < 0x1 >;                          /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:32 */
+				irq-gpios = < &nucleo_ard 0x8 0x1 >;    /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:33 */
+				reset-gpios = < &nucleo_ard 0xb 0x1 >;  /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:34 */
+				enable-gpios = < &nucleo_ard 0xc 0x0 >; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:35 */
+				status = "okay";                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:36 */
 			};
 		};
 
@@ -1345,23 +1345,23 @@
 		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:54 */
 		socket,spi = < &spi1 >;                    /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:55 */
 		socket,stackable;                          /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:56 */
-		phandle = < 0xc >;                         /* in <RIGEXP_BUILD>/rig/overlay:11 */
+		phandle = < 0xc >;                         /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:11 */
 	};
 
-	/* node '/gpio_leds' defined in <RIGEXP_BUILD>/rig/overlay:41 */
+	/* node '/gpio_leds' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:41 */
 	gpio_leds: gpio_leds {
-		compatible = "gpio-leds"; /* in <RIGEXP_BUILD>/rig/overlay:42 */
+		compatible = "gpio-leds"; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:42 */
 
-		/* node '/gpio_leds/logger_1_dl_led1' defined in <RIGEXP_BUILD>/rig/overlay:43 */
+		/* node '/gpio_leds/logger_1_dl_led1' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:43 */
 		logger_1_dl_led1: logger_1_dl_led1 {
-			label = "logger_1_dl_led1";      /* in <RIGEXP_BUILD>/rig/overlay:44 */
-			gpios = < &nucleo_ard 0x9 0x0 >; /* in <RIGEXP_BUILD>/rig/overlay:45 */
+			label = "logger_1_dl_led1";      /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:44 */
+			gpios = < &nucleo_ard 0x9 0x0 >; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:45 */
 		};
 
-		/* node '/gpio_leds/logger_1_dl_led2' defined in <RIGEXP_BUILD>/rig/overlay:47 */
+		/* node '/gpio_leds/logger_1_dl_led2' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:47 */
 		logger_1_dl_led2: logger_1_dl_led2 {
-			label = "logger_1_dl_led2";      /* in <RIGEXP_BUILD>/rig/overlay:48 */
-			gpios = < &nucleo_ard 0xa 0x0 >; /* in <RIGEXP_BUILD>/rig/overlay:49 */
+			label = "logger_1_dl_led2";      /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:48 */
+			gpios = < &nucleo_ard 0xa 0x0 >; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:49 */
 		};
 	};
 };

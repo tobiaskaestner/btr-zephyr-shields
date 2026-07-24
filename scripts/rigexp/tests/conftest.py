@@ -5,7 +5,8 @@ freeze the CURRENT observed behavior of the rig expander for every corpus rig,
 as committed fixtures, in two tiers:
 
   tier 1 (test_tier1_goldens.py) — expander-level, every rig, fast: verdict +
-  rendered diagnostics + emitted overlay/context.cmake/config-sheet.md/conf.
+  rendered diagnostics + emitted rig-gen.overlay/context.cmake/
+  config-sheet.md/rig-gen.conf.
 
   tier 2 (test_tier2_goldens.py, `@pytest.mark.build`) — the real pass-2
   `zephyr.dts`, the structural-equivalence invariant that survives phases of
@@ -83,7 +84,7 @@ _WORKDIR_RE = re.compile(r"/tmp/rigexp-[^/\s]+")
 # A tier-2 `zephyr.dts`'s own DT provenance comments (`/* in PATH:LINE */`,
 # `/* node 'X' defined in PATH:LINE */`) render PATH relative to the build's
 # cwd (WEST_TOPDIR) — e.g. `../../../tmp/pytest-of-tobi/pytest-52/
-# test_tier2_accept_zephyr_dts_l0/build/rig/overlay:25` — which embeds
+# test_tier2_accept_zephyr_dts_l0/build/rig/rig-gen.overlay:25` — which embeds
 # pytest's OWN per-session tmp dir (`tmp_path`, a fresh directory every test
 # run: `test_tier2_goldens._run_build` builds into `tmp_path / "build"`).
 # Byte-freezing that raw text would make every refreeze session rewrite all
@@ -188,7 +189,7 @@ class PlainBuild:
     "cached-plain-build pattern" (Bridge-A saferail 13): the real recipe
     (cpp include dirs + edtlib bindings dirs) a Zephyr configure computed for
     this board, recovered from its own `build_info.yml` rather than
-    re-deriving `cmake/rig.cmake`'s pre_dt.cmake mirror a second time in
+    re-deriving `cmake/dts.cmake`'s pre_dt.cmake mirror a second time in
     Python. Session-memoized by board (see `plain_build_for`) — every rig
     naming the same board reuses ONE configure."""
     board: str
@@ -249,8 +250,8 @@ def run_expand(rig_yml: Path, out_dir: Path,
                build_info: Optional[Path] = None,
                bindings_dirs: Optional[List[Path]] = None,
                ) -> "subprocess.CompletedProcess[str]":
-    """Run `python -m rigexp expand` exactly as rig.cmake does (modulo the
-    recipe form: rig.cmake passes --include-dir/--bindings-dir explicitly;
+    """Run `python -m rigexp expand` exactly as dts.cmake does (modulo the
+    recipe form: dts.cmake passes --include-dir/--bindings-dir explicitly;
     this harness reuses a cached plain build's --build-info instead, per the
     cached-plain-build pattern — see `plain_build_for`) — a real subprocess,
     cwd pinned to the repo root so any process-cwd-relative path a

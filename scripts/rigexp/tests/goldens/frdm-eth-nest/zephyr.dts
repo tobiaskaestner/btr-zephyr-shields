@@ -443,29 +443,29 @@
 			pinctrl-0 = < &spi0_default >;           /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:138 */
 			pinctrl-names = "default";               /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:139 */
 			cs-gpios = < &adapter_1_mb1 0x2 0x1 >,
-			           < &adapter_1_mb2 0x2 0x1 >;   /* in <RIGEXP_BUILD>/rig/overlay:26 */
+			           < &adapter_1_mb2 0x2 0x1 >;   /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:26 */
 			phandle = < 0x25 >;                      /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:55 */
 
-			/* node '/soc/spi@4002c000/eth@0' defined in <RIGEXP_BUILD>/rig/overlay:27 */
+			/* node '/soc/spi@4002c000/eth@0' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:27 */
 			eth_1_eth: eth@0 {
-				compatible = "microchip,enc28j60";         /* in <RIGEXP_BUILD>/rig/overlay:28 */
-				spi-max-frequency = < 0x1312d00 >;         /* in <RIGEXP_BUILD>/rig/overlay:29 */
-				local-mac-address = [ 00 00 00 00 00 00 ]; /* in <RIGEXP_BUILD>/rig/overlay:30 */
-				zephyr,random-mac-address;                 /* in <RIGEXP_BUILD>/rig/overlay:31 */
-				reg = < 0x0 >;                             /* in <RIGEXP_BUILD>/rig/overlay:32 */
-				int-gpios = < &adapter_1_mb1 0x7 0x1 >;    /* in <RIGEXP_BUILD>/rig/overlay:33 */
-				status = "okay";                           /* in <RIGEXP_BUILD>/rig/overlay:34 */
+				compatible = "microchip,enc28j60";         /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:28 */
+				spi-max-frequency = < 0x1312d00 >;         /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:29 */
+				local-mac-address = [ 00 00 00 00 00 00 ]; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:30 */
+				zephyr,random-mac-address;                 /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:31 */
+				reg = < 0x0 >;                             /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:32 */
+				int-gpios = < &adapter_1_mb1 0x7 0x1 >;    /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:33 */
+				status = "okay";                           /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:34 */
 			};
 
-			/* node '/soc/spi@4002c000/eth@1' defined in <RIGEXP_BUILD>/rig/overlay:36 */
+			/* node '/soc/spi@4002c000/eth@1' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:36 */
 			eth_2_eth: eth@1 {
-				compatible = "microchip,enc28j60";         /* in <RIGEXP_BUILD>/rig/overlay:37 */
-				spi-max-frequency = < 0x1312d00 >;         /* in <RIGEXP_BUILD>/rig/overlay:38 */
-				local-mac-address = [ 00 00 00 00 00 00 ]; /* in <RIGEXP_BUILD>/rig/overlay:39 */
-				zephyr,random-mac-address;                 /* in <RIGEXP_BUILD>/rig/overlay:40 */
-				reg = < 0x1 >;                             /* in <RIGEXP_BUILD>/rig/overlay:41 */
-				int-gpios = < &adapter_1_mb2 0x7 0x1 >;    /* in <RIGEXP_BUILD>/rig/overlay:42 */
-				status = "okay";                           /* in <RIGEXP_BUILD>/rig/overlay:43 */
+				compatible = "microchip,enc28j60";         /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:37 */
+				spi-max-frequency = < 0x1312d00 >;         /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:38 */
+				local-mac-address = [ 00 00 00 00 00 00 ]; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:39 */
+				zephyr,random-mac-address;                 /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:40 */
+				reg = < 0x1 >;                             /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:41 */
+				int-gpios = < &adapter_1_mb2 0x7 0x1 >;    /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:42 */
+				status = "okay";                           /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:43 */
 			};
 		};
 
@@ -1128,7 +1128,7 @@
 		socket,spi = < &spi0 >;                    /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:55 */
 		socket,uart = < &uart3 >;                  /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:56 */
 		socket,stackable;                          /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:57 */
-		phandle = < 0x27 >;                        /* in <RIGEXP_BUILD>/rig/overlay:11 */
+		phandle = < 0x27 >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:11 */
 	};
 
 	/* node '/leds' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:50 */
@@ -1173,25 +1173,25 @@
 		};
 	};
 
-	/* node '/adapter_1_mb1' defined in <RIGEXP_BUILD>/rig/overlay:7 */
+	/* node '/adapter_1_mb1' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:7 */
 	adapter_1_mb1: adapter_1_mb1 {
-		#gpio-cells = < 0x2 >;                     /* in <RIGEXP_BUILD>/rig/overlay:8 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in <RIGEXP_BUILD>/rig/overlay:9 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in <RIGEXP_BUILD>/rig/overlay:10 */
+		#gpio-cells = < 0x2 >;                     /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:8 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:9 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:10 */
 		gpio-map = < 0x2 0x0 &frdm_ard 0x10 0x0 >,
 		           < 0x1 0x0 &frdm_ard 0xc 0x0 >,
-		           < 0x7 0x0 &frdm_ard 0x8 0x0 >;  /* in <RIGEXP_BUILD>/rig/overlay:11 */
-		phandle = < 0x10 >;                        /* in <RIGEXP_BUILD>/rig/overlay:26 */
+		           < 0x7 0x0 &frdm_ard 0x8 0x0 >;  /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:11 */
+		phandle = < 0x10 >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:26 */
 	};
 
-	/* node '/adapter_1_mb2' defined in <RIGEXP_BUILD>/rig/overlay:15 */
+	/* node '/adapter_1_mb2' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:15 */
 	adapter_1_mb2: adapter_1_mb2 {
-		#gpio-cells = < 0x2 >;                     /* in <RIGEXP_BUILD>/rig/overlay:16 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in <RIGEXP_BUILD>/rig/overlay:17 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in <RIGEXP_BUILD>/rig/overlay:18 */
+		#gpio-cells = < 0x2 >;                     /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:16 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:17 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:18 */
 		gpio-map = < 0x2 0x0 &frdm_ard 0xf 0x0 >,
 		           < 0x1 0x0 &frdm_ard 0xb 0x0 >,
-		           < 0x7 0x0 &frdm_ard 0x9 0x0 >;  /* in <RIGEXP_BUILD>/rig/overlay:19 */
-		phandle = < 0x11 >;                        /* in <RIGEXP_BUILD>/rig/overlay:26 */
+		           < 0x7 0x0 &frdm_ard 0x9 0x0 >;  /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:19 */
+		phandle = < 0x11 >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:26 */
 	};
 };

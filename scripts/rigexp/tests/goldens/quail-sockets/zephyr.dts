@@ -524,11 +524,11 @@
 			status = "okay";                             /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:171 */
 			phandle = < 0x29 >;                          /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:708 */
 
-			/* node '/soc/i2c@40005400/sensor@5f' defined in <RIGEXP_BUILD>/rig/overlay:6 */
+			/* node '/soc/i2c@40005400/sensor@5f' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:6 */
 			th_2_th_sensor: sensor@5f {
-				compatible = "st,hts221"; /* in <RIGEXP_BUILD>/rig/overlay:7 */
-				reg = < 0x5f >;           /* in <RIGEXP_BUILD>/rig/overlay:8 */
-				status = "okay";          /* in <RIGEXP_BUILD>/rig/overlay:9 */
+				compatible = "st,hts221"; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:7 */
+				reg = < 0x5f >;           /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:8 */
+				status = "okay";          /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:9 */
 			};
 		};
 
@@ -576,17 +576,17 @@
 			pinctrl-0 = < &spi1_sck_pb3 &spi1_miso_pb4 &spi1_mosi_pb5 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:134 */
 			pinctrl-names = "default";                                   /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:135 */
 			status = "okay";                                             /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:137 */
-			cs-gpios = < &quail_sock1 0x2 0x1 >;                         /* in <RIGEXP_BUILD>/rig/overlay:26 */
+			cs-gpios = < &quail_sock1 0x2 0x1 >;                         /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:26 */
 			phandle = < 0x2e >;                                          /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:44 */
 
-			/* node '/soc/spi@40013000/nor@0' defined in <RIGEXP_BUILD>/rig/overlay:27 */
+			/* node '/soc/spi@40013000/nor@0' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:27 */
 			flash_1_fc_nor: nor@0 {
-				compatible = "jedec,spi-nor";     /* in <RIGEXP_BUILD>/rig/overlay:28 */
-				spi-max-frequency = < 0x7a1200 >; /* in <RIGEXP_BUILD>/rig/overlay:29 */
-				jedec-id = [ C8 40 15 ];          /* in <RIGEXP_BUILD>/rig/overlay:30 */
-				size = < 0x400000 >;              /* in <RIGEXP_BUILD>/rig/overlay:31 */
-				reg = < 0x0 >;                    /* in <RIGEXP_BUILD>/rig/overlay:32 */
-				status = "okay";                  /* in <RIGEXP_BUILD>/rig/overlay:33 */
+				compatible = "jedec,spi-nor";     /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:28 */
+				spi-max-frequency = < 0x7a1200 >; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:29 */
+				jedec-id = [ C8 40 15 ];          /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:30 */
+				size = < 0x400000 >;              /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:31 */
+				reg = < 0x0 >;                    /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:32 */
+				status = "okay";                  /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:33 */
 			};
 		};
 
@@ -962,7 +962,7 @@
 			status = "okay";                                                /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:141 */
 			pinctrl-0 = < &spi3_sck_pc10 &spi3_miso_pc11 &spi3_mosi_pc12 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:142 */
 			pinctrl-names = "default";                                      /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:143 */
-			cs-gpios = < &quail_sock3 0x2 0x1 >;                            /* in <RIGEXP_BUILD>/rig/overlay:14 */
+			cs-gpios = < &quail_sock3 0x2 0x1 >;                            /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:14 */
 			phandle = < 0x32 >;                                             /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:88 */
 
 			/* node '/soc/spi@40003c00/flash@2' defined in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:152 */
@@ -976,14 +976,14 @@
 				status = "okay";                   /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:162 */
 			};
 
-			/* node '/soc/spi@40003c00/nor@0' defined in <RIGEXP_BUILD>/rig/overlay:15 */
+			/* node '/soc/spi@40003c00/nor@0' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:15 */
 			flash_3_fc_nor: nor@0 {
-				compatible = "jedec,spi-nor";     /* in <RIGEXP_BUILD>/rig/overlay:16 */
-				spi-max-frequency = < 0x7a1200 >; /* in <RIGEXP_BUILD>/rig/overlay:17 */
-				jedec-id = [ C8 40 15 ];          /* in <RIGEXP_BUILD>/rig/overlay:18 */
-				size = < 0x400000 >;              /* in <RIGEXP_BUILD>/rig/overlay:19 */
-				reg = < 0x0 >;                    /* in <RIGEXP_BUILD>/rig/overlay:20 */
-				status = "okay";                  /* in <RIGEXP_BUILD>/rig/overlay:21 */
+				compatible = "jedec,spi-nor";     /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:16 */
+				spi-max-frequency = < 0x7a1200 >; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:17 */
+				jedec-id = [ C8 40 15 ];          /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:18 */
+				size = < 0x400000 >;              /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:19 */
+				reg = < 0x0 >;                    /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:20 */
+				status = "okay";                  /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:21 */
 			};
 		};
 
@@ -1665,7 +1665,7 @@
 		socket,spi = < &spi1 >;                    /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:44 */
 		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:45 */
 		socket,uart = < &usart3 >;                 /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:46 */
-		phandle = < 0x11 >;                        /* in <RIGEXP_BUILD>/rig/overlay:26 */
+		phandle = < 0x11 >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:26 */
 	};
 
 	/* node '/connector_mikrobus_2' defined in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:49 */
@@ -1712,7 +1712,7 @@
 		socket,spi = < &spi3 >;                    /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:88 */
 		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:89 */
 		socket,uart = < &usart6 >;                 /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:90 */
-		phandle = < 0x1a >;                        /* in <RIGEXP_BUILD>/rig/overlay:14 */
+		phandle = < 0x1a >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:14 */
 	};
 
 	/* node '/connector_mikrobus_4' defined in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:93 */

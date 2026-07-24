@@ -167,10 +167,10 @@ def test_tier2_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
 def test_tier2_build_info_rig_provenance(tmp_path: Path) -> None:
     """rig-build provenance (NEW requirement): a rig build must record what
     it looked at into `build_info.yml`, via zephyr's own `build_info()`
-    (cmake/rig.cmake). It lands under `cmake.vendor-specific.rig.*` (the
+    (cmake/dts.cmake). It lands under `cmake.vendor-specific.rig.*` (the
     schema's own downstream-owned escape hatch, NOT the naively-expected
     `cmake.rig.*` -- build-schema.yaml is upstream, not ours to extend; see
-    cmake/rig.cmake and the handoff report). Deliberately uses frdm-eth-nest:
+    cmake/dts.cmake and the handoff report). Deliberately uses frdm-eth-nest:
     it names TWO distinct shields (arduino_uno_click, eth_click carried by
     THREE instances) -- the case that caught a real bug (build_info()'s
     vendor-specific VALUE silently truncates a multi-element CMake list to
@@ -205,7 +205,7 @@ def test_tier2_build_info_shield_dir_collision(tmp_path: Path) -> None:
     BOARD_ROOT holds both btr-shields and $ZEPHYR_BASE (zephyr-rigs), and the
     latter ships its own stock `boards/shields/adafruit_data_logger` -- a
     plain upstream shield (no `<name>.shield` rig-template marker), same name
-    as btr-shields' rig-template shield. `cmake/rig.cmake`'s shield tail must
+    as btr-shields' rig-template shield. `cmake/dts.cmake`'s shield tail must
     resolve the collision to OUR (rig-template) folder, not whichever root
     `list_shields.py` happened to sort last. `nucleo-datalogger` (s1) is the
     corpus rig naming `adafruit_data_logger`, so it's the collision witness."""
@@ -239,7 +239,7 @@ def test_tier2_build_info_shield_dir_collision(tmp_path: Path) -> None:
 
 
 def test_tier2_rig_depends_provenance(tmp_path: Path) -> None:
-    """Dependency-tracking handoff (RIG_DEPENDS): `cmake/rig.cmake` appends
+    """Dependency-tracking handoff (RIG_DEPENDS): `cmake/dts.cmake` appends
     the expander's own generated `context.cmake` `RIG_DEPENDS` list to
     CMAKE_CONFIGURE_DEPENDS, so editing a `.shield` template or a connector
     binding — not just rig.yml/rig.conf/rig.overlay, the pre-existing static
@@ -252,7 +252,7 @@ def test_tier2_rig_depends_provenance(tmp_path: Path) -> None:
     changes — is CMake's own long-standing guarantee for that property, not
     something this project needs to (or reasonably can, without touching
     corpus files) re-prove; `set_property(... APPEND PROPERTY
-    CMAKE_CONFIGURE_DEPENDS ...)` in rig.cmake is the whole of our contribution."""
+    CMAKE_CONFIGURE_DEPENDS ...)` in dts.cmake is the whole of our contribution."""
     build_dir = tmp_path / "build"
     result = _run_build("lotus-pwm", build_dir)
     assert result.returncode == 0, (
