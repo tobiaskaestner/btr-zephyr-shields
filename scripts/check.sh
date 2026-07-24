@@ -16,7 +16,7 @@ cd "$(dirname "$0")/.."
 PY="${PYTHON:-python3}"
 
 if [ -z "$ZEPHYR_BASE" ]; then
-    echo "check.sh: ZEPHYR_BASE is not set — export it (the zephyr-rigs tree)." >&2
+    echo "check.sh: ZEPHYR_BASE is not set — export it (the zephyr tree, rig branch)." >&2
     echo "  It locates dtlib/edtlib for both mypy (MYPYPATH) and the tests." >&2
     exit 2
 fi

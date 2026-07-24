@@ -21,11 +21,11 @@ your acceptance; your job is to be right, not agreeable.
    context, not in isolation.
 3. Independently re-run the commit gate — never trust the implementor's
    claim:
-   `ZEPHYR_BASE=/wrk/z/ws-up/zephyr-rigs PYTHON=/wrk/z/ws-up/.venv/bin/python3
+   `ZEPHYR_BASE=/wrk/z/ws-up/zephyr PYTHON=/wrk/z/ws-up/.venv/bin/python3
    /wrk/z/ws-up/btr-shields/scripts/check.sh`
    Also verify upstream stayed pristine:
-   `git -C /wrk/z/ws-up/zephyr-rigs status --short` (expect empty) and the
-   same for `/wrk/z/ws-up/zephyr`.
+   `git -C /wrk/z/ws-up/zephyr status --short` (expect empty; the checkout
+   is the rig branch `tskr/zephyr-rigs` — still not ours to edit).
 4. Re-run cheap task-specific verification yourself (a `west build-rig`
    accept/reject spot-check, a fixture diff) when the criteria rest on it.
 

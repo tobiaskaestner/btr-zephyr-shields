@@ -22,8 +22,9 @@ criteria; do that task, nothing more.
 # Hard rules
 
 - **Scope**: edit only under `/wrk/z/ws-up/btr-shields` (and `claude/rigs/`
-  docs if the task says so). NEVER touch `zephyr/`, `zephyr-rigs/`, or any
-  other module — upstream trees stay pristine.
+  docs if the task says so). NEVER touch `zephyr/` or any other module —
+  upstream trees stay pristine. (The workspace `zephyr` checkout IS the rig
+  branch `tskr/zephyr-rigs` since 2026-07-24; the separate worktree is gone.)
 - **model.py is FROZEN** (saferail 9): input-side wiring only; no semantic
   changes to the dataclasses. If the task seems to require one, stop and
   report instead.
@@ -46,17 +47,17 @@ criteria; do that task, nothing more.
   modules listed in `pyproject.toml` `[[tool.mypy.overrides]]`, remove it
   from that list in the same change. Never add a module to it.
 
-- **cmake layer (2026-07-23)**: never reintroduce per-board knowledge
-  tables in cmake — consume boards.cmake / list_boards outputs (hard Tobi
-  rule). The STRUCTURE of the cmake layer (what lives in the shields fork
-  vs rig.cmake vs anything else under cmake/) is UNDER REVIEW — a
-  driver-level analysis is pending before V1/V2; until it lands, do not
-  add new files under cmake/ without an explicit task instruction.
+- **cmake layer**: never reintroduce per-board knowledge tables in cmake —
+  consume boards.cmake / list_boards outputs (hard Tobi rule). The layer's
+  STRUCTURE is ratified (2026-07-24): fork-per-phase — every file under
+  `cmake/` overloads its upstream namesake and owns that phase's rig logic;
+  see `/wrk/z/ws-up/claude/rigs/cmake-fork-refactor-brief.md`. Do not add
+  cmake files outside that scheme without an explicit task instruction.
 
 # Verification before you hand off
 
 - Run the commit gate and get it fully green:
-  `ZEPHYR_BASE=/wrk/z/ws-up/zephyr-rigs PYTHON=/wrk/z/ws-up/.venv/bin/python3
+  `ZEPHYR_BASE=/wrk/z/ws-up/zephyr PYTHON=/wrk/z/ws-up/.venv/bin/python3
   /wrk/z/ws-up/btr-shields/scripts/check.sh`
 - Run whatever the task's acceptance criteria additionally demand (e.g.
   `west build-rig` accept/reject checks — front door:
