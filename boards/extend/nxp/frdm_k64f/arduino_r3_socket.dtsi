@@ -12,9 +12,9 @@
  * geometry) are untouched, and socket,i2c/spi/uart point at those same
  * controllers (&i2c0/&spi0/&uart3) directly.
  *
- * Content identical to the (soon-to-be-deleted, slice E4) frdm_k64f_btr
- * clone's own arduino_r3_socket.dtsi -- copied in here so the extension has
- * no long-term dependency on the clone.
+ * Content identical to the board clone's own arduino_r3_socket.dtsi --
+ * copied in here so the extension has no long-term dependency on the
+ * clone (deleted in full, slice E4, board-extension-migration.md).
  *
  * gpio-map child pins use the upstream index header
  * (<zephyr/dt-bindings/gpio/arduino-header-r3.h>) — the

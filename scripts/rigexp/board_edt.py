@@ -17,7 +17,7 @@ pwm_map / adc_map (Bridge-A phase 2a) project the socket node's standard
 `pwm-map` / `io-channel-map` nexuses -- read the same way `gpio-map` already
 is, via `edtlib.Node.maps()` -- onto a position -> (controller label,
 channel) shape (see
-`boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi`). Not every socket
+`boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi`). Not every socket
 carries these maps (only PWM/ADC-capable ones do); `node.maps` simply omits
 the key for a `*-map` property the node doesn't author, so the loops below
 are no-ops for sockets without one.
@@ -143,7 +143,7 @@ def _controller_label(node: edtlib.Node) -> str:
     """The controller's own label for a `*-map` target, preferring the LAST
     one attached over the SoC dtsi's original (first) one: a socket-file
     alias attached after the fact (e.g. `adc0: &adc {};` in
-    `grove_sockets_btr.dtsi`) is appended to `Node.labels` without
+    `grove_sockets.dtsi`) is appended to `Node.labels` without
     displacing the primary label the SoC dtsi already gave the node
     (dtlib's label list is append-only, first-wins on duplicates, never
     reordered). Before THE FLIP, this projected onto the SAME label the

@@ -1,6 +1,0 @@
-board:
-  name: mikroe_quail_btr
-  full_name: MikroE Quail (btr-shields clone, rigs Convention 4 socket nodes)
-  vendor: mikroe
-  socs:
-    - name: stm32f427xx

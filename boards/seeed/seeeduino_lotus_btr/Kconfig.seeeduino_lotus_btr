@@ -1,8 +1,0 @@
-# Seeeduino Lotus Cortex-M0+ board configuration (btr-shields clone)
-
-# Copyright (c) 2023-2024 TiaC Systems
-# Copyright (c) 2026 btr-shields
-# SPDX-License-Identifier: Apache-2.0
-
-config BOARD_SEEEDUINO_LOTUS_BTR
-	select SOC_SAMD21G18A

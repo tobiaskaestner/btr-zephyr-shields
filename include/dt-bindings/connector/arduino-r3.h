@@ -4,7 +4,7 @@
  * both consumers — Bridge-A rewrite step 3).
  *
  * The real board socket node (e.g.
- * boards/st/nucleo_f401re_btr/arduino_r3_socket.dtsi) instead includes
+ * boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi) instead includes
  * upstream's own <zephyr/dt-bindings/gpio/arduino-header-r3.h> directly —
  * values are IDENTICAL (checked at promotion time), so this is not a second
  * source of truth for the *values*, just the path shields/the expander

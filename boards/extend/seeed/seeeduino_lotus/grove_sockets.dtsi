@@ -10,9 +10,10 @@
  * referenced by these sockets). These eight "socket,grove" nodes are the
  * SOLE typed-socket description this extension adds.
  *
- * Content identical to the (soon-to-be-deleted, slice E4)
- * seeeduino_lotus_btr clone's own grove_sockets_btr.dtsi -- copied in here
- * so the extension has no long-term dependency on the clone. Pin mapping
+ * Content identical to the board clone's own equivalent socket file --
+ * copied in here so the extension has no long-term dependency on the
+ * clone (deleted in full, slice E4, board-extension-migration.md). Pin
+ * mapping
  * (which SoC pin each position reaches) is a real bridle fact, including
  * the daisy-lacing (SIG1 of one connector == SIG0 of the next) and D2/D4
  * sharing TCC0 channel 0 (the channel clash lotus-pwm-clash exercises).

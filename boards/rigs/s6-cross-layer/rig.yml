@@ -10,8 +10,8 @@
 #
 # Ported from frontend-trial/candidate-2-hybrid/s6-cross-layer.rig.yml; board
 # reference migrated (E2) to the hwmv2 board EXTENSION `rig` variant of the
-# real upstream frdm_k64f — was `frdm_k64f_btr` (the clone; still present,
-# deleted in slice E4); shield references renamed hyphen->underscore
+# real upstream frdm_k64f — was `frdm_k64f_btr` (the clone; deleted in
+# slice E4); shield references renamed hyphen->underscore
 # (arduino-uno-click -> arduino_uno_click, eth-click -> eth_click);
 # adafruit-data-logger REUSES the existing btr-shields shield
 # `adafruit_data_logger` (already ported in 3a), not recreated here.

@@ -98,11 +98,11 @@ if(DEFINED RIG)
   # existing dir sails past the exclusivity guard (cached BOARD == marker,
   # both stale) with inference SKIPPED, and the expander then reads the OLD
   # board's dts under the NEW rig's declared board name: phys-socket
-  # diagnostics that blame the wrong board (verified live: lotus-buttons
-  # into a nucleo-datalogger dir reports "board 'seeeduino_lotus_btr' has
-  # no socket grove_d2" -- it does), or, for two boards whose socket names
-  # coincide, a clean build against the wrong hardware. A swap to another
-  # rig on the SAME board stays legal (the marker still matches).
+  # diagnostics that blame the wrong board (verified live: swapping
+  # lotus-buttons into a nucleo-datalogger dir reported the OLD board name
+  # missing the NEW rig's socket -- it did), or, for two boards whose
+  # socket names coincide, a clean build against the wrong hardware. A swap
+  # to another rig on the SAME board stays legal (the marker still matches).
   if(DEFINED RIG_INFERRED_BOARD
      AND NOT "${_RIG_RESOLVED_BOARD}" STREQUAL "${RIG_INFERRED_BOARD}")
     message(FATAL_ERROR
@@ -218,9 +218,9 @@ endfunction()
 # plain `-b nucleo_f401re/stm32f401xe/rig` build is covered too, not just a
 # `-DRIG` one.
 #
-# Guarded so this is a total no-op for every OTHER build (plain boards, our
-# other still-cloned boards, and even a PLAIN build of an EXTENDED board's
-# base target): resolve the CURRENT target's own `.dts` (the shared
+# Guarded so this is a total no-op for every OTHER build (plain, non-rig
+# boards, and even a PLAIN build of an EXTENDED board's base target):
+# resolve the CURRENT target's own `.dts` (the shared
 # `_rig_resolve_board_dts` helper above) and act only if it lives in a
 # directory OTHER than `BOARD_DIRECTORIES`'s first entry (the base board's
 # own directory -- always directories[0], per list_boards.py's

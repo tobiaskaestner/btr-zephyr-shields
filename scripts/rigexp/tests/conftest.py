@@ -46,20 +46,18 @@ DTS_EQUIV = REPO_ROOT / "scripts" / "dts_equiv.py"
 # edt.pickle-cross-check corpus).
 #
 # nucleo_f401re/mikroe_quail/frdm_k64f/seeeduino_lotus: hwmv2 board
-# EXTENSIONS (E1/E2/E3 slices, board-extension-migration.md), not clones --
-# `board:` is the FULL qualified target (rig.yml names it explicitly, no
-# expander-side sugar) and each one's .dts lives under boards/extend/,
-# layered on top of the REAL upstream board via `#include`. seeeduino_lotus
-# (E3) is the CROSS-MODULE case: its base .dts lives in the bridle Zephyr
-# module, which the west manifest deliberately does NOT carry (E3-brief.md)
-# -- every build path naming this board must thread
+# EXTENSIONS (E1/E2/E3 slices, board-extension-migration.md) -- the ONLY way
+# any of these four boards are named any more, the four clones having been
+# deleted in full (E4, E4-brief.md; the pwm-nonzero-flags synthetic fixture
+# repointed to the seeeduino_lotus extension in the same slice, its last
+# remaining clone reference). `board:` is the FULL qualified target (rig.yml
+# names it explicitly, no expander-side sugar) and each one's .dts lives
+# under boards/extend/, layered on top of the REAL upstream board via
+# `#include`. seeeduino_lotus is the CROSS-MODULE case: its base .dts lives
+# in the bridle Zephyr module, which the west manifest deliberately does NOT
+# carry (E3-brief.md) -- every build path naming this board must thread
 # `-DEXTRA_ZEPHYR_MODULES=<bridle_root()>` (see `board_extra_defines`
-# below), or the board does not exist at all. The nucleo/quail/frdm/lotus
-# clones (*_btr) still exist on disk (E4 deletes them); `seeeduino_lotus_btr`
-# stays in this table because the pwm-nonzero-flags synthetic fixture
-# (test_tier1_goldens.py) still names it directly -- the other three clones
-# dropped out of this table exactly as nucleo_f401re_btr did in E1, since no
-# corpus rig names them any more.
+# below), or the board does not exist at all.
 BOARD_DTS: Dict[str, str] = {
     "nucleo_f401re/stm32f401xe/rig":
         "boards/extend/st/nucleo_f401re/nucleo_f401re_stm32f401xe_rig.dts",
@@ -69,7 +67,6 @@ BOARD_DTS: Dict[str, str] = {
         "boards/extend/nxp/frdm_k64f/frdm_k64f_mk64f12_rig.dts",
     "seeeduino_lotus/samd21g18a/rig":
         "boards/extend/seeed/seeeduino_lotus/seeeduino_lotus_samd21g18a_rig.dts",
-    "seeeduino_lotus_btr": "boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts",
 }
 BOARDS: List[str] = list(BOARD_DTS)
 

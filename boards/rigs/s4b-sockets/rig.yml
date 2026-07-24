@@ -10,8 +10,8 @@
 #
 # Ported from frontend-trial/candidate-2-hybrid/s4b-sockets.rig.yml; board
 # reference migrated (E2) to the hwmv2 board EXTENSION `rig` variant of the
-# real upstream mikroe_quail — was `mikroe_quail_btr` (the clone; still
-# present, deleted in slice E4).
+# real upstream mikroe_quail — was `mikroe_quail_btr` (the clone; deleted
+# in slice E4).
 
 rig:
   name: quail-sockets

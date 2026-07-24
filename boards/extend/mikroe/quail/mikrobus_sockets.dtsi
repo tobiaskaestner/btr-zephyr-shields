@@ -11,9 +11,9 @@
  * controllers (&spi1/&spi3/&i2c1/&usart*) directly, so no legacy alias is
  * needed.
  *
- * Content identical to the (soon-to-be-deleted, slice E4) mikroe_quail_btr
- * clone's own mikrobus_sockets.dtsi -- copied in here so the extension has
- * no long-term dependency on the clone.
+ * Content identical to the board clone's own mikrobus_sockets.dtsi --
+ * copied in here so the extension has no long-term dependency on the
+ * clone (deleted in full, slice E4, board-extension-migration.md).
  *
  * gpio-map child pins use the MIKROBUS_* indices from
  * <dt-bindings/connector/mikrobus.h> (btr-shields' own header — no upstream

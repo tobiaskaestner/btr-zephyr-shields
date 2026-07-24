@@ -6,7 +6,7 @@
 # that diagnostic's wording and verdict.
 rig:
   name: route-no-via
-  board: nucleo_f401re_btr
+  board: nucleo_f401re/stm32f401xe/rig
   instances:
     - name: a
       shield: adafruit_data_logger

@@ -7,7 +7,7 @@
 # Ported from frontend-trial/candidate-2-hybrid/s1-datalogger.rig.yml; board
 # reference migrated to the hwmv2 board EXTENSION `rig` variant of the REAL
 # upstream nucleo_f401re (E1, board-extension-migration.md) — was
-# `nucleo_f401re_btr` (the clone; still present, deleted in slice E4).
+# `nucleo_f401re_btr` (the clone; deleted in slice E4).
 
 rig:
   name: nucleo-datalogger

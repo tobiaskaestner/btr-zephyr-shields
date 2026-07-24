@@ -183,10 +183,12 @@ def test_pwm_nonzero_flags_golden(tmp_path: Path,
     is the only fixture locking the analyzer's `phys-function` rejection
     (analyzer.py:_collect_channel), moved from the emitter's former
     `ValueError` (which violated the emitter's "cannot fail" contract,
-    cli.py). Needs a real board recipe (seeeduino_lotus_btr), like the corpus
-    cases -- hence @pytest.mark.build, unlike the loader-level fixtures above."""
+    cli.py). Needs a real board recipe (the seeeduino_lotus extension --
+    repointed here in E4 off its now-deleted board clone), like the corpus
+    cases -- hence @pytest.mark.build, unlike the loader-level fixtures
+    above."""
     fixture = FIXTURES_DIR / "pwm-nonzero-flags"
-    board = "seeeduino_lotus_btr"
+    board = "seeeduino_lotus/samd21g18a/rig"
     plain_build = plain_build_for(board, tmp_path_factory)
     out_dir = tmp_path / "out"
     result = run_expand(

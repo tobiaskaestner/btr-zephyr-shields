@@ -7,7 +7,7 @@
 # (which violated the emitter's "cannot fail" contract, cli.py).
 rig:
   name: pwm-nonzero-flags
-  board: seeeduino_lotus_btr
+  board: seeeduino_lotus/samd21g18a/rig
   instances:
     - name: servo_1
       shield: grove_servo_flags

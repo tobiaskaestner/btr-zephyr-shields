@@ -1,6 +1,0 @@
-board:
-  name: frdm_k64f_btr
-  full_name: FRDM-K64F (btr-shields clone, rigs Convention 4 socket node)
-  vendor: nxp
-  socs:
-    - name: mk64f12
