@@ -2,8 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 description: |
-  Grove connector, socket side (rigs Convention 1/4 typed board socket). A
-  GPIO nexus, additive alongside bridle's "seeed,grove-connector" binding
+  Grove connector, unified socket + plug contract (rigs Convention 1/4
+  typed board socket). Board side: a GPIO nexus, additive alongside
+  bridle's "seeed,grove-connector" binding
   (boards/seeed/seeeduino_lotus/*_connector.dtsi) that a converted board
   keeps unmodified: gpio-map child pins use the GROVE_* indices from
   <dt-bindings/connector/grove.h> — the position-index single source of
@@ -30,6 +31,14 @@ description: |
   channel) — unlike gpio-map, which every socket carries. Cell shapes/roles
   match the upstream bindings exactly (pwm-map: compound, #pwm-cells: int;
   same for io-channel-*), just optional rather than required.
+
+  Shield side (`plug,*` extension keys — opaque to edtlib's own model,
+  preserved in Binding.raw under the vendor-namespaced top-level key
+  exemption, carried commit 1a657124349): plug,bus-proxies names the proxy
+  nodes a shield may declare (i2c, for I2C Grove modules — not exercised by
+  the trial's modules); plug,positions lists the two claimable gpio
+  positions (SIG0/SIG1 — digital/analog Grove modules use them directly).
+  VCC/GND are power, not claimable, and have no position entry.
 
 compatible: "socket,grove"
 
@@ -61,3 +70,8 @@ properties:
 gpio-cells:
   - pin
   - flags
+
+plug,bus-proxies: [i2c]
+plug,positions:
+  SIG0: {function: gpio}
+  SIG1: {function: gpio}

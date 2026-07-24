@@ -268,5 +268,5 @@ def test_tier2_rig_depends_provenance(tmp_path: Path) -> None:
 
     assert "boards/rigs/lotus-pwm/rig.yml" in depends_line
     assert "boards/shields/grove_servo/grove_servo.shield" in depends_line
-    assert "dts/connectors/plug,grove.yaml" in depends_line
+    assert "dts/bindings/connectors/grove.yaml" in depends_line
     assert "boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts" in depends_line

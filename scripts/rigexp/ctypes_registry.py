@@ -1,30 +1,37 @@
-"""Connector-type registry. A type IS three artifacts (Conv. 1): the
-socket binding (board side, edtlib's job in the real build), the plug
-binding (shield side, consumed HERE by the loaders), and the index header
-(position single source of truth). This module assembles the three into
-model.ConnectorType.
+"""Connector-type registry. A type IS two artifacts (Conv. 1): the unified
+socket+plug binding (board side, edtlib's job in the real build; shield side,
+consumed HERE by the loaders) and the index header (position single source
+of truth). This module assembles the two into model.ConnectorType.
 
-Data sources (Bridge-A rewrite step 3, AMENDED -- see
-claude/rigs/implementation-plan.md "Connector types -> binding YAML"):
-  - plug facts:      dts/connectors/plug,<type>.yaml (never dts/bindings/ --
-                      see dts/connectors/README.md for why: edtlib globs +
-                      schema-checks every binding dir wholesale, and this
-                      shape -- plug/bus-proxies/positions -- is not part of
-                      its allowed top-level keys).
-  - socket facts:     the REAL dts/bindings/connector/<type>.yaml, read with
-                      a plain yaml.safe_load of the raw file rather than
-                      edtlib.Binding -- the two rig-extension properties
-                      (socket,stackable presence, socket,cs-pool default)
-                      are declared INLINE in every real binding (no
-                      `include:`-composed indirection to resolve), so the
-                      raw YAML dict already has them at
-                      doc["properties"]["socket,cs-pool"]["default"] --
-                      exactly what edtlib.Binding would also expose via
-                      Binding.raw, with far less machinery.
-  - i2c-port is the one type with no real socket binding at all (its
-    sockets are shield-synthesized only, never in a real board DT -- see
-    dts/connectors/README.md, "The i2c-port exception"): its socket facts
-    are declared inline in its OWN plug YAML instead, under a `socket:` key.
+Data source (Bridge-A rewrite step 3, UNIFIED 2026-07-24 -- see
+claude/rigs/implementation-plan.md "Connector types -> binding YAML" and
+claude/rigs/connector-unification-brief.md):
+  ONE file per type, dts/bindings/connectors/<type>.yaml -- the real socket
+  binding (a board's `compatible = "socket,<type>"` node genuinely gets
+  loaded and validated by edtlib on every real build, rig or plain) plus the
+  shield-side plug contract folded in as `plug,*` top-level extension keys
+  (plug,positions, plug,bus-proxies) -- extension keys are namespaced by the
+  SIDE they describe (plug,* here, socket,* for socket-side facts), never
+  by the project. This is legal since 1a657124349 (carried on the
+  zephyr-rigs tree this module builds against, not touched BY this module):
+  edtlib now treats any top-level binding key containing a comma as an
+  opaque vendor-namespaced extension, preserved in Binding.raw rather than
+  erroring "unknown key". Read HERE with a plain yaml.safe_load of the raw
+  file rather than edtlib.Binding -- the plug,* keys are declared INLINE in
+  every unified binding (no `include:`-composed indirection to resolve), so
+  the raw YAML dict already has them at, e.g., doc["plug,positions"] --
+  exactly what edtlib.Binding.raw would also expose, with far less
+  machinery. This equivalence holds only as long as no unified binding needs
+  an `include:`-composed plug,* key; none currently do.
+
+  i2c-port is the one type with no socket node ever compiled for real (its
+  sockets are shield-synthesized only, lowered to plain, compatible-less
+  `channel@N` mux children before pass 2 -- see emitter.py's `_mux_node`); it
+  still gets a unified file here, compatible-bearing (edtlib's binding scan
+  is content-sniffing: a compatible-less file under dts/bindings/ would be
+  build-dependent to validate) but otherwise ordinary -- its socket,*
+  properties are schema decoration no real node ever exercises, read here
+  the same way as every other type's.
 """
 from __future__ import annotations
 
@@ -37,50 +44,37 @@ from .diag import Depends
 from .dtsio import MODULE_ROOT, parse_header_indices
 from .model import ConnectorType, Position
 
-CONNECTORS = os.path.join(MODULE_ROOT, "dts", "connectors")
-BINDINGS = os.path.join(MODULE_ROOT, "dts", "bindings", "connector")
+BINDINGS = os.path.join(MODULE_ROOT, "dts", "bindings", "connectors")
 
 
-def _socket_facts(name: str, plug: dict,
-                  deps: Depends | None) -> tuple[bool, list[int]]:
-    """(stackable, cs_pool) -- the socket-side type facts. Real binding if
-    one exists for this type; else the plug YAML's own inline `socket:` key
-    (the i2c-port exception, see module docstring)."""
-    socket_path = os.path.join(BINDINGS, f"{name}.yaml")
-    if os.path.exists(socket_path):
-        if deps is not None:
-            deps.see(socket_path)
-        with open(socket_path) as f:
-            socket = yaml.safe_load(f)
-        sprops = socket.get("properties", {})
-        # type-level facts read off the SOCKET binding:
-        # mating multiplicity = presence of socket,stackable in the schema;
-        # default CS candidate list = the socket,cs-pool default.
-        stackable = "socket,stackable" in sprops
-        cs_pool = sprops.get("socket,cs-pool", {}).get("default", [])
-        return bool(stackable), list(cs_pool)
-
-    inline = plug.get("socket", {})
-    return bool(inline.get("stackable", False)), list(inline.get("cs-pool", []))
+def _socket_facts(binding: dict) -> tuple[bool, list[int]]:
+    """(stackable, cs_pool) -- the socket-side type facts, read off the
+    unified binding's own schema: mating multiplicity = presence of
+    socket,stackable in the schema; default CS candidate list = the
+    socket,cs-pool default."""
+    sprops = binding.get("properties", {})
+    stackable = "socket,stackable" in sprops
+    cs_pool = sprops.get("socket,cs-pool", {}).get("default", [])
+    return bool(stackable), list(cs_pool)
 
 
 def load_types(deps: Depends | None = None) -> dict[str, ConnectorType]:
     types = {}
-    for plug_path in sorted(glob.glob(os.path.join(CONNECTORS, "plug,*.yaml"))):
+    for path in sorted(glob.glob(os.path.join(BINDINGS, "*.yaml"))):
         if deps is not None:
-            deps.see(plug_path)
-        with open(plug_path) as f:
-            plug = yaml.safe_load(f)
-        name = plug["plug"]
+            deps.see(path)
+        with open(path) as f:
+            binding = yaml.safe_load(f)
+        name = os.path.splitext(os.path.basename(path))[0]
 
-        stackable, cs_pool = _socket_facts(name, plug, deps)
+        stackable, cs_pool = _socket_facts(binding)
 
         indices = parse_header_indices(name, deps)
         positions = {}
-        for pname, meta in plug.get("positions", {}).items():
+        for pname, meta in binding.get("plug,positions", {}).items():
             if pname not in indices:
                 raise KeyError(
-                    f"plug binding for '{name}' names position '{pname}' "
+                    f"unified binding for '{name}' names position '{pname}' "
                     f"which is not in dt-bindings/connector/{name}.h")
             positions[pname] = Position(
                 name=pname, index=indices[pname],
@@ -91,7 +85,7 @@ def load_types(deps: Depends | None = None) -> dict[str, ConnectorType]:
             name=name,
             positions=positions,
             index2name={v: k for k, v in indices.items()},
-            bus_proxies=list(plug.get("bus-proxies", [])),
+            bus_proxies=list(binding.get("plug,bus-proxies", [])),
             stackable=stackable,
             cs_pool=list(cs_pool),
         )

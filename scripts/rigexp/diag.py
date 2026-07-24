@@ -14,8 +14,8 @@ from dataclasses import dataclass, field
 # IS the root — no reference back into claude/ is needed at runtime. Every
 # DT-mechanics fact (board sockets, connector-type bindings) is read from the
 # REAL trees the module ships alongside this package (boards/, dts/bindings/,
-# dts/connectors/, include/dt-bindings/connector/ — see board_edt.py /
-# ctypes_registry.py / dtsio.py); the bundled common-dts/{boards,bindings}
+# include/dt-bindings/connector/ — see board_edt.py / ctypes_registry.py /
+# dtsio.py); the bundled common-dts/{boards,bindings}
 # scaffold (Bridge-A rewrite) is gone (saferail 8: deleted in full).
 ROOT = os.path.dirname(os.path.abspath(__file__))
 

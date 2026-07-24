@@ -3,8 +3,8 @@
  * no position #defines. Kept for the connector-type registry's uniform
  * parse_header_indices() call across all four types (Bridge-A rewrite
  * step 3); this compatible is shield-synthesized only and never appears in
- * a real board devicetree (see dts/connectors/README.md), so nothing
- * outside rigexp ever needs to #include this file.
+ * a real board devicetree (see dts/bindings/connectors/i2c-port.yaml), so
+ * nothing outside rigexp ever needs to #include this file.
  */
 #ifndef DT_BINDINGS_CONNECTOR_I2C_PORT_H_
 #define DT_BINDINGS_CONNECTOR_I2C_PORT_H_
