@@ -2,20 +2,20 @@
 
 /* node '/' defined in zephyr/dts/common/skeleton.dtsi:9 */
 / {
-	#address-cells = < 0x1 >;                                                /* in zephyr/dts/common/skeleton.dtsi:10 */
-	#size-cells = < 0x1 >;                                                   /* in zephyr/dts/common/skeleton.dtsi:11 */
-	model = "Seeeduino Lotus Cortex-M0+ (btr-shields clone) @ UART Concole"; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:28 */
-	compatible = "seeed,seeeduino-lotus-btr",
-	             "seeed,seeeduino-lotus-uartcons";                           /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:29 */
+	#address-cells = < 0x1 >;                            /* in zephyr/dts/common/skeleton.dtsi:10 */
+	#size-cells = < 0x1 >;                               /* in zephyr/dts/common/skeleton.dtsi:11 */
+	model = "Seeeduino Lotus Cortex-M0+ @ UART Concole"; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:17 */
+	compatible = "seeed,seeeduino-lotus",
+	             "seeed,seeeduino-lotus-uartcons";       /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:18 */
 
 	/* node '/chosen' defined in zephyr/dts/common/skeleton.dtsi:13 */
 	chosen {
 		zephyr,flash-controller = &nvmctrl;      /* in zephyr/dts/arm/atmel/samd2x.dtsi:37 */
-		zephyr,console = &sercom2;               /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:32 */
-		zephyr,shell-uart = &sercom2;            /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:33 */
-		zephyr,sram = &sram0;                    /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:34 */
-		zephyr,flash = &flash0;                  /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:35 */
-		zephyr,code-partition = &code_partition; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:36 */
+		zephyr,console = &sercom2;               /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:21 */
+		zephyr,shell-uart = &sercom2;            /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:22 */
+		zephyr,sram = &sram0;                    /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:23 */
+		zephyr,flash = &flash0;                  /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:24 */
+		zephyr,code-partition = &code_partition; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:25 */
 	};
 
 	/* node '/aliases' defined in zephyr/dts/common/skeleton.dtsi:15 */
@@ -36,10 +36,10 @@
 		tcc-0 = &tcc0;       /* in zephyr/dts/arm/atmel/samd21.dtsi:14 */
 		tcc-1 = &tcc1;       /* in zephyr/dts/arm/atmel/samd21.dtsi:15 */
 		tcc-2 = &tcc2;       /* in zephyr/dts/arm/atmel/samd21.dtsi:16 */
-		led0 = &led;         /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:64 */
-		led1 = &rx_led;      /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:65 */
-		led2 = &tx_led;      /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:66 */
-		pwm-led0 = &pwm_led; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:67 */
+		led0 = &led;         /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:53 */
+		led1 = &rx_led;      /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:54 */
+		led2 = &tx_led;      /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:55 */
+		pwm-led0 = &pwm_led; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:56 */
 	};
 
 	/* node '/soc' defined in zephyr/dts/arm/armv6-m.dtsi:6 */
@@ -86,30 +86,30 @@
 				reg = < 0x0 0x40000 >;        /* in zephyr/dts/arm/atmel/samx2xx18.dtsi:14 */
 				ranges = < 0x0 0x0 0x40000 >; /* in zephyr/dts/arm/atmel/samx2xx18.dtsi:15 */
 
-				/* node '/soc/nvmctrl@41004000/flash@0/partitions' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:176 */
+				/* node '/soc/nvmctrl@41004000/flash@0/partitions' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:165 */
 				partitions {
-					compatible = "fixed-partitions"; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:177 */
-					#address-cells = < 0x1 >;        /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:178 */
-					#size-cells = < 0x1 >;           /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:179 */
+					compatible = "fixed-partitions"; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:166 */
+					#address-cells = < 0x1 >;        /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:167 */
+					#size-cells = < 0x1 >;           /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:168 */
 
-					/* node '/soc/nvmctrl@41004000/flash@0/partitions/partition@0' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:181 */
+					/* node '/soc/nvmctrl@41004000/flash@0/partitions/partition@0' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:170 */
 					boot_partition: partition@0 {
-						label = "sam-ba";     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:182 */
-						reg = < 0x0 0x2000 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:183 */
-						read-only;            /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:184 */
+						label = "sam-ba";     /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:171 */
+						reg = < 0x0 0x2000 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:172 */
+						read-only;            /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:173 */
 					};
 
-					/* node '/soc/nvmctrl@41004000/flash@0/partitions/partition@2000' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:187 */
+					/* node '/soc/nvmctrl@41004000/flash@0/partitions/partition@2000' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:176 */
 					code_partition: partition@2000 {
-						label = "code";           /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:188 */
-						reg = < 0x2000 0x3a000 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:189 */
-						read-only;                /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:190 */
+						label = "code";           /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:177 */
+						reg = < 0x2000 0x3a000 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:178 */
+						read-only;                /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:179 */
 					};
 
-					/* node '/soc/nvmctrl@41004000/flash@0/partitions/partition@3c000' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:197 */
+					/* node '/soc/nvmctrl@41004000/flash@0/partitions/partition@3c000' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:186 */
 					storage_partition: partition@3c000 {
-						label = "storage";        /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:198 */
-						reg = < 0x3c000 0x4000 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:199 */
+						label = "storage";        /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:187 */
+						reg = < 0x3c000 0x4000 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:188 */
 					};
 				};
 			};
@@ -174,7 +174,7 @@
 		};
 
 		/* node '/soc/sercom@42000c00' defined in zephyr/dts/arm/atmel/samd2x.dtsi:130 */
-		sercom1: sercom@42000c00 {
+		sercom1: arduino_spi: sercom@42000c00 {
 			reg = < 0x42000c00 0x40 >;             /* in zephyr/dts/arm/atmel/samd2x.dtsi:132 */
 			interrupts = < 0xa 0x0 >;              /* in zephyr/dts/arm/atmel/samd21.dtsi:117 */
 			clocks = < &gclk 0x15 >,
@@ -183,18 +183,18 @@
 			              "PM";                    /* in zephyr/dts/arm/atmel/samd21.dtsi:119 */
 			atmel,assigned-clocks = < &gclk 0x0 >; /* in zephyr/dts/arm/atmel/samd21.dtsi:120 */
 			atmel,assigned-clock-names = "GCLK";   /* in zephyr/dts/arm/atmel/samd21.dtsi:121 */
-			status = "okay";                       /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:76 */
-			compatible = "atmel,sam0-spi";         /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:77 */
-			dipo = < 0x3 >;                        /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:78 */
-			dopo = < 0x0 >;                        /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:79 */
-			#address-cells = < 0x1 >;              /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:80 */
-			#size-cells = < 0x0 >;                 /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:81 */
-			pinctrl-0 = < &sercom1_spi_default >;  /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:86 */
-			pinctrl-names = "default";             /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:87 */
+			status = "okay";                       /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:65 */
+			compatible = "atmel,sam0-spi";         /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:66 */
+			dipo = < 0x3 >;                        /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:67 */
+			dopo = < 0x0 >;                        /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:68 */
+			#address-cells = < 0x1 >;              /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:69 */
+			#size-cells = < 0x0 >;                 /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:70 */
+			pinctrl-0 = < &sercom1_spi_default >;  /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:75 */
+			pinctrl-names = "default";             /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:76 */
 		};
 
 		/* node '/soc/sercom@42001000' defined in zephyr/dts/arm/atmel/samd2x.dtsi:136 */
-		sercom2: sercom@42001000 {
+		sercom2: arduino_serial: sercom@42001000 {
 			reg = < 0x42001000 0x40 >;             /* in zephyr/dts/arm/atmel/samd2x.dtsi:138 */
 			interrupts = < 0xb 0x0 >;              /* in zephyr/dts/arm/atmel/samd21.dtsi:125 */
 			clocks = < &gclk 0x16 >,
@@ -203,17 +203,17 @@
 			              "PM";                    /* in zephyr/dts/arm/atmel/samd21.dtsi:127 */
 			atmel,assigned-clocks = < &gclk 0x0 >; /* in zephyr/dts/arm/atmel/samd21.dtsi:128 */
 			atmel,assigned-clock-names = "GCLK";   /* in zephyr/dts/arm/atmel/samd21.dtsi:129 */
-			status = "okay";                       /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:91 */
-			compatible = "atmel,sam0-uart";        /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:92 */
-			current-speed = < 0x1c200 >;           /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:93 */
-			rxpo = < 0x3 >;                        /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:94 */
-			txpo = < 0x1 >;                        /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:95 */
-			pinctrl-0 = < &sercom2_uart_default >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:97 */
-			pinctrl-names = "default";             /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:98 */
+			status = "okay";                       /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:80 */
+			compatible = "atmel,sam0-uart";        /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:81 */
+			current-speed = < 0x1c200 >;           /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:82 */
+			rxpo = < 0x3 >;                        /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:83 */
+			txpo = < 0x1 >;                        /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:84 */
+			pinctrl-0 = < &sercom2_uart_default >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:86 */
+			pinctrl-names = "default";             /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:87 */
 		};
 
 		/* node '/soc/sercom@42001400' defined in zephyr/dts/arm/atmel/samd2x.dtsi:142 */
-		sercom3: sercom@42001400 {
+		sercom3: arduino_i2c: grove_i2c: sercom@42001400 {
 			reg = < 0x42001400 0x40 >;             /* in zephyr/dts/arm/atmel/samd2x.dtsi:144 */
 			interrupts = < 0xc 0x0 >;              /* in zephyr/dts/arm/atmel/samd21.dtsi:133 */
 			clocks = < &gclk 0x17 >,
@@ -222,13 +222,13 @@
 			              "PM";                    /* in zephyr/dts/arm/atmel/samd21.dtsi:135 */
 			atmel,assigned-clocks = < &gclk 0x0 >; /* in zephyr/dts/arm/atmel/samd21.dtsi:136 */
 			atmel,assigned-clock-names = "GCLK";   /* in zephyr/dts/arm/atmel/samd21.dtsi:137 */
-			status = "okay";                       /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:102 */
-			compatible = "atmel,sam0-i2c";         /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:103 */
-			clock-frequency = < 0x61a80 >;         /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:104 */
-			#address-cells = < 0x1 >;              /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:105 */
-			#size-cells = < 0x0 >;                 /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:106 */
-			pinctrl-0 = < &sercom3_i2c_default >;  /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:108 */
-			pinctrl-names = "default";             /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:109 */
+			status = "okay";                       /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:91 */
+			compatible = "atmel,sam0-i2c";         /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:92 */
+			clock-frequency = < 0x61a80 >;         /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:93 */
+			#address-cells = < 0x1 >;              /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:94 */
+			#size-cells = < 0x0 >;                 /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:95 */
+			pinctrl-0 = < &sercom3_i2c_default >;  /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:97 */
+			pinctrl-names = "default";             /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:98 */
 		};
 
 		/* node '/soc/sercom@42001800' defined in zephyr/dts/arm/atmel/samd2x.dtsi:148 */
@@ -246,7 +246,7 @@
 		};
 
 		/* node '/soc/sercom@42001c00' defined in zephyr/dts/arm/atmel/samd2x.dtsi:154 */
-		sercom5: sercom@42001c00 {
+		sercom5: grove_serial: sercom@42001c00 {
 			reg = < 0x42001c00 0x40 >;             /* in zephyr/dts/arm/atmel/samd2x.dtsi:156 */
 			interrupts = < 0xe 0x0 >;              /* in zephyr/dts/arm/atmel/samd21.dtsi:149 */
 			clocks = < &gclk 0x19 >,
@@ -255,13 +255,13 @@
 			              "PM";                    /* in zephyr/dts/arm/atmel/samd21.dtsi:151 */
 			atmel,assigned-clocks = < &gclk 0x0 >; /* in zephyr/dts/arm/atmel/samd21.dtsi:152 */
 			atmel,assigned-clock-names = "GCLK";   /* in zephyr/dts/arm/atmel/samd21.dtsi:153 */
-			status = "okay";                       /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:113 */
-			compatible = "atmel,sam0-uart";        /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:114 */
-			current-speed = < 0x1c200 >;           /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:115 */
-			rxpo = < 0x3 >;                        /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:116 */
-			txpo = < 0x1 >;                        /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:117 */
-			pinctrl-0 = < &sercom5_uart_default >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:119 */
-			pinctrl-names = "default";             /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:120 */
+			status = "okay";                       /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:102 */
+			compatible = "atmel,sam0-uart";        /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:103 */
+			current-speed = < 0x1c200 >;           /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:104 */
+			rxpo = < 0x3 >;                        /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:105 */
+			txpo = < 0x1 >;                        /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:106 */
+			pinctrl-0 = < &sercom5_uart_default >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:108 */
+			pinctrl-names = "default";             /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:109 */
 		};
 
 		/* node '/soc/tc@42003000' defined in zephyr/dts/arm/atmel/samd2x.dtsi:160 */
@@ -292,7 +292,7 @@
 				#atmel,pin-cells = < 0x2 >;     /* in zephyr/dts/arm/atmel/samd2x.dtsi:177 */
 				#gpio-cells = < 0x2 >;          /* in zephyr/dts/arm/atmel/samd2x.dtsi:178 */
 				gpio-controller;                /* in zephyr/dts/arm/atmel/samd2x.dtsi:180 */
-				phandle = < 0xe >;              /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:67 */
+				phandle = < 0xe >;              /* in bridle/boards/seeed/seeeduino_lotus/arduino_r3_connector.dtsi:12 */
 			};
 
 			/* node '/soc/pinctrl@41004400/gpio@41004480' defined in zephyr/dts/arm/atmel/samd2x.dtsi:183 */
@@ -302,120 +302,120 @@
 				#atmel,pin-cells = < 0x2 >;     /* in zephyr/dts/arm/atmel/samd2x.dtsi:187 */
 				#gpio-cells = < 0x2 >;          /* in zephyr/dts/arm/atmel/samd2x.dtsi:188 */
 				gpio-controller;                /* in zephyr/dts/arm/atmel/samd2x.dtsi:190 */
-				phandle = < 0x10 >;             /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:132 */
+				phandle = < 0xf >;              /* in bridle/boards/seeed/seeeduino_lotus/arduino_r3_connector.dtsi:12 */
 			};
 
-			/* node '/soc/pinctrl@41004400/sercom1_spi_default' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:9 */
+			/* node '/soc/pinctrl@41004400/sercom1_spi_default' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:9 */
 			sercom1_spi_default: sercom1_spi_default {
-				phandle = < 0x4 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:86 */
+				phandle = < 0x4 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:75 */
 
-				/* node '/soc/pinctrl@41004400/sercom1_spi_default/group1' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:10 */
+				/* node '/soc/pinctrl@41004400/sercom1_spi_default/group1' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:10 */
 				group1 {
 					pinmux = < 0x2300 >,
 					         < 0x2310 >,
-					         < 0x2330 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:11 */
+					         < 0x2330 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:11 */
 				};
 			};
 
-			/* node '/soc/pinctrl@41004400/sercom1_spi_hwss' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:17 */
+			/* node '/soc/pinctrl@41004400/sercom1_spi_hwss' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:17 */
 			sercom1_spi_hwss: sercom1_spi_hwss {
 
-				/* node '/soc/pinctrl@41004400/sercom1_spi_hwss/group1' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:18 */
+				/* node '/soc/pinctrl@41004400/sercom1_spi_hwss/group1' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:18 */
 				group1 {
 					pinmux = < 0x2300 >,
 					         < 0x2310 >,
 					         < 0x2320 >,
-					         < 0x2330 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:19 */
+					         < 0x2330 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:19 */
 				};
 			};
 
-			/* node '/soc/pinctrl@41004400/sercom2_uart_default' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:26 */
+			/* node '/soc/pinctrl@41004400/sercom2_uart_default' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:26 */
 			sercom2_uart_default: sercom2_uart_default {
-				phandle = < 0x5 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:97 */
+				phandle = < 0x5 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:86 */
 
-				/* node '/soc/pinctrl@41004400/sercom2_uart_default/group1' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:27 */
+				/* node '/soc/pinctrl@41004400/sercom2_uart_default/group1' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:27 */
 				group1 {
 					pinmux = < 0x32a0 >,
-					         < 0x32b0 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:28 */
+					         < 0x32b0 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:28 */
 				};
 			};
 
-			/* node '/soc/pinctrl@41004400/sercom3_i2c_default' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:33 */
+			/* node '/soc/pinctrl@41004400/sercom3_i2c_default' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:33 */
 			sercom3_i2c_default: sercom3_i2c_default {
-				phandle = < 0x6 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:108 */
+				phandle = < 0x6 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:97 */
 
-				/* node '/soc/pinctrl@41004400/sercom3_i2c_default/group1' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:34 */
+				/* node '/soc/pinctrl@41004400/sercom3_i2c_default/group1' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:34 */
 				group1 {
 					pinmux = < 0x2360 >,
-					         < 0x2370 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:35 */
+					         < 0x2370 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:35 */
 				};
 			};
 
-			/* node '/soc/pinctrl@41004400/sercom5_uart_default' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:40 */
+			/* node '/soc/pinctrl@41004400/sercom5_uart_default' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:40 */
 			sercom5_uart_default: sercom5_uart_default {
-				phandle = < 0x7 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:119 */
+				phandle = < 0x7 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:108 */
 
-				/* node '/soc/pinctrl@41004400/sercom5_uart_default/group1' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:41 */
+				/* node '/soc/pinctrl@41004400/sercom5_uart_default/group1' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:41 */
 				group1 {
 					pinmux = < 0x3361 >,
-					         < 0x3371 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:42 */
+					         < 0x3371 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:42 */
 				};
 			};
 
-			/* node '/soc/pinctrl@41004400/tcc0_pwm_default' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:47 */
+			/* node '/soc/pinctrl@41004400/tcc0_pwm_default' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:47 */
 			tcc0_pwm_default: tcc0_pwm_default {
-				phandle = < 0xb >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:129 */
+				phandle = < 0xb >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:118 */
 			};
 
-			/* node '/soc/pinctrl@41004400/tcc1_pwm_default' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:49 */
+			/* node '/soc/pinctrl@41004400/tcc1_pwm_default' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:49 */
 			tcc1_pwm_default: tcc1_pwm_default {
-				phandle = < 0xc >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:139 */
+				phandle = < 0xc >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:128 */
 			};
 
-			/* node '/soc/pinctrl@41004400/tcc2_pwm_default' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:51 */
+			/* node '/soc/pinctrl@41004400/tcc2_pwm_default' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:51 */
 			tcc2_pwm_default: tcc2_pwm_default {
-				phandle = < 0xd >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:150 */
+				phandle = < 0xd >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:139 */
 
-				/* node '/soc/pinctrl@41004400/tcc2_pwm_default/group1' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:52 */
+				/* node '/soc/pinctrl@41004400/tcc2_pwm_default/group1' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:52 */
 				group1 {
-					pinmux = < 0x4310 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:53 */
+					pinmux = < 0x4310 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:53 */
 				};
 			};
 
-			/* node '/soc/pinctrl@41004400/dac_default' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:57 */
+			/* node '/soc/pinctrl@41004400/dac_default' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:57 */
 			dac_default: dac_default {
-				phandle = < 0x9 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:157 */
+				phandle = < 0x9 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:146 */
 
-				/* node '/soc/pinctrl@41004400/dac_default/group1' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:58 */
+				/* node '/soc/pinctrl@41004400/dac_default/group1' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:58 */
 				group1 {
 					pinmux = < 0x1230 >,
-					         < 0x1220 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:59 */
+					         < 0x1220 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:59 */
 				};
 			};
 
-			/* node '/soc/pinctrl@41004400/adc_default' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:64 */
+			/* node '/soc/pinctrl@41004400/adc_default' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:64 */
 			adc_default: adc_default {
-				phandle = < 0x8 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:164 */
+				phandle = < 0x8 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:153 */
 
-				/* node '/soc/pinctrl@41004400/adc_default/group1' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:65 */
+				/* node '/soc/pinctrl@41004400/adc_default/group1' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:65 */
 				group1 {
 					pinmux = < 0x1230 >,
 					         < 0x1281 >,
 					         < 0x1291 >,
 					         < 0x1240 >,
 					         < 0x1250 >,
-					         < 0x1221 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:66 */
+					         < 0x1221 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:66 */
 				};
 			};
 
-			/* node '/soc/pinctrl@41004400/usb_dc_default' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:75 */
+			/* node '/soc/pinctrl@41004400/usb_dc_default' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:75 */
 			usb_dc_default: usb_dc_default {
-				phandle = < 0xa >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:171 */
+				phandle = < 0xa >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:160 */
 
-				/* node '/soc/pinctrl@41004400/usb_dc_default/group1' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:76 */
+				/* node '/soc/pinctrl@41004400/usb_dc_default/group1' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:76 */
 				group1 {
 					pinmux = < 0x6390 >,
-					         < 0x6380 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr-pinctrl.dtsi:77 */
+					         < 0x6380 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus-pinctrl.dtsi:77 */
 				};
 			};
 		};
@@ -450,10 +450,10 @@
 			              "PM";                    /* in zephyr/dts/arm/atmel/samd21.dtsi:168 */
 			atmel,assigned-clocks = < &gclk 0x3 >; /* in zephyr/dts/arm/atmel/samd21.dtsi:174 */
 			atmel,assigned-clock-names = "GCLK";   /* in zephyr/dts/arm/atmel/samd21.dtsi:175 */
-			status = "okay";                       /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:162 */
-			pinctrl-0 = < &adc_default >;          /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:164 */
-			pinctrl-names = "default";             /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:165 */
-			phandle = < 0x11 >;                    /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:137 */
+			status = "okay";                       /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:151 */
+			pinctrl-0 = < &adc_default >;          /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:153 */
+			pinctrl-names = "default";             /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:154 */
+			phandle = < 0x1e >;                    /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:132 */
 		};
 
 		/* node '/soc/dac@42004800' defined in zephyr/dts/arm/atmel/samd2x.dtsi:216 */
@@ -468,9 +468,9 @@
 			              "PM";                    /* in zephyr/dts/arm/atmel/samd21.dtsi:96 */
 			atmel,assigned-clocks = < &gclk 0x0 >; /* in zephyr/dts/arm/atmel/samd21.dtsi:97 */
 			atmel,assigned-clock-names = "GCLK";   /* in zephyr/dts/arm/atmel/samd21.dtsi:98 */
-			status = "okay";                       /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:155 */
-			pinctrl-0 = < &dac_default >;          /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:157 */
-			pinctrl-names = "default";             /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:158 */
+			status = "okay";                       /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:144 */
+			pinctrl-0 = < &dac_default >;          /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:146 */
+			pinctrl-names = "default";             /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:147 */
 		};
 
 		/* node '/soc/usb@41005000' defined in zephyr/dts/arm/atmel/samd21.dtsi:20 */
@@ -479,9 +479,9 @@
 			reg = < 0x41005000 0x1000 >;     /* in zephyr/dts/arm/atmel/samd21.dtsi:22 */
 			interrupts = < 0x7 0x0 >;        /* in zephyr/dts/arm/atmel/samd21.dtsi:23 */
 			num-bidir-endpoints = < 0x8 >;   /* in zephyr/dts/arm/atmel/samd21.dtsi:26 */
-			status = "okay";                 /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:169 */
-			pinctrl-0 = < &usb_dc_default >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:171 */
-			pinctrl-names = "default";       /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:172 */
+			status = "okay";                 /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:158 */
+			pinctrl-0 = < &usb_dc_default >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:160 */
+			pinctrl-names = "default";       /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:161 */
 		};
 
 		/* node '/soc/dmac@41004800' defined in zephyr/dts/arm/atmel/samd21.dtsi:29 */
@@ -508,7 +508,7 @@
 		};
 
 		/* node '/soc/tcc@42002000' defined in zephyr/dts/arm/atmel/samd21.dtsi:49 */
-		tcc0: tcc@42002000 {
+		tcc0: grove_pwm_d2: grove_pwm_d3: grove_pwm_d4: grove_pwm_d5: grove_pwm_d6: grove_pwm_d7: grove_pwm_d18: grove_pwm_d19: tcc@42002000 {
 			reg = < 0x42002000 0x80 >;             /* in zephyr/dts/arm/atmel/samd21.dtsi:51 */
 			interrupts = < 0xf 0x0 >;              /* in zephyr/dts/arm/atmel/samd21.dtsi:52 */
 			clocks = < &gclk 0x1a >,
@@ -519,17 +519,17 @@
 			atmel,assigned-clock-names = "GCLK";   /* in zephyr/dts/arm/atmel/samd21.dtsi:56 */
 			channels = < 0x4 >;                    /* in zephyr/dts/arm/atmel/samd21.dtsi:59 */
 			counter-size = < 0x18 >;               /* in zephyr/dts/arm/atmel/samd21.dtsi:60 */
-			status = "okay";                       /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:124 */
-			compatible = "atmel,sam0-tcc-pwm";     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:125 */
-			prescaler = < 0x1 >;                   /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:126 */
-			#pwm-cells = < 0x2 >;                  /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:127 */
-			pinctrl-0 = < &tcc0_pwm_default >;     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:129 */
-			pinctrl-names = "default";             /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:130 */
-			phandle = < 0xf >;                     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:72 */
+			status = "okay";                       /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:113 */
+			compatible = "atmel,sam0-tcc-pwm";     /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:114 */
+			prescaler = < 0x1 >;                   /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:115 */
+			#pwm-cells = < 0x2 >;                  /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:116 */
+			pinctrl-0 = < &tcc0_pwm_default >;     /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:118 */
+			pinctrl-names = "default";             /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:119 */
+			phandle = < 0x1b >;                    /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:54 */
 		};
 
 		/* node '/soc/tcc@42002400' defined in zephyr/dts/arm/atmel/samd21.dtsi:63 */
-		tcc1: tcc@42002400 {
+		tcc1: grove_pwm_d8: tcc@42002400 {
 			reg = < 0x42002400 0x80 >;             /* in zephyr/dts/arm/atmel/samd21.dtsi:65 */
 			interrupts = < 0x10 0x0 >;             /* in zephyr/dts/arm/atmel/samd21.dtsi:66 */
 			clocks = < &gclk 0x1a >,
@@ -540,12 +540,13 @@
 			atmel,assigned-clock-names = "GCLK";   /* in zephyr/dts/arm/atmel/samd21.dtsi:70 */
 			channels = < 0x2 >;                    /* in zephyr/dts/arm/atmel/samd21.dtsi:73 */
 			counter-size = < 0x18 >;               /* in zephyr/dts/arm/atmel/samd21.dtsi:74 */
-			status = "okay";                       /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:134 */
-			compatible = "atmel,sam0-tcc-pwm";     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:135 */
-			prescaler = < 0x1 >;                   /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:136 */
-			#pwm-cells = < 0x2 >;                  /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:137 */
-			pinctrl-0 = < &tcc1_pwm_default >;     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:139 */
-			pinctrl-names = "default";             /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:140 */
+			status = "okay";                       /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:123 */
+			compatible = "atmel,sam0-tcc-pwm";     /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:124 */
+			prescaler = < 0x1 >;                   /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:125 */
+			#pwm-cells = < 0x2 >;                  /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:126 */
+			pinctrl-0 = < &tcc1_pwm_default >;     /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:128 */
+			pinctrl-names = "default";             /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:129 */
+			phandle = < 0x1c >;                    /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:54 */
 		};
 
 		/* node '/soc/tcc@42002800' defined in zephyr/dts/arm/atmel/samd21.dtsi:77 */
@@ -560,13 +561,13 @@
 			atmel,assigned-clock-names = "GCLK";   /* in zephyr/dts/arm/atmel/samd21.dtsi:84 */
 			channels = < 0x2 >;                    /* in zephyr/dts/arm/atmel/samd21.dtsi:87 */
 			counter-size = < 0x10 >;               /* in zephyr/dts/arm/atmel/samd21.dtsi:88 */
-			status = "okay";                       /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:144 */
-			compatible = "atmel,sam0-tcc-pwm";     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:145 */
-			prescaler = < 0x400 >;                 /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:147 */
-			#pwm-cells = < 0x2 >;                  /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:148 */
-			pinctrl-0 = < &tcc2_pwm_default >;     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:150 */
-			pinctrl-names = "default";             /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:151 */
-			phandle = < 0x12 >;                    /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:58 */
+			status = "okay";                       /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:133 */
+			compatible = "atmel,sam0-tcc-pwm";     /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:134 */
+			prescaler = < 0x400 >;                 /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:136 */
+			#pwm-cells = < 0x2 >;                  /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:137 */
+			pinctrl-0 = < &tcc2_pwm_default >;     /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:139 */
+			pinctrl-names = "default";             /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:140 */
+			phandle = < 0x1d >;                    /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:47 */
 		};
 	};
 
@@ -580,7 +581,7 @@
 			compatible = "arm,cortex-m0+";   /* in zephyr/dts/arm/atmel/samd2x.dtsi:45 */
 			reg = < 0x0 >;                   /* in zephyr/dts/arm/atmel/samd2x.dtsi:46 */
 			device_type = "cpu";             /* in zephyr/dts/arm/atmel/samd2x.dtsi:48 */
-			clock-frequency = < 0x2dc6c00 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:72 */
+			clock-frequency = < 0x2dc6c00 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:61 */
 		};
 	};
 
@@ -599,155 +600,341 @@
 		      < 0x80a048 0x4 >;       /* in zephyr/dts/arm/atmel/samd2x.dtsi:58 */
 	};
 
-	/* node '/connector_grove_d2' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:62 */
-	grove_d2: connector_grove_d2 {
-		compatible = "socket,grove";               /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:63 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:64 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:65 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:66 */
-		gpio-map = < 0x0 0x0 &porta 0xe 0x0 >,
-		           < 0x1 0x0 &porta 0x9 0x0 >;     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:67 */
-		#pwm-cells = < 0x2 >;                      /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:69 */
-		pwm-map-mask = < 0xffffffff 0x0 >;         /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:70 */
-		pwm-map-pass-thru = < 0x0 0xffffffff >;    /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:71 */
-		pwm-map = < 0x0 0x0 &tcc0 0x0 0x0 >,
-		          < 0x1 0x0 &tcc0 0x1 0x0 >;       /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:72 */
-		phandle = < 0x13 >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:11 */
-	};
-
-	/* node '/connector_grove_d3' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:74 */
-	grove_d3: connector_grove_d3 {
-		compatible = "socket,grove";               /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:75 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:76 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:77 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:78 */
-		gpio-map = < 0x0 0x0 &porta 0x9 0x0 >,
-		           < 0x1 0x0 &porta 0x8 0x0 >;     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:79 */
-		#pwm-cells = < 0x2 >;                      /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:81 */
-		pwm-map-mask = < 0xffffffff 0x0 >;         /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:82 */
-		pwm-map-pass-thru = < 0x0 0xffffffff >;    /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:83 */
-		pwm-map = < 0x0 0x0 &tcc0 0x1 0x0 >,
-		          < 0x1 0x0 &tcc0 0x0 0x0 >;       /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:84 */
-	};
-
-	/* node '/connector_grove_d4' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:86 */
-	grove_d4: connector_grove_d4 {
-		compatible = "socket,grove";               /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:87 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:88 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:89 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:90 */
-		gpio-map = < 0x0 0x0 &porta 0x8 0x0 >,
-		           < 0x1 0x0 &porta 0xf 0x0 >;     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:91 */
-		#pwm-cells = < 0x2 >;                      /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:94 */
-		pwm-map-mask = < 0xffffffff 0x0 >;         /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:95 */
-		pwm-map-pass-thru = < 0x0 0xffffffff >;    /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:96 */
-		pwm-map = < 0x0 0x0 &tcc0 0x0 0x0 >,
-		          < 0x1 0x0 &tcc0 0x1 0x0 >;       /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:97 */
-	};
-
-	/* node '/connector_grove_d5' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:99 */
-	grove_d5: connector_grove_d5 {
-		compatible = "socket,grove";               /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:100 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:101 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:102 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:103 */
-		gpio-map = < 0x0 0x0 &porta 0xf 0x0 >,
-		           < 0x1 0x0 &porta 0x14 0x0 >;    /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:104 */
-	};
-
-	/* node '/connector_grove_d6' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:106 */
-	grove_d6: connector_grove_d6 {
-		compatible = "socket,grove";               /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:107 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:108 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:109 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:110 */
-		gpio-map = < 0x0 0x0 &porta 0x14 0x0 >,
-		           < 0x1 0x0 &porta 0x15 0x0 >;    /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:111 */
-		phandle = < 0x14 >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:16 */
-	};
-
-	/* node '/connector_grove_d7' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:113 */
-	grove_d7: connector_grove_d7 {
-		compatible = "socket,grove";               /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:114 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:115 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:116 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:117 */
-		gpio-map = < 0x0 0x0 &porta 0x15 0x0 >,
-		           < 0x1 0x0 &porta 0x6 0x0 >;     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:118 */
-	};
-
-	/* node '/connector_grove_a0' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:127 */
-	grove_a0: connector_grove_a0 {
-		compatible = "socket,grove";               /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:128 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:129 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:130 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:131 */
+	/* node '/connector' defined in bridle/boards/seeed/seeeduino_lotus/arduino_r3_connector.dtsi:7 */
+	arduino_header: connector {
+		compatible = "arduino-header-r3";          /* in bridle/boards/seeed/seeeduino_lotus/arduino_r3_connector.dtsi:8 */
+		#gpio-cells = < 0x2 >;                     /* in bridle/boards/seeed/seeeduino_lotus/arduino_r3_connector.dtsi:9 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in bridle/boards/seeed/seeeduino_lotus/arduino_r3_connector.dtsi:10 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in bridle/boards/seeed/seeeduino_lotus/arduino_r3_connector.dtsi:11 */
 		gpio-map = < 0x0 0x0 &porta 0x2 0x0 >,
-		           < 0x1 0x0 &portb 0x8 0x0 >;     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:132 */
-		#io-channel-cells = < 0x1 >;               /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:134 */
-		io-channel-map-mask = < 0xffffffff >;      /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:135 */
-		io-channel-map-pass-thru = < 0x0 >;        /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:136 */
-		io-channel-map = < 0x0 &adc0 0x0 >,
-		                 < 0x1 &adc0 0x1 >;        /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:137 */
-		phandle = < 0x15 >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:23 */
+		           < 0x1 0x0 &portb 0x8 0x0 >,
+		           < 0x2 0x0 &portb 0x9 0x0 >,
+		           < 0x3 0x0 &porta 0x4 0x0 >,
+		           < 0x4 0x0 &porta 0x5 0x0 >,
+		           < 0x5 0x0 &portb 0x2 0x0 >,
+		           < 0x6 0x0 &porta 0xb 0x0 >,
+		           < 0x7 0x0 &porta 0xa 0x0 >,
+		           < 0x8 0x0 &porta 0xe 0x0 >,
+		           < 0x9 0x0 &porta 0x9 0x0 >,
+		           < 0xa 0x0 &porta 0x8 0x0 >,
+		           < 0xb 0x0 &porta 0xf 0x0 >,
+		           < 0xc 0x0 &porta 0x14 0x0 >,
+		           < 0xd 0x0 &porta 0x15 0x0 >,
+		           < 0xe 0x0 &porta 0x6 0x0 >,
+		           < 0xf 0x0 &porta 0x7 0x0 >,
+		           < 0x10 0x0 &porta 0x12 0x0 >,
+		           < 0x11 0x0 &porta 0x10 0x0 >,
+		           < 0x12 0x0 &porta 0x13 0x0 >,
+		           < 0x13 0x0 &porta 0x11 0x0 >,
+		           < 0x14 0x0 &porta 0x16 0x0 >,
+		           < 0x15 0x0 &porta 0x17 0x0 >;   /* in bridle/boards/seeed/seeeduino_lotus/arduino_r3_connector.dtsi:12 */
 	};
 
-	/* node '/connector_grove_a1' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:139 */
-	grove_a1: connector_grove_a1 {
-		compatible = "socket,grove";               /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:140 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:141 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:142 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:143 */
+	/* node '/grove-i2c-connector' defined in bridle/boards/seeed/seeeduino_lotus/grove_i2c_connector.dtsi:7 */
+	grove_i2c_header: grove-i2c-connector {
+		compatible = "seeed,grove-connector";      /* in bridle/boards/seeed/seeeduino_lotus/grove_i2c_connector.dtsi:8 */
+		#gpio-cells = < 0x2 >;                     /* in bridle/boards/seeed/seeeduino_lotus/grove_i2c_connector.dtsi:9 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in bridle/boards/seeed/seeeduino_lotus/grove_i2c_connector.dtsi:10 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in bridle/boards/seeed/seeeduino_lotus/grove_i2c_connector.dtsi:11 */
+		gpio-map = < 0x0 0x0 &porta 0x17 0x0 >,
+		           < 0x1 0x0 &porta 0x16 0x0 >;    /* in bridle/boards/seeed/seeeduino_lotus/grove_i2c_connector.dtsi:12 */
+		phandle = < 0x1a >;                        /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:29 */
+	};
+
+	/* node '/grove-uart-connector' defined in bridle/boards/seeed/seeeduino_lotus/grove_uart_connector.dtsi:7 */
+	grove_uart_header: grove-uart-connector {
+		compatible = "seeed,grove-connector";      /* in bridle/boards/seeed/seeeduino_lotus/grove_uart_connector.dtsi:8 */
+		#gpio-cells = < 0x2 >;                     /* in bridle/boards/seeed/seeeduino_lotus/grove_uart_connector.dtsi:9 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in bridle/boards/seeed/seeeduino_lotus/grove_uart_connector.dtsi:10 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in bridle/boards/seeed/seeeduino_lotus/grove_uart_connector.dtsi:11 */
+		gpio-map = < 0x0 0x0 &portb 0x17 0x0 >,
+		           < 0x1 0x0 &portb 0x16 0x0 >;    /* in bridle/boards/seeed/seeeduino_lotus/grove_uart_connector.dtsi:12 */
+		phandle = < 0x10 >;                        /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:29 */
+	};
+
+	/* node '/grove-a0-connector' defined in bridle/boards/seeed/seeeduino_lotus/grove_a0_connector.dtsi:7 */
+	grove_a0_header: grove-a0-connector {
+		compatible = "seeed,grove-connector";      /* in bridle/boards/seeed/seeeduino_lotus/grove_a0_connector.dtsi:8 */
+		#gpio-cells = < 0x2 >;                     /* in bridle/boards/seeed/seeeduino_lotus/grove_a0_connector.dtsi:9 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in bridle/boards/seeed/seeeduino_lotus/grove_a0_connector.dtsi:10 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in bridle/boards/seeed/seeeduino_lotus/grove_a0_connector.dtsi:11 */
+		gpio-map = < 0x0 0x0 &porta 0x2 0x0 >,
+		           < 0x1 0x0 &portb 0x8 0x0 >;     /* in bridle/boards/seeed/seeeduino_lotus/grove_a0_connector.dtsi:12 */
+		phandle = < 0x17 >;                        /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:29 */
+	};
+
+	/* node '/grove-a1-connector' defined in bridle/boards/seeed/seeeduino_lotus/grove_a1_connector.dtsi:7 */
+	grove_a1_header: grove-a1-connector {
+		compatible = "seeed,grove-connector";      /* in bridle/boards/seeed/seeeduino_lotus/grove_a1_connector.dtsi:8 */
+		#gpio-cells = < 0x2 >;                     /* in bridle/boards/seeed/seeeduino_lotus/grove_a1_connector.dtsi:9 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in bridle/boards/seeed/seeeduino_lotus/grove_a1_connector.dtsi:10 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in bridle/boards/seeed/seeeduino_lotus/grove_a1_connector.dtsi:11 */
 		gpio-map = < 0x0 0x0 &portb 0x8 0x0 >,
-		           < 0x1 0x0 &portb 0x9 0x0 >;     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:144 */
-		#io-channel-cells = < 0x1 >;               /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:146 */
-		io-channel-map-mask = < 0xffffffff >;      /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:147 */
-		io-channel-map-pass-thru = < 0x0 >;        /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:148 */
-		io-channel-map = < 0x0 &adc0 0x1 >,
-		                 < 0x1 &adc0 0x2 >;        /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:149 */
+		           < 0x1 0x0 &portb 0x9 0x0 >;     /* in bridle/boards/seeed/seeeduino_lotus/grove_a1_connector.dtsi:12 */
+		phandle = < 0x18 >;                        /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:29 */
 	};
 
-	/* node '/connector_grove_a2' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:151 */
-	grove_a2: connector_grove_a2 {
-		compatible = "socket,grove";               /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:152 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:153 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:154 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:155 */
+	/* node '/grove-a2-connector' defined in bridle/boards/seeed/seeeduino_lotus/grove_a2_connector.dtsi:7 */
+	grove_a2_header: grove-a2-connector {
+		compatible = "seeed,grove-connector";      /* in bridle/boards/seeed/seeeduino_lotus/grove_a2_connector.dtsi:8 */
+		#gpio-cells = < 0x2 >;                     /* in bridle/boards/seeed/seeeduino_lotus/grove_a2_connector.dtsi:9 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in bridle/boards/seeed/seeeduino_lotus/grove_a2_connector.dtsi:10 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in bridle/boards/seeed/seeeduino_lotus/grove_a2_connector.dtsi:11 */
 		gpio-map = < 0x0 0x0 &portb 0x9 0x0 >,
-		           < 0x1 0x0 &porta 0x4 0x0 >;     /* in btr-shields/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi:156 */
+		           < 0x1 0x0 &porta 0x4 0x0 >;     /* in bridle/boards/seeed/seeeduino_lotus/grove_a2_connector.dtsi:12 */
+		phandle = < 0x19 >;                        /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:29 */
 	};
 
-	/* node '/leds' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:39 */
+	/* node '/grove-d2-connector' defined in bridle/boards/seeed/seeeduino_lotus/grove_d2_connector.dtsi:7 */
+	grove_d2_header: grove-d2-connector {
+		compatible = "seeed,grove-connector";      /* in bridle/boards/seeed/seeeduino_lotus/grove_d2_connector.dtsi:8 */
+		#gpio-cells = < 0x2 >;                     /* in bridle/boards/seeed/seeeduino_lotus/grove_d2_connector.dtsi:9 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in bridle/boards/seeed/seeeduino_lotus/grove_d2_connector.dtsi:10 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in bridle/boards/seeed/seeeduino_lotus/grove_d2_connector.dtsi:11 */
+		gpio-map = < 0x0 0x0 &porta 0xe 0x0 >,
+		           < 0x1 0x0 &porta 0x9 0x0 >;     /* in bridle/boards/seeed/seeeduino_lotus/grove_d2_connector.dtsi:12 */
+		phandle = < 0x11 >;                        /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:29 */
+	};
+
+	/* node '/grove-d3-connector' defined in bridle/boards/seeed/seeeduino_lotus/grove_d3_connector.dtsi:7 */
+	grove_d3_header: grove-d3-connector {
+		compatible = "seeed,grove-connector";      /* in bridle/boards/seeed/seeeduino_lotus/grove_d3_connector.dtsi:8 */
+		#gpio-cells = < 0x2 >;                     /* in bridle/boards/seeed/seeeduino_lotus/grove_d3_connector.dtsi:9 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in bridle/boards/seeed/seeeduino_lotus/grove_d3_connector.dtsi:10 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in bridle/boards/seeed/seeeduino_lotus/grove_d3_connector.dtsi:11 */
+		gpio-map = < 0x0 0x0 &porta 0x9 0x0 >,
+		           < 0x1 0x0 &porta 0x8 0x0 >;     /* in bridle/boards/seeed/seeeduino_lotus/grove_d3_connector.dtsi:12 */
+		phandle = < 0x12 >;                        /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:29 */
+	};
+
+	/* node '/grove-d4-connector' defined in bridle/boards/seeed/seeeduino_lotus/grove_d4_connector.dtsi:7 */
+	grove_d4_header: grove-d4-connector {
+		compatible = "seeed,grove-connector";      /* in bridle/boards/seeed/seeeduino_lotus/grove_d4_connector.dtsi:8 */
+		#gpio-cells = < 0x2 >;                     /* in bridle/boards/seeed/seeeduino_lotus/grove_d4_connector.dtsi:9 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in bridle/boards/seeed/seeeduino_lotus/grove_d4_connector.dtsi:10 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in bridle/boards/seeed/seeeduino_lotus/grove_d4_connector.dtsi:11 */
+		gpio-map = < 0x0 0x0 &porta 0x8 0x0 >,
+		           < 0x1 0x0 &porta 0xf 0x0 >;     /* in bridle/boards/seeed/seeeduino_lotus/grove_d4_connector.dtsi:12 */
+		phandle = < 0x13 >;                        /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:29 */
+	};
+
+	/* node '/grove-d5-connector' defined in bridle/boards/seeed/seeeduino_lotus/grove_d5_connector.dtsi:7 */
+	grove_d5_header: grove-d5-connector {
+		compatible = "seeed,grove-connector";      /* in bridle/boards/seeed/seeeduino_lotus/grove_d5_connector.dtsi:8 */
+		#gpio-cells = < 0x2 >;                     /* in bridle/boards/seeed/seeeduino_lotus/grove_d5_connector.dtsi:9 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in bridle/boards/seeed/seeeduino_lotus/grove_d5_connector.dtsi:10 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in bridle/boards/seeed/seeeduino_lotus/grove_d5_connector.dtsi:11 */
+		gpio-map = < 0x0 0x0 &porta 0xf 0x0 >,
+		           < 0x1 0x0 &porta 0x14 0x0 >;    /* in bridle/boards/seeed/seeeduino_lotus/grove_d5_connector.dtsi:12 */
+		phandle = < 0x14 >;                        /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:29 */
+	};
+
+	/* node '/grove-d6-connector' defined in bridle/boards/seeed/seeeduino_lotus/grove_d6_connector.dtsi:7 */
+	grove_d6_header: grove-d6-connector {
+		compatible = "seeed,grove-connector";      /* in bridle/boards/seeed/seeeduino_lotus/grove_d6_connector.dtsi:8 */
+		#gpio-cells = < 0x2 >;                     /* in bridle/boards/seeed/seeeduino_lotus/grove_d6_connector.dtsi:9 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in bridle/boards/seeed/seeeduino_lotus/grove_d6_connector.dtsi:10 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in bridle/boards/seeed/seeeduino_lotus/grove_d6_connector.dtsi:11 */
+		gpio-map = < 0x0 0x0 &porta 0x14 0x0 >,
+		           < 0x1 0x0 &porta 0x15 0x0 >;    /* in bridle/boards/seeed/seeeduino_lotus/grove_d6_connector.dtsi:12 */
+		phandle = < 0x15 >;                        /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:29 */
+	};
+
+	/* node '/grove-d7-connector' defined in bridle/boards/seeed/seeeduino_lotus/grove_d7_connector.dtsi:7 */
+	grove_d7_header: grove-d7-connector {
+		compatible = "seeed,grove-connector";      /* in bridle/boards/seeed/seeeduino_lotus/grove_d7_connector.dtsi:8 */
+		#gpio-cells = < 0x2 >;                     /* in bridle/boards/seeed/seeeduino_lotus/grove_d7_connector.dtsi:9 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in bridle/boards/seeed/seeeduino_lotus/grove_d7_connector.dtsi:10 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in bridle/boards/seeed/seeeduino_lotus/grove_d7_connector.dtsi:11 */
+		gpio-map = < 0x0 0x0 &porta 0x15 0x0 >,
+		           < 0x1 0x0 &porta 0x6 0x0 >;     /* in bridle/boards/seeed/seeeduino_lotus/grove_d7_connector.dtsi:12 */
+		phandle = < 0x16 >;                        /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:29 */
+	};
+
+	/* node '/grove-laced-if-lotus' defined in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:23 */
+	grove_laced_if_lotus: grove_gpios: grove_pwms: grove-laced-if-lotus {
+		compatible = "seeed,grove-laced-if";               /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:24 */
+		#gpio-cells = < 0x2 >;                             /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:26 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >;         /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:27 */
+		gpio-map-pass-thru = < 0x0 0x3f >;                 /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:28 */
+		gpio-map = < 0x0 0x0 &grove_uart_header 0x0 0x0 >,
+		           < 0x1 0x0 &grove_uart_header 0x1 0x0 >,
+		           < 0x2 0x0 &grove_d2_header 0x0 0x0 >,
+		           < 0x3 0x0 &grove_d3_header 0x0 0x0 >,
+		           < 0x4 0x0 &grove_d4_header 0x0 0x0 >,
+		           < 0x5 0x0 &grove_d5_header 0x0 0x0 >,
+		           < 0x6 0x0 &grove_d6_header 0x0 0x0 >,
+		           < 0x7 0x0 &grove_d7_header 0x0 0x0 >,
+		           < 0x8 0x0 &grove_d7_header 0x1 0x0 >,
+		           < 0xe 0x0 &grove_a0_header 0x0 0x0 >,
+		           < 0xf 0x0 &grove_a1_header 0x0 0x0 >,
+		           < 0x10 0x0 &grove_a2_header 0x0 0x0 >,
+		           < 0x11 0x0 &grove_a2_header 0x1 0x0 >,
+		           < 0x12 0x0 &grove_i2c_header 0x1 0x0 >,
+		           < 0x13 0x0 &grove_i2c_header 0x0 0x0 >; /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:29 */
+		#pwm-cells = < 0x2 >;                              /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:51 */
+		pwm-map-mask = < 0xffffffff 0x0 >;                 /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:52 */
+		pwm-map-pass-thru = < 0x0 0xffffffff >;            /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:53 */
+		pwm-map = < 0x2 0x0 &tcc0 0x0 0x0 >,
+		          < 0x3 0x0 &tcc0 0x1 0x0 >,
+		          < 0x4 0x0 &tcc0 0x0 0x0 >,
+		          < 0x5 0x0 &tcc0 0x1 0x0 >,
+		          < 0x6 0x0 &tcc0 0x2 0x0 >,
+		          < 0x7 0x0 &tcc0 0x3 0x0 >,
+		          < 0x8 0x0 &tcc1 0x0 0x0 >,
+		          < 0x12 0x0 &tcc0 0x0 0x0 >,
+		          < 0x13 0x0 &tcc0 0x1 0x0 >;              /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:54 */
+	};
+
+	/* node '/leds' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:28 */
 	leds {
-		compatible = "gpio-leds"; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:40 */
+		compatible = "gpio-leds"; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:29 */
 
-		/* node '/leds/led_0' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:41 */
+		/* node '/leds/led_0' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:30 */
 		led: led_0 {
-			gpios = < &porta 0x11 0x1 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:42 */
-			label = "LED";               /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:43 */
+			gpios = < &porta 0x11 0x1 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:31 */
+			label = "LED";               /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:32 */
 		};
 
-		/* node '/leds/led_1' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:45 */
+		/* node '/leds/led_1' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:34 */
 		rx_led: led_1 {
-			gpios = < &portb 0x3 0x1 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:46 */
-			label = "RX_LED";           /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:47 */
+			gpios = < &portb 0x3 0x1 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:35 */
+			label = "RX_LED";           /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:36 */
 		};
 
-		/* node '/leds/led_2' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:49 */
+		/* node '/leds/led_2' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:38 */
 		tx_led: led_2 {
-			gpios = < &porta 0x1b 0x1 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:50 */
-			label = "TX_LED";            /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:51 */
+			gpios = < &porta 0x1b 0x1 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:39 */
+			label = "TX_LED";            /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:40 */
 		};
 	};
 
-	/* node '/pwmleds' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:55 */
+	/* node '/pwmleds' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:44 */
 	pwmleds {
-		compatible = "pwm-leds"; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:56 */
+		compatible = "pwm-leds"; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:45 */
 
-		/* node '/pwmleds/pwm_led_0' defined in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:57 */
+		/* node '/pwmleds/pwm_led_0' defined in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:46 */
 		pwm_led: pwm_led_0 {
-			pwms = < &tcc2 0x1 0x1312d00 >; /* in btr-shields/boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts:58 */
+			pwms = < &tcc2 0x1 0x1312d00 >; /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:47 */
 		};
+	};
+
+	/* node '/connector_grove_d2' defined in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:58 */
+	grove_d2: connector_grove_d2 {
+		compatible = "socket,grove";               /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:59 */
+		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:60 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:61 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:62 */
+		gpio-map = < 0x0 0x0 &porta 0xe 0x0 >,
+		           < 0x1 0x0 &porta 0x9 0x0 >;     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:63 */
+		#pwm-cells = < 0x2 >;                      /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:65 */
+		pwm-map-mask = < 0xffffffff 0x0 >;         /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:66 */
+		pwm-map-pass-thru = < 0x0 0xffffffff >;    /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:67 */
+		pwm-map = < 0x0 0x0 &tcc0 0x0 0x0 >,
+		          < 0x1 0x0 &tcc0 0x1 0x0 >;       /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:68 */
+		phandle = < 0x1f >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:11 */
+	};
+
+	/* node '/connector_grove_d3' defined in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:70 */
+	grove_d3: connector_grove_d3 {
+		compatible = "socket,grove";               /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:71 */
+		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:72 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:73 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:74 */
+		gpio-map = < 0x0 0x0 &porta 0x9 0x0 >,
+		           < 0x1 0x0 &porta 0x8 0x0 >;     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:75 */
+		#pwm-cells = < 0x2 >;                      /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:77 */
+		pwm-map-mask = < 0xffffffff 0x0 >;         /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:78 */
+		pwm-map-pass-thru = < 0x0 0xffffffff >;    /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:79 */
+		pwm-map = < 0x0 0x0 &tcc0 0x1 0x0 >,
+		          < 0x1 0x0 &tcc0 0x0 0x0 >;       /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:80 */
+	};
+
+	/* node '/connector_grove_d4' defined in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:82 */
+	grove_d4: connector_grove_d4 {
+		compatible = "socket,grove";               /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:83 */
+		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:84 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:85 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:86 */
+		gpio-map = < 0x0 0x0 &porta 0x8 0x0 >,
+		           < 0x1 0x0 &porta 0xf 0x0 >;     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:87 */
+		#pwm-cells = < 0x2 >;                      /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:90 */
+		pwm-map-mask = < 0xffffffff 0x0 >;         /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:91 */
+		pwm-map-pass-thru = < 0x0 0xffffffff >;    /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:92 */
+		pwm-map = < 0x0 0x0 &tcc0 0x0 0x0 >,
+		          < 0x1 0x0 &tcc0 0x1 0x0 >;       /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:93 */
+	};
+
+	/* node '/connector_grove_d5' defined in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:95 */
+	grove_d5: connector_grove_d5 {
+		compatible = "socket,grove";               /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:96 */
+		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:97 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:98 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:99 */
+		gpio-map = < 0x0 0x0 &porta 0xf 0x0 >,
+		           < 0x1 0x0 &porta 0x14 0x0 >;    /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:100 */
+	};
+
+	/* node '/connector_grove_d6' defined in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:102 */
+	grove_d6: connector_grove_d6 {
+		compatible = "socket,grove";               /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:103 */
+		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:104 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:105 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:106 */
+		gpio-map = < 0x0 0x0 &porta 0x14 0x0 >,
+		           < 0x1 0x0 &porta 0x15 0x0 >;    /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:107 */
+		phandle = < 0x20 >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:16 */
+	};
+
+	/* node '/connector_grove_d7' defined in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:109 */
+	grove_d7: connector_grove_d7 {
+		compatible = "socket,grove";               /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:110 */
+		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:111 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:112 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:113 */
+		gpio-map = < 0x0 0x0 &porta 0x15 0x0 >,
+		           < 0x1 0x0 &porta 0x6 0x0 >;     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:114 */
+	};
+
+	/* node '/connector_grove_a0' defined in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:122 */
+	grove_a0: connector_grove_a0 {
+		compatible = "socket,grove";               /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:123 */
+		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:124 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:125 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:126 */
+		gpio-map = < 0x0 0x0 &porta 0x2 0x0 >,
+		           < 0x1 0x0 &portb 0x8 0x0 >;     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:127 */
+		#io-channel-cells = < 0x1 >;               /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:129 */
+		io-channel-map-mask = < 0xffffffff >;      /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:130 */
+		io-channel-map-pass-thru = < 0x0 >;        /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:131 */
+		io-channel-map = < 0x0 &adc0 0x0 >,
+		                 < 0x1 &adc0 0x1 >;        /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:132 */
+		phandle = < 0x21 >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:23 */
+	};
+
+	/* node '/connector_grove_a1' defined in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:134 */
+	grove_a1: connector_grove_a1 {
+		compatible = "socket,grove";               /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:135 */
+		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:136 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:137 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:138 */
+		gpio-map = < 0x0 0x0 &portb 0x8 0x0 >,
+		           < 0x1 0x0 &portb 0x9 0x0 >;     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:139 */
+		#io-channel-cells = < 0x1 >;               /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:141 */
+		io-channel-map-mask = < 0xffffffff >;      /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:142 */
+		io-channel-map-pass-thru = < 0x0 >;        /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:143 */
+		io-channel-map = < 0x0 &adc0 0x1 >,
+		                 < 0x1 &adc0 0x2 >;        /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:144 */
+	};
+
+	/* node '/connector_grove_a2' defined in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:146 */
+	grove_a2: connector_grove_a2 {
+		compatible = "socket,grove";               /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:147 */
+		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:148 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:149 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:150 */
+		gpio-map = < 0x0 0x0 &portb 0x9 0x0 >,
+		           < 0x1 0x0 &porta 0x4 0x0 >;     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:151 */
 	};
 
 	/* node '/gpio_keys' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:6 */

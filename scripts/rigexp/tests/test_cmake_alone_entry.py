@@ -34,12 +34,19 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Optional
 
 import pytest
 import yaml
 
-from conftest import DTS_EQUIV, WEST_EXE, WEST_TOPDIR, zephyr_base
+from conftest import (
+    DTS_EQUIV,
+    WEST_EXE,
+    WEST_TOPDIR,
+    board_extra_defines,
+    rig_board_name,
+    zephyr_base,
+)
 
 pytestmark = pytest.mark.build
 
@@ -52,13 +59,18 @@ _APP = "zephyr/samples/hello_world"
 _RIG = "nucleo-datalogger"
 
 
-def _run_build_rig(rig_name: str, build_dir: Path) -> "subprocess.CompletedProcess[str]":
+def _run_build_rig(rig_name: str, build_dir: Path,
+                    extra_defines: Optional[List[str]] = None) -> "subprocess.CompletedProcess[str]":
     """The reference path: `west build-rig --cmake-only` for one rig — same
-    invocation shape as test_tier2_goldens.py's `_run_build`."""
+    invocation shape as test_tier2_goldens.py's `_run_build`. `extra_defines`
+    (E3-brief.md) is threaded after `--`, e.g. the lotus board's
+    `-DEXTRA_ZEPHYR_MODULES=<bridle_root>`."""
     cmd = [
         WEST_EXE, "build-rig", "--rig", rig_name, _APP,
         "--cmake-only", "-p", "always", "-d", str(build_dir),
     ]
+    if extra_defines:
+        cmd += ["--", *extra_defines]
     return subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=dict(os.environ),
                            capture_output=True, text=True, timeout=600)
 
@@ -296,8 +308,11 @@ def test_cmake_alone_rig_swap_to_other_board_is_fatal(tmp_path: Path) -> None:
         f"initial cmake -DRIG={_RIG} configure failed\n"
         f"--- stdout ---\n{first.stdout}\n--- stderr ---\n{first.stderr}")
 
-    # lotus-buttons declares seeeduino_lotus_btr -- a different board than
-    # nucleo-datalogger's nucleo_f401re/stm32f401xe/rig.
+    # lotus-buttons declares seeeduino_lotus/samd21g18a/rig -- a different
+    # board than nucleo-datalogger's nucleo_f401re/stm32f401xe/rig. The guard
+    # fires from the rig->board STRING resolved by list_rigs.py (reading
+    # rig.yml), before any board-dts lookup -- no EXTRA_ZEPHYR_MODULES needed
+    # for this configure to reach (and FATAL at) the guard.
     env = _cmake_alone_env()
     second = subprocess.run(
         ["cmake", "-DRIG=lotus-buttons", str(build_dir)],
@@ -307,7 +322,7 @@ def test_cmake_alone_rig_swap_to_other_board_is_fatal(tmp_path: Path) -> None:
         "expected swapping -DRIG to a different-board rig in an existing "
         "build dir to FATAL, but configure succeeded")
     combined = second.stdout + second.stderr
-    assert "seeeduino_lotus_btr" in combined, combined
+    assert "seeeduino_lotus/samd21g18a/rig" in combined, combined
     assert "pristine" in combined, combined
 
 
@@ -331,3 +346,75 @@ def test_cmake_alone_rig_swap_same_board_proceeds(tmp_path: Path) -> None:
         "swapping -DRIG to a SAME-board rig in an existing build dir must "
         f"proceed\n--- stdout ---\n{second.stdout}\n"
         f"--- stderr ---\n{second.stderr}")
+
+
+# ---------------------------------------------------------------- E3: cross-module lotus board
+
+
+def test_cmake_alone_lotus_needs_bridle_module(tmp_path: Path) -> None:
+    """E3-brief.md acceptance criterion 4 -- the DOCUMENTED failure mode:
+    `cmake -DRIG=lotus-pwm` WITHOUT `-DEXTRA_ZEPHYR_MODULES=<bridle>` must
+    fail. seeeduino_lotus/samd21g18a/rig's base board lives entirely in the
+    bridle Zephyr module, which the west manifest deliberately does NOT
+    carry (decided 2026-07-24f) -- without the module define, hwmv2 board
+    discovery never sees bridle's board_root, so the board plainly does not
+    exist. This is the accepted cost of the no-manifest-entry decision, not
+    something to fix."""
+    build_dir = tmp_path / "lotus-no-module"
+    result = _run_cmake_alone(build_dir, ["-DRIG=lotus-pwm"])
+    assert result.returncode != 0, (
+        "expected cmake -DRIG=lotus-pwm WITHOUT -DEXTRA_ZEPHYR_MODULES to "
+        "fail (seeeduino_lotus does not exist without bridle's board_root)\n"
+        f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+    combined = result.stdout + result.stderr
+    assert "seeeduino_lotus" in combined, combined
+
+
+def test_cmake_alone_lotus_with_bridle_module_configures(tmp_path: Path) -> None:
+    """E3-brief.md acceptance criterion 3 -- cmake-alone, west-free, WITH
+    `-DEXTRA_ZEPHYR_MODULES=<bridle_root>` must configure clean and resolve
+    the SAME cross-module extension target as `west build-rig` with the
+    identical define threaded (same shape as
+    test_cmake_alone_entry_equivalent_to_build_rig, the E1 board)."""
+    extra = board_extra_defines(rig_board_name("lotus-pwm"))
+    assert extra, "lotus-pwm's board must need EXTRA_ZEPHYR_MODULES (bridle)"
+
+    reference_dir = tmp_path / "build-rig-reference"
+    result_ref = _run_build_rig("lotus-pwm", reference_dir, extra)
+    assert result_ref.returncode == 0, (
+        f"west build-rig --rig lotus-pwm --cmake-only (with bridle module) "
+        f"failed\n--- stdout ---\n{result_ref.stdout}\n"
+        f"--- stderr ---\n{result_ref.stderr}")
+
+    cmake_dir = tmp_path / "cmake-alone"
+    result_cmake = _run_cmake_alone(cmake_dir, ["-DRIG=lotus-pwm", *extra])
+    assert result_cmake.returncode == 0, (
+        f"cmake -DRIG=lotus-pwm {' '.join(extra)} (no -DBOARD, west absent) "
+        f"failed to configure\n--- stdout ---\n{result_cmake.stdout}\n"
+        f"--- stderr ---\n{result_cmake.stderr}")
+
+    with open(reference_dir / "build_info.yml") as f:
+        ref_info = yaml.safe_load(f)
+    with open(cmake_dir / "build_info.yml") as f:
+        cmake_info = yaml.safe_load(f)
+
+    assert cmake_info["cmake"]["board"] == ref_info["cmake"]["board"], (
+        "cmake-alone entry resolved a DIFFERENT board target than "
+        f"west build-rig: {cmake_info['cmake']['board']!r} vs "
+        f"{ref_info['cmake']['board']!r}")
+    assert ref_info["cmake"]["board"]["name"] == "seeeduino_lotus"
+    assert ref_info["cmake"]["board"]["qualifiers"] == "samd21g18a/rig"
+
+    ref_dts = reference_dir / "zephyr" / "zephyr.dts"
+    cmake_dts = cmake_dir / "zephyr" / "zephyr.dts"
+    assert ref_dts.is_file(), f"no zephyr.dts at {ref_dts}"
+    assert cmake_dts.is_file(), f"no zephyr.dts at {cmake_dts}"
+
+    zb = zephyr_base()
+    check = subprocess.run(
+        [sys.executable, str(DTS_EQUIV), str(ref_dts), str(cmake_dts)],
+        env={**os.environ, "ZEPHYR_BASE": zb},
+        capture_output=True, text=True)
+    assert check.returncode == 0, (
+        "cmake-alone lotus-pwm's zephyr.dts is not structurally equivalent "
+        f"to the build-rig reference (dts_equiv.py):\n{check.stdout}\n{check.stderr}")

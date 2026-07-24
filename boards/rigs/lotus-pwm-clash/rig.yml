@@ -5,14 +5,19 @@
 # the channel net, even though the pins differ.
 #
 # Ported from frontend-trial/candidate-2-hybrid/lotus-pwm-clash.rig.yml
-# (P3 3c); board reference adjusted from `seeeduino_lotus` to
-# `seeeduino_lotus_btr`; shield identity underscored (grove-servo ->
+# (P3 3c); board reference migrated (E3, board-extension-migration.md) to
+# the hwmv2 board EXTENSION `rig` variant of the real upstream
+# seeeduino_lotus (the CROSS-MODULE case: the base lives in the bridle
+# Zephyr module, which is not a west manifest project -- every build of
+# this target must pass -DEXTRA_ZEPHYR_MODULES=<west-topdir>/bridle
+# explicitly) -- was `seeeduino_lotus_btr` (the clone; still present,
+# deleted in slice E4); shield identity underscored (grove-servo ->
 # grove_servo). No rig.conf: this rig is expected to REJECT at analysis
 # (phys-channel) — it must never reach the build.
 
 rig:
   name: lotus-pwm-clash
-  board: seeeduino_lotus_btr
+  board: seeeduino_lotus/samd21g18a/rig
   instances:
     - name: servo_a
       shield: grove_servo

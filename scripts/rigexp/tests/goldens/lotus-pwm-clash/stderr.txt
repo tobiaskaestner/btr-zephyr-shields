@@ -1,5 +1,5 @@
-error[phys-channel]: exclusive-resource conflict at tcc0 channel 0:
-    - servo_a (socket grove_d2, SIG0): servo: pwms (PWM tcc0 ch0)
-    - servo_b (socket grove_d4, SIG0): servo: pwms (PWM tcc0 ch0)
+error[phys-channel]: exclusive-resource conflict at grove_pwm_d19 channel 0:
+    - servo_a (socket grove_d2, SIG0): servo: pwms (PWM grove_pwm_d19 ch0)
+    - servo_b (socket grove_d4, SIG0): servo: pwms (PWM grove_pwm_d19 ch0)
     two consumers need the same controller channel — it cannot drive both independently. Use a different socket/channel, or one device.
     at <REPO_ROOT>/boards/shields/grove_servo/grove_servo.shield:22 (/rig-shields/grove_servo/pwm/servo: pwms)

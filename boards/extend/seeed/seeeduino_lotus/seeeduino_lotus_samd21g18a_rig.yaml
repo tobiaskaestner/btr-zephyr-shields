@@ -1,0 +1,32 @@
+identifier: seeeduino_lotus_samd21g18a_rig
+name: Seeeduino Lotus Cortex-M0+ (rig extension variant)
+type: mcu
+arch: arm
+toolchain:
+  - zephyr
+  - gnuarmemb
+supported:
+  - arduino_gpio
+  - arduino_i2c
+  - arduino_spi
+  - arduino_serial
+  - grove_gpio
+  - grove_pwm
+  - grove_i2c
+  - grove_serial
+  - hwinfo
+  - adc
+  - counter
+  - dac
+  - dma
+  - pwm
+  - gpio
+  - i2c
+  - spi
+  - uart
+  - usb_device
+  - usb_cdc
+  - watchdog
+ram: 32
+flash: 256
+vendor: seeed

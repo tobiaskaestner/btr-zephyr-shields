@@ -30,6 +30,7 @@ import pickle
 import subprocess
 import sys
 from pathlib import Path
+from typing import List, Optional
 
 import pytest
 import yaml
@@ -44,7 +45,9 @@ from conftest import (
     RigCase,
     WEST_EXE,
     WEST_TOPDIR,
+    board_extra_defines,
     normalize_dts_provenance,
+    rig_board_name,
     zephyr_base,
 )
 
@@ -61,14 +64,19 @@ pytestmark = pytest.mark.build
 _APP = "zephyr/samples/hello_world"
 
 
-def _run_build(rig_name: str, build_dir: Path) -> "subprocess.CompletedProcess[str]":
+def _run_build(rig_name: str, build_dir: Path,
+                extra_defines: Optional[List[str]] = None) -> "subprocess.CompletedProcess[str]":
     """`west build-rig --cmake-only` for one rig — a temp build dir; `-p
     always` wipes it, so nothing durable may be read back from `build_dir`
-    beyond this one process's own output."""
+    beyond this one process's own output. `extra_defines` (E3-brief.md) is
+    threaded after `--` -- empty for every rig except the lotus ones, whose
+    board needs `-DEXTRA_ZEPHYR_MODULES=<bridle_root>`."""
     cmd = [
         WEST_EXE, "build-rig", "--rig", rig_name, _APP,
         "--cmake-only", "-p", "always", "-d", str(build_dir),
     ]
+    if extra_defines:
+        cmd += ["--", *extra_defines]
     return subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=dict(os.environ),
                            capture_output=True, text=True, timeout=600)
 
@@ -76,7 +84,8 @@ def _run_build(rig_name: str, build_dir: Path) -> "subprocess.CompletedProcess[s
 @pytest.mark.parametrize("case", ACCEPT_CASES, ids=lambda c: c.name)
 def test_tier2_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
     build_dir = tmp_path / "build"
-    result = _run_build(case.name, build_dir)
+    extra = board_extra_defines(rig_board_name(case.folder))
+    result = _run_build(case.name, build_dir, extra)
     assert result.returncode == 0, (
         f"{case.name}: expected `west build-rig --cmake-only` to configure "
         f"clean (an ACCEPT rig)\n--- stdout ---\n{result.stdout}\n"
@@ -108,7 +117,8 @@ def test_tier2_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
 @pytest.mark.parametrize("case", REJECT_CASES, ids=lambda c: c.name)
 def test_tier2_reject_configure_fails(case: RigCase, tmp_path: Path) -> None:
     build_dir = tmp_path / "build"
-    result = _run_build(case.name, build_dir)
+    extra = board_extra_defines(rig_board_name(case.folder))
+    result = _run_build(case.name, build_dir, extra)
     assert result.returncode != 0, (
         f"{case.name}: expected `west build-rig --cmake-only` to FAIL (a "
         f"REJECT rig) but it exited 0")
@@ -134,7 +144,8 @@ def test_tier2_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
     identity check (phase 2b's original proof) failed to be, since neither
     compatible had a binding typing these props at the time."""
     build_dir = tmp_path / "build"
-    result = _run_build("lotus-pwm", build_dir)
+    extra = board_extra_defines(rig_board_name("lotus-pwm"))
+    result = _run_build("lotus-pwm", build_dir, extra)
     assert result.returncode == 0, (
         f"lotus-pwm: expected `west build-rig --cmake-only` to configure "
         f"clean\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
@@ -254,7 +265,8 @@ def test_tier2_rig_depends_provenance(tmp_path: Path) -> None:
     corpus files) re-prove; `set_property(... APPEND PROPERTY
     CMAKE_CONFIGURE_DEPENDS ...)` in dts.cmake is the whole of our contribution."""
     build_dir = tmp_path / "build"
-    result = _run_build("lotus-pwm", build_dir)
+    extra = board_extra_defines(rig_board_name("lotus-pwm"))
+    result = _run_build("lotus-pwm", build_dir, extra)
     assert result.returncode == 0, (
         f"lotus-pwm: expected `west build-rig --cmake-only` to configure "
         f"clean\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
@@ -269,4 +281,5 @@ def test_tier2_rig_depends_provenance(tmp_path: Path) -> None:
     assert "boards/rigs/lotus-pwm/rig.yml" in depends_line
     assert "boards/shields/grove_servo/grove_servo.shield" in depends_line
     assert "dts/bindings/connectors/grove.yaml" in depends_line
-    assert "boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts" in depends_line
+    assert ("boards/extend/seeed/seeeduino_lotus/"
+            "seeeduino_lotus_samd21g18a_rig.dts") in depends_line

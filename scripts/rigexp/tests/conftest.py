@@ -45,15 +45,21 @@ DTS_EQUIV = REPO_ROOT / "scripts" / "dts_equiv.py"
 # goldens.py (--board-dts per rig) and test_board_read.py (the plain-build /
 # edt.pickle-cross-check corpus).
 #
-# nucleo_f401re/mikroe_quail/frdm_k64f: hwmv2 board EXTENSIONS (E1/E2
-# slices, board-extension-migration.md), not clones -- `board:` is the FULL
-# qualified target (rig.yml names it explicitly, no expander-side sugar) and
-# each one's .dts lives under boards/extend/, layered on top of the REAL
-# upstream board via `#include`. seeeduino_lotus stays a `_btr` clone (E3 --
-# untouched by this slice); the quail/frdm clones (mikroe_quail_btr,
-# frdm_k64f_btr) still exist on disk (E4 deletes them), just no corpus rig
-# names them any more, so they drop out of this table exactly as
-# nucleo_f401re_btr did in E1.
+# nucleo_f401re/mikroe_quail/frdm_k64f/seeeduino_lotus: hwmv2 board
+# EXTENSIONS (E1/E2/E3 slices, board-extension-migration.md), not clones --
+# `board:` is the FULL qualified target (rig.yml names it explicitly, no
+# expander-side sugar) and each one's .dts lives under boards/extend/,
+# layered on top of the REAL upstream board via `#include`. seeeduino_lotus
+# (E3) is the CROSS-MODULE case: its base .dts lives in the bridle Zephyr
+# module, which the west manifest deliberately does NOT carry (E3-brief.md)
+# -- every build path naming this board must thread
+# `-DEXTRA_ZEPHYR_MODULES=<bridle_root()>` (see `board_extra_defines`
+# below), or the board does not exist at all. The nucleo/quail/frdm/lotus
+# clones (*_btr) still exist on disk (E4 deletes them); `seeeduino_lotus_btr`
+# stays in this table because the pwm-nonzero-flags synthetic fixture
+# (test_tier1_goldens.py) still names it directly -- the other three clones
+# dropped out of this table exactly as nucleo_f401re_btr did in E1, since no
+# corpus rig names them any more.
 BOARD_DTS: Dict[str, str] = {
     "nucleo_f401re/stm32f401xe/rig":
         "boards/extend/st/nucleo_f401re/nucleo_f401re_stm32f401xe_rig.dts",
@@ -61,9 +67,43 @@ BOARD_DTS: Dict[str, str] = {
         "boards/extend/mikroe/quail/mikroe_quail_stm32f427xx_rig.dts",
     "frdm_k64f/mk64f12/rig":
         "boards/extend/nxp/frdm_k64f/frdm_k64f_mk64f12_rig.dts",
+    "seeeduino_lotus/samd21g18a/rig":
+        "boards/extend/seeed/seeeduino_lotus/seeeduino_lotus_samd21g18a_rig.dts",
     "seeeduino_lotus_btr": "boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts",
 }
 BOARDS: List[str] = list(BOARD_DTS)
+
+# The one board needing bridle threaded onto EXTRA_ZEPHYR_MODULES (E3-brief.md,
+# "Harness changes" section) -- a case-level mechanism, not a global flag: every
+# OTHER board's goldens must stay byte-identical (no-flavor-leak property).
+_BRIDLE_MODULE_BOARD = "seeeduino_lotus/samd21g18a/rig"
+
+
+def bridle_root() -> Path:
+    """The bridle Zephyr module root, SELF-LOCATED as `WEST_TOPDIR / "bridle"`
+    (no `/wrk` literal) -- bridle deliberately stays OUT of the west manifest
+    (E3-brief.md, decided 2026-07-24f), so every build targeting
+    seeeduino_lotus/samd21g18a/rig must pass it via
+    `-DEXTRA_ZEPHYR_MODULES=<this path>` explicitly. Fails loudly if the
+    checkout is missing, exactly like `zephyr_base()` does for $ZEPHYR_BASE."""
+    root = WEST_TOPDIR / "bridle"
+    if not root.is_dir():
+        pytest.fail(
+            f"bridle module not found at {root} -- lotus rig builds need "
+            f"-DEXTRA_ZEPHYR_MODULES=<west-topdir>/bridle (E3-brief.md); is "
+            f"the bridle checkout missing from this workspace?")
+    return root
+
+
+def board_extra_defines(board: str) -> List[str]:
+    """Per-board extra `-D` cmake defines every build path (plain build,
+    tier-2 `west build-rig`, cmake-alone) must thread through identically --
+    a case-level mechanism keyed on the board string, not a global flag, so
+    non-lotus boards get an empty list and their goldens stay byte-identical
+    (E3-brief.md's no-flavor-leak property)."""
+    if board == _BRIDLE_MODULE_BOARD:
+        return [f"-DEXTRA_ZEPHYR_MODULES={bridle_root()}"]
+    return []
 
 
 def _find_west_topdir(start: Path) -> Path:
@@ -219,12 +259,19 @@ _plain_build_cache: Dict[str, PlainBuild] = {}
 def _run_plain_build(board: str, build_dir: Path) -> "subprocess.CompletedProcess[str]":
     """`west build --cmake-only -b <board>` of `hello_world` — deliberately
     PLAIN: no `--shield`, no `-DRIG`, so this exercises the legacy/plain
-    board path a board conversion must never break (saferail 11)."""
+    board path a board conversion must never break (saferail 11). Threads
+    `board_extra_defines(board)` after `--` (empty for every board except the
+    lotus extension, E3-brief.md) — the same mechanism `plain_build_for`'s
+    callers (test_tier1_goldens.py, test_board_read.py) get for free, since
+    they never build the cmake argv themselves."""
     zb = zephyr_base()
     env = dict(os.environ)
     env["ZEPHYR_BASE"] = zb
     cmd = [WEST_EXE, "build", "--cmake-only", "-b", board, _PLAIN_BUILD_APP,
            "-p", "always", "-d", str(build_dir)]
+    extra = board_extra_defines(board)
+    if extra:
+        cmd += ["--", *extra]
     return subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=env,
                            capture_output=True, text=True, timeout=600)
 

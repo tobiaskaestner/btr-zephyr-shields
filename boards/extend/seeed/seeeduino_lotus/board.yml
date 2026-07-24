@@ -1,0 +1,5 @@
+board:
+  extend: seeeduino_lotus
+  variants:
+    - name: rig
+      qualifier: samd21g18a

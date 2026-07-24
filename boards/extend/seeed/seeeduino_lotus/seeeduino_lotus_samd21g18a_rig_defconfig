@@ -1,0 +1,16 @@
+# SPDX-License-Identifier: Apache-2.0
+# hwmv2 board extension: `rig` variant defconfig, mirrors the base board's
+# own seeeduino_lotus_defconfig (BOARD_SEEEDUINO_LOTUS selection already
+# comes from the base board's Kconfig.seeeduino_lotus, sourced
+# unconditionally).
+
+CONFIG_SOC_ATMEL_SAMD_XOSC32K=y
+CONFIG_SOC_ATMEL_SAMD_XOSC32K_AS_MAIN=y
+CONFIG_CONSOLE=y
+CONFIG_UART_CONSOLE=y
+CONFIG_UART_INTERRUPT_DRIVEN=y
+CONFIG_SERIAL=y
+CONFIG_BOOTLOADER_BOSSA=y
+CONFIG_BOOTLOADER_BOSSA_ARDUINO=y
+CONFIG_BUILD_OUTPUT_HEX=y
+CONFIG_BUILD_OUTPUT_UF2=y

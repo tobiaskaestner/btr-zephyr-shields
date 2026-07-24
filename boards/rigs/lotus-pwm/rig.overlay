@@ -3,9 +3,10 @@
  *
  * The expander enables the controller (`&tcc0 { status = "okay"; }`) and names
  * the pin in the config sheet, but it deliberately does NOT author SoC pinmux —
- * that is board knowledge. `seeeduino_lotus_btr`'s `tcc0_pwm_default` pinctrl
- * state ships EMPTY (see seeeduino_lotus_btr-pinctrl.dtsi), so without this the
- * grove_d2 servo's TCC0 output is enabled but never routed to its pad.
+ * that is board knowledge. The board's (bridle's real seeeduino_lotus, E3)
+ * `tcc0_pwm_default` pinctrl state ships EMPTY (see
+ * seeeduino_lotus-pinctrl.dtsi), so without this the grove_d2 servo's TCC0
+ * output is enabled but never routed to its pad.
  *
  * This is the rig author's DT counterpart to rig.conf: dts.cmake appends
  * rig.overlay to EXTRA_DTC_OVERLAY_FILE after the expander's overlay. The

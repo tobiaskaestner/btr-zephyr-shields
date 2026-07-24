@@ -1,0 +1,20 @@
+/*
+ * hwmv2 board EXTENSION (E3, board-extension-migration.md): `rig` variant
+ * of the real upstream seeeduino_lotus board (board.yml `extend:`) -- the
+ * CROSS-MODULE case. seeeduino_lotus's base .dts lives in the BRIDLE Zephyr
+ * module (E3-brief.md), which is deliberately NOT a west manifest project
+ * (decided 2026-07-24f) -- every build targeting this board (rig, plain, or
+ * cmake-alone) must pass -DEXTRA_ZEPHYR_MODULES=<west-topdir>/bridle
+ * explicitly, or hwmv2 board discovery never sees bridle's board_root at
+ * all and this target does not exist.
+ *
+ * Pulls in the REAL base board dts verbatim (its legacy arduino_header /
+ * grove_*_connector nexus nodes come along unmodified -- that is intended,
+ * not a regression: closer to what a converted upstream board looks like)
+ * and adds the typed rig socket layer on top (Convention 4).
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include "seeeduino_lotus.dts"
+#include "grove_sockets.dtsi"
