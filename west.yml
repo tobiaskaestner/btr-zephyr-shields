@@ -23,5 +23,5 @@ manifest:
 
   projects:
     - name: zephyr
-      revision: main
+      revision: tskr/zephyr-rigs
       import: true
