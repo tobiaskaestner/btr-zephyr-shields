@@ -1,0 +1,10 @@
+# Rig connector-model namespace prefixes. These are PSEUDO-vendors in the
+# same sense as upstream's own `zephyr` (Zephyr Project) and `vnd` (test
+# stand-in) entries: they name a compatible NAMESPACE, not a company.
+# Registered here so pass 2's gen_edt (which merges every DTS_ROOT's
+# vendor-prefixes.txt) stops warning "unknown vendor prefix" for every
+# typed socket node. Upstream-provisional: if the rig model lands upstream,
+# these move to zephyr's registry — or the naming sweep (parked.md)
+# revisits the namespaces themselves.
+plug	Rig connector model — shield-side plug contract
+socket	Rig connector model — board-side typed socket
