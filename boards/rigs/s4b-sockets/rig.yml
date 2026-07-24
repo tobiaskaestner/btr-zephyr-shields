@@ -9,11 +9,13 @@
 # controllers, and a Temp&Hum click sits on the shared I2C.
 #
 # Ported from frontend-trial/candidate-2-hybrid/s4b-sockets.rig.yml; board
-# reference adjusted from `mikroe_quail` to `mikroe_quail_btr` (P3 3a).
+# reference migrated (E2) to the hwmv2 board EXTENSION `rig` variant of the
+# real upstream mikroe_quail — was `mikroe_quail_btr` (the clone; still
+# present, deleted in slice E4).
 
 rig:
   name: quail-sockets
-  board: mikroe_quail_btr
+  board: mikroe_quail/stm32f427xx/rig
   instances:
     - name: flash_1
       shield: flash_click

@@ -186,10 +186,10 @@ def test_tier2_build_info_rig_provenance(tmp_path: Path) -> None:
     rig = build_info["cmake"]["vendor-specific"]["rig"]
 
     assert rig["name"] == "frdm-eth-nest"
-    assert rig["board"] == "frdm_k64f_btr"
+    assert rig["board"] == "frdm_k64f/mk64f12/rig"
     assert rig["rig-yml"].endswith("boards/rigs/s6-eth-click/rig.yml")
     assert rig["board-dts"].endswith(
-        "boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts")
+        "boards/extend/nxp/frdm_k64f/frdm_k64f_mk64f12_rig.dts")
 
     shields = {s.strip() for s in rig["shields"].split(",")}
     assert shields == {"arduino_uno_click", "eth_click"}, (

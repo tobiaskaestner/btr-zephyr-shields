@@ -2,20 +2,20 @@
 
 /* node '/' defined in zephyr/dts/common/skeleton.dtsi:9 */
 / {
-	#address-cells = < 0x1 >;                             /* in zephyr/dts/common/skeleton.dtsi:10 */
-	#size-cells = < 0x1 >;                                /* in zephyr/dts/common/skeleton.dtsi:11 */
-	model = "MikroE Quail for STM32 (btr-shields clone)"; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:22 */
-	compatible = "mikroe,stm32-e427-btr",
-	             "st,stm32f427";                          /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:23 */
+	#address-cells = < 0x1 >;         /* in zephyr/dts/common/skeleton.dtsi:10 */
+	#size-cells = < 0x1 >;            /* in zephyr/dts/common/skeleton.dtsi:11 */
+	model = "MikroE Quail for STM32"; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:13 */
+	compatible = "mikroe,stm32-e427",
+	             "st,stm32f427";      /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:14 */
 
 	/* node '/chosen' defined in zephyr/dts/common/skeleton.dtsi:13 */
 	chosen {
 		zephyr,system-timer-companion = &rtc;     /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:27 */
 		zephyr,entropy = &rng;                    /* in zephyr/dts/arm/st/f4/stm32f405.dtsi:13 */
-		zephyr,sram = &sram0;                     /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:26 */
-		zephyr,flash = &flash0;                   /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:27 */
-		zephyr,flash-controller = &flash1;        /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:28 */
-		zephyr,dtcm = &ccm0;                      /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:29 */
+		zephyr,sram = &sram0;                     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:17 */
+		zephyr,flash = &flash0;                   /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:18 */
+		zephyr,flash-controller = &flash1;        /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:19 */
+		zephyr,dtcm = &ccm0;                      /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:20 */
 		zephyr,console = &board_cdc_acm_uart;     /* in zephyr/boards/common/usb/cdc_acm_serial.dtsi:9 */
 		zephyr,shell-uart = &board_cdc_acm_uart;  /* in zephyr/boards/common/usb/cdc_acm_serial.dtsi:10 */
 		zephyr,uart-mcumgr = &board_cdc_acm_uart; /* in zephyr/boards/common/usb/cdc_acm_serial.dtsi:11 */
@@ -25,11 +25,11 @@
 
 	/* node '/aliases' defined in zephyr/dts/common/skeleton.dtsi:15 */
 	aliases {
-		led0 = &ld1;          /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:56 */
-		led1 = &ld2;          /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:57 */
-		led2 = &ld3;          /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:58 */
-		volt-sensor0 = &vref; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:59 */
-		volt-sensor1 = &vbat; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:60 */
+		led0 = &ld1;          /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:174 */
+		led1 = &ld2;          /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:175 */
+		led2 = &ld3;          /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:176 */
+		volt-sensor0 = &vref; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:177 */
+		volt-sensor1 = &vbat; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:178 */
 	};
 
 	/* node '/soc' defined in zephyr/dts/arm/armv7-m.dtsi:6 */
@@ -132,11 +132,11 @@
 			#clock-cells = < 0x2 >;          /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:180 */
 			reg = < 0x40023800 0x400 >;      /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:181 */
 			compatible = "st,stm32f4-rcc";   /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:25 */
-			clocks = < &pll >;               /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:84 */
-			clock-frequency = < 0x5b8d800 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:85 */
-			ahb-prescaler = < 0x1 >;         /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:86 */
-			apb1-prescaler = < 0x4 >;        /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:87 */
-			apb2-prescaler = < 0x2 >;        /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:88 */
+			clocks = < &pll >;               /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:221 */
+			clock-frequency = < 0x5b8d800 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:222 */
+			ahb-prescaler = < 0x1 >;         /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:223 */
+			apb1-prescaler = < 0x4 >;        /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:224 */
+			apb2-prescaler = < 0x2 >;        /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:225 */
 			phandle = < 0x3 >;               /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:195 */
 
 			/* node '/soc/rcc@40023800/reset-controller' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:183 */
@@ -204,7 +204,7 @@
 				#gpio-cells = < 0x2 >;        /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:223 */
 				reg = < 0x40020400 0x400 >;   /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:224 */
 				clocks = < &rcc 0x30 0x2 >;   /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:225 */
-				phandle = < 0xd >;            /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:169 */
+				phandle = < 0xd >;            /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:306 */
 			};
 
 			/* node '/soc/pin-controller@40020000/gpio@40020800' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:228 */
@@ -214,7 +214,7 @@
 				#gpio-cells = < 0x2 >;        /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:231 */
 				reg = < 0x40020800 0x400 >;   /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:232 */
 				clocks = < &rcc 0x30 0x4 >;   /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:233 */
-				phandle = < 0x31 >;           /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:76 */
+				phandle = < 0x2d >;           /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:37 */
 			};
 
 			/* node '/soc/pin-controller@40020000/gpio@40020c00' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:236 */
@@ -224,7 +224,7 @@
 				#gpio-cells = < 0x2 >;        /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:239 */
 				reg = < 0x40020c00 0x400 >;   /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:240 */
 				clocks = < &rcc 0x30 0x8 >;   /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:241 */
-				phandle = < 0x2d >;           /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:32 */
+				phandle = < 0x2f >;           /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:51 */
 			};
 
 			/* node '/soc/pin-controller@40020000/gpio@40021000' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:244 */
@@ -234,7 +234,7 @@
 				#gpio-cells = < 0x2 >;        /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:247 */
 				reg = < 0x40021000 0x400 >;   /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:248 */
 				clocks = < &rcc 0x30 0x10 >;  /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:249 */
-				phandle = < 0x2c >;           /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:32 */
+				phandle = < 0x2c >;           /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:27 */
 			};
 
 			/* node '/soc/pin-controller@40020000/gpio@40021400' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:252 */
@@ -294,25 +294,25 @@
 			/* node '/soc/pin-controller@40020000/adc1_in4_pa4' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:29 */
 			adc1_in4_pa4: adc1_in4_pa4 {
 				pinmux = < 0x90 >;  /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:30 */
-				phandle = < 0x15 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:176 */
+				phandle = < 0x15 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:313 */
 			};
 
 			/* node '/soc/pin-controller@40020000/adc1_in5_pa5' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:33 */
 			adc1_in5_pa5: adc1_in5_pa5 {
 				pinmux = < 0xb0 >;  /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:34 */
-				phandle = < 0x16 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:176 */
+				phandle = < 0x16 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:313 */
 			};
 
 			/* node '/soc/pin-controller@40020000/adc2_in6_pa6' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:101 */
 			adc2_in6_pa6: adc2_in6_pa6 {
 				pinmux = < 0xd0 >;  /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:102 */
-				phandle = < 0x1f >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:184 */
+				phandle = < 0x1f >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:321 */
 			};
 
 			/* node '/soc/pin-controller@40020000/adc2_in7_pa7' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:105 */
 			adc2_in7_pa7: adc2_in7_pa7 {
 				pinmux = < 0xf0 >;  /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:106 */
-				phandle = < 0x20 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:184 */
+				phandle = < 0x20 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:321 */
 			};
 
 			/* node '/soc/pin-controller@40020000/i2c1_scl_pb6' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1029 */
@@ -320,7 +320,7 @@
 				pinmux = < 0x2c4 >; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1030 */
 				bias-pull-up;       /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1031 */
 				drive-open-drain;   /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1032 */
-				phandle = < 0xb >;  /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:167 */
+				phandle = < 0xb >;  /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:304 */
 			};
 
 			/* node '/soc/pin-controller@40020000/i2c1_sda_pb7' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1055 */
@@ -328,7 +328,7 @@
 				pinmux = < 0x2e4 >; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1056 */
 				bias-pull-up;       /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1057 */
 				drive-open-drain;   /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1058 */
-				phandle = < 0xc >;  /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:167 */
+				phandle = < 0xc >;  /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:304 */
 			};
 
 			/* node '/soc/pin-controller@40020000/spi1_miso_pb4' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1325 */
@@ -336,7 +336,7 @@
 				pinmux = < 0x285 >;            /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1326 */
 				bias-pull-down;                /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1327 */
 				slew-rate = "very-high-speed"; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1328 */
-				phandle = < 0xf >;             /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:134 */
+				phandle = < 0xf >;             /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:271 */
 			};
 
 			/* node '/soc/pin-controller@40020000/spi3_miso_pc11' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1349 */
@@ -344,7 +344,7 @@
 				pinmux = < 0x566 >;            /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1350 */
 				bias-pull-down;                /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1351 */
 				slew-rate = "very-high-speed"; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1352 */
-				phandle = < 0x18 >;            /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:142 */
+				phandle = < 0x18 >;            /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:279 */
 			};
 
 			/* node '/soc/pin-controller@40020000/spi1_mosi_pb5' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1375 */
@@ -352,7 +352,7 @@
 				pinmux = < 0x2a5 >;            /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1376 */
 				bias-pull-down;                /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1377 */
 				slew-rate = "very-high-speed"; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1378 */
-				phandle = < 0x10 >;            /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:134 */
+				phandle = < 0x10 >;            /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:271 */
 			};
 
 			/* node '/soc/pin-controller@40020000/spi3_mosi_pc12' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1399 */
@@ -360,7 +360,7 @@
 				pinmux = < 0x586 >;            /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1400 */
 				bias-pull-down;                /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1401 */
 				slew-rate = "very-high-speed"; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1402 */
-				phandle = < 0x19 >;            /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:142 */
+				phandle = < 0x19 >;            /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:279 */
 			};
 
 			/* node '/soc/pin-controller@40020000/spi1_sck_pb3' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1481 */
@@ -368,7 +368,7 @@
 				pinmux = < 0x265 >;            /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1482 */
 				bias-pull-down;                /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1483 */
 				slew-rate = "very-high-speed"; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1484 */
-				phandle = < 0xe >;             /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:134 */
+				phandle = < 0xe >;             /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:271 */
 			};
 
 			/* node '/soc/pin-controller@40020000/spi3_sck_pc10' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1511 */
@@ -376,71 +376,71 @@
 				pinmux = < 0x546 >;            /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1512 */
 				bias-pull-down;                /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1513 */
 				slew-rate = "very-high-speed"; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1514 */
-				phandle = < 0x17 >;            /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:142 */
+				phandle = < 0x17 >;            /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:279 */
 			};
 
 			/* node '/soc/pin-controller@40020000/usart1_rx_pa10' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1877 */
 			usart1_rx_pa10: usart1_rx_pa10 {
 				pinmux = < 0x147 >; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1878 */
-				phandle = < 0x6 >;  /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:92 */
+				phandle = < 0x6 >;  /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:229 */
 			};
 
 			/* node '/soc/pin-controller@40020000/usart2_rx_pd6' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1889 */
 			usart2_rx_pd6: usart2_rx_pd6 {
 				pinmux = < 0x6c7 >; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1890 */
-				phandle = < 0x8 >;  /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:99 */
+				phandle = < 0x8 >;  /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:236 */
 			};
 
 			/* node '/soc/pin-controller@40020000/usart3_rx_pd9' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1901 */
 			usart3_rx_pd9: usart3_rx_pd9 {
 				pinmux = < 0x727 >; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1902 */
-				phandle = < 0x1d >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:106 */
+				phandle = < 0x1d >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:243 */
 			};
 
 			/* node '/soc/pin-controller@40020000/usart6_rx_pc7' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1917 */
 			usart6_rx_pc7: usart6_rx_pc7 {
 				pinmux = < 0x4e8 >; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1918 */
-				phandle = < 0xa >;  /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:113 */
+				phandle = < 0xa >;  /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:250 */
 			};
 
 			/* node '/soc/pin-controller@40020000/usart1_tx_pa9' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1931 */
 			usart1_tx_pa9: usart1_tx_pa9 {
 				pinmux = < 0x127 >; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1932 */
 				bias-pull-up;       /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1933 */
-				phandle = < 0x5 >;  /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:92 */
+				phandle = < 0x5 >;  /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:229 */
 			};
 
 			/* node '/soc/pin-controller@40020000/usart2_tx_pd5' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1946 */
 			usart2_tx_pd5: usart2_tx_pd5 {
 				pinmux = < 0x6a7 >; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1947 */
 				bias-pull-up;       /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1948 */
-				phandle = < 0x7 >;  /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:99 */
+				phandle = < 0x7 >;  /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:236 */
 			};
 
 			/* node '/soc/pin-controller@40020000/usart3_tx_pd8' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1961 */
 			usart3_tx_pd8: usart3_tx_pd8 {
 				pinmux = < 0x707 >; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1962 */
 				bias-pull-up;       /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1963 */
-				phandle = < 0x1c >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:106 */
+				phandle = < 0x1c >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:243 */
 			};
 
 			/* node '/soc/pin-controller@40020000/usart6_tx_pc6' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1981 */
 			usart6_tx_pc6: usart6_tx_pc6 {
 				pinmux = < 0x4c8 >; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1982 */
 				bias-pull-up;       /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:1983 */
-				phandle = < 0x9 >;  /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:113 */
+				phandle = < 0x9 >;  /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:250 */
 			};
 
 			/* node '/soc/pin-controller@40020000/usb_otg_fs_dm_pa11' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:2010 */
 			usb_otg_fs_dm_pa11: usb_otg_fs_dm_pa11 {
 				pinmux = < 0x16a >; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:2011 */
-				phandle = < 0x13 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:126 */
+				phandle = < 0x13 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:263 */
 			};
 
 			/* node '/soc/pin-controller@40020000/usb_otg_fs_dp_pa12' defined in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:2014 */
 			usb_otg_fs_dp_pa12: usb_otg_fs_dp_pa12 {
 				pinmux = < 0x18a >; /* in modules/hal/stm32/dts/st/f4/stm32f427v(g-i)tx-pinctrl.dtsi:2015 */
-				phandle = < 0x14 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:126 */
+				phandle = < 0x14 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:263 */
 			};
 		};
 
@@ -461,52 +461,52 @@
 		};
 
 		/* node '/soc/serial@40011000' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:291 */
-		usart1: serial@40011000 {
+		usart1: mikrobus_4_uart: serial@40011000 {
 			compatible = "st,stm32-usart",
 			             "st,stm32-uart";                   /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:292 */
 			reg = < 0x40011000 0x400 >;                     /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:293 */
 			clocks = < &rcc 0x44 0x10 >;                    /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:294 */
 			resets = < &rctl 0x484 >;                       /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:295 */
 			interrupts = < 0x25 0x0 >;                      /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:296 */
-			pinctrl-0 = < &usart1_tx_pa9 &usart1_rx_pa10 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:92 */
-			pinctrl-names = "default";                      /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:93 */
-			current-speed = < 0x1c200 >;                    /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:94 */
-			status = "okay";                                /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:95 */
-			phandle = < 0x34 >;                             /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:112 */
+			pinctrl-0 = < &usart1_tx_pa9 &usart1_rx_pa10 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:229 */
+			pinctrl-names = "default";                      /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:230 */
+			current-speed = < 0x1c200 >;                    /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:231 */
+			status = "okay";                                /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:232 */
+			phandle = < 0x35 >;                             /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:118 */
 		};
 
 		/* node '/soc/serial@40004400' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:300 */
-		usart2: serial@40004400 {
+		usart2: mikrobus_2_uart: serial@40004400 {
 			compatible = "st,stm32-usart",
 			             "st,stm32-uart";                  /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:301 */
 			reg = < 0x40004400 0x400 >;                    /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:302 */
 			clocks = < &rcc 0x40 0x20000 >;                /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:303 */
 			resets = < &rctl 0x411 >;                      /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:304 */
 			interrupts = < 0x26 0x0 >;                     /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:305 */
-			pinctrl-0 = < &usart2_tx_pd5 &usart2_rx_pd6 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:99 */
-			pinctrl-names = "default";                     /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:100 */
-			current-speed = < 0x1c200 >;                   /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:101 */
-			status = "okay";                               /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:102 */
-			phandle = < 0x30 >;                            /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:68 */
+			pinctrl-0 = < &usart2_tx_pd5 &usart2_rx_pd6 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:236 */
+			pinctrl-names = "default";                     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:237 */
+			current-speed = < 0x1c200 >;                   /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:238 */
+			status = "okay";                               /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:239 */
+			phandle = < 0x32 >;                            /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:74 */
 		};
 
 		/* node '/soc/serial@40011400' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:309 */
-		usart6: serial@40011400 {
+		usart6: mikrobus_3_uart: serial@40011400 {
 			compatible = "st,stm32-usart",
 			             "st,stm32-uart";                  /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:310 */
 			reg = < 0x40011400 0x400 >;                    /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:311 */
 			clocks = < &rcc 0x44 0x20 >;                   /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:312 */
 			resets = < &rctl 0x485 >;                      /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:313 */
 			interrupts = < 0x47 0x0 >;                     /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:314 */
-			pinctrl-0 = < &usart6_tx_pc6 &usart6_rx_pc7 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:113 */
-			pinctrl-names = "default";                     /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:114 */
-			current-speed = < 0x1c200 >;                   /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:115 */
-			status = "okay";                               /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:116 */
-			phandle = < 0x33 >;                            /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:90 */
+			pinctrl-0 = < &usart6_tx_pc6 &usart6_rx_pc7 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:250 */
+			pinctrl-names = "default";                     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:251 */
+			current-speed = < 0x1c200 >;                   /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:252 */
+			status = "okay";                               /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:253 */
+			phandle = < 0x34 >;                            /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:96 */
 		};
 
 		/* node '/soc/i2c@40005400' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:318 */
-		i2c1: i2c@40005400 {
+		i2c1: mikrobus_1_i2c: mikrobus_2_i2c: mikrobus_3_i2c: mikrobus_4_i2c: mikrobus_i2c: i2c@40005400 {
 			compatible = "st,stm32-i2c-v1";              /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:319 */
 			clock-frequency = < 0x186a0 >;               /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:320 */
 			#address-cells = < 0x1 >;                    /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:321 */
@@ -517,11 +517,11 @@
 			             < 0x20 0x0 >;                   /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:325 */
 			interrupt-names = "event",
 			                  "error";                   /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:326 */
-			pinctrl-0 = < &i2c1_scl_pb6 &i2c1_sda_pb7 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:167 */
-			pinctrl-names = "default";                   /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:168 */
-			scl-gpios = < &gpiob 0x6 0x0 >;              /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:169 */
-			sda-gpios = < &gpiob 0x7 0x0 >;              /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:170 */
-			status = "okay";                             /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:171 */
+			pinctrl-0 = < &i2c1_scl_pb6 &i2c1_sda_pb7 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:304 */
+			pinctrl-names = "default";                   /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:305 */
+			scl-gpios = < &gpiob 0x6 0x0 >;              /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:306 */
+			sda-gpios = < &gpiob 0x7 0x0 >;              /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:307 */
+			status = "okay";                             /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:308 */
 			phandle = < 0x29 >;                          /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:708 */
 
 			/* node '/soc/i2c@40005400/sensor@5f' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:6 */
@@ -565,7 +565,7 @@
 		};
 
 		/* node '/soc/spi@40013000' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:354 */
-		spi1: spi@40013000 {
+		spi1: mikrobus_1_spi: mikrobus_2_spi: mikrobus_spi: spi@40013000 {
 			compatible = "st,stm32-spi";                                 /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:355 */
 			#address-cells = < 0x1 >;                                    /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:356 */
 			#size-cells = < 0x0 >;                                       /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:357 */
@@ -573,11 +573,11 @@
 			clocks = < &rcc 0x44 0x1000 >;                               /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:359 */
 			interrupts = < 0x23 0x0 >;                                   /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:360 */
 			st,spi-data-width = "limited-8-16-bit";                      /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:361 */
-			pinctrl-0 = < &spi1_sck_pb3 &spi1_miso_pb4 &spi1_mosi_pb5 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:134 */
-			pinctrl-names = "default";                                   /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:135 */
-			status = "okay";                                             /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:137 */
+			pinctrl-0 = < &spi1_sck_pb3 &spi1_miso_pb4 &spi1_mosi_pb5 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:271 */
+			pinctrl-names = "default";                                   /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:272 */
+			status = "okay";                                             /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:274 */
 			cs-gpios = < &quail_sock1 0x2 0x1 >;                         /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:26 */
-			phandle = < 0x2e >;                                          /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:44 */
+			phandle = < 0x30 >;                                          /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:50 */
 
 			/* node '/soc/spi@40013000/nor@0' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:27 */
 			flash_1_fc_nor: nor@0 {
@@ -602,9 +602,9 @@
 			phys = < &otgfs_phy >;                                   /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:373 */
 			clocks = < &rcc 0x34 0x80 >,
 			         < &rcc 0x7 0xff >;                              /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:374 */
-			pinctrl-0 = < &usb_otg_fs_dm_pa11 &usb_otg_fs_dp_pa12 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:126 */
-			pinctrl-names = "default";                               /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:127 */
-			status = "okay";                                         /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:128 */
+			pinctrl-0 = < &usb_otg_fs_dm_pa11 &usb_otg_fs_dp_pa12 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:263 */
+			pinctrl-names = "default";                               /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:264 */
+			status = "okay";                                         /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:265 */
 
 			/* node '/soc/usb@50000000/board_cdc_acm_uart' defined in zephyr/boards/common/usb/cdc_acm_serial.dtsi:18 */
 			board_cdc_acm_uart: board_cdc_acm_uart {
@@ -870,8 +870,8 @@
 			alarms-count = < 0x2 >;            /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:599 */
 			alrm-exti-line = < 0x11 >;         /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:600 */
 			clocks = < &rcc 0x40 0x10000000 >,
-			         < &rcc 0x3 0x2280070 >;   /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:120 */
-			status = "okay";                   /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:122 */
+			         < &rcc 0x3 0x2280070 >;   /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:257 */
+			status = "okay";                   /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:259 */
 
 			/* node '/soc/rtc@40002800/backup_regs' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:603 */
 			bbram: backup_regs {
@@ -896,11 +896,11 @@
 			st,adc-oversampler = "none";                                 /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:621 */
 			st,adc-internal-regulator = "none";                          /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:622 */
 			st,adc-has-injected-support;                                 /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:623 */
-			status = "okay";                                             /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:175 */
-			pinctrl-0 = < &adc1_in4_pa4 &adc1_in5_pa5 >;                 /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:176 */
-			pinctrl-names = "default";                                   /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:177 */
-			st,adc-clock-source = "SYNC";                                /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:178 */
-			st,adc-prescaler = < 0x2 >;                                  /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:179 */
+			status = "okay";                                             /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:312 */
+			pinctrl-0 = < &adc1_in4_pa4 &adc1_in5_pa5 >;                 /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:313 */
+			pinctrl-names = "default";                                   /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:314 */
+			st,adc-clock-source = "SYNC";                                /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:315 */
+			st,adc-prescaler = < 0x2 >;                                  /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:316 */
 			phandle = < 0x27 >;                                          /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:147 */
 		};
 
@@ -951,7 +951,7 @@
 		};
 
 		/* node '/soc/spi@40003c00' defined in zephyr/dts/arm/st/f4/stm32f401.dtsi:32 */
-		spi3: spi@40003c00 {
+		spi3: mikrobus_3_spi: mikrobus_4_spi: spi@40003c00 {
 			compatible = "st,stm32-spi";                                    /* in zephyr/dts/arm/st/f4/stm32f401.dtsi:33 */
 			#address-cells = < 0x1 >;                                       /* in zephyr/dts/arm/st/f4/stm32f401.dtsi:34 */
 			#size-cells = < 0x0 >;                                          /* in zephyr/dts/arm/st/f4/stm32f401.dtsi:35 */
@@ -959,21 +959,21 @@
 			clocks = < &rcc 0x40 0x8000 >;                                  /* in zephyr/dts/arm/st/f4/stm32f401.dtsi:37 */
 			interrupts = < 0x33 0x0 >;                                      /* in zephyr/dts/arm/st/f4/stm32f401.dtsi:38 */
 			st,spi-data-width = "limited-8-16-bit";                         /* in zephyr/dts/arm/st/f4/stm32f401.dtsi:39 */
-			status = "okay";                                                /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:141 */
-			pinctrl-0 = < &spi3_sck_pc10 &spi3_miso_pc11 &spi3_mosi_pc12 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:142 */
-			pinctrl-names = "default";                                      /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:143 */
+			status = "okay";                                                /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:278 */
+			pinctrl-0 = < &spi3_sck_pc10 &spi3_miso_pc11 &spi3_mosi_pc12 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:279 */
+			pinctrl-names = "default";                                      /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:280 */
 			cs-gpios = < &quail_sock3 0x2 0x1 >;                            /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:14 */
-			phandle = < 0x32 >;                                             /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:88 */
+			phandle = < 0x33 >;                                             /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:94 */
 
-			/* node '/soc/spi@40003c00/flash@2' defined in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:152 */
+			/* node '/soc/spi@40003c00/flash@2' defined in zephyr/boards/mikroe/quail/mikroe_quail.dts:289 */
 			flash1: flash@2 {
-				compatible = "jedec,spi-nor";      /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:153 */
-				reg = < 0x2 >;                     /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:154 */
-				jedec-id = [ 01 60 17 ];           /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:158 */
-				spi-max-frequency = < 0x2faf080 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:159 */
-				size = < 0x800000 >;               /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:160 */
-				page-size = < 0x100 >;             /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:161 */
-				status = "okay";                   /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:162 */
+				compatible = "jedec,spi-nor";      /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:290 */
+				reg = < 0x2 >;                     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:291 */
+				jedec-id = [ 01 60 17 ];           /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:295 */
+				spi-max-frequency = < 0x2faf080 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:296 */
+				size = < 0x800000 >;               /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:297 */
+				page-size = < 0x100 >;             /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:298 */
+				status = "okay";                   /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:299 */
 			};
 
 			/* node '/soc/spi@40003c00/nor@0' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:15 */
@@ -1030,18 +1030,18 @@
 		};
 
 		/* node '/soc/serial@40004800' defined in zephyr/dts/arm/st/f4/stm32f405.dtsi:51 */
-		usart3: serial@40004800 {
+		usart3: mikrobus_1_uart: mikrobus_uart: serial@40004800 {
 			compatible = "st,stm32-usart",
 			             "st,stm32-uart";                  /* in zephyr/dts/arm/st/f4/stm32f405.dtsi:52 */
 			reg = < 0x40004800 0x400 >;                    /* in zephyr/dts/arm/st/f4/stm32f405.dtsi:53 */
 			clocks = < &rcc 0x40 0x40000 >;                /* in zephyr/dts/arm/st/f4/stm32f405.dtsi:54 */
 			resets = < &rctl 0x412 >;                      /* in zephyr/dts/arm/st/f4/stm32f405.dtsi:55 */
 			interrupts = < 0x27 0x0 >;                     /* in zephyr/dts/arm/st/f4/stm32f405.dtsi:56 */
-			pinctrl-0 = < &usart3_tx_pd8 &usart3_rx_pd9 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:106 */
-			pinctrl-names = "default";                     /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:107 */
-			current-speed = < 0x1c200 >;                   /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:108 */
-			status = "okay";                               /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:109 */
-			phandle = < 0x2f >;                            /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:46 */
+			pinctrl-0 = < &usart3_tx_pd8 &usart3_rx_pd9 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:243 */
+			pinctrl-names = "default";                     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:244 */
+			current-speed = < 0x1c200 >;                   /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:245 */
+			status = "okay";                               /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:246 */
+			phandle = < 0x31 >;                            /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:52 */
 		};
 
 		/* node '/soc/serial@40004c00' defined in zephyr/dts/arm/st/f4/stm32f405.dtsi:60 */
@@ -1305,12 +1305,12 @@
 			st,adc-oversampler = "none";                                 /* in zephyr/dts/arm/st/f4/stm32f405.dtsi:271 */
 			st,adc-internal-regulator = "none";                          /* in zephyr/dts/arm/st/f4/stm32f405.dtsi:272 */
 			st,adc-has-injected-support;                                 /* in zephyr/dts/arm/st/f4/stm32f405.dtsi:273 */
-			status = "okay";                                             /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:183 */
-			pinctrl-0 = < &adc2_in6_pa6 &adc2_in7_pa7 >;                 /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:184 */
-			pinctrl-names = "default";                                   /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:185 */
-			st,adc-clock-source = "SYNC";                                /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:186 */
-			st,adc-prescaler = < 0x2 >;                                  /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:187 */
-			phandle = < 0x35 >;                                          /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:52 */
+			status = "okay";                                             /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:320 */
+			pinctrl-0 = < &adc2_in6_pa6 &adc2_in7_pa7 >;                 /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:321 */
+			pinctrl-names = "default";                                   /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:322 */
+			st,adc-clock-source = "SYNC";                                /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:323 */
+			st,adc-prescaler = < 0x2 >;                                  /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:324 */
+			phandle = < 0x2e >;                                          /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:43 */
 		};
 
 		/* node '/soc/adc@40012200' defined in zephyr/dts/arm/st/f4/stm32f405.dtsi:277 */
@@ -1481,9 +1481,9 @@
 		clk_hsi: clk-hsi {
 			#clock-cells = < 0x0 >;         /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:70 */
 			compatible = "fixed-clock";     /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:71 */
-			clock-frequency = < 0xf42400 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:70 */
-			status = "okay";                /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:71 */
-			phandle = < 0x23 >;             /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:79 */
+			clock-frequency = < 0xf42400 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:207 */
+			status = "okay";                /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:208 */
+			phandle = < 0x23 >;             /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:216 */
 		};
 
 		/* node '/clocks/clk-lse' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:76 */
@@ -1499,20 +1499,20 @@
 			#clock-cells = < 0x0 >;       /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:84 */
 			compatible = "fixed-clock";   /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:85 */
 			clock-frequency = < 0x7d00 >; /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:86 */
-			status = "okay";              /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:66 */
+			status = "okay";              /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:203 */
 		};
 
 		/* node '/clocks/pll' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:90 */
 		pll: pll {
 			#clock-cells = < 0x0 >;              /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:91 */
 			compatible = "st,stm32fx-pll-clock"; /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:92 */
-			div-m = < 0x8 >;                     /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:75 */
-			mul-n = < 0x60 >;                    /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:76 */
-			div-p = < 0x2 >;                     /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:77 */
-			div-q = < 0x4 >;                     /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:78 */
-			clocks = < &clk_hsi >;               /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:79 */
-			status = "okay";                     /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:80 */
-			phandle = < 0x2 >;                   /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:84 */
+			div-m = < 0x8 >;                     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:212 */
+			mul-n = < 0x60 >;                    /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:213 */
+			div-p = < 0x2 >;                     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:214 */
+			div-q = < 0x4 >;                     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:215 */
+			clocks = < &clk_hsi >;               /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:216 */
+			status = "okay";                     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:217 */
+			phandle = < 0x2 >;                   /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:221 */
 		};
 
 		/* node '/clocks/plli2s' defined in zephyr/dts/arm/st/f4/stm32f401.dtsi:11 */
@@ -1584,7 +1584,7 @@
 		nvmem-cells = < &vrefint_otp >; /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:686 */
 		vrefint-cal-mv = < 0xce4 >;     /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:687 */
 		io-channels = < &adc1 0x11 >;   /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:688 */
-		status = "okay";                /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:191 */
+		status = "okay";                /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:328 */
 	};
 
 	/* node '/vbat' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:692 */
@@ -1592,7 +1592,7 @@
 		compatible = "st,stm32-vbat"; /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:693 */
 		ratio = < 0x4 >;              /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:694 */
 		io-channels = < &adc1 0x12 >; /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:695 */
-		status = "okay";              /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:195 */
+		status = "okay";              /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:332 */
 	};
 
 	/* node '/otgfs_phy' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:699 */
@@ -1644,12 +1644,43 @@
 		zephyr,memory-region = "DTCM";       /* in zephyr/dts/arm/st/f4/stm32f427vi.dtsi:13 */
 	};
 
-	/* node '/connector_mikrobus_1' defined in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:27 */
-	quail_sock1: connector_mikrobus_1 {
-		compatible = "socket,mikrobus";            /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:28 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:29 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:30 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:31 */
+	/* node '/leds' defined in zephyr/boards/mikroe/quail/mikroe_quail.dts:23 */
+	leds {
+		compatible = "gpio-leds"; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:24 */
+
+		/* node '/leds/led_1' defined in zephyr/boards/mikroe/quail/mikroe_quail.dts:26 */
+		ld1: led_1 {
+			gpios = < &gpioe 0xf 0x0 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:27 */
+			label = "User LD1";         /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:28 */
+		};
+
+		/* node '/leds/led_2' defined in zephyr/boards/mikroe/quail/mikroe_quail.dts:31 */
+		ld2: led_2 {
+			gpios = < &gpioe 0xa 0x0 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:32 */
+			label = "User LD2";         /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:33 */
+		};
+
+		/* node '/leds/led_3' defined in zephyr/boards/mikroe/quail/mikroe_quail.dts:36 */
+		ld3: led_3 {
+			gpios = < &gpioc 0x3 0x0 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:37 */
+			label = "User LD3";         /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:38 */
+		};
+	};
+
+	/* node '/zephyr,user' defined in zephyr/boards/mikroe/quail/mikroe_quail.dts:42 */
+	zephyr,user {
+		io-channels = < &adc1 0x0 >,
+		              < &adc1 0x1 >,
+		              < &adc2 0x0 >,
+		              < &adc2 0x1 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:43 */
+	};
+
+	/* node '/mikrobus-connector-1' defined in zephyr/boards/mikroe/quail/mikroe_quail.dts:46 */
+	mikrobus_1_header: mikrobus_header: mikrobus-connector-1 {
+		compatible = "mikro-bus";                  /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:47 */
+		#gpio-cells = < 0x2 >;                     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:48 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:49 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:50 */
 		gpio-map = < 0x0 0x0 &gpioa 0x6 0x0 >,
 		           < 0x1 0x0 &gpioa 0x2 0x0 >,
 		           < 0x2 0x0 &gpioa 0x3 0x0 >,
@@ -1661,19 +1692,15 @@
 		           < 0x8 0x0 &gpiod 0x9 0x0 >,
 		           < 0x9 0x0 &gpiod 0x8 0x0 >,
 		           < 0xa 0x0 &gpiob 0x6 0x0 >,
-		           < 0xb 0x0 &gpiob 0x7 0x0 >;     /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:32 */
-		socket,spi = < &spi1 >;                    /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:44 */
-		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:45 */
-		socket,uart = < &usart3 >;                 /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:46 */
-		phandle = < 0x11 >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:26 */
+		           < 0xb 0x0 &gpiob 0x7 0x0 >;     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:51 */
 	};
 
-	/* node '/connector_mikrobus_2' defined in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:49 */
-	quail_sock2: connector_mikrobus_2 {
-		compatible = "socket,mikrobus";            /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:50 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:51 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:52 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:53 */
+	/* node '/mikrobus-connector-2' defined in zephyr/boards/mikroe/quail/mikroe_quail.dts:69 */
+	mikrobus_2_header: mikrobus-connector-2 {
+		compatible = "mikro-bus";                  /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:70 */
+		#gpio-cells = < 0x2 >;                     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:71 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:72 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:73 */
 		gpio-map = < 0x0 0x0 &gpioa 0x4 0x0 >,
 		           < 0x1 0x0 &gpioe 0x1 0x0 >,
 		           < 0x2 0x0 &gpioe 0x0 0x0 >,
@@ -1685,18 +1712,15 @@
 		           < 0x8 0x0 &gpiod 0x6 0x0 >,
 		           < 0x9 0x0 &gpiod 0x5 0x0 >,
 		           < 0xa 0x0 &gpiob 0x6 0x0 >,
-		           < 0xb 0x0 &gpiob 0x7 0x0 >;     /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:54 */
-		socket,spi = < &spi1 >;                    /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:66 */
-		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:67 */
-		socket,uart = < &usart2 >;                 /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:68 */
+		           < 0xb 0x0 &gpiob 0x7 0x0 >;     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:74 */
 	};
 
-	/* node '/connector_mikrobus_3' defined in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:71 */
-	quail_sock3: connector_mikrobus_3 {
-		compatible = "socket,mikrobus";            /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:72 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:73 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:74 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:75 */
+	/* node '/mikrobus-connector-3' defined in zephyr/boards/mikroe/quail/mikroe_quail.dts:92 */
+	mikrobus_3_header: mikrobus-connector-3 {
+		compatible = "mikro-bus";                  /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:93 */
+		#gpio-cells = < 0x2 >;                     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:94 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:95 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:96 */
 		gpio-map = < 0x0 0x0 &gpioa 0x7 0x0 >,
 		           < 0x1 0x0 &gpiod 0x8 0x0 >,
 		           < 0x2 0x0 &gpiod 0xb 0x0 >,
@@ -1708,19 +1732,15 @@
 		           < 0x8 0x0 &gpioc 0x7 0x0 >,
 		           < 0x9 0x0 &gpioc 0x6 0x0 >,
 		           < 0xa 0x0 &gpiob 0x6 0x0 >,
-		           < 0xb 0x0 &gpiob 0x7 0x0 >;     /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:76 */
-		socket,spi = < &spi3 >;                    /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:88 */
-		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:89 */
-		socket,uart = < &usart6 >;                 /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:90 */
-		phandle = < 0x1a >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:14 */
+		           < 0xb 0x0 &gpiob 0x7 0x0 >;     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:97 */
 	};
 
-	/* node '/connector_mikrobus_4' defined in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:93 */
-	quail_sock4: connector_mikrobus_4 {
-		compatible = "socket,mikrobus";            /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:94 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:95 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:96 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:97 */
+	/* node '/mikrobus-connector-4' defined in zephyr/boards/mikroe/quail/mikroe_quail.dts:115 */
+	mikrobus_4_header: mikrobus-connector-4 {
+		compatible = "mikro-bus";                  /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:116 */
+		#gpio-cells = < 0x2 >;                     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:117 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:118 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:119 */
 		gpio-map = < 0x0 0x0 &gpioa 0x5 0x0 >,
 		           < 0x1 0x0 &gpiod 0x0 0x0 >,
 		           < 0x2 0x0 &gpiod 0x1 0x0 >,
@@ -1732,40 +1752,160 @@
 		           < 0x8 0x0 &gpioa 0xa 0x0 >,
 		           < 0x9 0x0 &gpioa 0x9 0x0 >,
 		           < 0xa 0x0 &gpiob 0x6 0x0 >,
-		           < 0xb 0x0 &gpiob 0x7 0x0 >;     /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:98 */
-		socket,spi = < &spi3 >;                    /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:110 */
-		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:111 */
-		socket,uart = < &usart1 >;                 /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikrobus_sockets.dtsi:112 */
+		           < 0xb 0x0 &gpiob 0x7 0x0 >;     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:120 */
 	};
 
-	/* node '/leds' defined in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:32 */
-	leds {
-		compatible = "gpio-leds"; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:33 */
-
-		/* node '/leds/led_1' defined in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:35 */
-		ld1: led_1 {
-			gpios = < &gpioe 0xf 0x0 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:36 */
-			label = "User LD1";         /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:37 */
-		};
-
-		/* node '/leds/led_2' defined in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:40 */
-		ld2: led_2 {
-			gpios = < &gpioe 0xa 0x0 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:41 */
-			label = "User LD2";         /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:42 */
-		};
-
-		/* node '/leds/led_3' defined in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:45 */
-		ld3: led_3 {
-			gpios = < &gpioc 0x3 0x0 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:46 */
-			label = "User LD3";         /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:47 */
-		};
+	/* node '/connector' defined in zephyr/boards/mikroe/quail/mikroe_quail.dts:138 */
+	edge_header: connector {
+		#gpio-cells = < 0x2 >;                     /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:139 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:140 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:141 */
+		gpio-map = < 0x0 0x0 &gpioc 0x5 0x0 >,
+		           < 0x1 0x0 &gpiob 0x0 0x0 >,
+		           < 0x2 0x0 &gpioe 0x7 0x0 >,
+		           < 0x3 0x0 &gpioe 0x8 0x0 >,
+		           < 0x4 0x0 &gpioe 0xb 0x0 >,
+		           < 0x5 0x0 &gpioc 0x4 0x0 >,
+		           < 0x6 0x0 &gpioe 0xd 0x0 >,
+		           < 0x7 0x0 &gpioe 0xe 0x0 >,
+		           < 0x8 0x0 &gpiob 0xa 0x0 >,
+		           < 0x9 0x0 &gpiob 0xb 0x0 >,
+		           < 0xa 0x0 &gpiob 0xc 0x0 >,
+		           < 0xb 0x0 &gpiob 0xd 0x0 >,
+		           < 0xc 0x0 &gpiob 0x6 0x0 >,
+		           < 0xd 0x0 &gpiob 0x7 0x0 >,
+		           < 0xe 0x0 &gpioc 0xa 0x0 >,
+		           < 0xf 0x0 &gpioc 0xb 0x0 >,
+		           < 0x10 0x0 &gpioc 0xc 0x0 >,
+		           < 0x11 0x0 &gpiod 0xa 0x0 >,
+		           < 0x12 0x0 &gpioa 0xf 0x0 >,
+		           < 0x13 0x0 &gpioc 0xd 0x0 >,
+		           < 0x14 0x0 &gpioe 0x6 0x0 >,
+		           < 0x15 0x0 &gpioe 0x5 0x0 >,
+		           < 0x16 0x0 &gpiod 0x2 0x0 >,
+		           < 0x17 0x0 &gpiod 0x3 0x0 >,
+		           < 0x18 0x0 &gpiod 0x4 0x0 >,
+		           < 0x19 0x0 &gpiod 0x7 0x0 >,
+		           < 0x1a 0x0 &gpioe 0x2 0x0 >,
+		           < 0x1b 0x0 &gpioe 0x3 0x0 >,
+		           < 0x1c 0x0 &gpioe 0x4 0x0 >;    /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:142 */
 	};
 
-	/* node '/zephyr,user' defined in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:51 */
-	zephyr,user {
-		io-channels = < &adc1 0x0 >,
-		              < &adc1 0x1 >,
-		              < &adc2 0x0 >,
-		              < &adc2 0x1 >; /* in btr-shields/boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts:52 */
+	/* node '/socket_1_adc' defined in zephyr/boards/mikroe/quail/mikroe_quail.dts:181 */
+	skd1: mikrobus_1_adc: mikrobus_adc: socket_1_adc {
+		status = "okay";             /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:182 */
+		io-channels = < &adc2 0x0 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:183 */
+	};
+
+	/* node '/socket_2_adc' defined in zephyr/boards/mikroe/quail/mikroe_quail.dts:186 */
+	skd2: mikrobus_2_adc: socket_2_adc {
+		status = "okay";             /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:187 */
+		io-channels = < &adc1 0x0 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:188 */
+	};
+
+	/* node '/socket_3_adc' defined in zephyr/boards/mikroe/quail/mikroe_quail.dts:191 */
+	skd3: mikrobus_3_adc: socket_3_adc {
+		status = "okay";             /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:192 */
+		io-channels = < &adc2 0x1 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:193 */
+	};
+
+	/* node '/socket_4_adc' defined in zephyr/boards/mikroe/quail/mikroe_quail.dts:196 */
+	skd4: mikrobus_4_adc: socket_4_adc {
+		status = "okay";             /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:197 */
+		io-channels = < &adc1 0x1 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:198 */
+	};
+
+	/* node '/connector_mikrobus_1' defined in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:33 */
+	quail_sock1: connector_mikrobus_1 {
+		compatible = "socket,mikrobus";            /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:34 */
+		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:35 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:36 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:37 */
+		gpio-map = < 0x0 0x0 &gpioa 0x6 0x0 >,
+		           < 0x1 0x0 &gpioa 0x2 0x0 >,
+		           < 0x2 0x0 &gpioa 0x3 0x0 >,
+		           < 0x3 0x0 &gpiob 0x3 0x0 >,
+		           < 0x4 0x0 &gpiob 0x4 0x0 >,
+		           < 0x5 0x0 &gpiob 0x5 0x0 >,
+		           < 0x6 0x0 &gpioe 0x9 0x0 >,
+		           < 0x7 0x0 &gpioa 0x1 0x0 >,
+		           < 0x8 0x0 &gpiod 0x9 0x0 >,
+		           < 0x9 0x0 &gpiod 0x8 0x0 >,
+		           < 0xa 0x0 &gpiob 0x6 0x0 >,
+		           < 0xb 0x0 &gpiob 0x7 0x0 >;     /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:38 */
+		socket,spi = < &spi1 >;                    /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:50 */
+		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:51 */
+		socket,uart = < &usart3 >;                 /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:52 */
+		phandle = < 0x11 >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:26 */
+	};
+
+	/* node '/connector_mikrobus_2' defined in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:55 */
+	quail_sock2: connector_mikrobus_2 {
+		compatible = "socket,mikrobus";            /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:56 */
+		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:57 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:58 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:59 */
+		gpio-map = < 0x0 0x0 &gpioa 0x4 0x0 >,
+		           < 0x1 0x0 &gpioe 0x1 0x0 >,
+		           < 0x2 0x0 &gpioe 0x0 0x0 >,
+		           < 0x3 0x0 &gpiob 0x3 0x0 >,
+		           < 0x4 0x0 &gpiob 0x4 0x0 >,
+		           < 0x5 0x0 &gpiob 0x5 0x0 >,
+		           < 0x6 0x0 &gpiod 0xf 0x0 >,
+		           < 0x7 0x0 &gpiob 0x9 0x0 >,
+		           < 0x8 0x0 &gpiod 0x6 0x0 >,
+		           < 0x9 0x0 &gpiod 0x5 0x0 >,
+		           < 0xa 0x0 &gpiob 0x6 0x0 >,
+		           < 0xb 0x0 &gpiob 0x7 0x0 >;     /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:60 */
+		socket,spi = < &spi1 >;                    /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:72 */
+		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:73 */
+		socket,uart = < &usart2 >;                 /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:74 */
+	};
+
+	/* node '/connector_mikrobus_3' defined in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:77 */
+	quail_sock3: connector_mikrobus_3 {
+		compatible = "socket,mikrobus";            /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:78 */
+		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:79 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:80 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:81 */
+		gpio-map = < 0x0 0x0 &gpioa 0x7 0x0 >,
+		           < 0x1 0x0 &gpiod 0x8 0x0 >,
+		           < 0x2 0x0 &gpiod 0xb 0x0 >,
+		           < 0x3 0x0 &gpioc 0xa 0x0 >,
+		           < 0x4 0x0 &gpioc 0xb 0x0 >,
+		           < 0x5 0x0 &gpioc 0xc 0x0 >,
+		           < 0x6 0x0 &gpiod 0xd 0x0 >,
+		           < 0x7 0x0 &gpioc 0x8 0x0 >,
+		           < 0x8 0x0 &gpioc 0x7 0x0 >,
+		           < 0x9 0x0 &gpioc 0x6 0x0 >,
+		           < 0xa 0x0 &gpiob 0x6 0x0 >,
+		           < 0xb 0x0 &gpiob 0x7 0x0 >;     /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:82 */
+		socket,spi = < &spi3 >;                    /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:94 */
+		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:95 */
+		socket,uart = < &usart6 >;                 /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:96 */
+		phandle = < 0x1a >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:14 */
+	};
+
+	/* node '/connector_mikrobus_4' defined in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:99 */
+	quail_sock4: connector_mikrobus_4 {
+		compatible = "socket,mikrobus";            /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:100 */
+		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:101 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:102 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:103 */
+		gpio-map = < 0x0 0x0 &gpioa 0x5 0x0 >,
+		           < 0x1 0x0 &gpiod 0x0 0x0 >,
+		           < 0x2 0x0 &gpiod 0x1 0x0 >,
+		           < 0x3 0x0 &gpioc 0xa 0x0 >,
+		           < 0x4 0x0 &gpioc 0xb 0x0 >,
+		           < 0x5 0x0 &gpioc 0xc 0x0 >,
+		           < 0x6 0x0 &gpiod 0xe 0x0 >,
+		           < 0x7 0x0 &gpioa 0xe 0x0 >,
+		           < 0x8 0x0 &gpioa 0xa 0x0 >,
+		           < 0x9 0x0 &gpioa 0x9 0x0 >,
+		           < 0xa 0x0 &gpiob 0x6 0x0 >,
+		           < 0xb 0x0 &gpiob 0x7 0x0 >;     /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:104 */
+		socket,spi = < &spi3 >;                    /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:116 */
+		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:117 */
+		socket,uart = < &usart1 >;                 /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:118 */
 	};
 };

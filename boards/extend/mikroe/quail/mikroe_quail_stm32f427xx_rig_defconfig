@@ -1,0 +1,15 @@
+# hwmv2 board extension: `rig` variant defconfig, mirrors the base board's
+# own mikroe_quail_defconfig (BOARD_MIKROE_QUAIL selection already comes
+# from the base board's Kconfig.mikroe_quail, sourced unconditionally).
+
+# Enable MPU
+CONFIG_ARM_MPU=y
+
+CONFIG_SERIAL=y
+
+# Console
+CONFIG_CONSOLE=y
+CONFIG_UART_CONSOLE=y
+
+# Enable GPIO
+CONFIG_GPIO=y

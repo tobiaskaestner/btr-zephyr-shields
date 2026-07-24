@@ -1,0 +1,13 @@
+/*
+ * hwmv2 board EXTENSION (E2, board-extension-migration.md): `rig` variant
+ * of the real upstream frdm_k64f board (board.yml `extend:`). Pulls in the
+ * REAL base board dts verbatim (its legacy `arduino_header` connector
+ * nexus node comes along unmodified -- that is intended, not a regression:
+ * closer to what a converted upstream board looks like) and adds the typed
+ * rig socket layer on top (Convention 4).
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include "frdm_k64f.dts"
+#include "arduino_r3_socket.dtsi"

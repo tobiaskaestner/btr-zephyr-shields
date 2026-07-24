@@ -10,13 +10,14 @@
 # clicks share spi0 and get distinct, allocated CS indices (R4 through R19).
 #
 # Ported from frontend-trial/candidate-2-hybrid/s6-eth-click.rig.yml; board
-# reference adjusted from `frdm_k64f` to `frdm_k64f_btr` (P3 3b); shield
-# references renamed hyphen->underscore (arduino-uno-click -> arduino_uno_click,
-# eth-click -> eth_click).
+# reference migrated (E2) to the hwmv2 board EXTENSION `rig` variant of the
+# real upstream frdm_k64f — was `frdm_k64f_btr` (the clone; still present,
+# deleted in slice E4); shield references renamed hyphen->underscore
+# (arduino-uno-click -> arduino_uno_click, eth-click -> eth_click).
 
 rig:
   name: frdm-eth-nest
-  board: frdm_k64f_btr
+  board: frdm_k64f/mk64f12/rig
   instances:
     - name: adapter_1
       shield: arduino_uno_click

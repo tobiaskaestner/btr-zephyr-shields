@@ -1,0 +1,14 @@
+/*
+ * hwmv2 board EXTENSION (E2, board-extension-migration.md): `rig` variant
+ * of the real upstream mikroe_quail board (board.yml `extend:`). Pulls in
+ * the REAL base board dts verbatim (its legacy mikrobus_N_header /
+ * edge_header connector nexus nodes and skd-N/mikrobus label aliases come
+ * along unmodified -- that is intended, not a regression: closer to what a
+ * converted upstream board looks like) and adds the typed rig socket layer
+ * on top (Convention 4).
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include "mikroe_quail.dts"
+#include "mikrobus_sockets.dtsi"

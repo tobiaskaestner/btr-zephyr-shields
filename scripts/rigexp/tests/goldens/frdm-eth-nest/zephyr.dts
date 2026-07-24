@@ -2,38 +2,38 @@
 
 /* node '/' defined in zephyr/dts/common/skeleton.dtsi:9 */
 / {
-	#address-cells = < 0x1 >;                              /* in zephyr/dts/common/skeleton.dtsi:10 */
-	#size-cells = < 0x1 >;                                 /* in zephyr/dts/common/skeleton.dtsi:11 */
-	model = "NXP Freedom MK64F board (btr-shields clone)"; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:25 */
-	compatible = "nxp,mk64f12-btr",
+	#address-cells = < 0x1 >;          /* in zephyr/dts/common/skeleton.dtsi:10 */
+	#size-cells = < 0x1 >;             /* in zephyr/dts/common/skeleton.dtsi:11 */
+	model = "NXP Freedom MK64F board"; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:15 */
+	compatible = "nxp,mk64f12",
 	             "nxp,k64f",
-	             "nxp,k6x";                                /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:26 */
+	             "nxp,k6x";            /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:16 */
 
 	/* node '/chosen' defined in zephyr/dts/common/skeleton.dtsi:13 */
 	chosen {
 		zephyr,entropy = &rnga;                   /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:22 */
 		zephyr,flash-controller = &ftfe;          /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:23 */
-		zephyr,sram = &sram0;                     /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:40 */
-		zephyr,flash = &flash0;                   /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:41 */
-		zephyr,code-partition = &slot0_partition; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:42 */
-		zephyr,console = &uart0;                  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:43 */
-		zephyr,shell-uart = &uart0;               /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:44 */
-		zephyr,uart-pipe = &uart0;                /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:45 */
-		zephyr,canbus = &flexcan0;                /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:46 */
-		zephyr,uart-mcumgr = &uart0;              /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:47 */
+		zephyr,sram = &sram0;                     /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:30 */
+		zephyr,flash = &flash0;                   /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:31 */
+		zephyr,code-partition = &slot0_partition; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:32 */
+		zephyr,console = &uart0;                  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:33 */
+		zephyr,shell-uart = &uart0;               /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:34 */
+		zephyr,uart-pipe = &uart0;                /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:35 */
+		zephyr,canbus = &flexcan0;                /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:36 */
+		zephyr,uart-mcumgr = &uart0;              /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:37 */
 	};
 
 	/* node '/aliases' defined in zephyr/dts/common/skeleton.dtsi:15 */
 	aliases {
 		watchdog0 = &wdog;                /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:18 */
-		led0 = &green_led;                /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:29 */
-		led1 = &blue_led;                 /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:30 */
-		led2 = &red_led;                  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:31 */
-		sw0 = &user_button_3;             /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:32 */
-		sw1 = &user_button_2;             /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:33 */
-		magn0 = &fxos8700;                /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:34 */
-		accel0 = &fxos8700;               /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:35 */
-		mcuboot-button0 = &user_button_2; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:36 */
+		led0 = &green_led;                /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:19 */
+		led1 = &blue_led;                 /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:20 */
+		led2 = &red_led;                  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:21 */
+		sw0 = &user_button_3;             /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:22 */
+		sw1 = &user_button_2;             /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:23 */
+		magn0 = &fxos8700;                /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:24 */
+		accel0 = &fxos8700;               /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:25 */
+		mcuboot-button0 = &user_button_2; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:26 */
 	};
 
 	/* node '/soc' defined in zephyr/dts/arm/armv7-m.dtsi:6 */
@@ -107,8 +107,8 @@
 			             "nxp,sim-uuid";    /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:121 */
 			reg = < 0x40047000 0x1060 >;    /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:122 */
 			#clock-cells = < 0x3 >;         /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:123 */
-			pllfll-select = < 0x1 >;        /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:87 */
-			er32k-select = < 0x2 >;         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:88 */
+			pllfll-select = < 0x1 >;        /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:109 */
+			er32k-select = < 0x2 >;         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:110 */
 			phandle = < 0x3 >;              /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:179 */
 
 			/* node '/soc/sim@40047000/core_clk' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:125 */
@@ -163,35 +163,35 @@
 				erase-block-size = < 0x1000 >; /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:167 */
 				write-block-size = < 0x8 >;    /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:168 */
 
-				/* node '/soc/flash-controller@40020000/flash@0/partitions' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:220 */
+				/* node '/soc/flash-controller@40020000/flash@0/partitions' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:242 */
 				partitions {
-					compatible = "fixed-partitions"; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:221 */
-					#address-cells = < 0x1 >;        /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:222 */
-					#size-cells = < 0x1 >;           /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:223 */
+					compatible = "fixed-partitions"; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:243 */
+					#address-cells = < 0x1 >;        /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:244 */
+					#size-cells = < 0x1 >;           /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:245 */
 
-					/* node '/soc/flash-controller@40020000/flash@0/partitions/partition@0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:229 */
+					/* node '/soc/flash-controller@40020000/flash@0/partitions/partition@0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:251 */
 					boot_partition: partition@0 {
-						label = "mcuboot";     /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:230 */
-						reg = < 0x0 0x10000 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:231 */
-						read-only;             /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:232 */
+						label = "mcuboot";     /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:252 */
+						reg = < 0x0 0x10000 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:253 */
+						read-only;             /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:254 */
 					};
 
-					/* node '/soc/flash-controller@40020000/flash@0/partitions/partition@10000' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:235 */
+					/* node '/soc/flash-controller@40020000/flash@0/partitions/partition@10000' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:257 */
 					slot0_partition: partition@10000 {
-						label = "image-0";         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:236 */
-						reg = < 0x10000 0x69000 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:237 */
+						label = "image-0";         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:258 */
+						reg = < 0x10000 0x69000 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:259 */
 					};
 
-					/* node '/soc/flash-controller@40020000/flash@0/partitions/partition@79000' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:240 */
+					/* node '/soc/flash-controller@40020000/flash@0/partitions/partition@79000' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:262 */
 					slot1_partition: partition@79000 {
-						label = "image-1";         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:241 */
-						reg = < 0x79000 0x69000 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:242 */
+						label = "image-1";         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:263 */
+						reg = < 0x79000 0x69000 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:264 */
 					};
 
-					/* node '/soc/flash-controller@40020000/flash@0/partitions/partition@e2000' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:245 */
+					/* node '/soc/flash-controller@40020000/flash@0/partitions/partition@e2000' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:267 */
 					storage_partition: partition@e2000 {
-						label = "storage";         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:246 */
-						reg = < 0xe2000 0x1e000 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:247 */
+						label = "storage";         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:268 */
+						reg = < 0xe2000 0x1e000 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:269 */
 					};
 				};
 			};
@@ -206,17 +206,17 @@
 			reg = < 0x40066000 0x1000 >;             /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:177 */
 			interrupts = < 0x18 0x0 >;               /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:178 */
 			clocks = < &sim 0x81a18400 0x1034 0x6 >; /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:179 */
-			status = "okay";                         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:124 */
-			pinctrl-0 = < &i2c0_default >;           /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:125 */
-			pinctrl-names = "default";               /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:126 */
-			phandle = < 0x24 >;                      /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:54 */
+			status = "okay";                         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:146 */
+			pinctrl-0 = < &i2c0_default >;           /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:147 */
+			pinctrl-names = "default";               /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:148 */
+			phandle = < 0x24 >;                      /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:59 */
 
-			/* node '/soc/i2c@40066000/fxos8700@1d' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:128 */
+			/* node '/soc/i2c@40066000/fxos8700@1d' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:150 */
 			fxos8700: fxos8700@1d {
-				compatible = "nxp,fxos8700";     /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:129 */
-				reg = < 0x1d >;                  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:130 */
-				int1-gpios = < &gpioc 0x6 0x1 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:131 */
-				int2-gpios = < &gpioc 0xd 0x1 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:132 */
+				compatible = "nxp,fxos8700";     /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:151 */
+				reg = < 0x1d >;                  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:152 */
+				int1-gpios = < &gpioc 0x6 0x1 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:153 */
+				int2-gpios = < &gpioc 0xd 0x1 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:154 */
 			};
 		};
 
@@ -253,10 +253,10 @@
 			interrupt-names = "status",
 			                  "error";               /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:209 */
 			clocks = < &sim 0x81a28000 0x1034 0xa >; /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:210 */
-			status = "okay";                         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:182 */
-			current-speed = < 0x1c200 >;             /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:183 */
-			pinctrl-0 = < &uart0_default >;          /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:184 */
-			pinctrl-names = "default";               /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:185 */
+			status = "okay";                         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:204 */
+			current-speed = < 0x1c200 >;             /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:205 */
+			pinctrl-0 = < &uart0_default >;          /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:206 */
+			pinctrl-names = "default";               /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:207 */
 		};
 
 		/* node '/soc/uart@4006b000' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:215 */
@@ -281,8 +281,8 @@
 			                  "error";               /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:229 */
 			clocks = < &sim 0x81a30400 0x1034 0xc >; /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:230 */
 			status = "disabled";                     /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:232 */
-			pinctrl-0 = < &uart2_default >;          /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:189 */
-			pinctrl-names = "default";               /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:190 */
+			pinctrl-0 = < &uart2_default >;          /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:211 */
+			pinctrl-names = "default";               /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:212 */
 		};
 
 		/* node '/soc/uart@4006d000' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:235 */
@@ -294,11 +294,11 @@
 			interrupt-names = "status",
 			                  "error";               /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:239 */
 			clocks = < &sim 0x81a34400 0x1034 0xd >; /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:240 */
-			status = "okay";                         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:92 */
-			current-speed = < 0x1c200 >;             /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:93 */
-			pinctrl-0 = < &uart3_default >;          /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:94 */
-			pinctrl-names = "default";               /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:95 */
-			phandle = < 0x26 >;                      /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:56 */
+			status = "okay";                         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:114 */
+			current-speed = < 0x1c200 >;             /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:115 */
+			pinctrl-0 = < &uart3_default >;          /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:116 */
+			pinctrl-names = "default";               /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:117 */
+			phandle = < 0x26 >;                      /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:61 */
 		};
 
 		/* node '/soc/uart@400ea000' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:245 */
@@ -373,8 +373,8 @@
 			gpio-controller;                 /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:300 */
 			#gpio-cells = < 0x2 >;           /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:301 */
 			nxp,kinetis-port = < &porta >;   /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:302 */
-			status = "okay";                 /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:200 */
-			phandle = < 0x22 >;              /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:31 */
+			status = "okay";                 /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:222 */
+			phandle = < 0x22 >;              /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:70 */
 		};
 
 		/* node '/soc/gpio@400ff040' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:305 */
@@ -385,8 +385,8 @@
 			gpio-controller;                 /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:310 */
 			#gpio-cells = < 0x2 >;           /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:311 */
 			nxp,kinetis-port = < &portb >;   /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:312 */
-			status = "okay";                 /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:204 */
-			phandle = < 0x21 >;              /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:31 */
+			status = "okay";                 /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:226 */
+			phandle = < 0x21 >;              /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:44 */
 		};
 
 		/* node '/soc/gpio@400ff080' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:315 */
@@ -397,8 +397,8 @@
 			gpio-controller;                 /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:320 */
 			#gpio-cells = < 0x2 >;           /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:321 */
 			nxp,kinetis-port = < &portc >;   /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:322 */
-			status = "okay";                 /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:208 */
-			phandle = < 0x5 >;               /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:131 */
+			status = "okay";                 /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:230 */
+			phandle = < 0x5 >;               /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:153 */
 		};
 
 		/* node '/soc/gpio@400ff0c0' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:325 */
@@ -409,8 +409,8 @@
 			gpio-controller;                 /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:330 */
 			#gpio-cells = < 0x2 >;           /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:331 */
 			nxp,kinetis-port = < &portd >;   /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:332 */
-			status = "okay";                 /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:212 */
-			phandle = < 0x23 >;              /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:31 */
+			status = "okay";                 /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:234 */
+			phandle = < 0x23 >;              /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:80 */
 		};
 
 		/* node '/soc/gpio@400ff100' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:335 */
@@ -421,8 +421,8 @@
 			gpio-controller;                 /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:340 */
 			#gpio-cells = < 0x2 >;           /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:341 */
 			nxp,kinetis-port = < &porte >;   /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:342 */
-			status = "okay";                 /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:216 */
-			phandle = < 0x13 >;              /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:146 */
+			status = "okay";                 /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:238 */
+			phandle = < 0x13 >;              /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:168 */
 		};
 
 		/* node '/soc/spi@4002c000' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:345 */
@@ -439,12 +439,12 @@
 			clocks = < &sim 0x81e30400 0x103c 0xc >; /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:353 */
 			#address-cells = < 0x1 >;                /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:354 */
 			#size-cells = < 0x0 >;                   /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:355 */
-			status = "okay";                         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:137 */
-			pinctrl-0 = < &spi0_default >;           /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:138 */
-			pinctrl-names = "default";               /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:139 */
+			status = "okay";                         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:159 */
+			pinctrl-0 = < &spi0_default >;           /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:160 */
+			pinctrl-names = "default";               /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:161 */
 			cs-gpios = < &adapter_1_mb1 0x2 0x1 >,
 			           < &adapter_1_mb2 0x2 0x1 >;   /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:26 */
-			phandle = < 0x25 >;                      /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:55 */
+			phandle = < 0x25 >;                      /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:60 */
 
 			/* node '/soc/spi@4002c000/eth@0' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:27 */
 			eth_1_eth: eth@0 {
@@ -484,23 +484,23 @@
 			clocks = < &sim 0x81e34400 0x103c 0xd >; /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:368 */
 			#address-cells = < 0x1 >;                /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:369 */
 			#size-cells = < 0x0 >;                   /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:370 */
-			status = "okay";                         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:143 */
-			pinctrl-0 = < &spi1_default >;           /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:144 */
-			pinctrl-names = "default";               /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:145 */
-			cs-gpios = < &gpioe 0x4 0x1 >;           /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:146 */
+			status = "okay";                         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:165 */
+			pinctrl-0 = < &spi1_default >;           /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:166 */
+			pinctrl-names = "default";               /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:167 */
+			cs-gpios = < &gpioe 0x4 0x1 >;           /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:168 */
 
-			/* node '/soc/spi@4002d000/sdhc@0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:148 */
+			/* node '/soc/spi@4002d000/sdhc@0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:170 */
 			sdhc0: sdhc@0 {
-				compatible = "zephyr,sdhc-spi-slot"; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:149 */
-				reg = < 0x0 >;                       /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:150 */
-				status = "okay";                     /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:151 */
-				spi-max-frequency = < 0x16e3600 >;   /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:159 */
+				compatible = "zephyr,sdhc-spi-slot"; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:171 */
+				reg = < 0x0 >;                       /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:172 */
+				status = "okay";                     /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:173 */
+				spi-max-frequency = < 0x16e3600 >;   /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:181 */
 
-				/* node '/soc/spi@4002d000/sdhc@0/sdmmc' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:153 */
+				/* node '/soc/spi@4002d000/sdhc@0/sdmmc' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:175 */
 				sdmmc {
-					compatible = "zephyr,sdmmc-disk"; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:154 */
-					disk-name = "SD";                 /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:155 */
-					status = "okay";                  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:156 */
+					compatible = "zephyr,sdmmc-disk"; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:176 */
+					disk-name = "SD";                 /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:177 */
+					status = "okay";                  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:178 */
 				};
 			};
 		};
@@ -537,12 +537,12 @@
 			interrupts = < 0x2a 0x0 >;     /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:399 */
 			clocks = < &mcg 0x0 >;         /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:400 */
 			prescaler = < 0x10 >;          /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:401 */
-			status = "okay";               /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:164 */
-			compatible = "nxp,ftm-pwm";    /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:165 */
-			#pwm-cells = < 0x3 >;          /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:166 */
-			pinctrl-0 = < &ftm0_default >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:167 */
-			pinctrl-names = "default";     /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:168 */
-			clock-source = "fixed";        /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:169 */
+			status = "okay";               /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:186 */
+			compatible = "nxp,ftm-pwm";    /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:187 */
+			#pwm-cells = < 0x3 >;          /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:188 */
+			pinctrl-0 = < &ftm0_default >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:189 */
+			pinctrl-names = "default";     /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:190 */
+			clock-source = "fixed";        /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:191 */
 		};
 
 		/* node '/soc/ftm@40039000' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:405 */
@@ -571,12 +571,12 @@
 			interrupts = < 0x47 0x0 >;     /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:426 */
 			clocks = < &mcg 0x0 >;         /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:427 */
 			prescaler = < 0x10 >;          /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:428 */
-			status = "okay";               /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:173 */
-			compatible = "nxp,ftm-pwm";    /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:174 */
-			#pwm-cells = < 0x3 >;          /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:175 */
-			pinctrl-0 = < &ftm3_default >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:176 */
-			pinctrl-names = "default";     /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:177 */
-			clock-source = "fixed";        /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:178 */
+			status = "okay";               /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:195 */
+			compatible = "nxp,ftm-pwm";    /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:196 */
+			#pwm-cells = < 0x3 >;          /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:197 */
+			pinctrl-0 = < &ftm3_default >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:198 */
+			pinctrl-names = "default";     /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:199 */
+			clock-source = "fixed";        /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:200 */
 		};
 
 		/* node '/soc/adc@4003b000' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:432 */
@@ -590,9 +590,9 @@
 			clk-source = < 0x0 >;                /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:439 */
 			interrupts = < 0x27 0x0 >;           /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:440 */
 			#io-channel-cells = < 0x1 >;         /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:442 */
-			status = "okay";                     /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:103 */
-			pinctrl-0 = < &adc0_default >;       /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:104 */
-			pinctrl-names = "default";           /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:105 */
+			status = "okay";                     /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:125 */
+			pinctrl-0 = < &adc0_default >;       /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:126 */
+			pinctrl-names = "default";           /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:127 */
 			phandle = < 0x1f >;                  /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:59 */
 		};
 
@@ -607,9 +607,9 @@
 			clk-source = < 0x0 >;                  /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:452 */
 			interrupts = < 0x49 0x0 >;             /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:453 */
 			#io-channel-cells = < 0x1 >;           /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:455 */
-			status = "okay";                       /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:109 */
-			pinctrl-0 = < &adc1_default >;         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:110 */
-			pinctrl-names = "default";             /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:111 */
+			status = "okay";                       /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:131 */
+			pinctrl-0 = < &adc1_default >;         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:132 */
+			pinctrl-names = "default";             /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:133 */
 			phandle = < 0x20 >;                    /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:70 */
 		};
 
@@ -619,8 +619,8 @@
 			reg = < 0x400cc000 0x1000 >;    /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:460 */
 			interrupts = < 0x38 0x0 >;      /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:461 */
 			#io-channel-cells = < 0x1 >;    /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:464 */
-			status = "okay";                /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:119 */
-			voltage-reference = < 0x2 >;    /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:120 */
+			status = "okay";                /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:141 */
+			voltage-reference = < 0x2 >;    /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:142 */
 		};
 
 		/* node '/soc/dac@400cd000' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:467 */
@@ -638,9 +638,9 @@
 			reg = < 0x40072000 0x1000 >;     /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:478 */
 			interrupts = < 0x35 0x1 >;       /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:479 */
 			interrupt-names = "usb_otg";     /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:480 */
-			compatible = "nxp,kinetis-usbd"; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:194 */
-			status = "okay";                 /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:195 */
-			num-bidir-endpoints = < 0x8 >;   /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:196 */
+			compatible = "nxp,kinetis-usbd"; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:216 */
+			status = "okay";                 /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:217 */
+			num-bidir-endpoints = < 0x8 >;   /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:218 */
 		};
 
 		/* node '/soc/ethernet@400c0000' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:485 */
@@ -648,9 +648,9 @@
 			compatible = "nxp,enet";                 /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:486 */
 			reg = < 0x400c0000 0x620 >;              /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:487 */
 			clocks = < &sim 0x81600000 0x102c 0x0 >; /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:488 */
-			status = "okay";                         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:253 */
-			pinctrl-0 = < &pinmux_enet >;            /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:254 */
-			pinctrl-names = "default";               /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:255 */
+			status = "okay";                         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:275 */
+			pinctrl-0 = < &pinmux_enet >;            /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:276 */
+			pinctrl-names = "default";               /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:277 */
 
 			/* node '/soc/ethernet@400c0000/ethernet' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:490 */
 			enet_mac: ethernet {
@@ -663,10 +663,10 @@
 				                  "ERR";         /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:493 */
 				nxp,mdio = < &enet_mdio >;       /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:494 */
 				ptp-clock = < &enet_ptp_clock >; /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:495 */
-				status = "okay";                 /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:259 */
-				phy-handle = < &phy >;           /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:260 */
-				zephyr,random-mac-address;       /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:261 */
-				phy-connection-type = "rmii";    /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:262 */
+				status = "okay";                 /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:281 */
+				phy-handle = < &phy >;           /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:282 */
+				zephyr,random-mac-address;       /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:283 */
+				phy-connection-type = "rmii";    /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:284 */
 			};
 
 			/* node '/soc/ethernet@400c0000/mdio' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:500 */
@@ -674,18 +674,18 @@
 				compatible = "nxp,enet-mdio";      /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:501 */
 				#address-cells = < 0x1 >;          /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:503 */
 				#size-cells = < 0x0 >;             /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:504 */
-				status = "okay";                   /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:266 */
-				pinctrl-0 = < &pinmux_enet_mdio >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:267 */
-				pinctrl-names = "default";         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:268 */
+				status = "okay";                   /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:288 */
+				pinctrl-0 = < &pinmux_enet_mdio >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:289 */
+				pinctrl-names = "default";         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:290 */
 				phandle = < 0x19 >;                /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:494 */
 
-				/* node '/soc/ethernet@400c0000/mdio/phy@0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:270 */
+				/* node '/soc/ethernet@400c0000/mdio/phy@0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:292 */
 				phy: phy@0 {
-					compatible = "microchip,ksz8081";        /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:271 */
-					reg = < 0x0 >;                           /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:272 */
-					status = "okay";                         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:273 */
-					microchip,interface-type = "rmii-25MHz"; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:274 */
-					phandle = < 0x1b >;                      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:260 */
+					compatible = "microchip,ksz8081";        /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:293 */
+					reg = < 0x0 >;                           /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:294 */
+					status = "okay";                         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:295 */
+					microchip,interface-type = "rmii-25MHz"; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:296 */
+					phandle = < 0x1b >;                      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:282 */
 				};
 			};
 
@@ -695,9 +695,9 @@
 				interrupts = < 0x52 0x0 >;         /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:509 */
 				interrupt-names = "IEEE1588_TMR";  /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:510 */
 				clocks = < &sim 0x1000 0x0 0x0 >;  /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:511 */
-				status = "okay";                   /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:279 */
-				pinctrl-0 = < &pinmux_ptp >;       /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:280 */
-				pinctrl-names = "default";         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:281 */
+				status = "okay";                   /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:301 */
+				pinctrl-0 = < &pinmux_ptp >;       /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:302 */
+				pinctrl-names = "default";         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:303 */
 				phandle = < 0x1a >;                /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:495 */
 			};
 		};
@@ -732,9 +732,9 @@
 			              "clksrc1";                 /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:532 */
 			clk-source = < 0x1 >;                    /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:533 */
 			number-of-mb = < 0x10 >;                 /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:534 */
-			status = "okay";                         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:285 */
-			pinctrl-0 = < &flexcan0_default >;       /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:286 */
-			pinctrl-names = "default";               /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:287 */
+			status = "okay";                         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:307 */
+			pinctrl-0 = < &flexcan0_default >;       /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:308 */
+			pinctrl-names = "default";               /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:309 */
 		};
 
 		/* node '/soc/dma-controller@40008000' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:538 */
@@ -766,7 +766,7 @@
 			             < 0x10 0x0 >;               /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:547 */
 			clocks = < &sim 0x82004000 0x1040 0x1 >,
 			         < &sim 0x81e04400 0x103c 0x1 >; /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:552 */
-			status = "okay";                         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:291 */
+			status = "okay";                         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:313 */
 			phandle = < 0xe >;                       /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:349 */
 		};
 
@@ -778,7 +778,7 @@
 			max-load-value = < 0xffffffff >;          /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:563 */
 			#address-cells = < 0x1 >;                 /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:564 */
 			#size-cells = < 0x0 >;                    /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:565 */
-			status = "okay";                          /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:295 */
+			status = "okay";                          /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:317 */
 
 			/* node '/soc/pit@40037000/pit0_channel@0' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:567 */
 			pit0_channel0: pit0_channel@0 {
@@ -824,7 +824,7 @@
 			device_type = "cpu";             /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:31 */
 			compatible = "arm,cortex-m4f";   /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:32 */
 			reg = < 0x0 >;                   /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:33 */
-			clock-frequency = < 0x7270e00 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:99 */
+			clock-frequency = < 0x7270e00 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:121 */
 		};
 	};
 
@@ -867,7 +867,7 @@
 		vtemp25 = < 0xaece0 >;                  /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:73 */
 		sensor-slope-cold = < 0x654 >;          /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:74 */
 		sensor-slope-hot = < 0x654 >;           /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:75 */
-		status = "okay";                        /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:115 */
+		status = "okay";                        /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:137 */
 	};
 
 	/* node '/pinctrl' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:80 */
@@ -875,35 +875,35 @@
 		compatible = "nxp,port-pinctrl"; /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:81 */
 		status = "okay";                 /* in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:82 */
 
-		/* node '/pinctrl/adc0_default' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:12 */
+		/* node '/pinctrl/adc0_default' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:12 */
 		adc0_default: adc0_default {
-			phandle = < 0x16 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:104 */
+			phandle = < 0x16 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:126 */
 
-			/* node '/pinctrl/adc0_default/group0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:13 */
+			/* node '/pinctrl/adc0_default/group0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:13 */
 			group0 {
-				pinmux = < 0x20000000 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:14 */
-				drive-strength = "low";  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:15 */
-				slew-rate = "fast";      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:16 */
+				pinmux = < 0x20000000 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:14 */
+				drive-strength = "low";  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:15 */
+				slew-rate = "fast";      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:16 */
 			};
 		};
 
-		/* node '/pinctrl/adc1_default' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:20 */
+		/* node '/pinctrl/adc1_default' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:20 */
 		adc1_default: adc1_default {
-			phandle = < 0x17 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:110 */
+			phandle = < 0x17 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:132 */
 
-			/* node '/pinctrl/adc1_default/group0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:21 */
+			/* node '/pinctrl/adc1_default/group0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:21 */
 			group0 {
-				pinmux = < 0x12800000 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:22 */
-				drive-strength = "low";  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:23 */
-				slew-rate = "fast";      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:24 */
+				pinmux = < 0x12800000 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:22 */
+				drive-strength = "low";  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:23 */
+				slew-rate = "fast";      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:24 */
 			};
 		};
 
-		/* node '/pinctrl/pinmux_enet' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:28 */
+		/* node '/pinctrl/pinmux_enet' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:28 */
 		pinmux_enet: pinmux_enet {
-			phandle = < 0x18 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:254 */
+			phandle = < 0x18 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:276 */
 
-			/* node '/pinctrl/pinmux_enet/group1' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:29 */
+			/* node '/pinctrl/pinmux_enet/group1' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:29 */
 			group1 {
 				pinmux = < 0x1400400 >,
 				         < 0x3000400 >,
@@ -911,197 +911,239 @@
 				         < 0x3800400 >,
 				         < 0x3c00400 >,
 				         < 0x4000400 >,
-				         < 0x4400400 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:30 */
-				drive-strength = "low"; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:37 */
-				slew-rate = "fast";     /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:38 */
+				         < 0x4400400 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:30 */
+				drive-strength = "low"; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:37 */
+				slew-rate = "fast";     /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:38 */
 			};
 		};
 
-		/* node '/pinctrl/pinmux_enet_mdio' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:42 */
+		/* node '/pinctrl/pinmux_enet_mdio' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:42 */
 		pinmux_enet_mdio: pinmux_enet_mdio {
-			phandle = < 0x1c >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:267 */
+			phandle = < 0x1c >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:289 */
 
-			/* node '/pinctrl/pinmux_enet_mdio/group0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:43 */
+			/* node '/pinctrl/pinmux_enet_mdio/group0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:43 */
 			group0 {
-				pinmux = < 0x10000400 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:44 */
-				drive-strength = "low";  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:45 */
-				drive-open-drain;        /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:46 */
-				bias-pull-up;            /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:47 */
-				slew-rate = "fast";      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:48 */
+				pinmux = < 0x10000400 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:44 */
+				drive-strength = "low";  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:45 */
+				drive-open-drain;        /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:46 */
+				bias-pull-up;            /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:47 */
+				slew-rate = "fast";      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:48 */
 			};
 
-			/* node '/pinctrl/pinmux_enet_mdio/group1' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:51 */
+			/* node '/pinctrl/pinmux_enet_mdio/group1' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:51 */
 			group1 {
-				pinmux = < 0x10400400 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:52 */
-				drive-strength = "low";  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:53 */
-				slew-rate = "fast";      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:54 */
+				pinmux = < 0x10400400 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:52 */
+				drive-strength = "low";  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:53 */
+				slew-rate = "fast";      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:54 */
 			};
 		};
 
-		/* node '/pinctrl/pinmux_ptp' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:58 */
+		/* node '/pinctrl/pinmux_ptp' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:58 */
 		pinmux_ptp: pinmux_ptp {
-			phandle = < 0x1d >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:280 */
+			phandle = < 0x1d >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:302 */
 
-			/* node '/pinctrl/pinmux_ptp/group0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:59 */
+			/* node '/pinctrl/pinmux_ptp/group0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:59 */
 			group0 {
 				pinmux = < 0x24000400 >,
 				         < 0x24400400 >,
-				         < 0x24800400 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:60 */
-				drive-strength = "low";  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:63 */
-				slew-rate = "fast";      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:64 */
+				         < 0x24800400 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:60 */
+				drive-strength = "low";  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:63 */
+				slew-rate = "fast";      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:64 */
 			};
 		};
 
-		/* node '/pinctrl/flexcan0_default' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:68 */
+		/* node '/pinctrl/flexcan0_default' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:68 */
 		flexcan0_default: flexcan0_default {
-			phandle = < 0x1e >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:286 */
+			phandle = < 0x1e >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:308 */
 
-			/* node '/pinctrl/flexcan0_default/group0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:69 */
+			/* node '/pinctrl/flexcan0_default/group0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:69 */
 			group0 {
-				pinmux = < 0x14c00200 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:70 */
-				drive-strength = "low";  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:71 */
-				bias-pull-up;            /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:72 */
-				slew-rate = "fast";      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:73 */
+				pinmux = < 0x14c00200 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:70 */
+				drive-strength = "low";  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:71 */
+				bias-pull-up;            /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:72 */
+				slew-rate = "fast";      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:73 */
 			};
 
-			/* node '/pinctrl/flexcan0_default/group1' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:76 */
+			/* node '/pinctrl/flexcan0_default/group1' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:76 */
 			group1 {
-				pinmux = < 0x14800200 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:77 */
-				drive-strength = "low";  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:78 */
-				slew-rate = "fast";      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:79 */
+				pinmux = < 0x14800200 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:77 */
+				drive-strength = "low";  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:78 */
+				slew-rate = "fast";      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:79 */
 			};
 		};
 
-		/* node '/pinctrl/ftm0_default' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:83 */
+		/* node '/pinctrl/ftm0_default' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:83 */
 		ftm0_default: ftm0_default {
-			phandle = < 0x14 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:167 */
+			phandle = < 0x14 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:189 */
 
-			/* node '/pinctrl/ftm0_default/group0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:84 */
+			/* node '/pinctrl/ftm0_default/group0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:84 */
 			group0 {
-				pinmux = < 0x20400400 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:85 */
-				drive-strength = "low";  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:86 */
-				slew-rate = "fast";      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:87 */
+				pinmux = < 0x20400400 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:85 */
+				drive-strength = "low";  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:86 */
+				slew-rate = "fast";      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:87 */
 			};
 		};
 
-		/* node '/pinctrl/ftm3_default' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:91 */
+		/* node '/pinctrl/ftm3_default' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:91 */
 		ftm3_default: ftm3_default {
-			phandle = < 0x15 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:176 */
+			phandle = < 0x15 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:198 */
 
-			/* node '/pinctrl/ftm3_default/group0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:92 */
+			/* node '/pinctrl/ftm3_default/group0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:92 */
 			group0 {
 				pinmux = < 0x22000300 >,
-				         < 0x22400300 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:93 */
-				drive-strength = "low";  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:95 */
-				slew-rate = "fast";      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:96 */
+				         < 0x22400300 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:93 */
+				drive-strength = "low";  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:95 */
+				slew-rate = "fast";      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:96 */
 			};
 		};
 
-		/* node '/pinctrl/i2c0_default' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:100 */
+		/* node '/pinctrl/i2c0_default' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:100 */
 		i2c0_default: i2c0_default {
-			phandle = < 0x4 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:125 */
+			phandle = < 0x4 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:147 */
 
-			/* node '/pinctrl/i2c0_default/group0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:101 */
+			/* node '/pinctrl/i2c0_default/group0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:101 */
 			group0 {
 				pinmux = < 0x46000500 >,
-				         < 0x46400500 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:102 */
-				drive-strength = "low";  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:104 */
-				drive-open-drain;        /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:105 */
-				slew-rate = "fast";      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:106 */
+				         < 0x46400500 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:102 */
+				drive-strength = "low";  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:104 */
+				drive-open-drain;        /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:105 */
+				slew-rate = "fast";      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:106 */
 			};
 		};
 
-		/* node '/pinctrl/ptp_default' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:111 */
+		/* node '/pinctrl/ptp_default' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:111 */
 		ptp_default: ptp_default {
 
-			/* node '/pinctrl/ptp_default/group0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:112 */
+			/* node '/pinctrl/ptp_default/group0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:112 */
 			group0 {
 				pinmux = < 0x24000400 >,
 				         < 0x24400400 >,
-				         < 0x24800400 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:113 */
-				drive-strength = "low";  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:116 */
-				slew-rate = "fast";      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:117 */
+				         < 0x24800400 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:113 */
+				drive-strength = "low";  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:116 */
+				slew-rate = "fast";      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:117 */
 			};
 		};
 
-		/* node '/pinctrl/spi0_default' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:122 */
+		/* node '/pinctrl/spi0_default' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:122 */
 		spi0_default: spi0_default {
-			phandle = < 0xf >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:138 */
+			phandle = < 0xf >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:160 */
 
-			/* node '/pinctrl/spi0_default/group0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:123 */
+			/* node '/pinctrl/spi0_default/group0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:123 */
 			group0 {
 				pinmux = < 0x30000200 >,
 				         < 0x30400200 >,
 				         < 0x30800200 >,
-				         < 0x30c00200 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:124 */
-				drive-strength = "low";  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:128 */
-				slew-rate = "fast";      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:129 */
+				         < 0x30c00200 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:124 */
+				drive-strength = "low";  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:128 */
+				slew-rate = "fast";      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:129 */
 			};
 		};
 
-		/* node '/pinctrl/spi1_default' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:133 */
+		/* node '/pinctrl/spi1_default' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:133 */
 		spi1_default: spi1_default {
-			phandle = < 0x12 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:144 */
+			phandle = < 0x12 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:166 */
 
-			/* node '/pinctrl/spi1_default/group0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:134 */
+			/* node '/pinctrl/spi1_default/group0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:134 */
 			group0 {
 				pinmux = < 0x41000200 >,
 				         < 0x40800200 >,
 				         < 0x40c00700 >,
-				         < 0x40400700 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:135 */
-				drive-strength = "low";  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:139 */
-				slew-rate = "fast";      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:140 */
+				         < 0x40400700 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:135 */
+				drive-strength = "low";  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:139 */
+				slew-rate = "fast";      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:140 */
 			};
 		};
 
-		/* node '/pinctrl/uart0_default' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:144 */
+		/* node '/pinctrl/uart0_default' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:144 */
 		uart0_default: uart0_default {
-			phandle = < 0x6 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:184 */
+			phandle = < 0x6 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:206 */
 
-			/* node '/pinctrl/uart0_default/group0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:145 */
+			/* node '/pinctrl/uart0_default/group0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:145 */
 			group0 {
 				pinmux = < 0x14000300 >,
-				         < 0x14400300 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:146 */
-				drive-strength = "low";  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:148 */
-				slew-rate = "fast";      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:149 */
+				         < 0x14400300 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:146 */
+				drive-strength = "low";  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:148 */
+				slew-rate = "fast";      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:149 */
 			};
 		};
 
-		/* node '/pinctrl/uart2_default' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:154 */
+		/* node '/pinctrl/uart2_default' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:154 */
 		uart2_default: uart2_default {
-			phandle = < 0x7 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:189 */
+			phandle = < 0x7 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:211 */
 
-			/* node '/pinctrl/uart2_default/group0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:155 */
+			/* node '/pinctrl/uart2_default/group0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:155 */
 			group0 {
 				pinmux = < 0x30400300 >,
 				         < 0x30000300 >,
 				         < 0x30800300 >,
-				         < 0x30c00300 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:156 */
-				drive-strength = "low";  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:160 */
-				slew-rate = "fast";      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:161 */
+				         < 0x30c00300 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:156 */
+				drive-strength = "low";  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:160 */
+				slew-rate = "fast";      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:161 */
 			};
 		};
 
-		/* node '/pinctrl/uart3_default' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:166 */
+		/* node '/pinctrl/uart3_default' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:166 */
 		uart3_default: uart3_default {
-			phandle = < 0x8 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:94 */
+			phandle = < 0x8 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:116 */
 
-			/* node '/pinctrl/uart3_default/group0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:167 */
+			/* node '/pinctrl/uart3_default/group0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:167 */
 			group0 {
 				pinmux = < 0x24000300 >,
-				         < 0x24400300 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:168 */
-				drive-strength = "low";  /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:170 */
-				slew-rate = "fast";      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr-pinctrl.dtsi:171 */
+				         < 0x24400300 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:168 */
+				drive-strength = "low";  /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:170 */
+				slew-rate = "fast";      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f-pinctrl.dtsi:171 */
 			};
 		};
 	};
 
-	/* node '/connector_arduino_r3' defined in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:26 */
-	frdm_ard: connector_arduino_r3 {
-		compatible = "socket,arduino-r3";          /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:27 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:28 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:29 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:30 */
+	/* node '/leds' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:40 */
+	leds {
+		compatible = "gpio-leds"; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:41 */
+
+		/* node '/leds/led_0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:43 */
+		red_led: led_0 {
+			gpios = < &gpiob 0x16 0x1 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:44 */
+			label = "User LD1";          /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:45 */
+		};
+
+		/* node '/leds/led_1' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:48 */
+		green_led: led_1 {
+			gpios = < &gpioe 0x1a 0x1 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:49 */
+			label = "User LD2";          /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:50 */
+		};
+
+		/* node '/leds/led_2' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:53 */
+		blue_led: led_2 {
+			gpios = < &gpiob 0x15 0x1 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:54 */
+			label = "User LD3";          /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:55 */
+		};
+	};
+
+	/* node '/gpio_keys' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:59 */
+	gpio_keys {
+		compatible = "gpio-keys"; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:60 */
+
+		/* node '/gpio_keys/button_0' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:62 */
+		user_button_2: button_0 {
+			label = "User SW2";         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:63 */
+			gpios = < &gpioc 0x6 0x1 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:64 */
+			zephyr,code = < 0xb >;      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:65 */
+		};
+
+		/* node '/gpio_keys/button_1' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:68 */
+		user_button_3: button_1 {
+			label = "User SW3";         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:69 */
+			gpios = < &gpioa 0x4 0x1 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:70 */
+			zephyr,code = < 0x2 >;      /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:71 */
+		};
+	};
+
+	/* node '/connector' defined in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:75 */
+	arduino_header: connector {
+		compatible = "arduino-header-r3";          /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:76 */
+		#gpio-cells = < 0x2 >;                     /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:77 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:78 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:79 */
 		gpio-map = < 0x0 0x0 &gpiob 0x2 0x0 >,
 		           < 0x1 0x0 &gpiob 0x3 0x0 >,
 		           < 0x2 0x0 &gpiob 0xa 0x0 >,
@@ -1123,54 +1165,42 @@
 		           < 0x12 0x0 &gpiod 0x3 0x0 >,
 		           < 0x13 0x0 &gpiod 0x1 0x0 >,
 		           < 0x14 0x0 &gpioe 0x19 0x0 >,
-		           < 0x15 0x0 &gpioe 0x18 0x0 >;   /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:31 */
-		socket,i2c = < &i2c0 >;                    /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:54 */
-		socket,spi = < &spi0 >;                    /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:55 */
-		socket,uart = < &uart3 >;                  /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:56 */
-		socket,stackable;                          /* in btr-shields/boards/nxp/frdm_k64f_btr/arduino_r3_socket.dtsi:57 */
+		           < 0x15 0x0 &gpioe 0x18 0x0 >;   /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:80 */
+	};
+
+	/* node '/connector_arduino_r3' defined in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:31 */
+	frdm_ard: connector_arduino_r3 {
+		compatible = "socket,arduino-r3";          /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:32 */
+		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:33 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:34 */
+		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:35 */
+		gpio-map = < 0x0 0x0 &gpiob 0x2 0x0 >,
+		           < 0x1 0x0 &gpiob 0x3 0x0 >,
+		           < 0x2 0x0 &gpiob 0xa 0x0 >,
+		           < 0x3 0x0 &gpiob 0xb 0x0 >,
+		           < 0x4 0x0 &gpioc 0xb 0x0 >,
+		           < 0x5 0x0 &gpioc 0xa 0x0 >,
+		           < 0x6 0x0 &gpioc 0x10 0x0 >,
+		           < 0x7 0x0 &gpioc 0x11 0x0 >,
+		           < 0x8 0x0 &gpiob 0x9 0x0 >,
+		           < 0x9 0x0 &gpioa 0x1 0x0 >,
+		           < 0xa 0x0 &gpiob 0x17 0x0 >,
+		           < 0xb 0x0 &gpioa 0x2 0x0 >,
+		           < 0xc 0x0 &gpioc 0x2 0x0 >,
+		           < 0xd 0x0 &gpioc 0x3 0x0 >,
+		           < 0xe 0x0 &gpioc 0xc 0x0 >,
+		           < 0xf 0x0 &gpioc 0x4 0x0 >,
+		           < 0x10 0x0 &gpiod 0x0 0x0 >,
+		           < 0x11 0x0 &gpiod 0x2 0x0 >,
+		           < 0x12 0x0 &gpiod 0x3 0x0 >,
+		           < 0x13 0x0 &gpiod 0x1 0x0 >,
+		           < 0x14 0x0 &gpioe 0x19 0x0 >,
+		           < 0x15 0x0 &gpioe 0x18 0x0 >;   /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:36 */
+		socket,i2c = < &i2c0 >;                    /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:59 */
+		socket,spi = < &spi0 >;                    /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:60 */
+		socket,uart = < &uart3 >;                  /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:61 */
+		socket,stackable;                          /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:62 */
 		phandle = < 0x27 >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:11 */
-	};
-
-	/* node '/leds' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:50 */
-	leds {
-		compatible = "gpio-leds"; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:51 */
-
-		/* node '/leds/led_0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:53 */
-		red_led: led_0 {
-			gpios = < &gpiob 0x16 0x1 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:54 */
-			label = "User LD1";          /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:55 */
-		};
-
-		/* node '/leds/led_1' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:58 */
-		green_led: led_1 {
-			gpios = < &gpioe 0x1a 0x1 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:59 */
-			label = "User LD2";          /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:60 */
-		};
-
-		/* node '/leds/led_2' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:63 */
-		blue_led: led_2 {
-			gpios = < &gpiob 0x15 0x1 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:64 */
-			label = "User LD3";          /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:65 */
-		};
-	};
-
-	/* node '/gpio_keys' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:69 */
-	gpio_keys {
-		compatible = "gpio-keys"; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:70 */
-
-		/* node '/gpio_keys/button_0' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:72 */
-		user_button_2: button_0 {
-			label = "User SW2";         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:73 */
-			gpios = < &gpioc 0x6 0x1 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:74 */
-			zephyr,code = < 0xb >;      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:75 */
-		};
-
-		/* node '/gpio_keys/button_1' defined in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:78 */
-		user_button_3: button_1 {
-			label = "User SW3";         /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:79 */
-			gpios = < &gpioa 0x4 0x1 >; /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:80 */
-			zephyr,code = < 0x2 >;      /* in btr-shields/boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts:81 */
-		};
 	};
 
 	/* node '/adapter_1_mb1' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:7 */

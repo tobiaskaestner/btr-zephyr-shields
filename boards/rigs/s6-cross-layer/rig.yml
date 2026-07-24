@@ -9,17 +9,18 @@
 # the board level, one two layers deep.
 #
 # Ported from frontend-trial/candidate-2-hybrid/s6-cross-layer.rig.yml; board
-# reference adjusted from `frdm_k64f` to `frdm_k64f_btr` (P3 3b); shield
-# references renamed hyphen->underscore (arduino-uno-click ->
-# arduino_uno_click, eth-click -> eth_click); adafruit-data-logger REUSES the
-# existing btr-shields shield `adafruit_data_logger` (already ported in 3a),
-# not recreated here.
+# reference migrated (E2) to the hwmv2 board EXTENSION `rig` variant of the
+# real upstream frdm_k64f — was `frdm_k64f_btr` (the clone; still present,
+# deleted in slice E4); shield references renamed hyphen->underscore
+# (arduino-uno-click -> arduino_uno_click, eth-click -> eth_click);
+# adafruit-data-logger REUSES the existing btr-shields shield
+# `adafruit_data_logger` (already ported in 3a), not recreated here.
 #
 # REJECT: no rig.conf (structural rejection, never reaches Kconfig).
 
 rig:
   name: frdm-cs-clash
-  board: frdm_k64f_btr
+  board: frdm_k64f/mk64f12/rig
   instances:
     - name: adapter_1
       shield: arduino_uno_click

@@ -1,0 +1,5 @@
+board:
+  extend: mikroe_quail
+  variants:
+    - name: rig
+      qualifier: stm32f427xx

@@ -45,17 +45,22 @@ DTS_EQUIV = REPO_ROOT / "scripts" / "dts_equiv.py"
 # goldens.py (--board-dts per rig) and test_board_read.py (the plain-build /
 # edt.pickle-cross-check corpus).
 #
-# nucleo_f401re: hwmv2 board EXTENSION (E1 slice, board-extension-
-# migration.md), not a clone -- `board:` is the FULL qualified target
-# (rig.yml names it explicitly, no expander-side sugar) and its .dts lives
-# under boards/extend/, layered on top of the REAL upstream
-# zephyr-rigs/boards/st/nucleo_f401re/nucleo_f401re.dts via `#include`. The
-# other three boards stay `_btr` clones (E2/E3 -- untouched by this slice).
+# nucleo_f401re/mikroe_quail/frdm_k64f: hwmv2 board EXTENSIONS (E1/E2
+# slices, board-extension-migration.md), not clones -- `board:` is the FULL
+# qualified target (rig.yml names it explicitly, no expander-side sugar) and
+# each one's .dts lives under boards/extend/, layered on top of the REAL
+# upstream board via `#include`. seeeduino_lotus stays a `_btr` clone (E3 --
+# untouched by this slice); the quail/frdm clones (mikroe_quail_btr,
+# frdm_k64f_btr) still exist on disk (E4 deletes them), just no corpus rig
+# names them any more, so they drop out of this table exactly as
+# nucleo_f401re_btr did in E1.
 BOARD_DTS: Dict[str, str] = {
     "nucleo_f401re/stm32f401xe/rig":
         "boards/extend/st/nucleo_f401re/nucleo_f401re_stm32f401xe_rig.dts",
-    "mikroe_quail_btr": "boards/mikroe/mikroe_quail_btr/mikroe_quail_btr.dts",
-    "frdm_k64f_btr": "boards/nxp/frdm_k64f_btr/frdm_k64f_btr.dts",
+    "mikroe_quail/stm32f427xx/rig":
+        "boards/extend/mikroe/quail/mikroe_quail_stm32f427xx_rig.dts",
+    "frdm_k64f/mk64f12/rig":
+        "boards/extend/nxp/frdm_k64f/frdm_k64f_mk64f12_rig.dts",
     "seeeduino_lotus_btr": "boards/seeed/seeeduino_lotus_btr/seeeduino_lotus_btr.dts",
 }
 BOARDS: List[str] = list(BOARD_DTS)

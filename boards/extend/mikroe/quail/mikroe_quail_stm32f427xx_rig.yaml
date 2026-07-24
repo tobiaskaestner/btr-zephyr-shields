@@ -1,0 +1,17 @@
+identifier: mikroe_quail_stm32f427xx_rig
+name: MikroE Quail for STM32 (rig extension variant)
+type: mcu
+arch: arm
+toolchain:
+  - zephyr
+  - gnuarmemb
+ram: 256
+flash: 2048
+supported:
+  - spi
+  - i2c
+  - uart
+  - adc
+  - gpio
+  - flash
+vendor: mikroe

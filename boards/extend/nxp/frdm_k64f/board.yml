@@ -1,0 +1,5 @@
+board:
+  extend: frdm_k64f
+  variants:
+    - name: rig
+      qualifier: mk64f12
