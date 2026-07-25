@@ -43,9 +43,9 @@
 #                                  recomputes DTS_ROOT / DTS_ROOT_SYSTEM_
 #                                  INCLUDE_DIRS for pass 2 (shield bindings
 #                                  included)
-#   7. overlay/conf handoff    -- prepend to EXTRA_DTC_OVERLAY_FILE /
-#                                  EXTRA_CONF_FILE (see "handoff semantics"
-#                                  below)
+#   7. overlay/conf handoff    -- prepend to EXTRA_DTC_OVERLAY_FILE; APPEND
+#                                  to shield_conf_files (see the asymmetry
+#                                  note at step 7 below)
 #   8. build_info provenance
 #   9. include(real dts.cmake) -- LAST line
 
@@ -651,28 +651,33 @@ pre_dt_module_run()
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
-# Step 7: overlay/conf handoff (handoff semantics, ratified change from the
-# old cache-FORCE mechanism -- see the refactor brief). By this point in the
-# module chain (slot 17), configuration_files.cmake (slot 14) has already
-# finalized EXTRA_DTC_OVERLAY_FILE and EXTRA_CONF_FILE as plain variables
-# (zephyr_get(... MERGE)), folding in any user `-DEXTRA_DTC_OVERLAY_FILE=`/
-# `-DEXTRA_CONF_FILE=`/`-DOVERLAY_CONFIG=`. A cache-FORCE write here would
-# silently clobber that user value; instead we PREPEND our rig fragments to
-# the existing plain variable. Precedence rule: user extras WIN -- a
-# user-passed value applies after all rig fragments (EXTRA_DTC_OVERLAY_FILE/
-# EXTRA_CONF_FILE apply their files in list order, later files taking
-# precedence) and can override them. Internal ordering within the rig
-# fragments is unchanged: expander output first, then the rig folder's own
-# hand-authored `<RIG>.overlay`/`<RIG>_defconfig`.
+# Step 7: overlay/conf handoff. DT and Kconfig ride DIFFERENT slots, and that
+# asymmetry is deliberate, not an oversight: the expander is the SOLE author
+# of DT (step 5's shield loop drops every shield's own `<name>.overlay`
+# entirely), so the rig's own DT fragments have no existing slot to join and
+# must PREPEND onto EXTRA_DTC_OVERLAY_FILE instead. Kconfig, by contrast, DOES
+# have an existing slot every rig build already populates -- shield_conf_files
+# (step 5) -- so the rig's own Kconfig fragments simply APPEND onto it, no
+# separate prepend mechanism needed. Should the expander ever start
+# authoring DT the shield loop currently drops (a rig-level shield overlay
+# override), this asymmetry is the first thing to revisit.
 #
-# EXTRA_DTC_OVERLAY_FILE fragments: the expander's generated overlay first,
-# then the rig folder's own hand-authored `<RIG>.overlay` (if present). The
-# latter is the DT counterpart of `<RIG>_defconfig` — a rig author supplies
-# DT the expander cannot emit, notably the board pinctrl pinmux fragment a
-# function needs to route on real silicon (R21 deep half): the expander
-# only enables the controller (status="okay") and names the pin in the
-# config sheet; it does not author SoC pinmux. Applied after the expander
-# overlay so it can augment nodes the expander created.
+# EXTRA_DTC_OVERLAY_FILE handoff (unchanged): by this point in the module
+# chain (slot 17), configuration_files.cmake (slot 14) has already finalized
+# EXTRA_DTC_OVERLAY_FILE as a plain variable (zephyr_get(... MERGE)), folding
+# in any user `-DEXTRA_DTC_OVERLAY_FILE=`/`-DOVERLAY_CONFIG=`. A cache-FORCE
+# write here would silently clobber that user value; instead we PREPEND our
+# rig fragments onto the existing plain variable -- user extras WIN, since a
+# user-passed value applies after all rig fragments (EXTRA_DTC_OVERLAY_FILE
+# applies its files in list order, later files taking precedence) and can
+# override them. Internal ordering: the expander's generated overlay first,
+# then the rig folder's own hand-authored `<RIG>.overlay` (if present) --
+# the DT counterpart of `<RIG>_defconfig`, a rig author supplying DT the
+# expander cannot emit, notably the board pinctrl pinmux fragment a function
+# needs to route on real silicon (R21 deep half): the expander only enables
+# the controller (status="okay") and names the pin in the config sheet; it
+# does not author SoC pinmux. Applied after the expander overlay so it can
+# augment nodes the expander created.
 set(_rig_overlay_files "${_rig_overlay}")
 if(EXISTS "${_rig_user_overlay}")
   list(APPEND _rig_overlay_files "${_rig_user_overlay}")
@@ -680,25 +685,36 @@ if(EXISTS "${_rig_user_overlay}")
 endif()
 set(EXTRA_DTC_OVERLAY_FILE ${_rig_overlay_files} ${EXTRA_DTC_OVERLAY_FILE})
 
-# EXTRA_CONF_FILE fragments: the expander's generated fragment (${_rig_conf},
+# shield_conf_files handoff: the expander's generated fragment (${_rig_conf},
 # e.g. Kconfig facts derived from the topology) first, then the rig folder's
 # own hand-authored `<RIG>_defconfig` (option A — the umbrella-subsystem
 # activation layer a rig author writes so the instantiated shields' DRIVERS
-# actually build; the expander cannot know this, it only knows topology).
-set(_rig_overlay_config "")
+# actually build; the expander cannot know this, it only knows topology) --
+# appended onto shield_conf_files (step 5 populates it per shield; this adds
+# the rig's OWN two fragments after every shield's own .conf, same relative
+# order the old EXTRA_CONF_FILE prepend produced). No cache-FORCE risk here
+# and no prepend of ours to get right: precedence instead falls out of
+# upstream's own merge ordering (kconfig.cmake's `merge_config_files`:
+# BOARD_DEFCONFIG -> BOARD_REVISION_CONFIG -> board_extension_conf_files ->
+# CONF_FILE_AS_LIST (prj.conf) -> shield_conf_files -> EXTRA_CONF_FILE_AS_LIST
+# -> EXTRA_KCONFIG_OPTIONS_FILE -> a glob of ${APPLICATION_BINARY_DIR}/*.conf,
+# each slot's LATER files overriding earlier ones): the rig's fragments,
+# riding the shield_conf_files slot, still land after prj.conf (the rig still
+# overrides the app) and after every shield's own .conf (the rig still
+# overrides shield type-level defaults) -- and because shield_conf_files is
+# an EARLIER slot than EXTRA_CONF_FILE_AS_LIST, a user's own
+# `-DEXTRA_CONF_FILE` still wins over the rig, with no prepend of ours
+# enforcing it (test_tier2_goldens.py:test_tier2_user_extra_conf_wins_over_rig
+# pins this). This fork no longer touches EXTRA_CONF_FILE at all.
 if(EXISTS "${_rig_conf}")
-  list(APPEND _rig_overlay_config "${_rig_conf}")
+  list(APPEND shield_conf_files "${_rig_conf}")
 else()
   message(STATUS "rig: no Kconfig fragment produced")
 endif()
 
 if(EXISTS "${_rig_conf_file}")
-  list(APPEND _rig_overlay_config "${_rig_conf_file}")
+  list(APPEND shield_conf_files "${_rig_conf_file}")
   message(STATUS "rig: applying ${_rig_conf_file}")
-endif()
-
-if(_rig_overlay_config)
-  set(EXTRA_CONF_FILE ${_rig_overlay_config} ${EXTRA_CONF_FILE})
 endif()
 # ---------------------------------------------------------------------------
 
@@ -719,21 +735,41 @@ endif()
 # forces its underlying yaml_set() KEY type to VALUE (never LIST), and an
 # un-joined CMake list silently truncates to its first element there
 # (verified: a 2-shield rig recorded only the first shield until joined).
+#
+# Key names under `rig.*` never repeat the `rig` word themselves (`yml`, not
+# `rig-yml`; `defconfig`/`overlay`, not `rig-conf`/`rig-overlay`) -- the
+# nesting under `cmake.vendor-specific.rig.*` already scopes them, so a
+# `rig-` prefix inside it would be redundant, and every OTHER key here
+# (name/board/board-dts/shields/shield-dirs/out-dir) was already prefix-free.
+# `defconfig`/`overlay` track the current hand-authored filenames
+# (`<rigname>_defconfig`/`<rigname>.overlay`); the generated counterparts
+# get their OWN keys (`defconfig-gen`/`overlay-gen`, mirroring the `-gen`
+# infix the emitted `rig-gen.conf`/`rig-gen.overlay` filenames themselves
+# carry) so a build stays fully self-describing without the reader needing
+# to know those basenames are fixed. `overlay-gen` is unconditional (the
+# expander always produces it, checked in step 3); `defconfig-gen` is
+# EXISTS-guarded like the hand-authored keys, since the emitter does not yet
+# ever produce `rig-gen.conf` (parked.md "Kconfig layering" -- the fourth
+# emitter output is designed but unimplemented).
 list(JOIN RIG_SHIELDS ", " _rig_shields_joined)
 list(JOIN SHIELD_DIRS ", " _rig_shield_dirs_joined)
 
 build_info(vendor-specific rig name VALUE "${RIG_NAME}")
 build_info(vendor-specific rig board VALUE "${RIG_BOARD}")
-build_info(vendor-specific rig rig-yml VALUE "${_rig_yml}")
+build_info(vendor-specific rig yml VALUE "${_rig_yml}")
 build_info(vendor-specific rig board-dts VALUE "${_rig_board_dts}")
 build_info(vendor-specific rig shields VALUE "${_rig_shields_joined}")
 build_info(vendor-specific rig shield-dirs VALUE "${_rig_shield_dirs_joined}")
 build_info(vendor-specific rig out-dir VALUE "${_rig_out_dir}")
+build_info(vendor-specific rig overlay-gen VALUE "${_rig_overlay}")
+if(EXISTS "${_rig_conf}")
+  build_info(vendor-specific rig defconfig-gen VALUE "${_rig_conf}")
+endif()
 if(EXISTS "${_rig_conf_file}")
-  build_info(vendor-specific rig rig-conf VALUE "${_rig_conf_file}")
+  build_info(vendor-specific rig defconfig VALUE "${_rig_conf_file}")
 endif()
 if(EXISTS "${_rig_user_overlay}")
-  build_info(vendor-specific rig rig-overlay VALUE "${_rig_user_overlay}")
+  build_info(vendor-specific rig overlay VALUE "${_rig_user_overlay}")
 endif()
 # ---------------------------------------------------------------------------
 

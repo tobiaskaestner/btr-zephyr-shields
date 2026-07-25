@@ -160,11 +160,11 @@ def test_cmake_alone_entry_equivalent_to_build_rig(tmp_path: Path) -> None:
     ref_rig = ref_info["cmake"]["vendor-specific"]["rig"]
     cmake_rig = cmake_info["cmake"]["vendor-specific"]["rig"]
     # out-dir is legitimately build-directory-specific; everything else
-    # (name/board/rig-yml/board-dts/shields/shield-dirs/rig-conf) names the
+    # (name/board/yml/board-dts/shields/shield-dirs/defconfig) names the
     # SAME source-tree files regardless of entry point, so must match
     # byte-for-byte.
-    for key in ("name", "board", "rig-yml", "board-dts", "shields",
-                "shield-dirs", "rig-conf"):
+    for key in ("name", "board", "yml", "board-dts", "shields",
+                "shield-dirs", "defconfig"):
         assert cmake_rig.get(key) == ref_rig.get(key), (
             f"rig provenance {key!r} differs between cmake-alone and "
             f"build-rig: {cmake_rig.get(key)!r} vs {ref_rig.get(key)!r}")

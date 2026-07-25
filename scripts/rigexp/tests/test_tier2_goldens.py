@@ -134,6 +134,41 @@ def test_tier2_reject_configure_fails(case: RigCase, tmp_path: Path) -> None:
         f"full west/CMake path, not just the standalone expander\n{combined}")
 
 
+def test_tier2_user_extra_conf_wins_over_rig(tmp_path: Path) -> None:
+    """The rig's own `<rigname>_defconfig` rides `shield_conf_files` (an
+    APPEND) rather than prepending onto EXTRA_CONF_FILE -- "user extras
+    win" now falls out of upstream's own merge ordering
+    (kconfig.cmake's `merge_config_files`: shield_conf_files lands BEFORE
+    EXTRA_CONF_FILE_AS_LIST), not from anything this fork does. Nothing of
+    ours enforces that ordering any more, so pin it directly on the real
+    outcome: a user-passed `-DEXTRA_CONF_FILE` overriding a symbol
+    nucleo_mux_farm_defconfig also sets must win in the resulting
+    `.config`. Contends over CONFIG_I2C_TCA954X_ROOT_INIT_PRIO (61 in the
+    rig's own defconfig); the driver's BUILD_ASSERT(CHANNEL_INIT_PRIO >
+    ROOT_INIT_PRIO) only fires on a full compile, never at --cmake-only, but
+    55 keeps the override physically sensible regardless (still below the
+    channel's 62)."""
+    user_conf = tmp_path / "user.conf"
+    user_conf.write_text("CONFIG_I2C_TCA954X_ROOT_INIT_PRIO=55\n")
+
+    build_dir = tmp_path / "build"
+    result = _run_build("nucleo_mux_farm", build_dir,
+                        [f"-DEXTRA_CONF_FILE={user_conf}"])
+    assert result.returncode == 0, (
+        f"nucleo_mux_farm: expected `west build-rig --cmake-only` with a "
+        f"user -DEXTRA_CONF_FILE to configure clean\n--- stdout ---\n"
+        f"{result.stdout}\n--- stderr ---\n{result.stderr}")
+
+    dotconfig = (build_dir / "zephyr" / ".config").read_text()
+    assert "CONFIG_I2C_TCA954X_ROOT_INIT_PRIO=55" in dotconfig, (
+        "user -DEXTRA_CONF_FILE must win over the rig's own "
+        "nucleo_mux_farm_defconfig (CONFIG_I2C_TCA954X_ROOT_INIT_PRIO=61)\n"
+        f"--- .config ---\n{dotconfig}")
+    assert "CONFIG_I2C_TCA954X_ROOT_INIT_PRIO=61" not in dotconfig, (
+        f"the rig's own value leaked into .config alongside the user's\n"
+        f"--- .config ---\n{dotconfig}")
+
+
 def test_tier2_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
     """The permanent semantic invariant the expander's socket-relative
     pwm/adc emission must hold: pass-2's own `edt.pickle` -- the resolved
@@ -201,7 +236,7 @@ def test_tier2_build_info_rig_provenance(tmp_path: Path) -> None:
 
     assert rig["name"] == "frdm_eth_nest"
     assert rig["board"] == "frdm_k64f/mk64f12/rig"
-    assert rig["rig-yml"].endswith("boards/rigs/frdm_eth_nest/rig.yml")
+    assert rig["yml"].endswith("boards/rigs/frdm_eth_nest/rig.yml")
     assert rig["board-dts"].endswith(
         "boards/extend/nxp/frdm_k64f/frdm_k64f_mk64f12_rig.dts")
 
@@ -212,6 +247,14 @@ def test_tier2_build_info_rig_provenance(tmp_path: Path) -> None:
     assert "arduino_uno_click" in rig["shield-dirs"]
     assert "eth_click" in rig["shield-dirs"]
     assert Path(rig["out-dir"]).is_dir()
+
+    # The generated overlay is unconditional; frdm_eth_nest also has its own
+    # hand-authored `frdm_eth_nest_defconfig` (one of the corpus's 8 rigs
+    # that do), but no `rig-gen.conf` -- the emitter never produces one
+    # today, so `defconfig-gen` must be absent, not present-but-empty.
+    assert Path(rig["overlay-gen"]).is_file()
+    assert rig["defconfig"].endswith("frdm_eth_nest_defconfig")
+    assert "defconfig-gen" not in rig
 
 
 def test_tier2_build_info_shield_dir_collision(tmp_path: Path) -> None:
