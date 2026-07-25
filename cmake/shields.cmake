@@ -2,7 +2,7 @@
 #
 # Downstream FORK POINT for Zephyr's `shields` build module.
 #
-# btr-shields' cmake-modules dir is prepended to CMAKE_MODULE_PATH (module.yml
+# cmake-modules dir is prepended to CMAKE_MODULE_PATH (module.yml
 # `build: cmake-modules: cmake`), so zephyr_default.cmake's `include(shields)`
 # resolves to THIS file, shadowing ${ZEPHYR_BASE}/cmake/modules/shields.cmake.
 #
@@ -26,20 +26,7 @@
 include_guard(GLOBAL)
 
 if(DEFINED RIG)
-  # SHIELD/BOARD exclusivity (cmake-alone-rig-entry-brief.md, design rule 4,
-  # ratified 2026-07-24): before this guard existed, -DSHIELD alongside
-  # -DRIG was a SILENT NO-OP -- this fork's early-exit below never looked at
-  # SHIELD at all, and the dts.cmake fork's rig block unconditionally
-  # overwrites SHIELD_AS_LIST from the rig's own RIG_SHIELDS, so a
-  # user-passed -DSHIELD simply vanished with no diagnostic. Worse than a
-  # mismatch: a stock shield riding beside a rig would carry PHYSICAL claims
-  # (pin/bus/address use) invisible to the analyzer -- exactly the bug class
-  # rigs exist to prevent, so this is a category rejection, not a
-  # conflict-only check (no comparison, no "matches the rig's shields" case
-  # to allow -- unlike BOARD, this module never SETS SHIELD itself, so there
-  # is no marker to distinguish "our own value" from "the user's": any
-  # defined SHIELD in a rig build is a user input, always rejected).
-  #
+  # SHIELD/BOARD exclusivity
   # `zephyr_get(SHIELD)` (not a bare `if(DEFINED SHIELD)`) catches every
   # form the real shields.cmake itself would honor -- -DSHIELD on the
   # command line, a value already sitting in CACHE from an earlier
@@ -49,7 +36,7 @@ if(DEFINED RIG)
   zephyr_get(SHIELD)
   if(DEFINED SHIELD)
     message(FATAL_ERROR
-      "rig: -DSHIELD=${SHIELD} was given alongside -DRIG=${RIG}. Shields in "
+      "Rig: -DSHIELD=${SHIELD} was given alongside -DRIG=${RIG}. Shields in "
       "a rig build come from the rig itself -- add an instance naming the "
       "shield, or (for a shield the rig template can't yet express) the "
       "rig folder's own hand-authored <rig-name>.overlay escape hatch. If "
