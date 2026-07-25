@@ -1,34 +1,27 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Board DT reader, edtlib-based (Bridge-A rewrite, phase 1 -- the READ side).
+"""Board DT reader, edtlib-based -- the production reader boarddt.load_board
+delegates to. It projects a real board's own devicetree, read via a
+standalone edtlib.EDT (see edt_build.py), onto model.Board / model.BoardSocket
+(Conv. 4: the expander reads the board DT to find socket nodes by
+compatible). model.py's dataclasses are populated here, never redefined.
+Correctness is guarded by tests/test_board_read.py, which cross-checks this
+reader's projection against pass-2's own edt.pickle for every board.
 
-THE FLIP: this is now the PRODUCTION reader `boarddt.load_board` delegates
-to. It projects a real board's own devicetree, read via a standalone
-`edtlib.EDT` (see `edt_build.py`), onto `model.Board` / `model.BoardSocket`
-(Conv. 4: "the expander reads the board DT to find socket nodes by
-compatible"). `model.py` is FROZEN (saferail 9) -- this module only
-populates it. Its predecessor, a bundled `common-dts` scaffold parsed
-standalone with dtlib, is gone (saferail 8: deleted in full); a shadow
-dual-read against it (saferail 2) proved this reader produces the exact same
-`Board` on every rig-relevant axis, for all four board clones, before the
-flip (see `tests/test_board_dualread.py`, now the production-plumbing guard
-that replaced it).
-
-pwm_map / adc_map (Bridge-A phase 2a) project the socket node's standard
-`pwm-map` / `io-channel-map` nexuses -- read the same way `gpio-map` already
-is, via `edtlib.Node.maps()` -- onto a position -> (controller label,
-channel) shape (see
-`boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi`). Not every socket
-carries these maps (only PWM/ADC-capable ones do); `node.maps` simply omits
-the key for a `*-map` property the node doesn't author, so the loops below
-are no-ops for sockets without one.
+pwm_map / adc_map project the socket node's standard pwm-map /
+io-channel-map nexuses -- read the same way gpio-map already is, via
+edtlib.Node.maps() -- onto a position -> (controller label, channel) shape
+(see boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi). Not every
+socket carries these maps (only PWM/ADC-capable ones do); node.maps simply
+omits the key for a *-map property the node doesn't author, so the loops
+below are no-ops for sockets without one.
 """
 from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple, cast
 
-# Import order matters: edt_build inserts zephyr's python-devicetree `src`
+# Import order matters: edt_build inserts zephyr's python-devicetree src
 # onto sys.path as an import-time side effect (from $ZEPHYR_BASE), so it
-# must be imported before `devicetree.edtlib` is reachable at all.
+# must be imported before devicetree.edtlib is reachable at all.
 from .edt_build import BuildRecipe, build_edt
 from devicetree import edtlib
 
@@ -40,19 +33,19 @@ _BUS_PROPS = {"socket,i2c": "i2c", "socket,spi": "spi", "socket,uart": "uart"}
 
 def load_board(name: str, dts_path: str, recipe: BuildRecipe,
                workdir: str) -> Board:
-    """Build a standalone `edtlib.EDT` over the board's OWN `.dts`
-    (`dts_path`, no rig overlay, no shield/app context) and project every
-    `socket,*` node into a `model.Board` -- the edtlib-side counterpart of
-    `boarddt.load_board`."""
+    """Build a standalone edtlib.EDT over the board's OWN .dts (dts_path,
+    no rig overlay, no shield/app context) and project every socket,* node
+    into a model.Board -- the edtlib-side counterpart of
+    boarddt.load_board."""
     edt = build_edt(dts_path, recipe, workdir)
     return project_edt(edt, name)
 
 
 def project_edt(edt: edtlib.EDT, name: str) -> Board:
-    """Project an ALREADY-BUILT `edtlib.EDT` (fresh, or unpickled from a
-    real build's `edt.pickle` -- saferail 3's cross-check) into a
-    `model.Board`. Split out from `load_board` so both sides of that
-    cross-check can share this exact projection."""
+    """Project an ALREADY-BUILT edtlib.EDT (fresh, or unpickled from a real
+    build's edt.pickle) into a model.Board. Split out from load_board so
+    both a fresh read and a pass-2 edt.pickle can share this exact
+    projection, which is what test_board_read.py's cross-check relies on."""
     sockets: Dict[str, BoardSocket] = {}
     for node in edt.nodes:
         compat = node.matching_compat
@@ -91,29 +84,28 @@ def _project_socket(node: edtlib.Node, compat: str) -> BoardSocket:
             raise ValueError(f"bus controller {bus_node.path} has no label")
         buses[kind] = BusRef(label=bus_node.labels[0], path=bus_node.path)
 
-    # NOTE (Bridge-A saferail 2, AMENDED, post-flip cs-pool merge investigation
-    # 2026-07-23): edtlib back-fills the binding default here when the socket
-    # doesn't author `socket,cs-pool` itself, PROVIDED the type's binding
-    # declares the property with a `default:` (arduino-r3.yaml, mikrobus.yaml
-    # both do). For those types this value is already the EFFECTIVE one, same
-    # as the analyzer's own merge would compute (analyzer.py's
-    # `socket.cs_pool if not None else ctype.cs_pool`) -- so for a REAL board
-    # socket of such a type, `cs_pool` here is NEVER None and that merge's
+    # edtlib back-fills the binding default here when the socket doesn't
+    # author socket,cs-pool itself, provided the type's binding declares the
+    # property with a default (arduino-r3.yaml, mikrobus.yaml both do). For
+    # those types this value is already the EFFECTIVE one, same as the
+    # analyzer's own merge would compute (analyzer.py's
+    # socket.cs_pool if not None else ctype.cs_pool) -- so for a real board
+    # socket of such a type, cs_pool here is never None and that merge's
     # ctype-fallback branch is inert.
     #
-    # This does NOT make the analyzer's merge dead code in general, and this
-    # function is not the only source of a `BoardSocket`: grove.yaml declares
-    # no `socket,cs-pool` property at all (Grove never exposes SPI/CS), so a
-    # grove socket's `cs_pool` stays None here too -- harmlessly, since
-    # `_allocate_cs` never reaches a socket with no "spi" bus. More
-    # significantly, `analyzer.py`'s carrier/mux composition
-    # (`_compose_exposed_socket`) builds SYNTHESIZED `BoardSocket`s from
-    # `model.ExposedSocket.cs_pool`, which comes from `shields.py` -- a plain
-    # dtlib parse of the carrier `.shield` template with NO binding-default
-    # backfill at all. A carrier that never authors `socket,cs-pool` on its
-    # exposed socket node (arduino_uno_click, i2c_mux) yields `cs_pool=None`
+    # That merge is not dead code in general, though: this function is not
+    # the only source of a BoardSocket. grove.yaml declares no
+    # socket,cs-pool property at all (Grove never exposes SPI/CS), so a
+    # grove socket's cs_pool stays None here too -- harmlessly, since
+    # _allocate_cs never reaches a socket with no "spi" bus. More
+    # significantly, analyzer.py's carrier/mux composition
+    # (_compose_exposed_socket) builds synthesized BoardSockets from
+    # model.ExposedSocket.cs_pool, which comes from shields.py -- a plain
+    # dtlib parse of the carrier .shield template with no binding-default
+    # backfill at all. A carrier that never authors socket,cs-pool on its
+    # exposed socket node (arduino_uno_click, i2c_mux) yields cs_pool=None
     # there regardless of the connector type's binding default, so the
-    # analyzer's ctype-fallback branch is very much alive for THAT path.
+    # analyzer's ctype-fallback branch is very much alive for that path.
     cs_pool: Optional[List[int]] = None
     cs_prop = node.props.get("socket,cs-pool")
     if cs_prop is not None:
@@ -140,7 +132,7 @@ def _project_socket(node: edtlib.Node, compat: str) -> BoardSocket:
 
 
 def _controller_label(node: edtlib.Node) -> str:
-    """The controller's DEFINING label for a `*-map` target: `node.labels[0]`,
+    """The controller's DEFINING label for a *-map target: node.labels[0],
     the label the node's own declaring dtsi gives it (dtlib's label list is
     append-only and never reordered, so index 0 is permanently the
     first-attached label no matter what else later aliases onto the same
@@ -148,12 +140,12 @@ def _controller_label(node: edtlib.Node) -> str:
     a socket file or an unrelated board extension may attach further
     aliases to a shared controller (e.g. a legacy per-pin label), and doing
     so must never change what this function reports. Consistent with the
-    `labels[0]` already used for gpio-map targets and bus refs in this
-    module: `*-map` controllers get the identical treatment.
+    labels[0] already used for gpio-map targets and bus refs in this
+    module: *-map controllers get the identical treatment.
 
-    CONSTRAINT the code cannot show: this label is emitted VERBATIM into
-    overlay text (`&<label> { ... }`), so tier-1 golden text is the only
-    guard on it -- tier-2 (`dts_equiv`) resolves labels away and cannot
+    Constraint the code cannot show: this label is emitted verbatim into
+    overlay text (&<label> { ... }), so tier-1 golden text is the only
+    guard on it -- tier-2 (dts_equiv) resolves labels away and cannot
     catch a regression here."""
     if not node.labels:
         raise ValueError(f"controller node {node.path} has no label")

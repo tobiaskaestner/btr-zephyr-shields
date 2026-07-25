@@ -1,34 +1,32 @@
-"""rigexp CLI — the real, vendored command-line front-end (P2/T1).
+"""rigexp CLI — the real, vendored command-line front-end.
 
-Mirrors `frontend-trial/scripts/run_trials.py:run_one` / `investigate`:
+The three-stage pipeline:
 
   rig    = loader_yml.load(path, workdir, diags, shield_dirs)
   solved = analyzer.analyze(rig, workdir, diags, board_dts, recipe)
   outputs = emitter.emit(solved)     # strong contract: cannot fail here
 
-`expand` writes every file the emitter returns (overlay, config-sheet.md,
-expectations.yml, and any future `.conf`) into --out-dir. On rejection
+expand writes every file the emitter returns (overlay, config-sheet.md,
+expectations.yml, and any future .conf) into --out-dir. On rejection
 (diagnostics carry an error, or a stage returns None) it prints
-`diags.render()` to stderr and exits non-zero — same reject path as
-`investigate`. Exit 0 on success.
+diags.render() to stderr and exits non-zero. Exit 0 on success.
 
-Board-reading recipe (Bridge-A rewrite, THE FLIP): pass 1 now reads the REAL
-board devicetree via edtlib (`boarddt` / `board_edt` / `edt_build`), which
-needs the board's own `.dts` path plus a `BuildRecipe` (cpp include dirs +
-edtlib bindings dirs). `--board-dts` names the file directly — omit it to let
-`boarddt` discover it from the rig's board name via zephyr's own
-`list_boards.py` (the standalone/CLI fallback; the in-build path, dts.cmake,
-always passes it explicitly, since BOARD_DIR is already resolved by
-boards.cmake long before the expander runs). The recipe comes from EITHER
-`--include-dir`/`--bindings-dir` (repeatable — the explicit form dts.cmake
-uses, having computed them itself, saferail 13) OR `--build-info <path>` (a
-real build's `build_info.yml`, recovered via
-`edt_build.recipe_from_build_info` — a standalone/dev convenience: reuse a
-build you already have rather than re-deriving dts.cmake's own dir mirror by
-hand). Omitting all recipe inputs is not fatal by itself — an unknown board
-is still reported as such, since board resolution never needs a recipe — but
-a NAMED, EXISTING board with no usable recipe is its own `phys-board`
-diagnostic (see `boarddt.load_board`), not a crash.
+Board-reading recipe: pass 1 reads the real board devicetree via edtlib
+(boarddt / board_edt / edt_build), which needs the board's own .dts path
+plus a BuildRecipe (cpp include dirs + edtlib bindings dirs). --board-dts
+names the file directly — omit it to let boarddt discover it from the
+rig's board name via zephyr's own list_boards.py (the standalone/CLI
+fallback; the in-build path, dts.cmake, always passes it explicitly, since
+BOARD_DIR is already resolved by boards.cmake long before the expander
+runs). The recipe comes from either --include-dir/--bindings-dir
+(repeatable — the explicit form dts.cmake uses, having computed them
+itself) or --build-info <path> (a real build's build_info.yml, recovered
+via edt_build.recipe_from_build_info — a standalone/dev convenience: reuse
+a build you already have rather than re-deriving dts.cmake's own dir
+mirror by hand). Omitting all recipe inputs is not fatal by itself — an
+unknown board is still reported as such, since board resolution never
+needs a recipe — but a named, existing board with no usable recipe is its
+own "phys-board" diagnostic (see boarddt.load_board), not a crash.
 """
 from __future__ import annotations
 
@@ -44,11 +42,11 @@ from . import analyzer, emitter, loader_yml
 
 
 def _cmake_list_escape(value: str) -> str:
-    """Escape one string for embedding as ONE element of a `;`-joined CMake
-    list literal inside a double-quoted `set(... "a;b;c")` — CMake unescapes
-    `\\;`/`\\"`/`\\\\` when the string is later read back (e.g. by
-    `set_property(... APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ...)` in
-    dts.cmake), so a path containing a literal `;`, `"`, or `\\` survives the
+    """Escape one string for embedding as ONE element of a ;-joined CMake
+    list literal inside a double-quoted set(... "a;b;c") — CMake unescapes
+    \\;/\\"/\\\\ when the string is later read back (e.g. by
+    set_property(... APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ...) in
+    dts.cmake), so a path containing a literal ;, ", or \\ survives the
     round-trip as a single element instead of being mis-split or corrupting
     the quoting. Real-world paths essentially never contain these, but
     RIG_DEPENDS is provenance data cmake.cmake trusts verbatim — worth doing
@@ -59,8 +57,8 @@ def _cmake_list_escape(value: str) -> str:
 def _resolve_recipe(include_dirs: Optional[List[str]],
                     bindings_dirs: Optional[List[str]],
                     build_info: Optional[str]) -> Optional[BuildRecipe]:
-    """`--build-info` wins if given (one path, no per-dir bookkeeping); else
-    an explicit `--include-dir`/`--bindings-dir` pair, if either was given;
+    """--build-info wins if given (one path, no per-dir bookkeeping); else
+    an explicit --include-dir/--bindings-dir pair, if either was given;
     else None — the caller (boarddt.load_board, via analyzer.analyze) turns
     a still-None recipe into a clear diagnostic once/if it is actually
     needed, rather than this function guessing at "nothing usable"."""
@@ -135,8 +133,8 @@ def _expand(rig_path: str, shield_dirs: Optional[List[str]], out_dir: str,
     # RIG_DEPENDS: the dependency-tracking handoff. The expander is the sole
     # authority on what pass 1 actually read — cmake/dts.cmake appends this
     # (sorted, absolute) to CMAKE_CONFIGURE_DEPENDS, on top of its own static
-    # registrations (rig.yml / the rig's own `<name>_defconfig`/
-    # `<name>.overlay` / rigexp sources / list_rigs.py), which cover the
+    # registrations (rig.yml / the rig's own <name>_defconfig/
+    # <name>.overlay / rigexp sources / list_rigs.py), which cover the
     # pre-expansion trigger set. One-configure lag: this list is only as
     # fresh as the LAST successful expand, so a
     # brand-new dependency (e.g. a rig naming a shield for the first time)
@@ -179,7 +177,7 @@ def _add_expand(sub: argparse._SubParsersAction) -> None:
                     help="a cpp -I directory for the board .dts preprocess; "
                          "repeatable. With --bindings-dir, the explicit "
                          "recipe form dts.cmake passes (it computes these "
-                         "itself — saferail 13).")
+                         "itself).")
     p.add_argument("--bindings-dir", dest="bindings_dirs", action="append",
                     metavar="DIR", default=None,
                     help="an edtlib bindings directory (globbed for "

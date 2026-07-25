@@ -43,9 +43,9 @@ class ConnectorType:
 @dataclass
 class GpioRef:
     """A gpio-spec property on a shield device. Two shapes (Conv. 2):
-      fixed position  — <&plug POSITION flags>: position is `position`.
+      fixed position  — <&plug POSITION flags>: position is position.
       deferred (R6)   — <&jumper flags>: position selected by a routing
-                        jumper, `jumper` names it and `position` is None
+                        jumper, jumper names it and position is None
                         until the analyzer resolves the rig's selection."""
     prop: str
     position: Optional[int]
@@ -61,8 +61,8 @@ class Device:
     name: str                       # node name without unit-address
     label: str                      # shield-local label (dl_rtc)
     compatible: Optional[str]
-    bus: Optional[str]              # 'i2c' | 'spi' | 'uart' | None (plain group)
-    group: Optional[str]            # non-bus group name ('gpio') for None-bus devices
+    bus: Optional[str]              # "i2c" | "spi" | "uart" | None (plain group)
+    group: Optional[str]            # non-bus group name ("gpio") for None-bus devices
     reg: Optional[int]              # authored = 1-element domain (address authority rule)
     addr_from: Optional[str]        # strap name — deferred address, explicit not absent
     cs_position: Optional[int]      # copper-fixed CS (shield,cs-position)
@@ -151,7 +151,7 @@ class Shield:
         return hits
 
     def config_element(self, name: str):
-        """A strap or jumper of this shield, by name (rig `pin:` targets)."""
+        """A strap or jumper of this shield, by name (rig pin: targets)."""
         return self.straps.get(name) or self.jumpers.get(name)
 
     def names(self) -> list[str]:
@@ -164,17 +164,17 @@ class Shield:
 
 @dataclass
 class BusRef:
-    label: str                      # 'i2c1' — emission target &i2c1
+    label: str                      # "i2c1" — emission target &i2c1
     path: str                       # dtlib path, scope identity
 
 
 @dataclass
 class BoardSocket:
-    label: str                      # 'nucleo_ard' — what rig,socket names
+    label: str                      # "nucleo_ard" — what rig,socket names
     path: str
     type_name: str                  # from compatible "socket,<type>"
     gpio_map: dict[int, tuple[str, int, int]]   # position -> (ctrl label, pin, flags)
-    buses: dict[str, BusRef]        # 'i2c'/'spi'/'uart' present = offered subset
+    buses: dict[str, BusRef]        # "i2c"/"spi"/"uart" present = offered subset
     cs_pool: Optional[list[int]]    # authored override, else type default
     pwm_map: dict = field(default_factory=dict)   # position -> (timer label, channel) [multi-function nexus]
     adc_map: dict = field(default_factory=dict)   # position -> (adc label, channel)
@@ -208,7 +208,7 @@ class Instance:
     jumpers: dict[str, object] = field(default_factory=dict)  # jumper name -> raw position (name/index)
     jumper_refs: dict[str, SrcRef] = field(default_factory=dict)
     invert: bool = False            # flip the active level of the module's gpio signals
-    # rig `params:` — per-instance property assignments, keyed by shield-local
+    # rig params: — per-instance property assignments, keyed by shield-local
     # DEVICE LABEL then property name; raw value TEXT (emission is verbatim,
     # never resolved — resolution is a loader/config-sheet concern only).
     params: dict[str, dict[str, str]] = field(default_factory=dict)
@@ -227,7 +227,7 @@ class WireEnd:
 class Wire:
     frm: WireEnd
     to: WireEnd
-    route: Union[str, int]          # 'adhoc' | header position index (route-via)
+    route: Union[str, int]          # "adhoc" | header position index (route-via)
     src: Optional[SrcRef] = None
 
 
@@ -237,8 +237,8 @@ class Rig:
     board: str                      # cross-tree string
     instances: list[Instance] = field(default_factory=list)
     wires: list[Wire] = field(default_factory=list)
-    # rig `dt-includes:` — headers this rig's assigned param TOKENS resolve
-    # against, exactly as they would appear in a DTS `#include <...>`.
+    # rig dt-includes: — headers this rig's assigned param TOKENS resolve
+    # against, exactly as they would appear in a DTS #include <...>.
     dt_includes: list[str] = field(default_factory=list)
     dt_includes_refs: list[SrcRef] = field(default_factory=list)
     src: Optional[SrcRef] = None

@@ -13,15 +13,15 @@ trial):
                         property assignment, resolved WITHIN the instance's
                         shield the same way pin is (device label, not node
                         name); the property must be one the device declared
-                        via `shield,params` (rig-variants-revisions.md
+                        via shield,params (rig-variants-revisions.md
                         "PER-INSTANCE PARAMETERS")
-  rig.dt-includes       list of headers (as written in a DTS `#include
-                        <...>`) the rig's assigned param tokens resolve
+  rig.dt-includes       list of headers (as written in a DTS #include
+                        <...>) the rig's assigned param tokens resolve
                         against
-  wires[].from/to       '<instance>.<node>' — instance by name; node resolved
+  wires[].from/to       <instance>.<node> — instance by name; node resolved
                         within that instance's shield over pads ∪ devices ∪
                         straps; must be unique there
-  wires[].route         'adhoc' | {via: <position name>} (name from the
+  wires[].route         "adhoc" | {via: <position name>} (name from the
                         dt-bindings header, e.g. D2)
 
 Source locations come from YAML composer marks (line-accurate), so the
@@ -43,44 +43,44 @@ from .shields import parse_shields
 
 # The vendored default shield library (direct API / test use only — see
 # load_shield_library below): this module's OWN boards/shields, the real
-# location (no longer a bundled common-dts copy, Bridge-A rewrite saferail 8).
+# location it ships alongside this package.
 SHIELDS_DIR = os.path.join(MODULE_ROOT, "boards", "shields")
 
 
 def load_shield_library(workdir: str, diags: Diagnostics,
                         shield_dirs: list[str] | None = None,
                         deps: Depends | None = None) -> dict[str, Shield]:
-    """Load every shield template. Each `.shield` file is its OWN translation
+    """Load every shield template. Each .shield file is its OWN translation
     unit (Ground rule 3), so labels are shield-scoped — two shields may reuse
-    `gl_plug` etc. without colliding, and no cross-shield prefix discipline is
+    gl_plug etc. without colliding, and no cross-shield prefix discipline is
     needed. Merged by shield name (which is unique).
 
-    Shields live one per folder, upstream-shield-shape: `<shield-dir>/<name>/
-    <name>.shield` (alongside that folder's `shield.yml` metadata, not parsed
-    here — the `.shield` DT node name remains the sole identity source, per
-    `Shield.name = node.name` in shields.py). We therefore look for exactly
-    `<dir>/<dir-basename>.shield` per subfolder, rather than a `*/*.shield`
+    Shields live one per folder, upstream-shield-shape: <shield-dir>/<name>/
+    <name>.shield (alongside that folder's shield.yml metadata, not parsed
+    here — the .shield DT node name remains the sole identity source, per
+    Shield.name = node.name in shields.py). We therefore look for exactly
+    <dir>/<dir-basename>.shield per subfolder, rather than a */*.shield
     glob — the folder now also holds upstream-convention Kconfig fragments
-    (`Kconfig.shield`, `Kconfig.defconfig`), which also end in the literal
+    (Kconfig.shield, Kconfig.defconfig), which also end in the literal
     substring ".shield" and would otherwise be mis-globbed as shield
-    templates (`Kconfig.shield` matches a bare `*.shield` wildcard). This
-    `<name>.shield`-presence check is also what self-filters a shields
-    directory: legacy (non-rig) shields ship a `<name>.overlay`, not a
-    `.shield`, so scanning a whole `boards/shields` tree picks up ONLY rig
+    templates (Kconfig.shield matches a bare *.shield wildcard). This
+    <name>.shield-presence check is also what self-filters a shields
+    directory: legacy (non-rig) shields ship a <name>.overlay, not a
+    .shield, so scanning a whole boards/shields tree picks up ONLY rig
     templates and silently skips the rest.
 
-    `shield_dirs` is a LIST of shield-library roots (each a `boards/shields`
+    shield_dirs is a LIST of shield-library roots (each a boards/shields
     directory), unioned into one library — because rig shield templates are
     ordinary discoverable content that may live in ANY board_root of ANY
     Zephyr module, not just this one. The build system (dts.cmake) derives the
     list from BOARD_ROOT, exactly as list_shields.py does; None falls back to
     the vendored default (SHIELDS_DIR), used only by direct API / tests.
 
-    `deps`, if given, records every `.shield` file this call parses, plus
-    (via `dtsio.source_files`) whatever real files each one's translation
-    unit `#include`s — the temp `workdir` the TU is synthesized in is
-    excluded, since it holds a generated file with no counterpart in the
-    source tree."""
+    deps, if given, records every .shield file this call parses, plus (via
+    dtsio.source_files) whatever real files each one's translation unit
+    #includes — the temp workdir the TU is synthesized in is excluded,
+    since it holds a generated file with no counterpart in the source
+    tree."""
     types = load_types(deps)
     shields = {}
     directories = shield_dirs if shield_dirs is not None else [SHIELDS_DIR]
@@ -246,9 +246,9 @@ def _parse_instance(item: _Val, shields, rig: Rig, workdir: str, diags) -> Insta
 
 def _parse_params(item: _Val, inst: Instance, shield: Shield, rig: Rig,
                   workdir: str, diags) -> None:
-    """rig `params:` — per-instance property assignment (rig-variants-
+    """rig params: — per-instance property assignment (rig-variants-
     revisions.md "PER-INSTANCE PARAMETERS"): keyed by shield-local DEVICE
-    LABEL (the same addressing style `pin:` uses for config elements), then
+    LABEL (the same addressing style pin: uses for config elements), then
     by property name. Validates rules 1-5; rule 6 (dt-includes header
     existence) was already checked once for the whole rig, before any
     instance was parsed."""
@@ -307,7 +307,7 @@ def _parse_params(item: _Val, inst: Instance, shield: Shield, rig: Rig,
 def _check_param_token(inst: Instance, dev_label: str, prop_name: str, raw: str,
                        rig: Rig, workdir: str, ref: SrcRef, diags) -> None:
     """Rules 4/5: an assigned token that is not a bare integer literal must
-    resolve against the rig's declared `dt-includes:`."""
+    resolve against the rig's declared dt-includes list."""
     tag = f"{rig.name}_{inst.name}_{dev_label}_{prop_name}"
     if resolve_token(raw, rig.dt_includes, workdir, tag) is not None:
         return
@@ -330,7 +330,7 @@ def _check_param_token(inst: Instance, dev_label: str, prop_name: str, raw: str,
 
 
 def _check_dt_includes(rig: Rig, workdir: str, diags) -> None:
-    """Rule 6: every declared `dt-includes:` header must exist and
+    """Rule 6: every declared dt-includes: header must exist and
     preprocess cleanly on its own, checked once per rig regardless of
     whether any parameter ends up resolving against it."""
     for i, (header, ref) in enumerate(zip(rig.dt_includes, rig.dt_includes_refs)):
@@ -367,7 +367,7 @@ def _parse_wire(item: _Val, by_name, diags) -> Wire | None:
 
 
 def _resolve_dotted(ref_v: _Val | None, by_name, key, diags) -> WireEnd | None:
-    """'<instance>.<node>' — the candidate-2 reference syntax (Conv. 5 #2)."""
+    """<instance>.<node> — the candidate-2 reference syntax (Conv. 5 #2)."""
     if ref_v is None:
         diags.error("lang-schema", f"wire: required key '{key}' is missing")
         return None

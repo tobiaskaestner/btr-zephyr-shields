@@ -1,37 +1,37 @@
 # SPDX-License-Identifier: Apache-2.0
 #
-# Downstream FORK POINT for Zephyr's `shields` build module.
+# Downstream FORK POINT for Zephyr's shields build module.
 #
 # cmake-modules dir is prepended to CMAKE_MODULE_PATH (module.yml
-# `build: cmake-modules: cmake`), so zephyr_default.cmake's `include(shields)`
+# build: cmake-modules: cmake), so zephyr_default.cmake's include(shields)
 # resolves to THIS file, shadowing ${ZEPHYR_BASE}/cmake/modules/shields.cmake.
 #
 # A rig build has NO shields phase: shield selection is a consequence of rig
 # expansion, not a standalone phase driven by -DSHIELD. The dts.cmake fork's
-# rig block (run later in the module chain, shields@11 < dts@17) resolves
-# RIG_SHIELDS from the expander's own output and sets every variable this
-# module would otherwise own (shield_conf_files/SHIELD_AS_LIST/SHIELD_DIRS)
-# directly. So this fork is pure dispatch:
+# rig block (run later in the module chain) resolves RIG_SHIELDS from the
+# expander's own output and sets every variable this module would otherwise
+# own (shield_conf_files/SHIELD_AS_LIST/SHIELD_DIRS) directly. So this fork
+# is pure dispatch:
 #
 #   - rig build (-DRIG set): reject -DSHIELD (see the guard below), then
 #     early-exit -- nothing else. (This is the draft upstream patch for
 #     shields.cmake: "rig builds have no shields phase; -DSHIELD is
 #     rejected, not silently ignored.")
-#   - otherwise: defer to the ORIGINAL shields.cmake unchanged, so `--shield`
+#   - otherwise: defer to the ORIGINAL shields.cmake unchanged, so --shield
 #     and no-shield builds behave exactly as upstream.
 #
-# NOTE: reach the original by absolute path (NOT `include(shields)`, which
+# NOTE: reach the original by absolute path (NOT include(shields), which
 # would recurse back into this file via the prepended module path).
 
 include_guard(GLOBAL)
 
 if(DEFINED RIG)
   # SHIELD/BOARD exclusivity
-  # `zephyr_get(SHIELD)` (not a bare `if(DEFINED SHIELD)`) catches every
+  # zephyr_get(SHIELD) (not a bare if(DEFINED SHIELD)) catches every
   # form the real shields.cmake itself would honor -- -DSHIELD on the
   # command line, a value already sitting in CACHE from an earlier
   # (possibly non-rig) configure of this SAME build dir, or $ENV{SHIELD} --
-  # so switching a build dir from `--shield` to `--rig` use without a
+  # so switching a build dir from --shield to --rig use without a
   # pristine rebuild is caught too, not just a fresh dir's cmdline flag.
   zephyr_get(SHIELD)
   if(DEFINED SHIELD)

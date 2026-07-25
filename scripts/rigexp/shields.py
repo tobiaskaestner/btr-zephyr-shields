@@ -6,7 +6,7 @@ payloads are DTS either way). Loader-side validation done here:
   - bus proxy nodes are allowed by the plug binding (Conv. 1)
   - position references target THIS shield's plug and exist in the type
   - exactly one of reg / shield,addr-from on addressable-bus devices
-    (forgot-vs-deferred, pushback round 3)
+    (forgot-vs-deferred: address authority rule)
   - authored reg matches the unit-address; symbolic unit-addresses are
     linted against the addr-from target
 """
@@ -28,11 +28,11 @@ _MODEL_PROPS = {"reg", "compatible", "shield,addr-from", "shield,cs-position",
 def parse_shields(dt: dtlib.DT, types: dict[str, ConnectorType],
                   diags: Diagnostics) -> dict[str, Shield]:
     shields: dict[str, Shield] = {}
-    # Every `.shield` file has exactly one shield node under this wrapper, so
+    # Every .shield file has exactly one shield node under this wrapper, so
     # it carries no grouping information — identity already comes from
-    # shield.yml's `name:`. It stays anyway: it marks the FILE as a template
+    # shield.yml's name:. It stays anyway: it marks the FILE as a template
     # to be expanded, never applied directly, which is what distinguishes a
-    # `.shield` from a real Zephyr shield's `<name>.overlay` (applied as-is).
+    # .shield from a real Zephyr shield's <name>.overlay (applied as-is).
     # Without this marker the two look identical and behave completely
     # differently.
     root = dt.root.nodes.get("shield-templates")
@@ -215,7 +215,7 @@ _FUNCTION_DEFAULT_CELLS = {"gpio": 2, "pwm": 3, "adc": 1}
 
 
 def _function_of(prop_name: str):
-    """Which function-nexus a property resolves through (Slice A). Detected by
+    """Which function-nexus a property resolves through. Detected by
     property name — the shield picks the function by using the standard
     property for it."""
     if prop_name == "gpios" or prop_name.endswith("-gpios"):

@@ -1,12 +1,12 @@
 """DTS plumbing for the SHIELD-template side, and for rig-declared token
-vocabularies (`dt-includes:`). This module never touches the board DT
-(`board_edt`/`edt_build`'s real `edtlib.EDT` owns that). What's here: CPP +
-stock dtlib parsing of `.shield` translation units (Ground rule 3), which
+vocabularies (dt-includes:). This module never touches the board DT
+(board_edt/edt_build's real edtlib.EDT owns that). What's here: CPP +
+stock dtlib parsing of .shield translation units (Ground rule 3), which
 stays dtlib by design — shield templates are pre-instantiation text with no
 binding/schema to validate against, so there is nothing for edtlib to attach
 type info to; dt-bindings/connector/*.h position-index header parsing (the
 module's own real headers, shared by both the real gpio-map and the
-expander); and `resolve_token`/`check_include`, the per-instance-parameter
+expander); and resolve_token/check_include, the per-instance-parameter
 mechanism's own synthetic-TU resolution (shared by the loader, for
 validation, and the emitter, for the config sheet's display value — one
 resolution path, not two).
@@ -35,8 +35,7 @@ ZEPHYR_INC = os.path.join(_ZEPHYR_BASE, "include")
 
 # The module root (self-located the same way ROOT is: two levels up from
 # scripts/rigexp/), and its real include/ tree -- the single source for the
-# dt-bindings/connector/*.h position-index headers (Bridge-A rewrite step 3;
-# common-dts no longer carries its own copies).
+# dt-bindings/connector/*.h position-index headers.
 MODULE_ROOT = os.path.dirname(os.path.dirname(ROOT))
 MODULE_INC = os.path.join(MODULE_ROOT, "include")
 
@@ -70,7 +69,7 @@ def run_cpp(dts_path: str, out_path: str) -> None:
 
 def parse_dts(dts_path: str, workdir: str) -> dtlib.DT:
     """CPP + stock dtlib. dtlib reads the CPP linemarkers, so node/prop
-    source references point at the ORIGINAL `.shield` files, not the
+    source references point at the ORIGINAL .shield files, not the
     generated translation unit — free provenance for diagnostics."""
     os.makedirs(workdir, exist_ok=True)
     pre = os.path.join(workdir, os.path.basename(dts_path) + ".pre")
@@ -83,7 +82,7 @@ def parse_dts(dts_path: str, workdir: str) -> dtlib.DT:
 
 def parse_tu(includes: list[str], workdir: str, name: str) -> dtlib.DT:
     """Build + parse a one-off translation unit that includes the given
-    files — the shield-TU entry point (one `.shield` per call, per
+    files — the shield-TU entry point (one .shield per call, per
     loader_yml)."""
     os.makedirs(workdir, exist_ok=True)
     tu = os.path.join(workdir, name)
@@ -100,9 +99,9 @@ _DEFINE_RE = re.compile(r"^\s*#define\s+(\w+)\s+(\d+|0x[0-9a-fA-F]+)\s*$", re.M)
 def parse_header_indices(type_name: str,
                          deps: Depends | None = None) -> dict[str, int]:
     """include/dt-bindings/connector/<type>.h -- the module's REAL
-    position-index single source of truth (Bridge-A rewrite step 3; no
-    longer a bundled common-dts copy). Returns {short position name: index}
-    with the common macro prefix stripped (ARDUINO_HEADER_R3_D7 -> D7)."""
+    position-index single source of truth. Returns {short position name:
+    index} with the common macro prefix stripped
+    (ARDUINO_HEADER_R3_D7 -> D7)."""
     path = os.path.join(MODULE_INC, "dt-bindings", "connector", f"{type_name}.h")
     if deps is not None:
         deps.see(path)
@@ -113,13 +112,13 @@ def parse_header_indices(type_name: str,
 
 
 def source_files(dt: dtlib.DT, exclude_dir: str) -> list[str]:
-    """Every REAL source-tree file `dt` was parsed from, recovered from cpp
-    linemarkers via each `Node`/`Property`'s own `.filename` (dtlib records
+    """Every REAL source-tree file dt was parsed from, recovered from cpp
+    linemarkers via each Node/Property's own .filename (dtlib records
     these as it walks the preprocessed token stream, so they name the
     ORIGINAL included files, not the preprocessed temp file). EXCLUDES
-    `exclude_dir` (and anything under it): the synthesized translation unit
-    `parse_tu` builds there is a generated artifact, not a real source file
-    -- only its real `#include`d files belong in a dependency list."""
+    exclude_dir (and anything under it): the synthesized translation unit
+    parse_tu builds there is a generated artifact, not a real source file
+    -- only its real #included files belong in a dependency list."""
     exclude = os.path.realpath(exclude_dir)
     names = set()
     for node in dt.node_iter():
@@ -135,11 +134,11 @@ def source_files(dt: dtlib.DT, exclude_dir: str) -> list[str]:
 def words(prop: dtlib.Property) -> list[int]:
     """Raw 32-bit cells of a property value.
 
-    Only for `Type.PHANDLES_AND_NUMS` — dtlib has no typed accessor for that
-    shape (`to_nums` requires pure NUM/NUMS, `to_nodes` requires pure
-    PHANDLE/PHANDLES); a real gap (saferail 10: consume dtlib as-is, report
-    the gap rather than fork it), not a style choice. Every other cell shape
-    goes through `to_num`/`to_nums` directly at the call site instead."""
+    Only for Type.PHANDLES_AND_NUMS — dtlib has no typed accessor for that
+    shape (to_nums requires pure NUM/NUMS, to_nodes requires pure
+    PHANDLE/PHANDLES); a real gap, reported rather than forked (dtlib is
+    consumed as-is), not a style choice. Every other cell shape goes
+    through to_num/to_nums directly at the call site instead."""
     v = prop.value
     return [int.from_bytes(v[i:i + 4], "big") for i in range(0, len(v) - len(v) % 4, 4)]
 
@@ -147,20 +146,20 @@ def words(prop: dtlib.Property) -> list[int]:
 def render_prop(prop: dtlib.Property) -> str | None:
     """Generic passthrough rendering for props the rig model doesn't
     interpret (compatible, spi-max-frequency, jedec-id, ...). Returns a
-    complete 'name = value;' string, or None if the type can't passthrough.
+    complete "name = value;" string, or None if the type can't passthrough.
 
     Deliberately renders via dtlib's typed accessors (to_num/to_nums/
-    to_strings/value) with its OWN stable formatting, NOT `str(prop)`:
+    to_strings/value) with its OWN stable formatting, NOT str(prop):
 
-      - `str(prop)` cannot preserve authored numeric form — every NUM/NUMS
+      - str(prop) cannot preserve authored numeric form — every NUM/NUMS
         renders as hex with padded spacing regardless of source radix (a
-        shield-authored `spi-max-frequency = <8000000>;` comes back as
-        `spi-max-frequency = < 0x7a1200 >;`, verified against dtlib).
-      - the None-for-phandles branch is LOAD-BEARING: `str(prop)` renders
-        phandle-typed values via their DTS label (e.g. `< &plug >`), but
+        shield-authored spi-max-frequency = <8000000>; comes back as
+        spi-max-frequency = < 0x7a1200 >;, verified against dtlib).
+      - the None-for-phandles branch is LOAD-BEARING: str(prop) renders
+        phandle-typed values via their DTS label (e.g. < &plug >), but
         that label is a shield-template parsing artifact with no
         counterpart in the composed output (the emitter mints its own
-        `<instance>_<shield-local-label>` names) — rendering it would leak
+        <instance>_<shield-local-label> names) — rendering it would leak
         a dangling, wrong-scope reference into the emitted overlay.
         Phandle-shaped props must already have been interpreted upstream
         (gpio/pwm/adc nexus refs); anything left un-interpreted is
@@ -188,8 +187,8 @@ _INT_LITERAL_RE = re.compile(r"^-?(0[xX][0-9a-fA-F]+|\d+)$")
 
 
 def is_int_literal(text: str) -> bool:
-    """Whether `text` is already a bare DTS integer literal (decimal or 0x
-    hex, optionally negative) needing no `dt-includes:` resolution at all —
+    """Whether text is already a bare DTS integer literal (decimal or 0x
+    hex, optionally negative) needing no dt-includes: resolution at all —
     shared by the loader (skip resolving what needs no resolving) and the
     emitter's config sheet (skip showing a redundant "(N)" for a value that
     already IS N)."""
@@ -197,9 +196,9 @@ def is_int_literal(text: str) -> bool:
 
 
 def check_include(header: str, workdir: str, tag: str) -> Optional[str]:
-    """Confirm one `dt-includes:` header is real and preprocesses cleanly on
+    """Confirm one dt-includes: header is real and preprocesses cleanly on
     its own (rig-variants-revisions.md per-instance-parameters rule 6:
-    `lang-dt-include`, checked at expand time regardless of whether any
+    "lang-dt-include", checked at expand time regardless of whether any
     parameter actually resolves against it). Returns an error detail string
     on failure, else None. Each header is checked in isolation — the failure
     this rule targets is the header not existing at all, not an
@@ -216,12 +215,12 @@ def check_include(header: str, workdir: str, tag: str) -> Optional[str]:
 
 def resolve_token(token: str, headers: List[str], workdir: str, tag: str) -> Optional[int]:
     """cpp+dtlib-resolve one assigned parameter TOKEN against a synthetic TU
-    that includes exactly `headers` — a rig's declared `dt-includes:`
+    that includes exactly headers — a rig's declared dt-includes:
     vocabulary, in order. Serves validation (rules 4/5) and the config
     sheet's displayed value; never feeds emission, which emits the token
     text verbatim regardless of whether it resolves. Returns None if cpp
     leaves the token unexpanded: an unresolved bareword identifier is not
-    valid syntax inside a DTS cell list, so the embedding `dtlib.DT` parse
+    valid syntax inside a DTS cell list, so the embedding dtlib.DT parse
     fails — the same failure shape whether the token is a typo or the
     defining header was never declared."""
     tu = os.path.join(workdir, f"rig-param-{tag}.dts")

@@ -1,21 +1,20 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """Standalone edtlib.EDT construction over a single real devicetree file.
 
-This is the Bridge-A rewrite's GENERIC reader layer (saferail 17): it knows
-nothing about rigs, sockets, or any other rigexp product concept -- only
-devicetree/edtlib mechanics plus the one piece of Zephyr CMake convention
-(a `build_info.yml`'s `cmake.devicetree` section) needed to recover the
-include/bindings directories a real `west build` used. It is the candidate
-for upstreaming into `python-devicetree` itself, so it must never import a
-rigexp product module (model / analyzer / emitter / diag) -- only the
-standard library, PyYAML, and `devicetree.edtlib`.
+This is a generic reader layer: it knows nothing about rigs, sockets, or any
+other rigexp product concept -- only devicetree/edtlib mechanics plus the
+one piece of Zephyr CMake convention (a build_info.yml's cmake.devicetree
+section) needed to recover the include/bindings directories a real west
+build used. It is the candidate for upstreaming into python-devicetree
+itself, so it must never import a rigexp product module (model / analyzer /
+emitter / diag) -- only the standard library, PyYAML, and devicetree.edtlib.
 
-Recipe (mirrors `cmake/modules/dts.cmake` + `scripts/dts/gen_defines.py`,
-Bridge-A saferail 13): cpp the board `.dts` with `-nostdinc` plus one
-`-isystem` per include dir and `-D__DTS__` (no other defines -- linemarkers
-stay intact, so dtlib/edtlib source references point at the ORIGINAL board
-files, not the preprocessed temp file), then hand the preprocessed file plus
-the bindings dirs to `edtlib.EDT`.
+Recipe (mirrors cmake/modules/dts.cmake + scripts/dts/gen_defines.py): cpp
+the board .dts with -nostdinc plus one -isystem per include dir and
+-D__DTS__ (no other defines -- linemarkers stay intact, so dtlib/edtlib
+source references point at the ORIGINAL board files, not the preprocessed
+temp file), then hand the preprocessed file plus the bindings dirs to
+edtlib.EDT.
 """
 from __future__ import annotations
 
@@ -46,36 +45,36 @@ class BuildRecipe:
     devicetree preprocessor and to edtlib.
 
     include_dirs:
-      `-isystem` search directories for the C preprocessor pass.
+      -isystem search directories for the C preprocessor pass.
 
     bindings_dirs:
-      Directories edtlib recursively globs for `.yaml` binding files.
+      Directories edtlib recursively globs for .yaml binding files.
     """
     include_dirs: List[str]
     bindings_dirs: List[str]
 
 
 def recipe_from_build_info(build_info_path: str) -> BuildRecipe:
-    """Recover the recipe a real `west build` used from its
-    `<build-dir>/build_info.yml`.
+    """Recover the recipe a real west build used from its
+    <build-dir>/build_info.yml.
 
-    `dts.cmake`'s `dts_build_info_output()` records the exact directories
+    dts.cmake's dts_build_info_output() records the exact directories
     passed to the board-DTS preprocessor and to edtlib under
-    `cmake.devicetree.include-dirs` / `cmake.devicetree.bindings-dirs` --
-    this is a *read of that record*, not a re-derivation, so it stays
-    correct across Zephyr versions without mirroring `pre_dt.cmake`.
+    cmake.devicetree.include-dirs / cmake.devicetree.bindings-dirs -- this
+    is a read of that record, not a re-derivation, so it stays correct
+    across Zephyr versions without mirroring pre_dt.cmake.
 
-    Also appends `cmake.board.path` (written by `boards.cmake`:
-    `build_info(board path PATH ${BOARD_DIRECTORIES})` -- every board
+    Also appends cmake.board.path (written by boards.cmake:
+    build_info(board path PATH ${BOARD_DIRECTORIES}) -- every board
     directory the configure resolved, base board first, then any hwmv2
     board-EXTENSION directories registered against it). Plain boards get
     exactly one entry here (their own dir, already implied by
-    `include-dirs`' subpaths); an extension variant's own dts lives in a
-    DIFFERENT directory than the base board it `#include`s, so its base
+    include-dirs' subpaths); an extension variant's own dts lives in a
+    DIFFERENT directory than the base board it #includes, so its base
     directory must be on the cpp search path too for that quoted include
-    to resolve -- this is the standalone-read analog of
-    `cmake/dts.cmake` appending the same `BOARD_DIRECTORIES` list to the
-    expander's `--include-dir` args for the in-build path.
+    to resolve -- this is the standalone-read analog of cmake/dts.cmake
+    appending the same BOARD_DIRECTORIES list to the expander's
+    --include-dir args for the in-build path.
     """
     with open(build_info_path) as f:
         doc = yaml.safe_load(f)
@@ -89,9 +88,9 @@ def recipe_from_build_info(build_info_path: str) -> BuildRecipe:
 
 
 def preprocess(dts_path: str, include_dirs: List[str], out_path: str) -> None:
-    """cpp `dts_path`, exactly as a real board-DTS preprocess does: no
-    standard include path, one `-isystem` per `include_dirs` entry, and
-    `-D__DTS__` (the sole macro Zephyr's own board-DTS cpp step defines)."""
+    """cpp dts_path, exactly as a real board-DTS preprocess does: no
+    standard include path, one -isystem per include_dirs entry, and
+    -D__DTS__ (the sole macro Zephyr's own board-DTS cpp step defines)."""
     cmd = ["gcc", "-E", "-x", "assembler-with-cpp", "-nostdinc"]
     for include_dir in include_dirs:
         cmd += ["-isystem", include_dir]
@@ -102,11 +101,12 @@ def preprocess(dts_path: str, include_dirs: List[str], out_path: str) -> None:
 
 
 def build_edt(dts_path: str, recipe: BuildRecipe, workdir: str) -> edtlib.EDT:
-    """Build a standalone `edtlib.EDT` over one `.dts` file -- no app, no
-    overlay (Bridge-A saferail 12: this pass needs no app/overlay context).
+    """Build a standalone edtlib.EDT over one .dts file -- no app, no
+    overlay: this pass reads only the board's own devicetree, never app or
+    overlay context.
 
-    `infer_binding_for_paths` covers the two paths a real build always
-    carries without a dedicated binding (`/zephyr,user`, `/cpus`), matching
+    infer_binding_for_paths covers the two paths a real build always
+    carries without a dedicated binding (/zephyr,user, /cpus), matching
     what a normal Zephyr configure does for the same board.
     """
     os.makedirs(workdir, exist_ok=True)

@@ -35,8 +35,14 @@ criteria; do that task, nothing more.
 - **Code style** (saferail 16): new/rewritten Python follows edtlib idioms —
   full type annotations, mypy-clean, `"""` structured docstrings,
   `Optional[X]`/`Union[...]` spelling, snake_case, `_private`, `@property`.
-  Comments state constraints the code can't show — no narration, no
-  change-justification.
+  Comments state constraints the code can't show — why a thing must exist
+  and what breaks without it — never design-process archaeology (no
+  ratification dates, slice/session/agent attributions, "supersedes an
+  earlier design", or narration of who found a bug and when). Don't wrap
+  identifiers in backticks or 'decorative single quotes' — that's markdown
+  leaking into source; plain text reads fine in a `#` comment or a
+  docstring. Double-quote only an actual literal VALUE (a compatible string
+  like `"gpio-keys"`, a status value like `"okay"`).
 - **Tests** (saferail 18): follow the python-devicetree `test_edtlib.py`
   template style (pytest, module-level `test_*`, fixture `.dts` + binding
   YAML dirs alongside the tests). Tests live in `scripts/rigexp/tests/` —

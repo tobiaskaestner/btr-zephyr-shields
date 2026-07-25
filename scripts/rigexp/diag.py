@@ -1,6 +1,6 @@
 """Diagnostics. architecture.md: the error taxonomy follows the component
-split — 'lang-*' codes come from a loader (candidate-dependent quality, the
-open verdict), 'phys-*' codes from the analyzer (candidate-independent,
+split — "lang-*" codes come from a loader (candidate-dependent quality, the
+open verdict), "phys-*" codes from the analyzer (candidate-independent,
 worded at the copper level per C6). The emitter has no error class.
 """
 from __future__ import annotations
@@ -8,15 +8,12 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 
-# btr-shields/scripts/rigexp/ — the vendored package directory itself. Downstream
-# vendored copy: unlike the frontend-trial prototype (which sat three levels
-# under its tree root, frontend-trial/scripts/rigexp/diag.py), this package
-# IS the root — no reference back into claude/ is needed at runtime. Every
-# DT-mechanics fact (board sockets, connector-type bindings) is read from the
-# REAL trees the module ships alongside this package (boards/, dts/bindings/,
-# include/dt-bindings/connector/ — see board_edt.py / ctypes_registry.py /
-# dtsio.py); the bundled common-dts/{boards,bindings}
-# scaffold (Bridge-A rewrite) is gone (saferail 8: deleted in full).
+# scripts/rigexp/ — the package directory itself, and the root every
+# diagnostic path is rendered relative to. Every DT-mechanics fact (board
+# sockets, connector-type bindings) is read from the real trees the module
+# ships alongside this package (boards/, dts/bindings/,
+# include/dt-bindings/connector/ — see board_edt.py, ctypes_registry.py,
+# dtsio.py), so no reference back into claude/ is needed at runtime.
 ROOT = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -41,8 +38,8 @@ class SrcRef:
 
 @dataclass
 class Diagnostic:
-    severity: str  # 'error' | 'warning'
-    code: str      # 'lang-*' | 'phys-*'
+    severity: str  # "error" | "warning"
+    code: str      # "lang-*" | "phys-*"
     message: str   # first line: the claim; following lines: detail
     refs: list = field(default_factory=list)
 
@@ -83,19 +80,19 @@ class LoadError(Exception):
 
 
 class Depends(set):
-    """Absolute paths of every real source-tree file one `expand` run
-    actually opened -- rig.yml, `.shield` templates (+ their cpp-included
-    files), connector plug/socket bindings, index headers, the board `.dts`.
-    Threaded through the pipeline the same way `Diagnostics` is: an optional,
-    mutable accumulator passed down to whichever module does the actual
-    open(). `cli.py` sorts + writes it into `context.cmake` as `RIG_DEPENDS`,
-    which `cmake/dts.cmake` appends to `CMAKE_CONFIGURE_DEPENDS` -- so editing
-    any of these files retriggers configure (one-configure lag: this reflects
-    what THIS run read, not the edited file itself, until the next run).
+    """Absolute paths of every real source-tree file one expand run actually
+    opened -- rig.yml, .shield templates (+ their cpp-included files),
+    connector plug/socket bindings, index headers, the board .dts. Threaded
+    through the pipeline the same way Diagnostics is: an optional, mutable
+    accumulator passed down to whichever module does the actual open().
+    cli.py sorts + writes it into context.cmake as RIG_DEPENDS, which
+    cmake/dts.cmake appends to CMAKE_CONFIGURE_DEPENDS -- so editing any of
+    these files retriggers configure (one-configure lag: this reflects what
+    THIS run read, not the edited file itself, until the next run).
 
-    Deliberately a plain `set`, not a dataclass: membership (has this file
+    Deliberately a plain set, not a dataclass: membership (has this file
     been seen) is the only operation needed, insertion order is irrelevant,
-    and every caller already has a path string in hand -- `see()` just
+    and every caller already has a path string in hand -- see() just
     normalizes it to absolute before adding."""
 
     def see(self, path: str) -> None:

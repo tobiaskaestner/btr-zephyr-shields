@@ -278,7 +278,7 @@ def _collect_gpio(inst, dev, ref, socket, ctype, solved, diags):
 
 
 def _collect_channel(inst, dev, ref, socket, ctype, solved, diags):
-    """PWM/ADC (Slice A): the same position is reachable as a channel of a
+    """PWM/ADC: the same position is reachable as a channel of a
     controller. Register TWO net claims — the PIN (exclusive: the pin can't
     also be GPIO or another function) and the CHANNEL (exclusive: two
     consumers can't share one timer/adc channel). Both fall out of net
@@ -295,15 +295,15 @@ def _collect_channel(inst, dev, ref, socket, ctype, solved, diags):
             [ref.src, socket.src])
         return
     if fn == "pwm" and ref.flags:
-        # The expander's PWM emission (Bridge-A rewrite step 2b) is
-        # flags-less by design: the socket-relative pwm-map nexus carries
-        # only (position, period) -- matching the board's own
-        # #pwm-cells=2 (atmel,sam0-tcc-pwm has no flags cell at all). A
-        # nonzero flags value here is real wiring information (e.g.
-        # polarity) that has nowhere to go, so reject rather than silently
-        # drop it -- moved from the emitter (which must never fail, cli.py
-        # never calls it inside a try/except) into this physically-worded
-        # diagnostic, the one place `ref.flags` is visible before emission.
+        # The expander's PWM emission is flags-less by design: the
+        # socket-relative pwm-map nexus carries only (position, period) --
+        # matching the board's own #pwm-cells=2 (atmel,sam0-tcc-pwm has no
+        # flags cell at all). A nonzero flags value here is real wiring
+        # information (e.g. polarity) that has nowhere to go, so reject
+        # rather than silently drop it -- this diagnostic is the one place
+        # ref.flags is visible before emission, which is why it lives here
+        # rather than in the emitter (which must never fail; cli.py never
+        # calls it inside a try/except).
         diags.error(
             "phys-function",
             f"'{inst.name}/{dev.name}: {ref.prop}' authors PWM flags "
@@ -556,17 +556,17 @@ def _allocate_cs(rig, solved, types, diags):
                     role="dedicated", src=dev.src))
                 placed.append((inst, dev, socket, pos))
                 continue
-            # cs_pool None-if-absent merge: inert for a REAL board socket
-            # whose connector type declares a `socket,cs-pool` default
-            # (board_edt.py backfills it, so `socket.cs_pool` is never None
-            # there) -- but still LIVE for a shield-SYNTHESIZED socket
-            # (carrier/mux `ExposedSocket`, composed into a `BoardSocket` by
-            # `_compose_exposed_socket` above): those come from a plain
-            # dtlib parse of the carrier `.shield` template (shields.py) with
-            # no binding-default backfill, so `cs_pool` stays None unless the
-            # carrier authors `socket,cs-pool` itself (arduino_uno_click,
+            # cs_pool None-if-absent merge: inert for a real board socket
+            # whose connector type declares a socket,cs-pool default
+            # (board_edt.py backfills it, so socket.cs_pool is never None
+            # there) -- but still live for a shield-synthesized socket
+            # (carrier/mux ExposedSocket, composed into a BoardSocket by
+            # _compose_socket above): those come from a plain dtlib parse
+            # of the carrier .shield template (shields.py) with no
+            # binding-default backfill, so cs_pool stays None unless the
+            # carrier authors socket,cs-pool itself (arduino_uno_click,
             # i2c_mux do not) -- the ctype fallback is what supplies their
-            # pool. Keep this merge; do not assume it is now dead.
+            # pool. Keep this merge; do not assume it is dead code.
             pool = socket.cs_pool if socket.cs_pool is not None else ctype.cs_pool
             pos = next((p for p in pool
                         if _soc_net(socket, p) not in solved.nets), None)
