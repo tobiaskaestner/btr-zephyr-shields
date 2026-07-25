@@ -10,7 +10,7 @@
 #include <zephyr/dt-bindings/gpio/gpio.h>
 
 / {
-	rig-shields {
+	shield-templates {
 		data_logger: adafruit_data_logger {
 			shield,plugs = "arduino-r3";
 			dl_plug: plug { #gpio-cells = <2>; };

@@ -9,7 +9,7 @@
 #include <zephyr/dt-bindings/gpio/gpio.h>
 
 / {
-	rig-shields {
+	shield-templates {
 		grove_led: grove_led {
 			shield,plugs = "grove";
 			gl_plug: plug { #gpio-cells = <2>; };

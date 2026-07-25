@@ -13,7 +13,7 @@
 #include <zephyr/dt-bindings/gpio/gpio.h>
 
 / {
-	rig-shields {
+	shield-templates {
 		eth_click: eth_click {
 			shield,plugs = "mikrobus";
 			eth_plug: plug { #gpio-cells = <2>; };

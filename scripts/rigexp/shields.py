@@ -1,4 +1,4 @@
-"""Shield parsing: /rig-shields subtree -> model.Shield. Shared by BOTH
+"""Shield parsing: /shield-templates subtree -> model.Shield. Shared by BOTH
 loaders (the candidates differ only in the rig topology file; shield
 payloads are DTS either way). Loader-side validation done here:
 
@@ -28,7 +28,14 @@ _MODEL_PROPS = {"reg", "compatible", "shield,addr-from", "shield,cs-position",
 def parse_shields(dt: dtlib.DT, types: dict[str, ConnectorType],
                   diags: Diagnostics) -> dict[str, Shield]:
     shields: dict[str, Shield] = {}
-    root = dt.root.nodes.get("rig-shields")
+    # Every `.shield` file has exactly one shield node under this wrapper, so
+    # it carries no grouping information — identity already comes from
+    # shield.yml's `name:`. It stays anyway: it marks the FILE as a template
+    # to be expanded, never applied directly, which is what distinguishes a
+    # `.shield` from a real Zephyr shield's `<name>.overlay` (applied as-is).
+    # Without this marker the two look identical and behave completely
+    # differently.
+    root = dt.root.nodes.get("shield-templates")
     if root is None:
         return shields
     for node in root.nodes.values():

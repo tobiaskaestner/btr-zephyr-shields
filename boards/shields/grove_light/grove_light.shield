@@ -9,7 +9,7 @@
 #include <dt-bindings/connector/grove.h>
 
 / {
-	rig-shields {
+	shield-templates {
 		grove_light: grove_light {
 			shield,plugs = "grove";
 			gl_plug: plug { #gpio-cells = <2>; #io-channel-cells = <1>; };

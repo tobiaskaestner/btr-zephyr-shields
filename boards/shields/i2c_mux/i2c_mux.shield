@@ -16,7 +16,7 @@
  */
 
 / {
-	rig-shields {
+	shield-templates {
 		i2c_mux: i2c_mux {
 			shield,plugs = "arduino-r3";
 			mux_plug: plug { #gpio-cells = <2>; };

@@ -17,7 +17,7 @@
 #include <zephyr/dt-bindings/gpio/gpio.h>
 
 / {
-	rig-shields {
+	shield-templates {
 		winc1500: adafruit_winc1500 {
 			shield,plugs = "arduino-r3";
 			w_plug: plug { #gpio-cells = <2>; };

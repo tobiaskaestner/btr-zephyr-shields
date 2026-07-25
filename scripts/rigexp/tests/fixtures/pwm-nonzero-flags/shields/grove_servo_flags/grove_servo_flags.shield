@@ -11,7 +11,7 @@
 #include <zephyr/dt-bindings/pwm/pwm.h>
 
 / {
-	rig-shields {
+	shield-templates {
 		grove_servo_flags: grove_servo_flags {
 			shield,plugs = "grove";
 			gsvf_plug: plug { #gpio-cells = <2>; #pwm-cells = <3>; };

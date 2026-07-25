@@ -9,7 +9,7 @@
 #include <zephyr/dt-bindings/gpio/gpio.h>
 
 / {
-	rig-shields {
+	shield-templates {
 		temp_click: temp_click {
 			shield,plugs = "mikrobus";
 			tc_plug: plug { #gpio-cells = <2>; };

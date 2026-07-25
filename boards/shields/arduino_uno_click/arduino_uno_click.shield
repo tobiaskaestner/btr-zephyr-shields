@@ -16,7 +16,7 @@
 #include <dt-bindings/connector/mikrobus.h>
 
 / {
-	rig-shields {
+	shield-templates {
 		arduino_uno_click: arduino_uno_click {
 			shield,plugs = "arduino-r3";
 			auc_plug: plug { #gpio-cells = <2>; };

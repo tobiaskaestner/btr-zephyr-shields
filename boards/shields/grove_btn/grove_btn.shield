@@ -23,7 +23,7 @@
 #include <zephyr/dt-bindings/gpio/gpio.h>
 
 / {
-	rig-shields {
+	shield-templates {
 		grove_btn: grove_btn {
 			shield,plugs = "grove";
 			gb_plug: plug { #gpio-cells = <2>; };

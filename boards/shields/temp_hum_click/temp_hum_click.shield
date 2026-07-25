@@ -6,7 +6,7 @@
 #include <dt-bindings/connector/mikrobus.h>
 
 / {
-	rig-shields {
+	shield-templates {
 		temp_hum_click: temp_hum_click {
 			shield,plugs = "mikrobus";
 			th_plug: plug { #gpio-cells = <2>; };
