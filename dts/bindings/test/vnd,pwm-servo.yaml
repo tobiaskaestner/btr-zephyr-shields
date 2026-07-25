@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 description: |
-  Test PWM servo consumer (rig corpus, lotus-pwm/lotus-pwm-clash). Minimal
+  Test PWM servo consumer (rig corpus, lotus_pwm/lotus_pwm_clash). Minimal
   typed binding so pass-2's edtlib resolves `pwms` through the real
   pwm-map nexus (Bridge-A rewrite step 2a) instead of leaving the property
   untyped — without a declared `type: phandle-array`, edtlib never attempts

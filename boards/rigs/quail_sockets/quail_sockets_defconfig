@@ -1,0 +1,9 @@
+# quail_sockets — umbrella-subsystem activation (option A).
+#
+# Assembly: 2x flash_click (SPI NOR, on spi1 and spi3 respectively) +
+# 1x temp_hum_click (I2C sensor, st,hts221, on the shared i2c1). Minimal:
+# just the umbrellas the instantiated shields' drivers need.
+CONFIG_SPI=y
+CONFIG_I2C=y
+CONFIG_FLASH=y
+CONFIG_SENSOR=y

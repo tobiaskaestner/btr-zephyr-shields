@@ -1,0 +1,16 @@
+# frdm_eth_nest — umbrella-subsystem activation (option A).
+#
+# Assembly: 2x eth_click (ENC28J60, ethernet-over-SPI) nested behind an
+# arduino_uno_click carrier, both on the host's spi0. ETH_ENC28J60
+# auto-selects once its DT node exists (`depends on
+# DT_HAS_MICROCHIP_ENC28J60_ENABLED`, default y, `select SPI`) but the
+# networking/ethernet-L2 umbrellas still need opening here, same shape as
+# nucleo_wifi_logger_ok's WIFI_WINC1500 activation.
+#
+# NOTE: this is structural configure-clean + driver-compiles activation only
+# (matches the nucleo_wifi_logger_ok accept bar) — a full network LINK (IPv4,
+# entropy, etc.) needs additional app-level config, deferred here just as it
+# was for nucleo_wifi_logger_ok's WINC1500.
+CONFIG_NETWORKING=y
+CONFIG_NET_L2_ETHERNET=y
+CONFIG_SPI=y

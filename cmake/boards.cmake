@@ -99,7 +99,7 @@ if(DEFINED RIG)
   # both stale) with inference SKIPPED, and the expander then reads the OLD
   # board's dts under the NEW rig's declared board name: phys-socket
   # diagnostics that blame the wrong board (verified live: swapping
-  # lotus-buttons into a nucleo-datalogger dir reported the OLD board name
+  # lotus_buttons into a nucleo_datalogger dir reported the OLD board name
   # missing the NEW rig's socket -- it did), or, for two boards whose
   # socket names coincide, a clean build against the wrong hardware. A swap
   # to another rig on the SAME board stays legal (the marker still matches).

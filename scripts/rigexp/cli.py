@@ -135,9 +135,10 @@ def _expand(rig_path: str, shield_dirs: Optional[List[str]], out_dir: str,
     # RIG_DEPENDS: the dependency-tracking handoff. The expander is the sole
     # authority on what pass 1 actually read — cmake/dts.cmake appends this
     # (sorted, absolute) to CMAKE_CONFIGURE_DEPENDS, on top of its own static
-    # registrations (rig.yml/rig.conf/rig.overlay/rigexp sources/
-    # list_rigs.py), which cover the pre-expansion trigger set. One-configure
-    # lag: this list is only as fresh as the LAST successful expand, so a
+    # registrations (rig.yml / the rig's own `<name>_defconfig`/
+    # `<name>.overlay` / rigexp sources / list_rigs.py), which cover the
+    # pre-expansion trigger set. One-configure lag: this list is only as
+    # fresh as the LAST successful expand, so a
     # brand-new dependency (e.g. a rig naming a shield for the first time)
     # needs one configure to register before edits to IT retrigger — the
     # static set is what guarantees that first configure happens at all.

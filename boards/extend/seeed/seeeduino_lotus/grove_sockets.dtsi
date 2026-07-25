@@ -16,7 +16,7 @@
  * mapping
  * (which SoC pin each position reaches) is a real bridle fact, including
  * the daisy-lacing (SIG1 of one connector == SIG0 of the next) and D2/D4
- * sharing TCC0 channel 0 (the channel clash lotus-pwm-clash exercises).
+ * sharing TCC0 channel 0 (the channel clash lotus_pwm_clash exercises).
  *
  * adc0: is an ADDITIVE second label on the SoC's existing &adc node -- the
  * board's sockets below need a stable "adc0" name for their io-channel-map
@@ -51,7 +51,7 @@ adc0: &adc {};
 / {
 	/* Digital Grove sockets. D2/D4 both reach TCC0 channel 0 (real bridle
 	 * fact, per bridle's GROVE_PWM_D2/D4_PINCTRL in its upstream
-	 * grove_d2/d4_connector.dtsi) -- the channel clash lotus-pwm-clash
+	 * grove_d2/d4_connector.dtsi) -- the channel clash lotus_pwm_clash
 	 * exercises. #pwm-cells = <2> (channel + period, matching &tcc0/&tcc1's
 	 * own atmel,sam0-tcc-pwm override in the board .dts); pwm-map-mask fully
 	 * matches the position cell and ignores/passes through the second child

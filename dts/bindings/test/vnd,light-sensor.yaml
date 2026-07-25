@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 description: |
-  Test ADC light-sensor consumer (rig corpus, lotus-pwm). Minimal typed
+  Test ADC light-sensor consumer (rig corpus, lotus_pwm). Minimal typed
   binding so pass-2's edtlib resolves `io-channels` through the real
   io-channel-map nexus (Bridge-A rewrite step 2a) instead of leaving the
   property untyped (see vnd,pwm-servo.yaml for the full rationale).

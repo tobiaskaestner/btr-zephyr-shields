@@ -54,9 +54,9 @@ pytestmark = pytest.mark.build
 # hello_world is the corpus's own reference app (see test_tier2_goldens.py).
 _APP = "zephyr/samples/hello_world"
 
-# nucleo-datalogger (E1 extension target, nucleo_f401re/stm32f401xe/rig) is
+# nucleo_datalogger (E1 extension target, nucleo_f401re/stm32f401xe/rig) is
 # the corpus rig this brief's own examples use for the cmake-only entry.
-_RIG = "nucleo-datalogger"
+_RIG = "nucleo_datalogger"
 
 
 def _run_build_rig(rig_name: str, build_dir: Path,
@@ -188,7 +188,7 @@ def test_cmake_alone_entry_equivalent_to_build_rig(tmp_path: Path) -> None:
 def test_cmake_alone_board_rig_both_given_is_fatal(tmp_path: Path) -> None:
     """Criterion 3: RIG and BOARD are mutually exclusive on a FRESH configure
     -- FATAL even when the value MATCHES the rig's own board exactly
-    (nucleo-datalogger's board is nucleo_f401re/stm32f401xe/rig, passed back
+    (nucleo_datalogger's board is nucleo_f401re/stm32f401xe/rig, passed back
     verbatim here), because BOARD is derived data of the rig coordinate, not
     a separate one the user may also supply (design rule 3, amended
     2026-07-24 -- supersedes an earlier mismatch-only check)."""
@@ -256,7 +256,7 @@ def test_cmake_alone_shield_rig_both_given_is_fatal(tmp_path: Path) -> None:
     used to be (that fork's early-exit never looked at SHIELD at all, and
     the dts.cmake fork's rig block unconditionally overwrites
     SHIELD_AS_LIST from the rig's own instances). adafruit_data_logger is
-    the shield nucleo-datalogger's own s1 instance already names."""
+    the shield nucleo_datalogger's own instance already names."""
     build_dir = tmp_path / "shield-rig-clash"
     result = _run_cmake_alone(build_dir, [
         f"-DRIG={_RIG}", "-DSHIELD=adafruit_data_logger",
@@ -308,14 +308,14 @@ def test_cmake_alone_rig_swap_to_other_board_is_fatal(tmp_path: Path) -> None:
         f"initial cmake -DRIG={_RIG} configure failed\n"
         f"--- stdout ---\n{first.stdout}\n--- stderr ---\n{first.stderr}")
 
-    # lotus-buttons declares seeeduino_lotus/samd21g18a/rig -- a different
-    # board than nucleo-datalogger's nucleo_f401re/stm32f401xe/rig. The guard
+    # lotus_buttons declares seeeduino_lotus/samd21g18a/rig -- a different
+    # board than nucleo_datalogger's nucleo_f401re/stm32f401xe/rig. The guard
     # fires from the rig->board STRING resolved by list_rigs.py (reading
     # rig.yml), before any board-dts lookup -- no EXTRA_ZEPHYR_MODULES needed
     # for this configure to reach (and FATAL at) the guard.
     env = _cmake_alone_env()
     second = subprocess.run(
-        ["cmake", "-DRIG=lotus-buttons", str(build_dir)],
+        ["cmake", "-DRIG=lotus_buttons", str(build_dir)],
         cwd=str(WEST_TOPDIR), env=env,
         capture_output=True, text=True, timeout=300)
     assert second.returncode != 0, (
@@ -328,7 +328,7 @@ def test_cmake_alone_rig_swap_to_other_board_is_fatal(tmp_path: Path) -> None:
 
 def test_cmake_alone_rig_swap_same_board_proceeds(tmp_path: Path) -> None:
     """Rig-swap guard, the legal half: swapping to another rig on the SAME
-    board (nucleo-mux-farm shares nucleo-datalogger's extension target) must
+    board (nucleo_mux_farm shares nucleo_datalogger's extension target) must
     proceed -- the marker still matches the new rig's resolved board, so the
     build dir's pinned board remains valid."""
     build_dir = tmp_path / "rig-swap-same-board"
@@ -339,7 +339,7 @@ def test_cmake_alone_rig_swap_same_board_proceeds(tmp_path: Path) -> None:
 
     env = _cmake_alone_env()
     second = subprocess.run(
-        ["cmake", "-DRIG=nucleo-mux-farm", str(build_dir)],
+        ["cmake", "-DRIG=nucleo_mux_farm", str(build_dir)],
         cwd=str(WEST_TOPDIR), env=env,
         capture_output=True, text=True, timeout=300)
     assert second.returncode == 0, (
@@ -353,7 +353,7 @@ def test_cmake_alone_rig_swap_same_board_proceeds(tmp_path: Path) -> None:
 
 def test_cmake_alone_lotus_needs_bridle_module(tmp_path: Path) -> None:
     """E3-brief.md acceptance criterion 4 -- the DOCUMENTED failure mode:
-    `cmake -DRIG=lotus-pwm` WITHOUT `-DEXTRA_ZEPHYR_MODULES=<bridle>` must
+    `cmake -DRIG=lotus_pwm` WITHOUT `-DEXTRA_ZEPHYR_MODULES=<bridle>` must
     fail. seeeduino_lotus/samd21g18a/rig's base board lives entirely in the
     bridle Zephyr module, which the west manifest deliberately does NOT
     carry (decided 2026-07-24f) -- without the module define, hwmv2 board
@@ -361,9 +361,9 @@ def test_cmake_alone_lotus_needs_bridle_module(tmp_path: Path) -> None:
     exist. This is the accepted cost of the no-manifest-entry decision, not
     something to fix."""
     build_dir = tmp_path / "lotus-no-module"
-    result = _run_cmake_alone(build_dir, ["-DRIG=lotus-pwm"])
+    result = _run_cmake_alone(build_dir, ["-DRIG=lotus_pwm"])
     assert result.returncode != 0, (
-        "expected cmake -DRIG=lotus-pwm WITHOUT -DEXTRA_ZEPHYR_MODULES to "
+        "expected cmake -DRIG=lotus_pwm WITHOUT -DEXTRA_ZEPHYR_MODULES to "
         "fail (seeeduino_lotus does not exist without bridle's board_root)\n"
         f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
     combined = result.stdout + result.stderr
@@ -376,20 +376,20 @@ def test_cmake_alone_lotus_with_bridle_module_configures(tmp_path: Path) -> None
     the SAME cross-module extension target as `west build-rig` with the
     identical define threaded (same shape as
     test_cmake_alone_entry_equivalent_to_build_rig, the E1 board)."""
-    extra = board_extra_defines(rig_board_name("lotus-pwm"))
-    assert extra, "lotus-pwm's board must need EXTRA_ZEPHYR_MODULES (bridle)"
+    extra = board_extra_defines(rig_board_name("lotus_pwm"))
+    assert extra, "lotus_pwm's board must need EXTRA_ZEPHYR_MODULES (bridle)"
 
     reference_dir = tmp_path / "build-rig-reference"
-    result_ref = _run_build_rig("lotus-pwm", reference_dir, extra)
+    result_ref = _run_build_rig("lotus_pwm", reference_dir, extra)
     assert result_ref.returncode == 0, (
-        f"west build-rig --rig lotus-pwm --cmake-only (with bridle module) "
+        f"west build-rig --rig lotus_pwm --cmake-only (with bridle module) "
         f"failed\n--- stdout ---\n{result_ref.stdout}\n"
         f"--- stderr ---\n{result_ref.stderr}")
 
     cmake_dir = tmp_path / "cmake-alone"
-    result_cmake = _run_cmake_alone(cmake_dir, ["-DRIG=lotus-pwm", *extra])
+    result_cmake = _run_cmake_alone(cmake_dir, ["-DRIG=lotus_pwm", *extra])
     assert result_cmake.returncode == 0, (
-        f"cmake -DRIG=lotus-pwm {' '.join(extra)} (no -DBOARD, west absent) "
+        f"cmake -DRIG=lotus_pwm {' '.join(extra)} (no -DBOARD, west absent) "
         f"failed to configure\n--- stdout ---\n{result_cmake.stdout}\n"
         f"--- stderr ---\n{result_cmake.stderr}")
 
@@ -416,5 +416,5 @@ def test_cmake_alone_lotus_with_bridle_module_configures(tmp_path: Path) -> None
         env={**os.environ, "ZEPHYR_BASE": zb},
         capture_output=True, text=True)
     assert check.returncode == 0, (
-        "cmake-alone lotus-pwm's zephyr.dts is not structurally equivalent "
+        "cmake-alone lotus_pwm's zephyr.dts is not structurally equivalent "
         f"to the build-rig reference (dts_equiv.py):\n{check.stdout}\n{check.stderr}")

@@ -32,6 +32,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import yaml
 
 from conftest import (
     ALL_CASES,
@@ -46,7 +47,6 @@ from conftest import (
     normalize,
     plain_build_for,
     rig_board_name,
-    rig_yml_name,
     run_expand,
     zephyr_base,
 )
@@ -58,28 +58,31 @@ _EMITTED_FILES = ("rig-gen.overlay", "context.cmake", "config-sheet.md", "rig-ge
 
 @pytest.mark.parametrize("case", ALL_CASES, ids=lambda c: c.name)
 def test_corpus_rig_identity(case: RigCase) -> None:
-    """Guard the corpus table against drift: rig identity is rig.yml's
-    `rig.name`, never the folder basename (task instructions, and Ground
-    rule elsewhere in the front-end spec)."""
-    assert rig_yml_name(case.folder) == case.name
+    """Guard the corpus table against drift: a rig's folder under
+    `boards/rigs/` and its rig.yml `rig.name` must be the identical string
+    (Ground rule elsewhere in the front-end spec) — `RigCase.name` serves
+    as both."""
+    with open(RIGS_DIR / case.name / "rig.yml") as f:
+        doc = yaml.safe_load(f)
+    assert doc["rig"]["name"] == case.name
 
 
 def test_corpus_complete() -> None:
     """Every rig folder under boards/rigs/ must be in the corpus table — a
     newly added rig must be frozen into the goldens, never silently skipped."""
     live = {d.name for d in RIGS_DIR.iterdir() if (d / "rig.yml").is_file()}
-    assert live == {c.folder for c in ALL_CASES}
+    assert live == {c.name for c in ALL_CASES}
 
 
 @pytest.mark.build
 @pytest.mark.parametrize("case", ALL_CASES, ids=lambda c: c.name)
 def test_tier1_golden(case: RigCase, tmp_path: Path,
                       tmp_path_factory: "pytest.TempPathFactory") -> None:
-    board = rig_board_name(case.folder)
+    board = rig_board_name(case.name)
     plain_build = plain_build_for(board, tmp_path_factory)
     out_dir = tmp_path / "out"
     result = run_expand(
-        RIGS_DIR / case.folder / "rig.yml", out_dir,
+        RIGS_DIR / case.name / "rig.yml", out_dir,
         board_dts=REPO_ROOT / BOARD_DTS[board],
         build_info=plain_build.build_info)
 

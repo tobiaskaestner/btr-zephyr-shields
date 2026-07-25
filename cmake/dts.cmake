@@ -221,6 +221,7 @@ endif()
 # SUB_COMPONENTS configure that reaches `dts` without ever loading `boards`.
 if(DEFINED _RIG_RESOLVED_DIR AND NOT "${_RIG_RESOLVED_DIR}" STREQUAL "")
   set(_rig_dir "${_RIG_RESOLVED_DIR}")
+  set(_rig_name "${_RIG_RESOLVED_NAME}")
 else()
   message(VERBOSE
     "rig: _RIG_RESOLVED_DIR is unset -- boards.cmake's fork did not run "
@@ -266,6 +267,7 @@ else()
       list(APPEND RIG_LIST ${_rig_entry_name})
       if(_rig_entry_name STREQUAL RIG)
         set(_rig_dir ${_rig_entry_dir})
+        set(_rig_name ${_rig_entry_name})
       endif()
     endforeach()
   endif()
@@ -290,15 +292,28 @@ set(_rig_out_dir "${CMAKE_BINARY_DIR}/rig")
 file(MAKE_DIRECTORY "${_rig_out_dir}")
 # The CLI writes the literal emitter keys into --out-dir: "rig-gen.overlay",
 # "config-sheet.md", "expectations.yml" (rig-gen.* = generated counterparts
-# of the rig folder's hand-authored rig.overlay/rig.conf).
+# of the rig folder's own hand-authored `<RIG>_defconfig`/`<RIG>.overlay`).
 set(_rig_overlay "${_rig_out_dir}/rig-gen.overlay")
 set(_rig_conf "${_rig_out_dir}/rig-gen.conf")
 
-# The rig folder's own hand-authored fragments (paths only -- existence is
-# checked wherever each is used: the static CMAKE_CONFIGURE_DEPENDS
-# registration in step 4, and the overlay/conf handoff in step 7).
-set(_rig_user_overlay "${_rig_dir}/rig.overlay")
-set(_rig_conf_file "${_rig_dir}/rig.conf")
+# The rig folder's own hand-authored fragments -- named from the rig itself
+# (board/shield symmetry: `<board>_defconfig`, `<shield>.conf`, `<rig>_
+# defconfig`/`<rig>.overlay`), so a `-DRIG` reconfigure to a different rig
+# in the SAME dir naturally picks up that rig's OWN fragments, never a
+# stale one left over from the previous rig's basename. Paths only --
+# existence is checked wherever each is used: the static
+# CMAKE_CONFIGURE_DEPENDS registration in step 4, and the overlay/conf
+# handoff in step 7.
+#
+# Derived from the RESOLVED rig name, never from `${RIG}`: `${RIG}` is the
+# user's target string, which carries the `name[@rev][/variant]` qualifiers
+# (list_rigs.py:_RIG_TARGET_RE) that V1/V2 will start accepting, while these
+# filenames are keyed on the bare name. Both are identical only while
+# qualifiers are still rejected -- and both fragments are OPTIONAL, so
+# deriving from `${RIG}` would degrade to a silently unapplied defconfig the
+# day a qualifier appears, not to an error.
+set(_rig_user_overlay "${_rig_dir}/${_rig_name}.overlay")
+set(_rig_conf_file "${_rig_dir}/${_rig_name}_defconfig")
 
 # Shield-library roots: every board_root's boards/shields, mirroring how
 # list_shields.py itself discovers shields (root/boards/shields). The expander
@@ -647,17 +662,17 @@ pre_dt_module_run()
 # user-passed value applies after all rig fragments (EXTRA_DTC_OVERLAY_FILE/
 # EXTRA_CONF_FILE apply their files in list order, later files taking
 # precedence) and can override them. Internal ordering within the rig
-# fragments is unchanged: expander output first, then the rig folder's
-# hand-authored rig.overlay/rig.conf.
+# fragments is unchanged: expander output first, then the rig folder's own
+# hand-authored `<RIG>.overlay`/`<RIG>_defconfig`.
 #
 # EXTRA_DTC_OVERLAY_FILE fragments: the expander's generated overlay first,
-# then the rig folder's own hand-authored `rig.overlay` (if present). The
-# latter is the DT counterpart of rig.conf — a rig author supplies DT the
-# expander cannot emit, notably the board pinctrl pinmux fragment a function
-# needs to route on real silicon (R21 deep half): the expander only enables
-# the controller (status="okay") and names the pin in the config sheet; it
-# does not author SoC pinmux. Applied after the expander overlay so it can
-# augment nodes the expander created.
+# then the rig folder's own hand-authored `<RIG>.overlay` (if present). The
+# latter is the DT counterpart of `<RIG>_defconfig` — a rig author supplies
+# DT the expander cannot emit, notably the board pinctrl pinmux fragment a
+# function needs to route on real silicon (R21 deep half): the expander
+# only enables the controller (status="okay") and names the pin in the
+# config sheet; it does not author SoC pinmux. Applied after the expander
+# overlay so it can augment nodes the expander created.
 set(_rig_overlay_files "${_rig_overlay}")
 if(EXISTS "${_rig_user_overlay}")
   list(APPEND _rig_overlay_files "${_rig_user_overlay}")
@@ -667,9 +682,9 @@ set(EXTRA_DTC_OVERLAY_FILE ${_rig_overlay_files} ${EXTRA_DTC_OVERLAY_FILE})
 
 # EXTRA_CONF_FILE fragments: the expander's generated fragment (${_rig_conf},
 # e.g. Kconfig facts derived from the topology) first, then the rig folder's
-# own hand-authored rig.conf (option A — the umbrella-subsystem activation
-# layer a rig author writes so the instantiated shields' DRIVERS actually
-# build; the expander cannot know this, it only knows topology).
+# own hand-authored `<RIG>_defconfig` (option A — the umbrella-subsystem
+# activation layer a rig author writes so the instantiated shields' DRIVERS
+# actually build; the expander cannot know this, it only knows topology).
 set(_rig_overlay_config "")
 if(EXISTS "${_rig_conf}")
   list(APPEND _rig_overlay_config "${_rig_conf}")

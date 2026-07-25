@@ -1,0 +1,34 @@
+# S6 (reject) — the cross-layer chip-select clash (R21). The ETH Click's CS,
+# resolved two levels deep (adapter mb1 -> Arduino D10 -> host PTD0), lands on
+# the SAME SoC pin as a Data Logger stacked directly on the host Arduino socket
+# (its SD CS is copper-fixed at D10 -> PTD0). Both drive spi0's CS on one pin.
+#
+# Today this is exactly the coincidence the playbook warns about, verified
+# nowhere. The expander resolves both claims to the same SoC pin THROUGH the
+# nesting chain and rejects, naming the shared pin and both claimants — one at
+# the board level, one two layers deep.
+#
+# Ported from frontend-trial/candidate-2-hybrid/s6-cross-layer.rig.yml; board
+# reference migrated (E2) to the hwmv2 board EXTENSION `rig` variant of the
+# real upstream frdm_k64f — was `frdm_k64f_btr` (the clone; deleted in
+# slice E4); shield references renamed hyphen->underscore
+# (arduino-uno-click -> arduino_uno_click, eth-click -> eth_click);
+# adafruit-data-logger REUSES the existing btr-shields shield
+# `adafruit_data_logger` (already ported in 3a), not recreated here.
+#
+# REJECT: no frdm_cs_clash_defconfig (structural rejection, never reaches
+# Kconfig).
+
+rig:
+  name: frdm_cs_clash
+  board: frdm_k64f/mk64f12/rig
+  instances:
+    - name: adapter_1
+      shield: arduino_uno_click
+      socket: frdm_ard
+    - name: eth_1
+      shield: eth_click
+      socket: adapter_1.mb1          # CS -> D10 -> PTD0
+    - name: logger_1
+      shield: adafruit_data_logger
+      socket: frdm_ard               # stacked on the host Arduino; SD CS copper-fixed D10 -> PTD0

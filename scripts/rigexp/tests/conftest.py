@@ -173,10 +173,11 @@ def normalize(text: str, zb: str) -> str:
 
 @dataclasses.dataclass(frozen=True)
 class RigCase:
-    """One corpus rig: its folder under `boards/rigs/`, its rig.yml identity
-    (`rig.name` — NOT the folder basename), and the expected verdict."""
+    """One corpus rig, identified by its rig.yml `rig.name` — also its
+    folder name under `boards/rigs/` (rigs are named underscored, board/
+    shield-symmetric: a rig's folder and its `rig.name` are the same
+    string), and the expected verdict."""
 
-    folder: str
     name: str
     accept: bool
     category: Optional[str] = None   # expected phys-* code, reject rigs only
@@ -185,33 +186,25 @@ class RigCase:
 # The 3a/3b/3c corpus, per the task's expected-verdict table (verified against
 # actual `rigexp expand` output before freezing — see the handoff report).
 ACCEPT_CASES: List[RigCase] = [
-    RigCase("s1", "nucleo-datalogger", True),
-    RigCase("s5-temp-farm", "quail-temp-farm", True),
-    RigCase("s4b-sockets", "quail-sockets", True),
-    RigCase("s2-wifi-logger-ok", "nucleo-wifi-logger-ok", True),
-    RigCase("s6-eth-click", "frdm-eth-nest", True),
-    RigCase("s8-mux", "nucleo-mux-farm", True),
-    RigCase("lotus-pwm", "lotus-pwm", True),
-    RigCase("lotus-buttons", "lotus-buttons", True),
+    RigCase("nucleo_datalogger", True),
+    RigCase("quail_temp_farm", True),
+    RigCase("quail_sockets", True),
+    RigCase("nucleo_wifi_logger_ok", True),
+    RigCase("frdm_eth_nest", True),
+    RigCase("nucleo_mux_farm", True),
+    RigCase("lotus_pwm", True),
+    RigCase("lotus_buttons", True),
 ]
 
 REJECT_CASES: List[RigCase] = [
-    RigCase("s2-wifi-logger", "nucleo-wifi-logger", False, "phys-net"),
-    RigCase("s4b-dup-addr", "quail-dup-th", False, "phys-addr"),
-    RigCase("s6-cross-layer", "frdm-cs-clash", False, "phys-cs"),
-    RigCase("s8-mux-collision", "nucleo-mux-clash", False, "phys-addr"),
-    RigCase("lotus-pwm-clash", "lotus-pwm-clash", False, "phys-channel"),
+    RigCase("nucleo_wifi_logger", False, "phys-net"),
+    RigCase("quail_dup_th", False, "phys-addr"),
+    RigCase("frdm_cs_clash", False, "phys-cs"),
+    RigCase("nucleo_mux_clash", False, "phys-addr"),
+    RigCase("lotus_pwm_clash", False, "phys-channel"),
 ]
 
 ALL_CASES: List[RigCase] = ACCEPT_CASES + REJECT_CASES
-
-
-def rig_yml_name(folder: str) -> str:
-    """The rig.yml `rig.name` for a corpus folder — rig identity, not the
-    folder basename (see the `RigCase` docstring)."""
-    with open(RIGS_DIR / folder / "rig.yml") as f:
-        doc = yaml.safe_load(f)
-    return str(doc["rig"]["name"])
 
 
 def rig_board_name(folder: str) -> str:

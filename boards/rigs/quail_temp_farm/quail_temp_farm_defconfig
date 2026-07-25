@@ -1,0 +1,10 @@
+# quail_temp_farm — umbrella-subsystem activation (option A).
+#
+# Assembly: 2x flash_click (SPI NOR, jedec,spi-nor) + 2x temp_click (I2C
+# sensor). The rig's shields carry no Kconfig.defconfig of their own (only
+# `SHIELD_<NAME>` identification symbols) — enabling the subsystems the
+# instantiated shields' DRIVERS actually need is the rig's job, not the
+# shield's or the expander's. Minimal: just the umbrellas.
+CONFIG_SPI=y
+CONFIG_FLASH=y
+CONFIG_SENSOR=y

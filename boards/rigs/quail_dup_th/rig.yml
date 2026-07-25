@@ -1,0 +1,20 @@
+# S4-b (reject) — two Temp&Hum clicks on DIFFERENT sockets that nonetheless
+# share the I2C bus (all four Quail sockets -> i2c1). HTS221 is fixed at 0x5f,
+# so the two collide regardless of socket choice — the shared-bus regime makes
+# socket selection no escape (R9/R15).
+#
+# Ported from frontend-trial/candidate-2-hybrid/s4b-dup-addr.rig.yml; board
+# reference migrated (E2) to the hwmv2 board EXTENSION `rig` variant of the
+# real upstream mikroe_quail — was `mikroe_quail_btr` (the clone; deleted
+# in slice E4).
+
+rig:
+  name: quail_dup_th
+  board: mikroe_quail/stm32f427xx/rig
+  instances:
+    - name: th_2
+      shield: temp_hum_click
+      socket: quail_sock2            # -> i2c1 @0x5f
+    - name: th_4
+      shield: temp_hum_click
+      socket: quail_sock4            # -> i2c1 @0x5f  (same bus, same fixed address)

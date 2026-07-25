@@ -84,7 +84,7 @@ def _run_build(rig_name: str, build_dir: Path,
 @pytest.mark.parametrize("case", ACCEPT_CASES, ids=lambda c: c.name)
 def test_tier2_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
     build_dir = tmp_path / "build"
-    extra = board_extra_defines(rig_board_name(case.folder))
+    extra = board_extra_defines(rig_board_name(case.name))
     result = _run_build(case.name, build_dir, extra)
     assert result.returncode == 0, (
         f"{case.name}: expected `west build-rig --cmake-only` to configure "
@@ -117,7 +117,7 @@ def test_tier2_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
 @pytest.mark.parametrize("case", REJECT_CASES, ids=lambda c: c.name)
 def test_tier2_reject_configure_fails(case: RigCase, tmp_path: Path) -> None:
     build_dir = tmp_path / "build"
-    extra = board_extra_defines(rig_board_name(case.folder))
+    extra = board_extra_defines(rig_board_name(case.name))
     result = _run_build(case.name, build_dir, extra)
     assert result.returncode != 0, (
         f"{case.name}: expected `west build-rig --cmake-only` to FAIL (a "
@@ -144,10 +144,10 @@ def test_tier2_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
     identity check (phase 2b's original proof) failed to be, since neither
     compatible had a binding typing these props at the time."""
     build_dir = tmp_path / "build"
-    extra = board_extra_defines(rig_board_name("lotus-pwm"))
-    result = _run_build("lotus-pwm", build_dir, extra)
+    extra = board_extra_defines(rig_board_name("lotus_pwm"))
+    result = _run_build("lotus_pwm", build_dir, extra)
     assert result.returncode == 0, (
-        f"lotus-pwm: expected `west build-rig --cmake-only` to configure "
+        f"lotus_pwm: expected `west build-rig --cmake-only` to configure "
         f"clean\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
 
     with open(build_dir / "zephyr" / "edt.pickle", "rb") as f:
@@ -181,24 +181,24 @@ def test_tier2_build_info_rig_provenance(tmp_path: Path) -> None:
     (cmake/dts.cmake). It lands under `cmake.vendor-specific.rig.*` (the
     schema's own downstream-owned escape hatch, NOT the naively-expected
     `cmake.rig.*` -- build-schema.yaml is upstream, not ours to extend; see
-    cmake/dts.cmake and the handoff report). Deliberately uses frdm-eth-nest:
+    cmake/dts.cmake and the handoff report). Deliberately uses frdm_eth_nest:
     it names TWO distinct shields (arduino_uno_click, eth_click carried by
     THREE instances) -- the case that caught a real bug (build_info()'s
     vendor-specific VALUE silently truncates a multi-element CMake list to
     its first entry unless pre-JOINed)."""
     build_dir = tmp_path / "build"
-    result = _run_build("frdm-eth-nest", build_dir)
+    result = _run_build("frdm_eth_nest", build_dir)
     assert result.returncode == 0, (
-        f"frdm-eth-nest: expected `west build-rig --cmake-only` to configure "
+        f"frdm_eth_nest: expected `west build-rig --cmake-only` to configure "
         f"clean\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
 
     with open(build_dir / "build_info.yml") as f:
         build_info = yaml.safe_load(f)
     rig = build_info["cmake"]["vendor-specific"]["rig"]
 
-    assert rig["name"] == "frdm-eth-nest"
+    assert rig["name"] == "frdm_eth_nest"
     assert rig["board"] == "frdm_k64f/mk64f12/rig"
-    assert rig["rig-yml"].endswith("boards/rigs/s6-eth-click/rig.yml")
+    assert rig["rig-yml"].endswith("boards/rigs/frdm_eth_nest/rig.yml")
     assert rig["board-dts"].endswith(
         "boards/extend/nxp/frdm_k64f/frdm_k64f_mk64f12_rig.dts")
 
@@ -218,12 +218,12 @@ def test_tier2_build_info_shield_dir_collision(tmp_path: Path) -> None:
     plain upstream shield (no `<name>.shield` rig-template marker), same name
     as btr-shields' rig-template shield. `cmake/dts.cmake`'s shield tail must
     resolve the collision to OUR (rig-template) folder, not whichever root
-    `list_shields.py` happened to sort last. `nucleo-datalogger` (s1) is the
+    `list_shields.py` happened to sort last. `nucleo_datalogger` is the
     corpus rig naming `adafruit_data_logger`, so it's the collision witness."""
     build_dir = tmp_path / "build"
-    result = _run_build("nucleo-datalogger", build_dir)
+    result = _run_build("nucleo_datalogger", build_dir)
     assert result.returncode == 0, (
-        f"nucleo-datalogger: expected `west build-rig --cmake-only` to "
+        f"nucleo_datalogger: expected `west build-rig --cmake-only` to "
         f"configure clean\n--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}")
     assert "shield name 'adafruit_data_logger' is offered by" not in (
@@ -253,8 +253,9 @@ def test_tier2_rig_depends_provenance(tmp_path: Path) -> None:
     """Dependency-tracking handoff (RIG_DEPENDS): `cmake/dts.cmake` appends
     the expander's own generated `context.cmake` `RIG_DEPENDS` list to
     CMAKE_CONFIGURE_DEPENDS, so editing a `.shield` template or a connector
-    binding — not just rig.yml/rig.conf/rig.overlay, the pre-existing static
-    registrations — retriggers configure. What's testable HERE, without
+    binding — not just rig.yml or the rig's own `<name>_defconfig`/
+    `<name>.overlay`, the pre-existing static registrations — retriggers
+    configure. What's testable HERE, without
     mutating any corpus file (forbidden — modifying fixtures in a test would
     make the test self-fulfilling): that `context.cmake`, as ACTUALLY written
     into a real build dir, carries the rig.yml, at least one `.shield`, one
@@ -265,10 +266,10 @@ def test_tier2_rig_depends_provenance(tmp_path: Path) -> None:
     corpus files) re-prove; `set_property(... APPEND PROPERTY
     CMAKE_CONFIGURE_DEPENDS ...)` in dts.cmake is the whole of our contribution."""
     build_dir = tmp_path / "build"
-    extra = board_extra_defines(rig_board_name("lotus-pwm"))
-    result = _run_build("lotus-pwm", build_dir, extra)
+    extra = board_extra_defines(rig_board_name("lotus_pwm"))
+    result = _run_build("lotus_pwm", build_dir, extra)
     assert result.returncode == 0, (
-        f"lotus-pwm: expected `west build-rig --cmake-only` to configure "
+        f"lotus_pwm: expected `west build-rig --cmake-only` to configure "
         f"clean\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
 
     context_cmake = (build_dir / "rig" / "context.cmake").read_text()
@@ -278,7 +279,7 @@ def test_tier2_rig_depends_provenance(tmp_path: Path) -> None:
     assert depends_line is not None, (
         f"no RIG_DEPENDS in generated context.cmake:\n{context_cmake}")
 
-    assert "boards/rigs/lotus-pwm/rig.yml" in depends_line
+    assert "boards/rigs/lotus_pwm/rig.yml" in depends_line
     assert "boards/shields/grove_servo/grove_servo.shield" in depends_line
     assert "dts/bindings/connectors/grove.yaml" in depends_line
     assert ("boards/extend/seeed/seeeduino_lotus/"

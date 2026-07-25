@@ -1,0 +1,7 @@
+error[phys-addr]: I2C address 0x5f is required twice on bus &i2c1 (one address space per scope):
+    - th_2 (socket quail_sock2): sensor — address domain {0x5f}, fixed by copper (no address-select)
+    - th_4 (socket quail_sock4): sensor — address domain {0x5f}, fixed by copper (no address-select)
+    two devices cannot share one address on one bus. This topology is not realizable as assembled: use a second I2C bus, put one device behind an I2C mux (scope creation, S8), or drop one instance.
+    at <REPO_ROOT>/boards/shields/temp_hum_click/temp_hum_click.shield:15 (th_sensor)
+    at <REPO_ROOT>/boards/rigs/quail_dup_th/rig.yml:15 (rig.instances[0])
+    at <REPO_ROOT>/boards/rigs/quail_dup_th/rig.yml:18 (rig.instances[1])

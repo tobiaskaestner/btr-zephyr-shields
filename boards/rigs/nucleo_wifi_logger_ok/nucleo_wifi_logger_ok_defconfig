@@ -1,0 +1,16 @@
+# nucleo_wifi_logger_ok — umbrella-subsystem activation (option A).
+#
+# Assembly: Adafruit Data Logger (RTC+SD, same as nucleo_datalogger -- see
+# note below) + Adafruit WINC1500 WiFi. WIFI_WINC1500 auto-selects once its
+# DT node exists (`depends on DT_HAS_ATMEL_WINC1500_ENABLED`, default y) but
+# sits behind the WIFI menuconfig gate, itself nested under NETWORKING --
+# both need opening here; WIFI_WINC1500 then pulls in SPI + the
+# offload/net-L2 plumbing itself.
+#
+# NOTE: the data logger's RTC/SD path (CONFIG_RTC / CONFIG_SDMMC_STACK /
+# CONFIG_DISK_ACCESS, see nucleo_datalogger/nucleo_datalogger_defconfig) is
+# intentionally NOT duplicated here -- out of scope for this rig's finding
+# (WINC1500 driver activation); left to a follow-up if the full assembly's
+# dormant-driver set is audited.
+CONFIG_NETWORKING=y
+CONFIG_WIFI=y

@@ -52,9 +52,10 @@ if(DEFINED RIG)
       "rig: -DSHIELD=${SHIELD} was given alongside -DRIG=${RIG}. Shields in "
       "a rig build come from the rig itself -- add an instance naming the "
       "shield, or (for a shield the rig template can't yet express) the "
-      "rig folder's rig.overlay escape hatch. If this build directory was "
-      "previously configured with --shield, pristine it (-p always): the "
-      "cached SHIELD value is what tripped this guard.")
+      "rig folder's own hand-authored <rig-name>.overlay escape hatch. If "
+      "this build directory was previously configured with --shield, "
+      "pristine it (-p always): the cached SHIELD value is what tripped "
+      "this guard.")
   endif()
 else()
   include(${ZEPHYR_BASE}/cmake/modules/shields.cmake)

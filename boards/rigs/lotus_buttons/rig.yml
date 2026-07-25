@@ -1,0 +1,34 @@
+# bridle port — Seeeduino Lotus with Grove Button + LED modules.
+#
+# In bridle this needs, per shield, 64 hand-written overlays (grove_btn_d0..d31
+# x normal/inverted) + a 64-line Kconfig.shield + a 32-entry Kconfig.defconfig,
+# and the module can only ever be one hardcoded pin. Here it is one shield
+# definition each (grove_btn, grove_led) plus one line per actual module: the
+# "which pin" axis is the socket, the "normal/inverted" axis is `invert:`.
+#
+# 64 overlays  ->  one shield + N one-line placements.
+#
+# Ported from frontend-trial/candidate-2-hybrid/lotus-buttons.rig.yml
+# (P3 3c); board reference migrated (E3, board-extension-migration.md) to
+# the hwmv2 board EXTENSION `rig` variant of the real upstream
+# seeeduino_lotus (the CROSS-MODULE case: the base lives in the bridle
+# Zephyr module, which is not a west manifest project -- every build of
+# this target must pass -DEXTRA_ZEPHYR_MODULES=<west-topdir>/bridle
+# explicitly) -- was `seeeduino_lotus_btr` (the clone; deleted in slice
+# E4); shield identities underscored (grove-btn ->
+# grove_btn, grove-led -> grove_led).
+
+rig:
+  name: lotus_buttons
+  board: seeeduino_lotus/samd21g18a/rig
+  instances:
+    - name: btn_start
+      shield: grove_btn
+      socket: grove_d2               # bridle grove_btn_d2  (SIG0 -> porta14)
+    - name: btn_stop
+      shield: grove_btn
+      socket: grove_d6               # bridle grove_btn_d6
+      invert: true                   # bridle grove_btn_d6_inv (active-low)
+    - name: led_status
+      shield: grove_led
+      socket: grove_a0               # bridle grove_led on the A0 Grove socket
