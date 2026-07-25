@@ -1,31 +1,32 @@
-"""Bridge-A rewrite, phase 1 -- the edtlib READ side, POST-FLIP
-(`claude/rigs/implementation-plan.md`, "Bridge-A deconstruction / edtlib
-rewrite"). Renamed from test_board_dualread.py: THE FLIP retired the
-`common-dts` scaffold this file used to compare against (saferail 8 --
-deleted in full), so there is no more "dual" to read. What remains, and what
-this file now guards:
+"""The edtlib READ side: guards over `boarddt`/`board_edt`/`edt_build`, the
+layer that projects a real board's own devicetree onto `model.Board`.
 
-  * saferail 11: a real, PLAIN (no shield, no rig) `west build --cmake-only`
-    per board must configure clean -- the safety net a board conversion must
+  * a real, PLAIN (no shield, no rig) `west build --cmake-only` per board
+    must configure clean -- the safety net a rig-enabling board change must
     never break. `plain_build` (session-cached via `conftest.plain_build_for`)
     performs + asserts this.
 
-  * saferail 3: the edt.pickle cross-check. The standalone `edtlib.EDT` this
-    reader builds -- now read through the PRODUCTION entry point,
-    `boarddt.load_board`, exactly as the expander itself calls it -- must
-    agree with pass-2's OWN `edt.pickle` from the same board: proof that
+  * the edt.pickle cross-check: the standalone `edtlib.EDT` this reader
+    builds -- read through the PRODUCTION entry point, `boarddt.load_board`,
+    exactly as the expander itself calls it -- must agree with pass-2's OWN
+    `edt.pickle` from the same board, on every rig-relevant projection
+    (socket paths, gpio-map, bus phandles, cs-pool). This is the proof that
     the pass-1 recipe (cmake/dts.cmake's fork derives it from the real
     pre_dt outputs; standalone runs derive it from a cached build's
-    build_info.yml) is equivalent to pass 2's real one (saferail 3).
+    build_info.yml) is equivalent to pass 2's real one -- if it weren't,
+    pass 1 could read a socket that pass 2 never actually builds against.
 
-  * `test_recipe_from_build_info`: a pure-function unit test for
-    `edt_build.recipe_from_build_info`.
+  * the production-plumbing guard: for every board, `boarddt.load_board`
+    (given the same `--board-dts` + recipe the dts.cmake fork would pass)
+    must produce the exact same `model.Board` as a DIRECT
+    `board_edt.load_board` call -- `boarddt.load_board` is a thin board-
+    resolution wrapper over `board_edt`, and this pins that the wrapping
+    introduces no divergence.
 
-  * the production-plumbing guard that REPLACED the shadow dual-read
-    (saferail 2/6): for every board, `boarddt.load_board` (given the same
-    `--board-dts` + recipe the dts.cmake fork would pass) must produce the exact same
-    `model.Board` as a DIRECT `board_edt.load_board` call -- the flip
-    changed WHO calls board_edt, never what it returns.
+A pure-function unit test of `edt_build.recipe_from_build_info` itself lives
+in `test_edt_build.py` instead -- it has no rigexp product dependency at all,
+so it travels with the BSD-3 reader layer rather than this file's
+product-layer guards.
 """
 from __future__ import annotations
 
@@ -40,29 +41,6 @@ from conftest import BOARD_DTS, BOARDS, REPO_ROOT, PlainBuild, plain_build_for
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigexp import board_edt, boarddt, edt_build  # noqa: E402
 from rigexp.diag import Diagnostics  # noqa: E402
-
-
-# ---------------------------------------------------------------- fast unit test
-
-
-def test_recipe_from_build_info(tmp_path: Path) -> None:
-    """Pure-function unit, no cmake: `recipe_from_build_info` reads exactly
-    the `cmake.devicetree.include-dirs` / `bindings-dirs` keys a real
-    `build_info.yml` carries (shape verified against an actual build --
-    see the handoff report), against a tiny hand-written fixture."""
-    build_info = tmp_path / "build_info.yml"
-    build_info.write_text(
-        "cmake:\n"
-        "  devicetree:\n"
-        "    include-dirs:\n"
-        "      - /a/include\n"
-        "      - /b/include\n"
-        "    bindings-dirs:\n"
-        "      - /a/dts/bindings\n"
-        "      - /b/dts/bindings\n")
-    recipe = edt_build.recipe_from_build_info(str(build_info))
-    assert recipe.include_dirs == ["/a/include", "/b/include"]
-    assert recipe.bindings_dirs == ["/a/dts/bindings", "/b/dts/bindings"]
 
 
 # ---------------------------------------------------------------- plain-build fixture
@@ -81,26 +59,27 @@ def plain_build(request: "pytest.FixtureRequest",
 @pytest.mark.build
 def test_plain_build_configures_clean(plain_build: PlainBuild) -> None:
     """The fixture performs + asserts the configure; this test exists so a
-    plain-build failure is its own reported item (saferail 11), not just an
-    error while setting up the tests below."""
+    plain-build failure is its own reported item, not just an error while
+    setting up the tests below."""
     assert (plain_build.build_dir / "zephyr" / "zephyr.dts").is_file()
     assert plain_build.build_info.is_file()
     assert plain_build.edt_pickle.is_file()
 
 
-# ---------------------------------------------------------------- saferail 3: edt.pickle
+# ---------------------------------------------------------------- edt.pickle cross-check
 
 
 @pytest.mark.build
 def test_edt_pickle_cross_check(plain_build: PlainBuild, tmp_path: Path) -> None:
     """Pass-1, read through the PRODUCTION path (`boarddt.load_board`, with
     the recipe recovered out of the SAME build's `build_info.yml`) must
-    agree with pass-2's OWN `edt.pickle`, for the rig-relevant projection:
-    socket node paths, gpio-map entries, bus phandle targets, cs-pool
-    values. Follows the nucleo spike's comparison approach, generalized to
-    all four boards -- now exercising the wired-up production entry point
-    rather than calling board_edt directly (that narrower guard is
-    test_production_matches_direct_read below)."""
+    agree with pass-2's OWN `edt.pickle`, for every board, on the
+    rig-relevant projection: socket node paths, gpio-map entries, bus
+    phandle targets, cs-pool values. A divergence here would mean pass 1 can
+    read a socket, controller, or cs-pool default that pass 2's real build
+    never actually sees -- exercises the wired-up production entry point,
+    complementing the narrower guard in test_production_matches_direct_read
+    below."""
     with open(plain_build.edt_pickle, "rb") as f:
         pass2_edt = pickle.load(f)
     pass2_board = board_edt.project_edt(pass2_edt, plain_build.board)
@@ -138,11 +117,11 @@ def test_edt_pickle_cross_check(plain_build: PlainBuild, tmp_path: Path) -> None
 @pytest.mark.build
 def test_production_matches_direct_read(plain_build: PlainBuild,
                                         tmp_path: Path) -> None:
-    """The guard that REPLACED the shadow dual-read (saferail 2/6): THE FLIP
-    means `boarddt.load_board` (what the expander actually calls) now IS
-    `board_edt.load_board` plus board resolution -- assert they produce the
-    identical `model.Board`, given the same board-dts + recipe, proving the
-    flip changed WHO calls board_edt, never what it returns."""
+    """`boarddt.load_board` (what the expander actually calls) is a thin
+    board-resolution wrapper over `board_edt.load_board` -- assert they
+    produce the identical `model.Board`, given the same board-dts + recipe,
+    so that wrapping can never introduce a divergence between what the
+    expander sees and what a direct `board_edt` read would see."""
     recipe = edt_build.recipe_from_build_info(str(plain_build.build_info))
     dts_path = str(REPO_ROOT / BOARD_DTS[plain_build.board])
 

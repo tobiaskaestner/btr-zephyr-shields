@@ -1,18 +1,19 @@
-# btr-shields — downstream Zephyr module for the rigs feature.
+# btr-shields — Zephyr module for the rigs feature.
 #
-# Loaded out-of-tree via the EXTRA_ZEPHYR_MODULES env var (or CMake cache var):
-#   export EXTRA_ZEPHYR_MODULES=/wrk/z/ws-up/btr-shields
-# which is why no west-manifest entry is needed and upstream stays untouched.
+# btr-shields is a west manifest repo (its own `west.yml` imports zephyr), so
+# it is discovered as a Zephyr module automatically at west-update time — no
+# `EXTRA_ZEPHYR_MODULES` env var or `-DBOARD_ROOT`/`-DDTS_ROOT` cache var
+# needed on the command line.
 #
-# The board_root/dts_root settings make our cloned board (boards/) and the
-# connector-type bindings (dts/bindings/) discoverable WITHOUT -DBOARD_ROOT /
-# -DDTS_ROOT on the command line — the whole point of promoting this tree to a
-# real module.
+# The board_root/dts_root settings make this tree's own content discoverable
+# the same way: board extensions (boards/extend/), shields (boards/shields/),
+# rigs (boards/rigs/), and the connector-type bindings
+# (dts/bindings/connectors/).
 name: btr-shields
 build:
   cmake-modules: cmake
   settings:
-    # make boards/ (nucleo_f401re_btr, boards/shields, boards/rigs) discoverable
+    # make boards/{extend,shields,rigs} discoverable
     board_root: .
-    # make dts/bindings/ (connector/arduino-r3.yaml) discoverable
+    # make dts/bindings/connectors/ discoverable
     dts_root: .

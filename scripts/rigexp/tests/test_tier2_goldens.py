@@ -1,10 +1,12 @@
 """Tier-2 goldens: the real pass-2 `zephyr.dts`, via `west build-rig
---cmake-only` (Bridge-A saferail 1, amended 2026-07-23 — see
-`claude/rigs/implementation-plan.md`).
+--cmake-only`.
 
-This is THE invariant that must hold across every phase of the rewrite: when
-a phase legitimately changes tier 1 (e.g. step 2's pwm/adc nexus rewiring),
-tier 2 is the oracle and tier 1 gets re-frozen with a justification note.
+This is THE invariant that must hold regardless of how tier 1's exact text
+is produced: if a future change to the expander legitimately alters what
+tier 1 freezes (e.g. how a nexus is wired in the overlay), tier 2 confirms
+whether the BUILT devicetree actually changed; tier 1 then gets re-frozen
+with a justification note, using tier 2 as the oracle that nothing else
+moved.
 
 For each ACCEPT rig: `west build-rig --cmake-only` must configure clean, and
 the produced `zephyr.dts` must be STRUCTURALLY EQUIVALENT (via
@@ -12,8 +14,9 @@ the produced `zephyr.dts` must be STRUCTURALLY EQUIVALENT (via
 irrelevant, see that script's docstring) to the frozen golden.
 
 For each REJECT rig: the same `--cmake-only` invocation must FAIL, and its
-output must contain the expected `phys-*` diagnostic category string —
-diagnostic parity through west/CMake (saferail 4).
+output must contain the expected `phys-*` diagnostic category string — the
+same diagnostic category must surface through the full west/CMake path, not
+just the standalone expander.
 
 These tests run a real CMake configure per rig (several minutes for the full
 13-rig corpus) — marked `@pytest.mark.build`; `CHECK_FAST=1` (scripts/check.sh)
@@ -59,8 +62,8 @@ from rigexp import edt_build  # noqa: E402,F401
 
 pytestmark = pytest.mark.build
 
-# Relative to WEST_TOPDIR — any app works for a cmake-only configure; hello_world
-# is the corpus's own reference app (implementation-plan.md, NEXT-SESSION.md).
+# Relative to WEST_TOPDIR — any app works for a cmake-only configure;
+# hello_world is the reference app this suite standardizes on.
 _APP = "zephyr/samples/hello_world"
 
 
@@ -68,9 +71,9 @@ def _run_build(rig_name: str, build_dir: Path,
                 extra_defines: Optional[List[str]] = None) -> "subprocess.CompletedProcess[str]":
     """`west build-rig --cmake-only` for one rig — a temp build dir; `-p
     always` wipes it, so nothing durable may be read back from `build_dir`
-    beyond this one process's own output. `extra_defines` (E3-brief.md) is
-    threaded after `--` -- empty for every rig except the lotus ones, whose
-    board needs `-DEXTRA_ZEPHYR_MODULES=<bridle_root>`."""
+    beyond this one process's own output. `extra_defines` is threaded after
+    `--` -- empty for every rig except the lotus ones, whose board needs
+    `-DEXTRA_ZEPHYR_MODULES=<bridle_root>`."""
     cmd = [
         WEST_EXE, "build-rig", "--rig", rig_name, _APP,
         "--cmake-only", "-p", "always", "-d", str(build_dir),
@@ -127,22 +130,22 @@ def test_tier2_reject_configure_fails(case: RigCase, tmp_path: Path) -> None:
     assert case.category is not None   # every REJECT case declares one
     assert f"[{case.category}]" in combined, (
         f"{case.name}: expected diagnostic category [{case.category}] in "
-        f"the build output (diagnostic parity through west/CMake, saferail "
-        f"4)\n{combined}")
+        f"the build output -- the same category must surface through the "
+        f"full west/CMake path, not just the standalone expander\n{combined}")
 
 
 def test_tier2_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
-    """The PERMANENT semantic invariant Bridge-A step 2b's socket-relative
-    pwm/adc emission must hold (review finding, 2026-07-23): pass-2's own
-    `edt.pickle` -- the resolved `ControllerAndData` edtlib built while
-    compiling the real devicetree -- must show the servo's `pwms` and the
-    light sensor's `io-channels` landing on the SAME (controller, channel/
-    input, period) as before the socket-relative rewrite, now that
-    `vnd,pwm-servo`/`vnd,light-sensor` are typed (dts/bindings/test/) and
-    pass-2 actually resolves the nexus instead of leaving the props inert.
-    This is the REAL ground truth the vacuous devicetree_generated.h
-    identity check (phase 2b's original proof) failed to be, since neither
-    compatible had a binding typing these props at the time."""
+    """The permanent semantic invariant the expander's socket-relative
+    pwm/adc emission must hold: pass-2's own `edt.pickle` -- the resolved
+    `ControllerAndData` edtlib builds while compiling the real devicetree --
+    must show the servo's `pwms` and the light sensor's `io-channels`
+    landing on the expected (controller, channel/input, period). This is
+    real ground truth rather than a text check on the generated overlay:
+    `vnd,pwm-servo`/`vnd,light-sensor` are typed (dts/bindings/test/), so
+    pass 2 actually resolves the socket's pwm-map/io-channel-map nexus
+    instead of leaving the props inert -- a text-only check on the emitted
+    `pwms`/`io-channels` line could pass even if the nexus itself were
+    unresolvable."""
     build_dir = tmp_path / "build"
     extra = board_extra_defines(rig_board_name("lotus_pwm"))
     result = _run_build("lotus_pwm", build_dir, extra)
@@ -176,16 +179,16 @@ def test_tier2_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
 
 
 def test_tier2_build_info_rig_provenance(tmp_path: Path) -> None:
-    """rig-build provenance (NEW requirement): a rig build must record what
-    it looked at into `build_info.yml`, via zephyr's own `build_info()`
-    (cmake/dts.cmake). It lands under `cmake.vendor-specific.rig.*` (the
-    schema's own downstream-owned escape hatch, NOT the naively-expected
-    `cmake.rig.*` -- build-schema.yaml is upstream, not ours to extend; see
-    cmake/dts.cmake and the handoff report). Deliberately uses frdm_eth_nest:
-    it names TWO distinct shields (arduino_uno_click, eth_click carried by
-    THREE instances) -- the case that caught a real bug (build_info()'s
+    """A rig build must record what it looked at into `build_info.yml`, via
+    zephyr's own `build_info()` (cmake/dts.cmake). It lands under
+    `cmake.vendor-specific.rig.*` -- `build-schema.yaml` is upstream and not
+    ours to extend, so this rides the schema's own downstream-owned escape
+    hatch rather than the naively-expected `cmake.rig.*`. Deliberately uses
+    frdm_eth_nest: it names TWO distinct shields (arduino_uno_click,
+    eth_click carried by THREE instances), because `build_info()`'s
     vendor-specific VALUE silently truncates a multi-element CMake list to
-    its first entry unless pre-JOINed)."""
+    its first entry unless pre-JOINed -- a single-shield rig would not catch
+    a regression in that join."""
     build_dir = tmp_path / "build"
     result = _run_build("frdm_eth_nest", build_dir)
     assert result.returncode == 0, (
@@ -212,8 +215,8 @@ def test_tier2_build_info_rig_provenance(tmp_path: Path) -> None:
 
 
 def test_tier2_build_info_shield_dir_collision(tmp_path: Path) -> None:
-    """Shield name-collision across BOARD_ROOT (review finding, 2026-07-23):
-    BOARD_ROOT holds both btr-shields and $ZEPHYR_BASE (zephyr-rigs), and the
+    """Shield name-collision across BOARD_ROOT: BOARD_ROOT holds both
+    btr-shields and $ZEPHYR_BASE (zephyr-rigs), and the
     latter ships its own stock `boards/shields/adafruit_data_logger` -- a
     plain upstream shield (no `<name>.shield` rig-template marker), same name
     as btr-shields' rig-template shield. `cmake/dts.cmake`'s shield tail must

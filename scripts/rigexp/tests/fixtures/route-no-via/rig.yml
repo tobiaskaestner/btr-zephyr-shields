@@ -1,7 +1,7 @@
-# Synthetic fixture (cmake-debug review, 2026-07-23): a wire whose `route:`
-# is a mapping that names no `via:` key — must be rejected by the LOADER
-# with the lang-schema diagnostic loader_yml.py added when Wire.route's
-# None-leak was fixed (the mypy error the exemption removal exposed). No
+# Synthetic fixture: a wire whose `route:` is a mapping that names no `via:`
+# key — must be rejected by the LOADER with a `lang-schema` diagnostic
+# (loader_yml.py: a route mapping with no `via:` position is a loader-level
+# authoring error, never a silent None that could leak downstream). No
 # corpus rig uses wires at all, so this fixture is the only thing locking
 # that diagnostic's wording and verdict.
 rig:

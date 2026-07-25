@@ -1,28 +1,27 @@
-"""cmake-alone rig entry (claude/rigs/cmake-alone-rig-entry-brief.md,
-ratified 2026-07-24, design rules 3/4 amended same day to mutual
-exclusivity): `cmake -B <dir> -S <app> -DRIG=<name>` with NO `-DBOARD` and
-west absent entirely must configure a build equivalent to the `west
-build-rig` path — the rig is the primary build coordinate, BOARD (and
+"""cmake-alone rig entry: `cmake -B <dir> -S <app> -DRIG=<name>` with NO
+`-DBOARD` and west absent entirely must configure a build equivalent to the
+`west build-rig` path — the rig is the primary build coordinate, BOARD (and
 SHIELD) are derived from it (`cmake/boards.cmake` / `cmake/shields.cmake`'s
 forks), never a separate coordinate the user also supplies.
 
-This file covers the acceptance criteria exercised entirely through direct
-`cmake` invocations (no `west` subprocess at all):
+This file covers the properties exercised entirely through direct `cmake`
+invocations (no `west` subprocess at all):
 
-  * criterion 2 -- a fresh cmake-alone configure resolves the SAME board
-    target, a structurally-equivalent `zephyr.dts`, and the same rig
-    provenance in `build_info.yml` (modulo the build directory itself) as
-    `west build-rig`.
-  * criterion 3 -- RIG and BOARD are mutually exclusive: a fresh configure
-    with BOTH given is a configure-time FATAL_ERROR regardless of whether
-    the values agree (BOARD is derived data, never a separate coordinate);
-    a RECONFIGURE of an existing rig build dir (BOARD cache-carried from our
-    own earlier inference, not user-passed) proceeds.
-  * criterion 4 -- a qualified rig target (`name@rev` / `name/variant`) gets
-    a loud not-yet-supported diagnostic from the resolver (V1/V2 placeholder).
-  * criterion 7 -- SHIELD gets the same exclusion: `-DSHIELD` alongside
-    `-DRIG` on a fresh configure is a FATAL_ERROR (previously a SILENT
-    no-op); a plain `--shield` build (no RIG) is untouched.
+  * a fresh cmake-alone configure resolves the SAME board target, a
+    structurally-equivalent `zephyr.dts`, and the same rig provenance in
+    `build_info.yml` (modulo the build directory itself) as `west
+    build-rig`.
+  * RIG and BOARD are mutually exclusive: a fresh configure with BOTH given
+    is a configure-time FATAL_ERROR regardless of whether the values agree
+    (BOARD is derived data, never a separate coordinate the user may also
+    supply); a RECONFIGURE of an existing rig build dir (BOARD
+    cache-carried from our own earlier inference, not user-passed) proceeds.
+  * a qualified rig target (`name@rev` / `name/variant`) gets a loud
+    not-yet-supported diagnostic from the resolver — a placeholder until rig
+    variants/revisions land, never silent/partial resolution.
+  * SHIELD gets the same exclusion as BOARD: `-DSHIELD` alongside `-DRIG` on
+    a fresh configure is a FATAL_ERROR (never a silent no-op); a plain
+    `--shield` build (no RIG) is untouched.
 
 All run a real CMake configure -- marked `@pytest.mark.build`; `CHECK_FAST=1`
 (scripts/check.sh) deselects them via `pytest -m "not build"`.
@@ -54,8 +53,8 @@ pytestmark = pytest.mark.build
 # hello_world is the corpus's own reference app (see test_tier2_goldens.py).
 _APP = "zephyr/samples/hello_world"
 
-# nucleo_datalogger (E1 extension target, nucleo_f401re/stm32f401xe/rig) is
-# the corpus rig this brief's own examples use for the cmake-only entry.
+# nucleo_datalogger (nucleo_f401re/stm32f401xe/rig, a board EXTENSION) is
+# this file's reference rig for the cmake-only entry tests.
 _RIG = "nucleo_datalogger"
 
 
@@ -63,7 +62,7 @@ def _run_build_rig(rig_name: str, build_dir: Path,
                     extra_defines: Optional[List[str]] = None) -> "subprocess.CompletedProcess[str]":
     """The reference path: `west build-rig --cmake-only` for one rig — same
     invocation shape as test_tier2_goldens.py's `_run_build`. `extra_defines`
-    (E3-brief.md) is threaded after `--`, e.g. the lotus board's
+    is threaded after `--`, e.g. the lotus board's
     `-DEXTRA_ZEPHYR_MODULES=<bridle_root>`."""
     cmd = [
         WEST_EXE, "build-rig", "--rig", rig_name, _APP,
@@ -76,8 +75,8 @@ def _run_build_rig(rig_name: str, build_dir: Path,
 
 
 def _cmake_alone_env() -> Dict[str, str]:
-    """A subprocess environment with `west` unresolvable on PATH — the literal
-    reading of acceptance criterion 2 ("no west on PATH for the invocation"):
+    """A subprocess environment with `west` unresolvable on PATH, so a build
+    that succeeds here provably did not reach for west anywhere:
     strip the directory hosting the `west` console-script from PATH (in this
     venv layout nothing else needed by the build lives ONLY there — `python3`
     is passed explicitly instead, see `_run_cmake_alone`), leaving cmake/
@@ -110,7 +109,7 @@ def _cmake_alone_env() -> Dict[str, str]:
 
 
 def _cmake_alone_argv(build_dir: Path, extra_defines: list) -> list:
-    """The bare `cmake` invocation acceptance criterion 2 requires: `-S`/`-B`,
+    """The bare `cmake` invocation a rig build must support: `-S`/`-B`,
     NO `-DBOARD`, and an explicit `-DPython3_EXECUTABLE` (this venv's own
     interpreter) so CMake's Python discovery does not fall back to whatever a
     stripped PATH might still turn up — mirrors what `west build` itself
@@ -133,10 +132,10 @@ def _run_cmake_alone(build_dir: Path, extra_defines: list) -> "subprocess.Comple
 
 
 def test_cmake_alone_entry_equivalent_to_build_rig(tmp_path: Path) -> None:
-    """Criterion 2: `cmake -DRIG=<name>` alone (no -DBOARD, west absent from
-    PATH) must resolve the SAME board target, a structurally-equivalent
-    `zephyr.dts`, and the same rig provenance in `build_info.yml` (modulo the
-    build directory's own path) as `west build-rig --rig <name>`."""
+    """`cmake -DRIG=<name>` alone (no -DBOARD, west absent from PATH) must
+    resolve the SAME board target, a structurally-equivalent `zephyr.dts`,
+    and the same rig provenance in `build_info.yml` (modulo the build
+    directory's own path) as `west build-rig --rig <name>`."""
     reference_dir = tmp_path / "build-rig-reference"
     result_ref = _run_build_rig(_RIG, reference_dir)
     assert result_ref.returncode == 0, (
@@ -186,12 +185,11 @@ def test_cmake_alone_entry_equivalent_to_build_rig(tmp_path: Path) -> None:
 
 
 def test_cmake_alone_board_rig_both_given_is_fatal(tmp_path: Path) -> None:
-    """Criterion 3: RIG and BOARD are mutually exclusive on a FRESH configure
-    -- FATAL even when the value MATCHES the rig's own board exactly
+    """RIG and BOARD are mutually exclusive on a FRESH configure -- FATAL
+    even when the value MATCHES the rig's own board exactly
     (nucleo_datalogger's board is nucleo_f401re/stm32f401xe/rig, passed back
     verbatim here), because BOARD is derived data of the rig coordinate, not
-    a separate one the user may also supply (design rule 3, amended
-    2026-07-24 -- supersedes an earlier mismatch-only check)."""
+    a separate one the user may also supply."""
     build_dir = tmp_path / "both-given"
     result = _run_cmake_alone(build_dir, [
         f"-DRIG={_RIG}", "-DBOARD=nucleo_f401re/stm32f401xe/rig",
@@ -206,9 +204,10 @@ def test_cmake_alone_board_rig_both_given_is_fatal(tmp_path: Path) -> None:
 
 
 def test_cmake_alone_reconfigure_of_rig_build_dir_proceeds(tmp_path: Path) -> None:
-    """Criterion 3, the other half: a RECONFIGURE of an EXISTING rig build
-    dir must proceed even though BOARD is `DEFINED` on the second cmake
-    invocation -- it is cache-carried from OUR OWN inference on the first
+    """The other half of BOARD/RIG exclusivity: a RECONFIGURE of an
+    EXISTING rig build dir must proceed even though BOARD is `DEFINED` on
+    the second cmake invocation -- it is cache-carried from OUR OWN
+    inference on the first
     configure (recorded via the `RIG_INFERRED_BOARD` marker), never a
     user-passed value the second time around. Reruns cmake against the SAME
     build dir with no -D flags at all, exactly like an incremental `west
@@ -231,9 +230,9 @@ def test_cmake_alone_reconfigure_of_rig_build_dir_proceeds(tmp_path: Path) -> No
 
 
 def test_cmake_alone_qualified_rig_target_rejected(tmp_path: Path) -> None:
-    """Criterion 4: a qualified target (@rev or /variant) gets a loud
-    not-yet-supported diagnostic from the resolver — a placeholder until
-    V1/V2, never silent/partial resolution."""
+    """A qualified target (@rev or /variant) gets a loud not-yet-supported
+    diagnostic from the resolver — a placeholder until rig variants/
+    revisions land, never silent/partial resolution."""
     build_dir = tmp_path / "qualified-revision"
     result = _run_cmake_alone(build_dir, [f"-DRIG={_RIG}@1"])
     assert result.returncode != 0
@@ -250,13 +249,13 @@ def test_cmake_alone_qualified_rig_target_rejected(tmp_path: Path) -> None:
 
 
 def test_cmake_alone_shield_rig_both_given_is_fatal(tmp_path: Path) -> None:
-    """Criterion 7: SHIELD gets the same exclusion as BOARD (design rule 4,
-    ratified 2026-07-24) -- `-DSHIELD` alongside `-DRIG` on a fresh configure
-    is a FATAL_ERROR from the shields.cmake fork, never the SILENT no-op it
-    used to be (that fork's early-exit never looked at SHIELD at all, and
-    the dts.cmake fork's rig block unconditionally overwrites
-    SHIELD_AS_LIST from the rig's own instances). adafruit_data_logger is
-    the shield nucleo_datalogger's own instance already names."""
+    """SHIELD gets the same exclusion as BOARD: `-DSHIELD` alongside `-DRIG`
+    on a fresh configure is a FATAL_ERROR from the shields.cmake fork, never
+    a silent no-op -- the dts.cmake fork's rig block unconditionally
+    overwrites SHIELD_AS_LIST from the rig's own instances, so a
+    user-passed -DSHIELD would otherwise vanish with no diagnostic.
+    adafruit_data_logger is the shield nucleo_datalogger's own instance
+    already names."""
     build_dir = tmp_path / "shield-rig-clash"
     result = _run_cmake_alone(build_dir, [
         f"-DRIG={_RIG}", "-DSHIELD=adafruit_data_logger",
@@ -271,10 +270,10 @@ def test_cmake_alone_shield_rig_both_given_is_fatal(tmp_path: Path) -> None:
 
 
 def test_cmake_alone_plain_shield_build_untouched(tmp_path: Path) -> None:
-    """Criterion 7, the other half: a plain `--shield` build (no -DRIG at
-    all) must be completely untouched by the new guard -- it never even
-    reads SHIELD in that branch (the real shields.cmake module owns it, via
-    the unconditional `include()` in the fork's `else()`)."""
+    """The other half of the SHIELD/RIG exclusion: a plain `--shield` build
+    (no -DRIG at all) must be completely untouched by the guard above -- it
+    never even reads SHIELD in that branch (the real shields.cmake module
+    owns it, via the unconditional `include()` in the fork's `else()`)."""
     build_dir = tmp_path / "plain-shield"
     venv_python = WEST_TOPDIR / ".venv" / "bin" / "python3"
     env = _cmake_alone_env()
@@ -294,10 +293,10 @@ def test_cmake_alone_plain_shield_build_untouched(tmp_path: Path) -> None:
 
 
 def test_cmake_alone_rig_swap_to_other_board_is_fatal(tmp_path: Path) -> None:
-    """Rig-swap guard (review finding on this slice, verified live before the
-    fix): changing -DRIG in an EXISTING build dir to a rig on a DIFFERENT
-    board must FATAL at the boards.cmake fork. Without the guard, the stale
-    cache-carried BOARD passes the exclusivity check (it equals the marker --
+    """Rig-swap guard: changing -DRIG in an EXISTING build dir to a rig on a
+    DIFFERENT board must FATAL at the boards.cmake fork. Without the guard,
+    the stale cache-carried BOARD passes the exclusivity check (it equals
+    the marker --
     both are the OLD rig's inference), inference is skipped, and the expander
     reads the OLD board's dts under the NEW rig's declared board name --
     phys-socket diagnostics blaming the wrong board, or a clean build against
@@ -348,18 +347,17 @@ def test_cmake_alone_rig_swap_same_board_proceeds(tmp_path: Path) -> None:
         f"--- stderr ---\n{second.stderr}")
 
 
-# ---------------------------------------------------------------- E3: cross-module lotus board
+# ---------------------------------------------------------------- cross-module lotus board
 
 
 def test_cmake_alone_lotus_needs_bridle_module(tmp_path: Path) -> None:
-    """E3-brief.md acceptance criterion 4 -- the DOCUMENTED failure mode:
-    `cmake -DRIG=lotus_pwm` WITHOUT `-DEXTRA_ZEPHYR_MODULES=<bridle>` must
-    fail. seeeduino_lotus/samd21g18a/rig's base board lives entirely in the
-    bridle Zephyr module, which the west manifest deliberately does NOT
-    carry (decided 2026-07-24f) -- without the module define, hwmv2 board
+    """The DOCUMENTED failure mode: `cmake -DRIG=lotus_pwm` WITHOUT
+    `-DEXTRA_ZEPHYR_MODULES=<bridle>` must fail. seeeduino_lotus/samd21g18a/rig's
+    base board lives entirely in the bridle Zephyr module, which the west
+    manifest does NOT carry -- without the module define, hwmv2 board
     discovery never sees bridle's board_root, so the board plainly does not
-    exist. This is the accepted cost of the no-manifest-entry decision, not
-    something to fix."""
+    exist. This is the accepted cost of keeping bridle out of the manifest,
+    not something to fix."""
     build_dir = tmp_path / "lotus-no-module"
     result = _run_cmake_alone(build_dir, ["-DRIG=lotus_pwm"])
     assert result.returncode != 0, (
@@ -371,11 +369,10 @@ def test_cmake_alone_lotus_needs_bridle_module(tmp_path: Path) -> None:
 
 
 def test_cmake_alone_lotus_with_bridle_module_configures(tmp_path: Path) -> None:
-    """E3-brief.md acceptance criterion 3 -- cmake-alone, west-free, WITH
-    `-DEXTRA_ZEPHYR_MODULES=<bridle_root>` must configure clean and resolve
-    the SAME cross-module extension target as `west build-rig` with the
-    identical define threaded (same shape as
-    test_cmake_alone_entry_equivalent_to_build_rig, the E1 board)."""
+    """cmake-alone, west-free, WITH `-DEXTRA_ZEPHYR_MODULES=<bridle_root>`
+    must configure clean and resolve the SAME cross-module extension target
+    as `west build-rig` with the identical define threaded (same shape as
+    test_cmake_alone_entry_equivalent_to_build_rig, a same-module board)."""
     extra = board_extra_defines(rig_board_name("lotus_pwm"))
     assert extra, "lotus_pwm's board must need EXTRA_ZEPHYR_MODULES (bridle)"
 

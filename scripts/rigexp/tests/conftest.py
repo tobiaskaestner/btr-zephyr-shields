@@ -1,22 +1,25 @@
 """Shared fixtures and helpers for the rig-expander golden tests.
 
-Bridge-A saferail 1 (amended 2026-07-23, `claude/rigs/implementation-plan.md`):
-freeze the CURRENT observed behavior of the rig expander for every corpus rig,
-as committed fixtures, in two tiers:
+`test_tier1_goldens.py` / `test_tier2_goldens.py` freeze the expander's
+observed behavior for every rig in `boards/rigs/`, as committed fixtures, in
+two tiers:
 
   tier 1 (test_tier1_goldens.py) — expander-level, every rig, fast: verdict +
   rendered diagnostics + emitted rig-gen.overlay/context.cmake/
   config-sheet.md/rig-gen.conf.
 
   tier 2 (test_tier2_goldens.py, `@pytest.mark.build`) — the real pass-2
-  `zephyr.dts`, the structural-equivalence invariant that survives phases of
-  the rewrite that legitimately change tier 1 (e.g. step 2's nexus rewiring).
+  `zephyr.dts`, compared STRUCTURALLY (via `dts_equiv.py`), not byte-for-byte
+  — labels/phandle numbers/ordering may legitimately differ between the
+  expander's overlay text and the golden, so only tier 2 is the invariant a
+  change to HOW the overlay is worded must preserve; tier 1 is refrozen
+  whenever such a change legitimately alters the emitted text.
 
 This module holds only the plumbing both tiers share: the corpus table, path
 discovery (self-locating — no workspace-name literals), the expander
 subprocess runner, normalization, and the freeze/assert primitives.
-`expectations.yml` is deliberately never read here — parked to
-`claude/hw-expectations/`, never gated (see `claude/rigs/parked.md`).
+`expectations.yml` is deliberately never read here — it is emitted but never
+gated (see `claude/hw-expectations/`).
 """
 from __future__ import annotations
 
@@ -45,17 +48,12 @@ DTS_EQUIV = REPO_ROOT / "scripts" / "dts_equiv.py"
 # goldens.py (--board-dts per rig) and test_board_read.py (the plain-build /
 # edt.pickle-cross-check corpus).
 #
-# nucleo_f401re/mikroe_quail/frdm_k64f/seeeduino_lotus: hwmv2 board
-# EXTENSIONS (E1/E2/E3 slices, board-extension-migration.md) -- the ONLY way
-# any of these four boards are named any more, the four clones having been
-# deleted in full (E4, E4-brief.md; the pwm-nonzero-flags synthetic fixture
-# repointed to the seeeduino_lotus extension in the same slice, its last
-# remaining clone reference). `board:` is the FULL qualified target (rig.yml
-# names it explicitly, no expander-side sugar) and each one's .dts lives
-# under boards/extend/, layered on top of the REAL upstream board via
-# `#include`. seeeduino_lotus is the CROSS-MODULE case: its base .dts lives
-# in the bridle Zephyr module, which the west manifest deliberately does NOT
-# carry (E3-brief.md) -- every build path naming this board must thread
+# Every board here is an hwmv2 board EXTENSION: `board:` in rig.yml is the
+# FULL qualified target, read verbatim (no expander-side sugar), and each
+# one's .dts lives under boards/extend/, layered on top of the REAL upstream
+# board via `#include`. seeeduino_lotus is the one CROSS-MODULE case: its
+# base .dts lives in the bridle Zephyr module, which the west manifest does
+# NOT carry -- every build path naming this board must thread
 # `-DEXTRA_ZEPHYR_MODULES=<bridle_root()>` (see `board_extra_defines`
 # below), or the board does not exist at all.
 BOARD_DTS: Dict[str, str] = {
@@ -70,25 +68,25 @@ BOARD_DTS: Dict[str, str] = {
 }
 BOARDS: List[str] = list(BOARD_DTS)
 
-# The one board needing bridle threaded onto EXTRA_ZEPHYR_MODULES (E3-brief.md,
-# "Harness changes" section) -- a case-level mechanism, not a global flag: every
-# OTHER board's goldens must stay byte-identical (no-flavor-leak property).
+# The one board needing bridle threaded onto EXTRA_ZEPHYR_MODULES -- a
+# case-level mechanism, not a global flag: every OTHER board's goldens must
+# stay byte-identical (no cross-board flavor leak).
 _BRIDLE_MODULE_BOARD = "seeeduino_lotus/samd21g18a/rig"
 
 
 def bridle_root() -> Path:
     """The bridle Zephyr module root, SELF-LOCATED as `WEST_TOPDIR / "bridle"`
-    (no `/wrk` literal) -- bridle deliberately stays OUT of the west manifest
-    (E3-brief.md, decided 2026-07-24f), so every build targeting
-    seeeduino_lotus/samd21g18a/rig must pass it via
-    `-DEXTRA_ZEPHYR_MODULES=<this path>` explicitly. Fails loudly if the
-    checkout is missing, exactly like `zephyr_base()` does for $ZEPHYR_BASE."""
+    (no `/wrk` literal) -- bridle deliberately stays OUT of the west
+    manifest, so every build targeting seeeduino_lotus/samd21g18a/rig must
+    pass it via `-DEXTRA_ZEPHYR_MODULES=<this path>` explicitly. Fails
+    loudly if the checkout is missing, exactly like `zephyr_base()` does for
+    $ZEPHYR_BASE."""
     root = WEST_TOPDIR / "bridle"
     if not root.is_dir():
         pytest.fail(
             f"bridle module not found at {root} -- lotus rig builds need "
-            f"-DEXTRA_ZEPHYR_MODULES=<west-topdir>/bridle (E3-brief.md); is "
-            f"the bridle checkout missing from this workspace?")
+            f"-DEXTRA_ZEPHYR_MODULES=<west-topdir>/bridle; is the bridle "
+            f"checkout missing from this workspace?")
     return root
 
 
@@ -96,8 +94,7 @@ def board_extra_defines(board: str) -> List[str]:
     """Per-board extra `-D` cmake defines every build path (plain build,
     tier-2 `west build-rig`, cmake-alone) must thread through identically --
     a case-level mechanism keyed on the board string, not a global flag, so
-    non-lotus boards get an empty list and their goldens stay byte-identical
-    (E3-brief.md's no-flavor-leak property)."""
+    non-lotus boards get an empty list and their goldens stay byte-identical."""
     if board == _BRIDLE_MODULE_BOARD:
         return [f"-DEXTRA_ZEPHYR_MODULES={bridle_root()}"]
     return []
@@ -125,12 +122,12 @@ _WORKDIR_RE = re.compile(r"/tmp/rigexp-[^/\s]+")
 
 # A tier-2 `zephyr.dts`'s own DT provenance comments (`/* in PATH:LINE */`,
 # `/* node 'X' defined in PATH:LINE */`) render PATH relative to the build's
-# cwd (WEST_TOPDIR) — e.g. `../../../tmp/pytest-of-tobi/pytest-52/
+# cwd (WEST_TOPDIR) — e.g. `../../../tmp/pytest-of-<user>/pytest-52/
 # test_tier2_accept_zephyr_dts_l0/build/rig/rig-gen.overlay:25` — which embeds
 # pytest's OWN per-session tmp dir (`tmp_path`, a fresh directory every test
 # run: `test_tier2_goldens._run_build` builds into `tmp_path / "build"`).
-# Byte-freezing that raw text would make every refreeze session rewrite all
-# 8 tier-2 goldens on this fragment alone, with no content change at all.
+# Byte-freezing that raw text would make every refreeze session rewrite every
+# tier-2 golden on this fragment alone, with no content change at all.
 # `(?:\.\./)+` (not a fixed count) tolerates whatever depth WEST_TOPDIR sits
 # at under the filesystem root on a given machine.
 _DTS_BUILD_PROVENANCE_RE = re.compile(
@@ -141,9 +138,9 @@ def normalize_dts_provenance(text: str) -> str:
     """Replace a tier-2 `zephyr.dts`'s pytest-tmp-dir-dependent provenance
     comment paths with a stable placeholder, keeping the meaningful
     generated-file-relative part (`rig/<file>:<line>`) intact — comments
-    only; the DT content itself is untouched, and dts_equiv.py's structural
-    comparison ignores comments regardless (assert-mode was never affected;
-    this is purely a refreeze-churn fix, see test_tier2_goldens.py)."""
+    only, so `dts_equiv.py`'s structural comparison (which ignores comments)
+    is unaffected either way; this exists purely so a refreeze's diff shows
+    real content changes, not tmp-path churn."""
     return _DTS_BUILD_PROVENANCE_RE.sub(r"<RIGEXP_BUILD>/\1:\2", text)
 
 
@@ -159,7 +156,7 @@ def zephyr_base() -> str:
 
 def normalize(text: str, zb: str) -> str:
     """Replace machine-/run-specific absolute paths with stable placeholders
-    before freezing/comparing (saferail 1): the expander's own temp workdir,
+    before freezing/comparing: the expander's own temp workdir,
     $ZEPHYR_BASE, and the repo root (in that order — repo root and zephyr
     base can each be a prefix of the other under a shared workspace topdir, so
     the more specific substitutions must land first). Everything else must
@@ -183,8 +180,8 @@ class RigCase:
     category: Optional[str] = None   # expected phys-* code, reject rigs only
 
 
-# The 3a/3b/3c corpus, per the task's expected-verdict table (verified against
-# actual `rigexp expand` output before freezing — see the handoff report).
+# The full corpus of rigs this suite freezes goldens for, with the verdict
+# each one is expected to produce.
 ACCEPT_CASES: List[RigCase] = [
     RigCase("nucleo_datalogger", True),
     RigCase("quail_temp_farm", True),
@@ -221,12 +218,12 @@ def rig_board_name(folder: str) -> str:
 @dataclasses.dataclass(frozen=True)
 class PlainBuild:
     """One board's plain (no shield, no rig) `west build --cmake-only` — the
-    "cached-plain-build pattern" (Bridge-A saferail 13): the real recipe
-    (cpp include dirs + edtlib bindings dirs) a Zephyr configure computed for
-    this board, recovered from its own `build_info.yml` rather than
-    re-deriving `cmake/dts.cmake`'s pre_dt.cmake mirror a second time in
-    Python. Session-memoized by board (see `plain_build_for`) — every rig
-    naming the same board reuses ONE configure."""
+    "cached-plain-build pattern": the real recipe (cpp include dirs + edtlib
+    bindings dirs) a Zephyr configure computed for this board, recovered
+    from its own `build_info.yml` rather than re-deriving
+    `cmake/dts.cmake`'s pre_dt.cmake mirror a second time in Python.
+    Session-memoized by board (see `plain_build_for`) — every rig naming the
+    same board reuses ONE configure."""
     board: str
     build_dir: Path
 
@@ -249,11 +246,11 @@ _plain_build_cache: Dict[str, PlainBuild] = {}
 def _run_plain_build(board: str, build_dir: Path) -> "subprocess.CompletedProcess[str]":
     """`west build --cmake-only -b <board>` of `hello_world` — deliberately
     PLAIN: no `--shield`, no `-DRIG`, so this exercises the legacy/plain
-    board path a board conversion must never break (saferail 11). Threads
-    `board_extra_defines(board)` after `--` (empty for every board except the
-    lotus extension, E3-brief.md) — the same mechanism `plain_build_for`'s
-    callers (test_tier1_goldens.py, test_board_read.py) get for free, since
-    they never build the cmake argv themselves."""
+    board path a rig-enabling board change must never break. Threads
+    `board_extra_defines(board)` after `--` (empty for every board except
+    the lotus extension) — the same mechanism `plain_build_for`'s callers
+    (test_tier1_goldens.py, test_board_read.py) get for free, since they
+    never build the cmake argv themselves."""
     zb = zephyr_base()
     env = dict(os.environ)
     env["ZEPHYR_BASE"] = zb
@@ -280,7 +277,7 @@ def plain_build_for(board: str, tmp_path_factory: "pytest.TempPathFactory") -> P
         result = _run_plain_build(board, build_dir)
         assert result.returncode == 0, (
             f"{board}: plain `west build --cmake-only` (no shield, no rig) "
-            f"must configure clean — saferail 11\n--- stdout ---\n"
+            f"must configure clean\n--- stdout ---\n"
             f"{result.stdout}\n--- stderr ---\n{result.stderr}")
         _plain_build_cache[board] = PlainBuild(board=board, build_dir=build_dir)
     return _plain_build_cache[board]

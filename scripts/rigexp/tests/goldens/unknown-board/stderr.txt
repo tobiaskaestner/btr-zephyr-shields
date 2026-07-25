@@ -1,3 +1,3 @@
 error[phys-board]: unknown board 'nonexistent_board_xyz'
     no such board directory under ./boards
-    known boards: (none)
+    this standalone lookup only searches that one root; every board this tooling can build today extends a base that lives elsewhere (a real Zephyr board, or another Zephyr module), so it is never listed here either way -- run `west boards` for the full catalog, or pass --board-dts directly

@@ -1,22 +1,21 @@
-"""Tier-1 goldens: freeze the CURRENT observed behavior of `python -m rigexp
-expand` for every rig in the corpus (Bridge-A saferail 1, amended
-2026-07-23 — see `claude/rigs/implementation-plan.md`).
+"""Tier-1 goldens: freeze the observed behavior of `python -m rigexp expand`
+for every rig in `boards/rigs/`.
 
 For each rig this pins: the verdict (exit code), the full rendered
 diagnostics (warnings on accepts too, not only reject errors), and whatever
 of `overlay` / `context.cmake` / `config-sheet.md` / `conf` the emitter
-produced. `expectations.yml` is deliberately excluded — parked to
-`claude/hw-expectations/`, never gated (see `claude/rigs/parked.md`).
+produced. `expectations.yml` is deliberately excluded — it is emitted but
+never gated (see `claude/hw-expectations/`).
 
-THE FLIP changed what "fast" means here: pass 1 now reads the REAL board
-devicetree (boarddt/board_edt/edt_build), which needs a real recipe (cpp
-include dirs + edtlib bindings dirs) — the cached-plain-build pattern
-(`conftest.plain_build_for`) supplies it via one real `west build
---cmake-only` PER BOARD, memoized for the whole test session (4 boards, not
-13 rigs) rather than 13 independent configures. `test_tier1_golden` is
-therefore `@pytest.mark.build` now; `test_unknown_board_golden` stays
-UNMARKED — an unknown board is rejected by name-discovery alone (list_boards.py),
-before any recipe would even be needed, so it needs no build at all.
+Pass 1 reads the REAL board devicetree (boarddt/board_edt/edt_build), which
+needs a real recipe (cpp include dirs + edtlib bindings dirs) — the
+cached-plain-build pattern (`conftest.plain_build_for`) supplies it via one
+real `west build --cmake-only` PER BOARD, memoized for the whole test
+session (4 boards, not 13 rigs) rather than 13 independent configures.
+`test_tier1_golden` is therefore `@pytest.mark.build`; `test_unknown_board_golden`
+stays UNMARKED — an unknown board is rejected by name-discovery alone
+(list_boards.py), before any recipe would even be needed, so it needs no
+build at all.
 
 Refreeze: set RIGEXP_REFREEZE=1 in the environment to rewrite the fixtures
 under tests/goldens/<rig-name>/ instead of asserting against them, e.g.:
@@ -51,8 +50,8 @@ from conftest import (
     zephyr_base,
 )
 
-# The artifact filenames the emitter may produce, per saferail 1. Order is
-# stable so a refreeze's `git diff` stays readable.
+# The artifact filenames the emitter may produce. Order is stable so a
+# refreeze's `git diff` stays readable.
 _EMITTED_FILES = ("rig-gen.overlay", "context.cmake", "config-sheet.md", "rig-gen.conf")
 
 
@@ -114,10 +113,10 @@ def test_tier1_golden(case: RigCase, tmp_path: Path,
 
 
 def test_unknown_board_golden(tmp_path: Path) -> None:
-    """Synthetic fixture (saferail 1): a rig naming a nonexistent board — a
-    rewrite-touched path (pass 1 will read the real board DT/bindings, step 1
-    of the rewrite) that the real corpus does not otherwise exercise, since
-    every corpus rig names a real, existing board."""
+    """Synthetic fixture: a rig naming a nonexistent board must be rejected
+    with a `phys-board` diagnostic before pass 1 ever tries to read any
+    devicetree. No corpus rig exercises this path (every corpus rig names a
+    real, existing board)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "unknown-board" / "rig.yml"
     result = run_expand(rig_yml, out_dir)
@@ -132,11 +131,11 @@ def test_unknown_board_golden(tmp_path: Path) -> None:
 
 
 def test_route_no_via_golden(tmp_path: Path) -> None:
-    """Synthetic fixture (cmake-debug review finding): a wire `route:` that
-    is a mapping without a `via:` key must be rejected by the LOADER with
-    the lang-schema diagnostic that replaced Wire.route's None-leak. No
-    corpus rig uses wires, so only this fixture locks that path. Fast: the
-    loader rejects before any board recipe is needed."""
+    """Synthetic fixture: a wire `route:` that is a mapping without a `via:`
+    key must be rejected by the LOADER with a `lang-schema` diagnostic --
+    an ambiguous route is a loader-level authoring error, never a silently
+    resolved default. No corpus rig uses wires, so only this fixture locks
+    that path. Fast: the loader rejects before any board recipe is needed."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "route-no-via" / "rig.yml"
     result = run_expand(rig_yml, out_dir)
@@ -152,12 +151,12 @@ def test_route_no_via_golden(tmp_path: Path) -> None:
 
 
 def test_not_rig_enabled_golden(tmp_path: Path) -> None:
-    """Synthetic fixture (flip review finding 3): a board whose devicetree
-    EXISTS but declares no `socket,*` node must be rejected with the DISTINCT
-    "exists, but is not rig-enabled" phys-board diagnostic — the other half
-    of the pair test_unknown_board_golden covers. Fast (no build): the
-    fixture .dts is include-free, so the recipe is just zephyr's bindings dir
-    passed explicitly — no configured board context needed."""
+    """Synthetic fixture: a board whose devicetree EXISTS but declares no
+    `socket,*` node must be rejected with the DISTINCT "exists, but is not
+    rig-enabled" phys-board diagnostic — the other half of the pair
+    test_unknown_board_golden covers. Fast (no build): the fixture .dts is
+    include-free, so the recipe is just zephyr's bindings dir passed
+    explicitly — no configured board context needed."""
     out_dir = tmp_path / "out"
     fixture = FIXTURES_DIR / "not-rig-enabled"
     zb = zephyr_base()
@@ -180,16 +179,16 @@ def test_not_rig_enabled_golden(tmp_path: Path) -> None:
 @pytest.mark.build
 def test_pwm_nonzero_flags_golden(tmp_path: Path,
                                   tmp_path_factory: "pytest.TempPathFactory") -> None:
-    """Synthetic fixture (analyzer bundle, 2026-07-23): a servo shield
-    authoring a nonzero PWM flags value (PWM_POLARITY_INVERTED) on a real
-    PWM-capable Grove socket -- every corpus shield authors flags=0, so this
-    is the only fixture locking the analyzer's `phys-function` rejection
-    (analyzer.py:_collect_channel), moved from the emitter's former
-    `ValueError` (which violated the emitter's "cannot fail" contract,
-    cli.py). Needs a real board recipe (the seeeduino_lotus extension --
-    repointed here in E4 off its now-deleted board clone), like the corpus
-    cases -- hence @pytest.mark.build, unlike the loader-level fixtures
-    above."""
+    """Synthetic fixture: a servo shield authoring a nonzero PWM flags value
+    (PWM_POLARITY_INVERTED) on a real PWM-capable Grove socket -- every
+    corpus shield authors flags=0, so this is the only fixture locking the
+    analyzer's `phys-function` rejection (analyzer.py:_collect_channel): the
+    expander's PWM emission carries only (position, period), so a nonzero
+    flags value must be rejected before emission ever runs, preserving the
+    emitter's "never fails on an analyzer-accepted rig" contract (cli.py).
+    Needs a real board recipe (the seeeduino_lotus extension), like the
+    corpus cases -- hence @pytest.mark.build, unlike the loader-level
+    fixtures above."""
     fixture = FIXTURES_DIR / "pwm-nonzero-flags"
     board = "seeeduino_lotus/samd21g18a/rig"
     plain_build = plain_build_for(board, tmp_path_factory)

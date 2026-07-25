@@ -1,11 +1,8 @@
 """Board DT reader — expander-side input (Conv. 4: 'the expander reads the
-board DT to find socket nodes by compatible'). THE FLIP (Bridge-A rewrite,
-saferails 2/6/8): this module used to parse a bundled `common-dts` scaffold
-standalone with dtlib; it now delegates entirely to `board_edt`/`edt_build`'s
-real `edtlib.EDT` reader over the board's OWN devicetree — the shadow
-dual-read (`tests/test_board_read.py`, formerly `test_board_dualread.py`)
-proved this produces the SAME `model.Board` the scaffold did, on every axis,
-for all four board clones.
+board DT to find socket nodes by compatible'). Delegates entirely to
+`board_edt`/`edt_build`'s `edtlib.EDT` reader over the board's OWN
+devicetree; `tests/test_board_read.py` guards that this production path
+agrees with a direct `board_edt` call and with pass 2's own `edt.pickle`.
 
 This module keeps two responsibilities of its own, both about board
 RESOLUTION rather than DT mechanics (those live in `board_edt`/`edt_build`):
@@ -46,8 +43,8 @@ def load_board(name: str, workdir: str, diags: Diagnostics,
     `board_dts` / `recipe` are the two inputs `board_edt.load_board` needs
     (see `edt_build.BuildRecipe`). The IN-BUILD path (dts.cmake) always
     passes both explicitly — BOARD_DIR is already resolved by boards.cmake
-    long before the expander runs, and dts.cmake computes the recipe itself
-    (saferail 13). Leaving `board_dts` None triggers the standalone/CLI
+    long before the expander runs, and dts.cmake computes the recipe itself.
+    Leaving `board_dts` None triggers the standalone/CLI
     discovery fallback below; leaving `recipe` None (whether or not
     `board_dts` was given) is a caller-configuration gap, reported the same
     way as any other board-resolution failure — see the `recipe is None`
@@ -97,8 +94,8 @@ def _discover_board_dts(name: str, diags: Diagnostics) -> Optional[str]:
     same choice `list_shields.py` gets elsewhere in this tree; list_boards.py
     has no `--json` mode to subprocess+parse the way list_shields.py does, so
     a direct import is the cleaner half of that pattern here). Searches only
-    this module's OWN board root (`MODULE_ROOT`) — every board this rig
-    tooling can ever reference on its OWN is one of its own clones.
+    this module's OWN board root (`MODULE_ROOT`) — a narrower catalog than a
+    real build sees.
 
     `name` may carry hwmv2 qualifiers (`<board>/<qualifiers...>`, e.g. an
     extension variant `nucleo_f401re/stm32f401xe/rig` —
@@ -106,19 +103,23 @@ def _discover_board_dts(name: str, diags: Diagnostics) -> Optional[str]:
     `<board>_<qualifiers>[.dts]` file (full form, falling back to the
     single-SoC SHORT form that drops the leading SoC segment — the same
     two candidates `dts.cmake`'s own `dts_configuration_files()` tries),
-    never a bespoke naming rule. KNOWN GAP: this fallback cannot complete
-    an extension whose BASE board lives OUTSIDE `MODULE_ROOT` (e.g. a real
-    upstream board in `$ZEPHYR_BASE`, our nucleo_f401re case) —
+    never a bespoke naming rule.
+
+    KNOWN GAP: every board this tooling can build today is an hwmv2
+    EXTENSION whose BASE lives OUTSIDE `MODULE_ROOT` (a real upstream board
+    in `$ZEPHYR_BASE`, or another Zephyr module) —
     `list_boards.find_v2_boards()` only attaches a `board.yml` `extend:`
     entry to a base it can already see, so a MODULE_ROOT-only scan never
-    learns of `nucleo_f401re` at all and reports it unknown. The in-build
-    path (dts.cmake) never hits this: BOARD_DIR/BOARD_DIRECTORIES are
-    already resolved by boards.cmake (which scans every real BOARD_ROOT)
-    long before the expander runs, so `--board-dts` is always passed
-    explicitly for a real build. Widening this fallback's own board root
-    to include `$ZEPHYR_BASE` would fix it but pulls the ENTIRE upstream
-    board catalog into the "unknown board" diagnostic's "known boards"
-    listing — not attempted here; out of scope for this migration slice.
+    learns of any of them, and this fallback's own board catalog is
+    consequently always empty. The in-build path (dts.cmake) never hits
+    this: BOARD_DIR/BOARD_DIRECTORIES are already resolved by boards.cmake
+    (which scans every real BOARD_ROOT) long before the expander runs, so
+    `--board-dts` is always passed explicitly for a real build. Widening
+    this fallback's own board root to include `$ZEPHYR_BASE` would populate
+    the catalog, but pulls the ENTIRE upstream board list into an "unknown
+    board" diagnostic that has nothing to do with the rig actually named —
+    so the diagnostic below reports the gap honestly instead (no local
+    catalog to print) and points at the wider tool that has one.
     """
     zephyr_base = os.environ["ZEPHYR_BASE"]
     scripts_dir = os.path.join(zephyr_base, "scripts")
@@ -136,7 +137,11 @@ def _discover_board_dts(name: str, diags: Diagnostics) -> Optional[str]:
             "phys-board",
             f"unknown board '{name}'\n"
             f"no such board directory under {os.path.relpath(MODULE_ROOT)}/boards\n"
-            f"known boards: {', '.join(sorted(boards)) or '(none)'}")
+            "this standalone lookup only searches that one root; every "
+            "board this tooling can build today extends a base that lives "
+            "elsewhere (a real Zephyr board, or another Zephyr module), so "
+            "it is never listed here either way -- run `west boards` for "
+            "the full catalog, or pass --board-dts directly")
         return None
 
     board = boards[board_name]
