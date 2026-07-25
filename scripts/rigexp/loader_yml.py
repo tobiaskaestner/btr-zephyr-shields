@@ -9,6 +9,15 @@ trial):
   instances[].socket    cross-tree string, passed through (analyzer checks it)
   instances[].pin       {strap-name: value} — strap resolved WITHIN the
                         instance's shield (config straps only)
+  instances[].params    {device-label: {property: value}} — per-instance
+                        property assignment, resolved WITHIN the instance's
+                        shield the same way pin is (device label, not node
+                        name); the property must be one the device declared
+                        via `shield,params` (rig-variants-revisions.md
+                        "PER-INSTANCE PARAMETERS")
+  rig.dt-includes       list of headers (as written in a DTS `#include
+                        <...>`) the rig's assigned param tokens resolve
+                        against
   wires[].from/to       '<instance>.<node>' — instance by name; node resolved
                         within that instance's shield over pads ∪ devices ∪
                         straps; must be unique there
@@ -27,7 +36,8 @@ import yaml
 
 from .ctypes_registry import load_types
 from .diag import Depends, Diagnostic, Diagnostics, LoadError, SrcRef
-from .dtsio import MODULE_ROOT, parse_tu, source_files
+from .dtsio import (MODULE_INC, MODULE_ROOT, ZEPHYR_INC, check_include,
+                    is_int_literal, parse_tu, resolve_token, source_files)
 from .model import Instance, Rig, Shield, Strap, Wire, WireEnd
 from .shields import parse_shields
 
@@ -162,10 +172,20 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
         return None
     rig = Rig(name=name_v.v, board=board_v.v, src=rig_v.src)
 
+    # dt-includes: parsed and header-validated (rule 6) BEFORE instances, so
+    # every params: assignment resolved while parsing instances below has an
+    # already-known-good vocabulary to resolve against.
+    dt_includes_v = rig_v.v.get("dt-includes")
+    if dt_includes_v is not None:
+        for h_v in dt_includes_v.v:
+            rig.dt_includes.append(h_v.v)
+            rig.dt_includes_refs.append(h_v.src)
+        _check_dt_includes(rig, workdir, diags)
+
     by_name: dict[str, Instance] = {}
     insts_v = _require(rig_v, "instances", "rig", diags)
     for item in (insts_v.v if insts_v else []):
-        inst = _parse_instance(item, shields, diags)
+        inst = _parse_instance(item, shields, rig, workdir, diags)
         if inst:
             rig.instances.append(inst)
             by_name[inst.name] = inst
@@ -177,7 +197,7 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     return rig
 
 
-def _parse_instance(item: _Val, shields, diags) -> Instance | None:
+def _parse_instance(item: _Val, shields, rig: Rig, workdir: str, diags) -> Instance | None:
     name_v = _require(item, "name", "instance", diags)
     shield_v = _require(item, "shield", "instance", diags)
     socket_v = _require(item, "socket", "instance", diags)
@@ -219,7 +239,109 @@ def _parse_instance(item: _Val, shields, diags) -> Instance | None:
             else:                                   # Jumper: position value
                 inst.jumpers[elem.name] = val_v.v
                 inst.jumper_refs[elem.name] = val_v.src
+
+    _parse_params(item, inst, shield, rig, workdir, diags)
     return inst
+
+
+def _parse_params(item: _Val, inst: Instance, shield: Shield, rig: Rig,
+                  workdir: str, diags) -> None:
+    """rig `params:` — per-instance property assignment (rig-variants-
+    revisions.md "PER-INSTANCE PARAMETERS"): keyed by shield-local DEVICE
+    LABEL (the same addressing style `pin:` uses for config elements), then
+    by property name. Validates rules 1-5; rule 6 (dt-includes header
+    existence) was already checked once for the whole rig, before any
+    instance was parsed."""
+    devices_by_label = {d.label: d for d in shield.devices}
+    params_v = item.v.get("params")
+    if params_v is not None:
+        for dev_label, props_v in params_v.v.items():
+            dev = devices_by_label.get(dev_label)
+            if dev is None:
+                diags.error(
+                    "lang-param",
+                    f"instance '{inst.name}': params names no device "
+                    f"'{dev_label}' of shield '{shield.name}'\n"
+                    f"devices of '{shield.name}': "
+                    f"{', '.join(sorted(devices_by_label)) or 'none'}",
+                    [props_v.src])
+                continue
+            for prop_name, val_v in props_v.v.items():
+                if prop_name not in dev.declared_params:
+                    diags.error(
+                        "lang-param",
+                        f"instance '{inst.name}': device '{dev_label}' of "
+                        f"shield '{shield.name}' declares no parameter "
+                        f"'{prop_name}' (shield,params)\n"
+                        f"declared parameters of '{dev_label}': "
+                        f"{', '.join(dev.declared_params) or 'none'}",
+                        [val_v.src])
+                    continue
+                raw = str(val_v.v)
+                inst.params.setdefault(dev_label, {})[prop_name] = raw
+                inst.param_refs.setdefault(dev_label, {})[prop_name] = val_v.src
+                if not is_int_literal(raw):
+                    _check_param_token(inst, dev_label, prop_name, raw, rig,
+                                       workdir, val_v.src, diags)
+
+    # rule 2: every device's REQUIRED (declared, no shield-authored default)
+    # parameter must be assigned by THIS instance — checked for every device
+    # of the shield, not just ones params: happens to mention.
+    for dev in shield.devices:
+        assigned = inst.params.get(dev.label, {})
+        for pname in dev.declared_params:
+            if pname in assigned:
+                continue
+            if any(name == pname for name, _ in dev.extra_props):
+                continue      # shield authored a default; the rig may omit it
+            diags.error(
+                "lang-param",
+                f"instance '{inst.name}': device '{dev.label}' of shield "
+                f"'{shield.name}' declares '{pname}' as required "
+                "(shield,params, no default authored) but this instance "
+                f"does not assign it — add params: {{{dev.label}: "
+                f"{{{pname}: <value>}}}}",
+                [inst.src])
+
+
+def _check_param_token(inst: Instance, dev_label: str, prop_name: str, raw: str,
+                       rig: Rig, workdir: str, ref: SrcRef, diags) -> None:
+    """Rules 4/5: an assigned token that is not a bare integer literal must
+    resolve against the rig's declared `dt-includes:`."""
+    tag = f"{rig.name}_{inst.name}_{dev_label}_{prop_name}"
+    if resolve_token(raw, rig.dt_includes, workdir, tag) is not None:
+        return
+    if not rig.dt_includes:
+        diags.error(
+            "lang-dt-include",
+            f"instance '{inst.name}': device '{dev_label}' property "
+            f"'{prop_name}' assigns '{raw}', which does not resolve — this "
+            "rig declares no dt-includes: at all; add the header that "
+            f"defines '{raw}'",
+            [ref])
+        return
+    diags.error(
+        "lang-dt-include",
+        f"instance '{inst.name}': device '{dev_label}' property "
+        f"'{prop_name}' assigns '{raw}', which does not resolve against "
+        f"this rig's declared dt-includes ({', '.join(rig.dt_includes)}) — "
+        "add the header that defines it to rig.yml dt-includes:",
+        [ref])
+
+
+def _check_dt_includes(rig: Rig, workdir: str, diags) -> None:
+    """Rule 6: every declared `dt-includes:` header must exist and
+    preprocess cleanly on its own, checked once per rig regardless of
+    whether any parameter ends up resolving against it."""
+    for i, (header, ref) in enumerate(zip(rig.dt_includes, rig.dt_includes_refs)):
+        detail = check_include(header, workdir, f"{rig.name}_{i}")
+        if detail is not None:
+            diags.error(
+                "lang-dt-include",
+                f"rig '{rig.name}': dt-includes header '{header}' not "
+                f"found or fails to preprocess (searched {ZEPHYR_INC}, "
+                f"{MODULE_INC})\n{detail}",
+                [ref])
 
 
 def _parse_wire(item: _Val, by_name, diags) -> Wire | None:

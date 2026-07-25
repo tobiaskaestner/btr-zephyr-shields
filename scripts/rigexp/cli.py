@@ -116,7 +116,7 @@ def _expand(rig_path: str, shield_dirs: Optional[List[str]], out_dir: str,
         print(diags.render(), file=sys.stderr)
         return 1
 
-    outputs = emitter.emit(solved)   # strong contract: cannot fail here
+    outputs = emitter.emit(solved, workdir)   # strong contract: cannot fail here
 
     os.makedirs(out_dir, exist_ok=True)
     for fname, content in outputs.items():

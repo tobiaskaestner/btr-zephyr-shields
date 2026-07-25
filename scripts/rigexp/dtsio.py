@@ -1,12 +1,15 @@
-"""DTS plumbing for the SHIELD-template side only (Bridge-A rewrite step 4;
-`854712e` moved all BOARD reading to `board_edt`/`edt_build`'s real
-`edtlib.EDT`, so this module no longer touches the board DT at all). What's
-left: CPP + stock dtlib parsing of `.shield` translation units (Ground rule
-3), which stays dtlib by design — shield templates are pre-instantiation
-text with no binding/schema to validate against, so there is nothing for
-edtlib to attach type info to; and dt-bindings/connector/*.h position-index
-header parsing (the module's own real headers, shared by both the real
-gpio-map and the expander).
+"""DTS plumbing for the SHIELD-template side, and for rig-declared token
+vocabularies (`dt-includes:`). This module never touches the board DT
+(`board_edt`/`edt_build`'s real `edtlib.EDT` owns that). What's here: CPP +
+stock dtlib parsing of `.shield` translation units (Ground rule 3), which
+stays dtlib by design — shield templates are pre-instantiation text with no
+binding/schema to validate against, so there is nothing for edtlib to attach
+type info to; dt-bindings/connector/*.h position-index header parsing (the
+module's own real headers, shared by both the real gpio-map and the
+expander); and `resolve_token`/`check_include`, the per-instance-parameter
+mechanism's own synthetic-TU resolution (shared by the loader, for
+validation, and the emitter, for the config sheet's display value — one
+resolution path, not two).
 """
 from __future__ import annotations
 
@@ -14,6 +17,7 @@ import os
 import re
 import subprocess
 import sys
+from typing import List, Optional
 
 from .diag import ROOT, Depends, Diagnostic, LoadError, SrcRef
 
@@ -176,3 +180,58 @@ def render_prop(prop: dtlib.Property) -> str | None:
     if t is T.BYTES:
         return f"{prop.name} = [{prop.value.hex(' ')}];"
     return None
+
+
+# ---------------------------------------------------------------- rig dt-includes vocabulary
+
+_INT_LITERAL_RE = re.compile(r"^-?(0[xX][0-9a-fA-F]+|\d+)$")
+
+
+def is_int_literal(text: str) -> bool:
+    """Whether `text` is already a bare DTS integer literal (decimal or 0x
+    hex, optionally negative) needing no `dt-includes:` resolution at all —
+    shared by the loader (skip resolving what needs no resolving) and the
+    emitter's config sheet (skip showing a redundant "(N)" for a value that
+    already IS N)."""
+    return bool(_INT_LITERAL_RE.match(text))
+
+
+def check_include(header: str, workdir: str, tag: str) -> Optional[str]:
+    """Confirm one `dt-includes:` header is real and preprocesses cleanly on
+    its own (rig-variants-revisions.md per-instance-parameters rule 6:
+    `lang-dt-include`, checked at expand time regardless of whether any
+    parameter actually resolves against it). Returns an error detail string
+    on failure, else None. Each header is checked in isolation — the failure
+    this rule targets is the header not existing at all, not an
+    inter-header ordering dependency."""
+    tu = os.path.join(workdir, f"rig-dt-include-{tag}.dts")
+    with open(tu, "w") as f:
+        f.write(f'/dts-v1/;\n#include "{header}"\n/ {{ }};\n')
+    try:
+        parse_dts(tu, workdir)
+        return None
+    except LoadError as e:
+        return e.diag.message
+
+
+def resolve_token(token: str, headers: List[str], workdir: str, tag: str) -> Optional[int]:
+    """cpp+dtlib-resolve one assigned parameter TOKEN against a synthetic TU
+    that includes exactly `headers` — a rig's declared `dt-includes:`
+    vocabulary, in order. Serves validation (rules 4/5) and the config
+    sheet's displayed value; never feeds emission, which emits the token
+    text verbatim regardless of whether it resolves. Returns None if cpp
+    leaves the token unexpanded: an unresolved bareword identifier is not
+    valid syntax inside a DTS cell list, so the embedding `dtlib.DT` parse
+    fails — the same failure shape whether the token is a typo or the
+    defining header was never declared."""
+    tu = os.path.join(workdir, f"rig-param-{tag}.dts")
+    with open(tu, "w") as f:
+        f.write("/dts-v1/;\n")
+        for header in headers:
+            f.write(f'#include "{header}"\n')
+        f.write(f"/ {{ p {{ v = <{token}>; }}; }};\n")
+    try:
+        dt = parse_dts(tu, workdir)
+    except LoadError:
+        return None
+    return dt.get_node("/p").props["v"].to_num()

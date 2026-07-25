@@ -14,19 +14,6 @@ ignore_missing_imports = true
 module = ["devicetree.*"]
 ignore_errors = true
 
-# Legacy rigexp modules awaiting their Bridge-A rewrite phase. Their errors
-# are ignored (NOT their whole files — new call sites elsewhere still check).
-# RULE (saferail 16 — idiom conformance rides the rewrite): the commit that
-# migrates a module MUST drop it from this list and leave it mypy-clean.
-# analyzer.py migrated 2026-07-23 (Optional annotations on NetClaim's None
-# defaults, no semantic change) and left this list. Only model.py remains —
-# it is FROZEN (saferail 9); its entry stays until the freeze lifts.
-[[tool.mypy.overrides]]
-module = [
-    "rigexp.model",
-]
-ignore_errors = true
-
 [tool.pytest.ini_options]
 # Top-level tests/ is reserved for twister test apps (Zephyr-module
 # convention); python tests live with the package.

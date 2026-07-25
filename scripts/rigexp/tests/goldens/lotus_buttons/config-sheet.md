@@ -11,3 +11,10 @@ Board: **seeeduino_lotus/samd21g18a/rig**
 | btn_start | grove_btn | grove_d2 |
 | btn_stop | grove_btn | grove_d6 |
 | led_status | grove_led | grove_a0 |
+
+## Parameters
+
+| instance | device | property | value |
+|---|---|---|---|
+| btn_start | gb_key | zephyr,code | INPUT_KEY_0 (11) |
+| btn_stop | gb_key | zephyr,code | INPUT_KEY_1 (2) |

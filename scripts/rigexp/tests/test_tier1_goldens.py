@@ -51,8 +51,12 @@ from conftest import (
 )
 
 # The artifact filenames the emitter may produce. Order is stable so a
-# refreeze's `git diff` stays readable.
-_EMITTED_FILES = ("rig-gen.overlay", "context.cmake", "config-sheet.md", "rig-gen.conf")
+# refreeze's `git diff` stays readable. `rig-gen-includes.dtsi` is emitted
+# only when a rig declares `dt-includes:` (today, only lotus_buttons) —
+# `assert_absent_or_refreeze` covers the "correctly absent" case for every
+# other corpus rig, the same way it already does for `rig-gen.conf`.
+_EMITTED_FILES = ("rig-gen.overlay", "rig-gen-includes.dtsi", "context.cmake",
+                  "config-sheet.md", "rig-gen.conf")
 
 
 @pytest.mark.parametrize("case", ALL_CASES, ids=lambda c: c.name)
@@ -146,6 +150,119 @@ def test_route_no_via_golden(tmp_path: Path) -> None:
 
     zb = zephyr_base()
     golden_dir = GOLDENS_DIR / "route-no-via"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_param_undeclared_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: per-instance-parameters rule 1 — a `params:` entry
+    naming a property the device did not declare via `shield,params` (typo
+    protection) must be rejected. Fast: the loader rejects before any board
+    recipe is needed."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "param-undeclared" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, "an undeclared params: property must be rejected"
+    assert "[lang-param]" in result.stderr, result.stderr
+    assert "declares no parameter" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "param-undeclared"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_param_required_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: per-instance-parameters rule 2 — a declared,
+    REQUIRED (no default authored) parameter an instance never assigns must
+    be rejected, not left as a silently-inert missing property."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "param-required" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, "an unassigned required parameter must be rejected"
+    assert "[lang-param]" in result.stderr, result.stderr
+    assert "required" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "param-required"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_param_unknown_device_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: per-instance-parameters rule 3 — a `params:` entry
+    naming a device label the shield has no device for must be rejected."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "param-unknown-device" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, "an unknown params: device label must be rejected"
+    assert "[lang-param]" in result.stderr, result.stderr
+    assert "names no device" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "param-unknown-device"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_param_unresolvable_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: per-instance-parameters rule 4 — an assigned token
+    that does not resolve against the rig's own declared `dt-includes:`
+    must be rejected, naming the fix."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "param-unresolvable" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, "an unresolvable parameter token must be rejected"
+    assert "[lang-dt-include]" in result.stderr, result.stderr
+    assert "does not resolve" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "param-unresolvable"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_param_no_vocabulary_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: per-instance-parameters rule 5 — a symbolic token
+    assigned by a rig that declares no `dt-includes:` at all. Distinct from
+    rule 4: there is no vocabulary to resolve against, so the diagnostic must
+    say that rather than blame the token, or the author is sent looking for a
+    typo that is not there."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "param-no-vocabulary" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, (
+        "a symbolic token with no declared vocabulary must be rejected")
+    assert "[lang-dt-include]" in result.stderr, result.stderr
+    assert "dt-includes" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "param-no-vocabulary"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_param_missing_header_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: per-instance-parameters rule 6 — a `dt-includes:`
+    entry naming a header that is not on the include path must be rejected at
+    expand time, naming the searched dirs. Guards the vocabulary declaration
+    itself: without this the failure would surface later as an unresolvable
+    token (rule 4), blaming the assignment instead of the include."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "param-missing-header" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, (
+        "a dt-includes header that does not exist must be rejected")
+    assert "[lang-dt-include]" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "param-missing-header"
     freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
 

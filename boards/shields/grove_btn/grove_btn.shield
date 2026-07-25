@@ -8,22 +8,19 @@
  * The button drives a gpio-keys input on the Grove signal pin. Default
  * wiring matches bridle's grove_btn_d0.overlay (pull-down, active-high).
  *
- * zephyr,code: added for the real driver (P3 3c finding, see task report —
- * drivers/input/input_gpio_keys.c's GPIO_KEYS_CFG_DEF unconditionally
- * expands DT_PROP(node_id, zephyr_code) for every gpio-keys child, with no
- * COND_CODE guard, even though dts/bindings/input/gpio-keys.yaml does not
- * mark the property required — bridle's own grove_btn_d0.overlay omits it
- * too). Currently INERT here: the expander's `shield,collect` aggregation
- * (scripts/rigexp/emitter.py `_collection_entry`) only ever emits `label`
- * and the gpio function ref for a collected entry — it drops every other
- * property, so this line does not yet reach the generated overlay. Left in
- * place (forward-compatible, additive) for when that emitter gap is
- * addressed; do not rely on it working today.
+ * zephyr,code: drivers/input/input_gpio_keys.c's GPIO_KEYS_CFG_DEF
+ * unconditionally expands DT_PROP(node_id, zephyr_code) for every gpio-keys
+ * child, with no COND_CODE guard, even though dts/bindings/input/
+ * gpio-keys.yaml does not mark the property required. A keycode is an
+ * INSTANCE fact, not a type-level one — two buttons of this same shield
+ * plugged into one rig need DISTINCT keys — so it is declared here via
+ * `shield,params` with no default authored: every rig instantiating this
+ * shield MUST assign it (rig-variants-revisions.md "PER-INSTANCE
+ * PARAMETERS").
  */
 
 #include <dt-bindings/connector/grove.h>
 #include <zephyr/dt-bindings/gpio/gpio.h>
-#include <zephyr/dt-bindings/input/input-event-codes.h>
 
 / {
 	rig-shields {
@@ -34,8 +31,8 @@
 			gpio {
 				gb_key: button {
 					shield,collect = "gpio-keys";	/* an entry in the shared gpio-keys collection */
+					shield,params = "zephyr,code";	/* required: no default authored */
 					gpios = <&gb_plug GROVE_SIG0 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>;
-					zephyr,code = <INPUT_KEY_0>;
 				};
 			};
 		};

@@ -18,17 +18,29 @@
 # E4); shield identities underscored (grove-btn ->
 # grove_btn, grove-led -> grove_led).
 
+# grove_btn declares zephyr,code required (a keycode is an instance fact,
+# not a type-level one — rig-variants-revisions.md "PER-INSTANCE
+# PARAMETERS"), so each button below assigns its own via params:, resolved
+# against dt-includes: distinct keys, not the same one twice.
 rig:
   name: lotus_buttons
   board: seeeduino_lotus/samd21g18a/rig
+  dt-includes:
+    - zephyr/dt-bindings/input/input-event-codes.h
   instances:
     - name: btn_start
       shield: grove_btn
       socket: grove_d2               # bridle grove_btn_d2  (SIG0 -> porta14)
+      params:
+        gb_key:
+          zephyr,code: INPUT_KEY_0
     - name: btn_stop
       shield: grove_btn
       socket: grove_d6               # bridle grove_btn_d6
       invert: true                   # bridle grove_btn_d6_inv (active-low)
+      params:
+        gb_key:
+          zephyr,code: INPUT_KEY_1
     - name: led_status
       shield: grove_led
       socket: grove_a0               # bridle grove_led on the A0 Grove socket

@@ -67,9 +67,13 @@ class Device:
     addr_from: Optional[str]        # strap name — deferred address, explicit not absent
     cs_position: Optional[int]      # copper-fixed CS (shield,cs-position)
     collect: Optional[str] = None   # collection compatible (gpio-keys/leds): this is an ENTRY
+    declared_params: list[str] = field(default_factory=list)  # shield,params: names a rig
+    # may/must assign (Conv. entity-scoped naming). A name's PRESENCE among
+    # this device's OTHER (non-model) properties is its default — the rig
+    # may override it; its ABSENCE means the parameter is REQUIRED.
     gpio_refs: list[GpioRef] = field(default_factory=list)
     extra_props: list[tuple[str, str]] = field(default_factory=list)  # rendered passthrough
-    src: SrcRef = None
+    src: Optional[SrcRef] = None
 
 
 @dataclass
@@ -79,7 +83,7 @@ class Pad:
     label: str
     role: str                       # driver | listener | bidir (R23)
     of: Optional[str]               # device name it belongs to
-    src: SrcRef = None
+    src: Optional[SrcRef] = None
 
 
 @dataclass
@@ -89,7 +93,7 @@ class Strap:
     label: str
     domain: list[tuple[int, int]]   # (address, strap state) pairs — copper knowledge
     sheet_label: str
-    src: SrcRef = None
+    src: Optional[SrcRef] = None
 
 
 @dataclass
@@ -100,7 +104,7 @@ class Jumper:
     label: str
     domain: list[tuple[int, int]]   # (connector-position index, jumper state)
     sheet_label: str
-    src: SrcRef = None
+    src: Optional[SrcRef] = None
 
     def positions(self) -> list[int]:
         return [p for p, _ in self.domain]
@@ -123,7 +127,7 @@ class ExposedSocket:
     buses: dict[str, object]        # kind -> "plug" (pass-through, S6) | ("scope", dev-label) (new scope, S8)
     cs_pool: object = None          # authored override, else type default
     channel: object = None          # mux channel index (scope-creating interposer, S8)
-    src: SrcRef = None
+    src: Optional[SrcRef] = None
 
 
 @dataclass
@@ -137,11 +141,11 @@ class Shield:
     jumpers: dict[str, Jumper] = field(default_factory=dict)
     exposes: dict[str, ExposedSocket] = field(default_factory=dict)
     by_path: dict[str, object] = field(default_factory=dict)   # dtlib path -> element (candidate-1 lookups)
-    src: SrcRef = None
+    src: Optional[SrcRef] = None
 
-    def by_name(self, name: str):
+    def by_name(self, name: str) -> list:
         """Dotted-reference scope for candidate-2: pads ∪ devices ∪ straps."""
-        hits = [p for n, p in self.pads.items() if n == name]
+        hits: list = [p for n, p in self.pads.items() if n == name]
         hits += [d for d in self.devices if d.name == name]
         hits += [s for n, s in self.straps.items() if n == name]
         return hits
@@ -182,7 +186,7 @@ class BoardSocket:
     nexus_label: Optional[str] = None
     nexus_rows: Optional[list] = None   # [(child_pos, parent_nexus_label, parent_pos)]
     parent: object = None               # parent BoardSocket (for transitive synthesis)
-    src: SrcRef = None
+    src: Optional[SrcRef] = None
 
 
 @dataclass
@@ -204,14 +208,19 @@ class Instance:
     jumpers: dict[str, object] = field(default_factory=dict)  # jumper name -> raw position (name/index)
     jumper_refs: dict[str, SrcRef] = field(default_factory=dict)
     invert: bool = False            # flip the active level of the module's gpio signals
-    src: SrcRef = None
+    # rig `params:` — per-instance property assignments, keyed by shield-local
+    # DEVICE LABEL then property name; raw value TEXT (emission is verbatim,
+    # never resolved — resolution is a loader/config-sheet concern only).
+    params: dict[str, dict[str, str]] = field(default_factory=dict)
+    param_refs: dict[str, dict[str, SrcRef]] = field(default_factory=dict)
+    src: Optional[SrcRef] = None
 
 
 @dataclass
 class WireEnd:
     instance: Instance
     node: str                       # pad/device name within the instance's shield
-    src: SrcRef = None
+    src: Optional[SrcRef] = None
 
 
 @dataclass
@@ -219,7 +228,7 @@ class Wire:
     frm: WireEnd
     to: WireEnd
     route: Union[str, int]          # 'adhoc' | header position index (route-via)
-    src: SrcRef = None
+    src: Optional[SrcRef] = None
 
 
 @dataclass
@@ -228,4 +237,8 @@ class Rig:
     board: str                      # cross-tree string
     instances: list[Instance] = field(default_factory=list)
     wires: list[Wire] = field(default_factory=list)
-    src: SrcRef = None
+    # rig `dt-includes:` — headers this rig's assigned param TOKENS resolve
+    # against, exactly as they would appear in a DTS `#include <...>`.
+    dt_includes: list[str] = field(default_factory=list)
+    dt_includes_refs: list[SrcRef] = field(default_factory=list)
+    src: Optional[SrcRef] = None
