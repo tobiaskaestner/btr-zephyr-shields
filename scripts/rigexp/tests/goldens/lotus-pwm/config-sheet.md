@@ -15,5 +15,5 @@ Board: **seeeduino_lotus/samd21g18a/rig**
 
 The expander enables these controllers; the SoC pin-mux for each pin is board-provided and must be applied (stubbed):
 
-- light_1/light (grove_a0 SIG0) → ADC adc0 ch0: mux the pin to the controller
-- servo_1/servo (grove_d2 SIG0) → PWM grove_pwm_d19 ch0: mux the pin to the controller
+- light_1/light (grove_a0 SIG0) → ADC adc ch0: mux the pin to the controller
+- servo_1/servo (grove_d2 SIG0) → PWM tcc0 ch0: mux the pin to the controller

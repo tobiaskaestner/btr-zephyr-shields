@@ -360,6 +360,9 @@ def _net_descr(key, claims, types) -> str:
     (pwm/adc), a single socket position, or a SoC pin shared across sockets
     (R13)."""
     if key[0] == "chan":
+        # key[1] is the controller's DEFINING label (board_edt._controller_label,
+        # via socket.pwm_map/adc_map) -- a diagnostic naming a controller must
+        # never depend on which alias, if any, the emitter happens to pick.
         return f"{key[1]} channel {key[2]}"
     where = {(c.socket.label, c.position) for c in claims}
     if len(where) == 1:

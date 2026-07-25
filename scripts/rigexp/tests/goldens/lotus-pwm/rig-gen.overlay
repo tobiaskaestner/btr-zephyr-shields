@@ -22,5 +22,5 @@
 /* PWM/ADC: enable the resolved controllers; the pin-mux (pinctrl)
  * for each muxed pin is board-provided and must be applied —
  * stubbed here, see the config sheet. */
-&adc0 { status = "okay"; };
-&grove_pwm_d19 { status = "okay"; };
+&adc { status = "okay"; };
+&tcc0 { status = "okay"; };

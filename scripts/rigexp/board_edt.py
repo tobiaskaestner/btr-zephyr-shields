@@ -140,28 +140,21 @@ def _project_socket(node: edtlib.Node, compat: str) -> BoardSocket:
 
 
 def _controller_label(node: edtlib.Node) -> str:
-    """The controller's own label for a `*-map` target, preferring the LAST
-    one attached over the SoC dtsi's original (first) one: a socket-file
-    alias attached after the fact (e.g. `adc0: &adc {};` in
-    `grove_sockets.dtsi`) is appended to `Node.labels` without
-    displacing the primary label the SoC dtsi already gave the node
-    (dtlib's label list is append-only, first-wins on duplicates, never
-    reordered). Before THE FLIP, this projected onto the SAME label the
-    (now-retired) common-dts scaffold's board stub used for that controller
-    (dual-read comparability, saferail 2); both named one real node --
-    single-labeled nodes (e.g. &tcc0) are unaffected, since labels[-1] ==
-    labels[0] there.
+    """The controller's DEFINING label for a `*-map` target: `node.labels[0]`,
+    the label the node's own declaring dtsi gives it (dtlib's label list is
+    append-only and never reordered, so index 0 is permanently the
+    first-attached label no matter what else later aliases onto the same
+    node). This is the only choice stable against module composition --
+    a socket file or an unrelated board extension may attach further
+    aliases to a shared controller (e.g. a legacy per-pin label), and doing
+    so must never change what this function reports. Consistent with the
+    `labels[0]` already used for gpio-map targets and bus refs in this
+    module: `*-map` controllers get the identical treatment.
 
-    INVARIANT (review 2026-07-23): what this must return is the
-    board-conventional alias the emitter will emit verbatim into overlays
-    (`&adc0 ...`) -- "last-attached" is only a proxy for that, diverging
-    from the `labels[0]` used for gpio/bus targets solely on RE-ALIASED
-    nodes (today: lotus adc). It is order-fragile by construction: a later
-    include attaching yet another label to a `*-map` target silently
-    changes the emitted label, and now that common-dts is deleted (saferail
-    8) nothing but tier-1 overlay text guards this floor label choice
-    (tier-2 dts_equiv resolves labels away). Treat any change here as
-    overlay-affecting, never cosmetic."""
+    CONSTRAINT the code cannot show: this label is emitted VERBATIM into
+    overlay text (`&<label> { ... }`), so tier-1 golden text is the only
+    guard on it -- tier-2 (`dts_equiv`) resolves labels away and cannot
+    catch a regression here."""
     if not node.labels:
         raise ValueError(f"controller node {node.path} has no label")
-    return node.labels[-1]
+    return node.labels[0]
