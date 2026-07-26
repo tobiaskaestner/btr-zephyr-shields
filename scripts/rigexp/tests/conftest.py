@@ -1,15 +1,15 @@
 """Shared fixtures and helpers for the rig-expander golden tests.
 
-`test_tier1_goldens.py` / `test_tier2_goldens.py` freeze the expander's
-observed behavior for every rig in `boards/rigs/`, as committed fixtures, in
+test_tier1_goldens.py / test_tier2_goldens.py freeze the expander's
+observed behavior for every rig in boards/rigs/, as committed fixtures, in
 two tiers:
 
   tier 1 (test_tier1_goldens.py) — expander-level, every rig, fast: verdict +
   rendered diagnostics + emitted rig-gen.overlay/context.cmake/
   config-sheet.md/rig-gen.conf.
 
-  tier 2 (test_tier2_goldens.py, `@pytest.mark.build`) — the real pass-2
-  `zephyr.dts`, compared STRUCTURALLY (via `dts_equiv.py`), not byte-for-byte
+  tier 2 (test_tier2_goldens.py, @pytest.mark.build) — the real pass-2
+  zephyr.dts, compared STRUCTURALLY (via dts_equiv.py), not byte-for-byte
   — labels/phandle numbers/ordering may legitimately differ between the
   expander's overlay text and the golden, so only tier 2 is the invariant a
   change to HOW the overlay is worded must preserve; tier 1 is refrozen
@@ -18,8 +18,8 @@ two tiers:
 This module holds only the plumbing both tiers share: the corpus table, path
 discovery (self-locating — no workspace-name literals), the expander
 subprocess runner, normalization, and the freeze/assert primitives.
-`expectations.yml` is deliberately never read here — it is emitted but never
-gated (see `claude/hw-expectations/`).
+expectations.yml is deliberately never read here — it is emitted but never
+gated (see claude/hw-expectations/).
 """
 from __future__ import annotations
 
@@ -48,13 +48,13 @@ DTS_EQUIV = REPO_ROOT / "scripts" / "dts_equiv.py"
 # goldens.py (--board-dts per rig) and test_board_read.py (the plain-build /
 # edt.pickle-cross-check corpus).
 #
-# Every board here is an hwmv2 board EXTENSION: `board:` in rig.yml is the
+# Every board here is an hwmv2 board EXTENSION: board: in rig.yml is the
 # FULL qualified target, read verbatim (no expander-side sugar), and each
 # one's .dts lives under boards/extend/, layered on top of the REAL upstream
-# board via `#include`. seeeduino_lotus is the one CROSS-MODULE case: its
+# board via #include. seeeduino_lotus is the one CROSS-MODULE case: its
 # base .dts lives in the bridle Zephyr module, which the west manifest does
 # NOT carry -- every build path naming this board must thread
-# `-DEXTRA_ZEPHYR_MODULES=<bridle_root()>` (see `board_extra_defines`
+# -DEXTRA_ZEPHYR_MODULES=<bridle_root()> (see board_extra_defines
 # below), or the board does not exist at all.
 BOARD_DTS: Dict[str, str] = {
     "nucleo_f401re/stm32f401xe/rig":
@@ -75,11 +75,11 @@ _BRIDLE_MODULE_BOARD = "seeeduino_lotus/samd21g18a/rig"
 
 
 def bridle_root() -> Path:
-    """The bridle Zephyr module root, SELF-LOCATED as `WEST_TOPDIR / "bridle"`
-    (no `/wrk` literal) -- bridle deliberately stays OUT of the west
+    """The bridle Zephyr module root, SELF-LOCATED as WEST_TOPDIR / "bridle"
+    (no /wrk literal) -- bridle deliberately stays OUT of the west
     manifest, so every build targeting seeeduino_lotus/samd21g18a/rig must
-    pass it via `-DEXTRA_ZEPHYR_MODULES=<this path>` explicitly. Fails
-    loudly if the checkout is missing, exactly like `zephyr_base()` does for
+    pass it via -DEXTRA_ZEPHYR_MODULES=<this path> explicitly. Fails
+    loudly if the checkout is missing, exactly like zephyr_base() does for
     $ZEPHYR_BASE."""
     root = WEST_TOPDIR / "bridle"
     if not root.is_dir():
@@ -91,8 +91,8 @@ def bridle_root() -> Path:
 
 
 def board_extra_defines(board: str) -> List[str]:
-    """Per-board extra `-D` cmake defines every build path (plain build,
-    tier-2 `west build-rig`, cmake-alone) must thread through identically --
+    """Per-board extra -D cmake defines every build path (plain build,
+    tier-2 west build-rig, cmake-alone) must thread through identically --
     a case-level mechanism keyed on the board string, not a global flag, so
     non-lotus boards get an empty list and their goldens stay byte-identical."""
     if board == _BRIDLE_MODULE_BOARD:
@@ -101,8 +101,8 @@ def board_extra_defines(board: str) -> List[str]:
 
 
 def _find_west_topdir(start: Path) -> Path:
-    """Walk upward from `start` to the west workspace root (the directory
-    holding `.west/`) — self-locating, no hardcoded workspace-name literal."""
+    """Walk upward from start to the west workspace root (the directory
+    holding .west/) — self-locating, no hardcoded workspace-name literal."""
     for candidate in (start, *start.parents):
         if (candidate / ".west").is_dir():
             return candidate
@@ -114,31 +114,31 @@ _VENV_WEST = WEST_TOPDIR / ".venv" / "bin" / "west"
 WEST_EXE = str(_VENV_WEST) if _VENV_WEST.is_file() else "west"
 
 # RIGEXP_REFREEZE=1 rewrites goldens instead of asserting against them (both
-# tiers). Always inspect `git diff tests/goldens` after a refreeze — it must
+# tiers). Always inspect git diff tests/goldens after a refreeze — it must
 # reflect an INTENTIONAL, understood behavior change, never silent drift.
 REFREEZE = bool(os.environ.get("RIGEXP_REFREEZE"))
 
 _WORKDIR_RE = re.compile(r"/tmp/rigexp-[^/\s]+")
 
-# A tier-2 `zephyr.dts`'s own DT provenance comments (`/* in PATH:LINE */`,
-# `/* node 'X' defined in PATH:LINE */`) render PATH relative to the build's
-# cwd (WEST_TOPDIR) — e.g. `../../../tmp/pytest-of-<user>/pytest-52/
-# test_tier2_accept_zephyr_dts_l0/build/rig/rig-gen.overlay:25` — which embeds
-# pytest's OWN per-session tmp dir (`tmp_path`, a fresh directory every test
-# run: `test_tier2_goldens._run_build` builds into `tmp_path / "build"`).
+# A tier-2 zephyr.dts's own DT provenance comments (/* in PATH:LINE */,
+# /* node 'X' defined in PATH:LINE */) render PATH relative to the build's
+# cwd (WEST_TOPDIR) — e.g. ../../../tmp/pytest-of-<user>/pytest-52/
+# test_tier2_accept_zephyr_dts_l0/build/rig/rig-gen.overlay:25 — which embeds
+# pytest's OWN per-session tmp dir (tmp_path, a fresh directory every test
+# run: test_tier2_goldens._run_build builds into tmp_path / "build").
 # Byte-freezing that raw text would make every refreeze session rewrite every
 # tier-2 golden on this fragment alone, with no content change at all.
-# `(?:\.\./)+` (not a fixed count) tolerates whatever depth WEST_TOPDIR sits
+# (?:\.\./)+ (not a fixed count) tolerates whatever depth WEST_TOPDIR sits
 # at under the filesystem root on a given machine.
 _DTS_BUILD_PROVENANCE_RE = re.compile(
     r"(?:\.\./)+tmp/pytest-of-[^/\s]+/pytest-\d+/[^/\s]+/build/(rig/[^:\s*]+):(\d+)")
 
 
 def normalize_dts_provenance(text: str) -> str:
-    """Replace a tier-2 `zephyr.dts`'s pytest-tmp-dir-dependent provenance
+    """Replace a tier-2 zephyr.dts's pytest-tmp-dir-dependent provenance
     comment paths with a stable placeholder, keeping the meaningful
-    generated-file-relative part (`rig/<file>:<line>`) intact — comments
-    only, so `dts_equiv.py`'s structural comparison (which ignores comments)
+    generated-file-relative part (rig/<file>:<line>) intact — comments
+    only, so dts_equiv.py's structural comparison (which ignores comments)
     is unaffected either way; this exists purely so a refreeze's diff shows
     real content changes, not tmp-path churn."""
     return _DTS_BUILD_PROVENANCE_RE.sub(r"<RIGEXP_BUILD>/\1:\2", text)
@@ -170,9 +170,9 @@ def normalize(text: str, zb: str) -> str:
 
 @dataclasses.dataclass(frozen=True)
 class RigCase:
-    """One corpus rig, identified by its rig.yml `rig.name` — also its
-    folder name under `boards/rigs/` (rigs are named underscored, board/
-    shield-symmetric: a rig's folder and its `rig.name` are the same
+    """One corpus rig, identified by its rig.yml rig.name — also its
+    folder name under boards/rigs/ (rigs are named underscored, board/
+    shield-symmetric: a rig's folder and its rig.name are the same
     string), and the expected verdict."""
 
     name: str
@@ -205,7 +205,7 @@ ALL_CASES: List[RigCase] = ACCEPT_CASES + REJECT_CASES
 
 
 def rig_board_name(folder: str) -> str:
-    """The rig.yml `rig.board` for a corpus folder — which of `BOARDS` this
+    """The rig.yml rig.board for a corpus folder — which of BOARDS this
     rig needs a plain build (and --board-dts) for."""
     with open(RIGS_DIR / folder / "rig.yml") as f:
         doc = yaml.safe_load(f)
@@ -217,12 +217,12 @@ def rig_board_name(folder: str) -> str:
 
 @dataclasses.dataclass(frozen=True)
 class PlainBuild:
-    """One board's plain (no shield, no rig) `west build --cmake-only` — the
+    """One board's plain (no shield, no rig) west build --cmake-only — the
     "cached-plain-build pattern": the real recipe (cpp include dirs + edtlib
     bindings dirs) a Zephyr configure computed for this board, recovered
-    from its own `build_info.yml` rather than re-deriving
-    `cmake/dts.cmake`'s pre_dt.cmake mirror a second time in Python.
-    Session-memoized by board (see `plain_build_for`) — every rig naming the
+    from its own build_info.yml rather than re-deriving
+    cmake/dts.cmake's pre_dt.cmake mirror a second time in Python.
+    Session-memoized by board (see plain_build_for) — every rig naming the
     same board reuses ONE configure."""
     board: str
     build_dir: Path
@@ -244,11 +244,11 @@ _plain_build_cache: Dict[str, PlainBuild] = {}
 
 
 def _run_plain_build(board: str, build_dir: Path) -> "subprocess.CompletedProcess[str]":
-    """`west build --cmake-only -b <board>` of `hello_world` — deliberately
-    PLAIN: no `--shield`, no `-DRIG`, so this exercises the legacy/plain
+    """west build --cmake-only -b <board> of hello_world — deliberately
+    PLAIN: no --shield, no -DRIG, so this exercises the legacy/plain
     board path a rig-enabling board change must never break. Threads
-    `board_extra_defines(board)` after `--` (empty for every board except
-    the lotus extension) — the same mechanism `plain_build_for`'s callers
+    board_extra_defines(board) after -- (empty for every board except
+    the lotus extension) — the same mechanism plain_build_for's callers
     (test_tier1_goldens.py, test_board_read.py) get for free, since they
     never build the cmake argv themselves."""
     zb = zephyr_base()
@@ -264,15 +264,15 @@ def _run_plain_build(board: str, build_dir: Path) -> "subprocess.CompletedProces
 
 
 def plain_build_for(board: str, tmp_path_factory: "pytest.TempPathFactory") -> PlainBuild:
-    """The cached-plain-build pattern: build `board` once per test session
+    """The cached-plain-build pattern: build board once per test session
     (memoized across every test in every file that asks for it — a plain
-    function rather than a `@pytest.fixture(params=...)`, so a rig case can
+    function rather than a @pytest.fixture(params=...), so a rig case can
     request the ONE board it names without pytest cross-producting every rig
     case against every board)."""
     if board not in _plain_build_cache:
         # A qualified hwmv2 target (e.g. "nucleo_f401re/stm32f401xe/rig")
-        # carries "/" -- sanitize for the tmp-dir BASENAME only; `board`
-        # itself is passed to `-b` unchanged just below.
+        # carries "/" -- sanitize for the tmp-dir BASENAME only; board
+        # itself is passed to -b unchanged just below.
         build_dir = tmp_path_factory.mktemp(f"plain-{board.replace('/', '_')}")
         result = _run_plain_build(board, build_dir)
         assert result.returncode == 0, (
@@ -289,15 +289,15 @@ def run_expand(rig_yml: Path, out_dir: Path,
                build_info: Optional[Path] = None,
                bindings_dirs: Optional[List[Path]] = None,
                ) -> "subprocess.CompletedProcess[str]":
-    """Run `python -m rigexp expand` exactly as dts.cmake does (modulo the
+    """Run python -m rigexp expand exactly as dts.cmake does (modulo the
     recipe form: dts.cmake passes --include-dir/--bindings-dir explicitly;
     this harness reuses a cached plain build's --build-info instead, per the
-    cached-plain-build pattern — see `plain_build_for`) — a real subprocess,
+    cached-plain-build pattern — see plain_build_for) — a real subprocess,
     cwd pinned to the repo root so any process-cwd-relative path a
     diagnostic renders (e.g. boarddt.py's unknown-board message, which uses a
-    bare `os.path.relpath`) is reproducible regardless of the caller's cwd.
+    bare os.path.relpath) is reproducible regardless of the caller's cwd.
 
-    `board_dts`/`build_info` are both None for the unknown-board fixture —
+    board_dts/build_info are both None for the unknown-board fixture —
     deliberately, so the CLI exercises boarddt's own name->dts DISCOVERY
     (list_boards.py) and its "board not found" diagnostic, exactly as a bare
     standalone invocation would."""
@@ -321,7 +321,7 @@ def run_expand(rig_yml: Path, out_dir: Path,
 
 
 def freeze_or_assert(golden_path: Path, content: str) -> None:
-    """Write `content` as the golden (RIGEXP_REFREEZE=1) or assert it matches
+    """Write content as the golden (RIGEXP_REFREEZE=1) or assert it matches
     the committed fixture exactly, with a readable unified diff on mismatch."""
     if REFREEZE:
         golden_path.parent.mkdir(parents=True, exist_ok=True)

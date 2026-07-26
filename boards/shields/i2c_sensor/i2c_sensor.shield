@@ -1,11 +1,6 @@
 /* I2C sensor module (S8) — fixed address 0x48, no address-select (the S3
  * offender). Plugs a bare i2c-port; four of these are unrealizable on one bus
  * but fine behind a mux, one per channel scope.
- *
- * Ported from frontend-trial/common-dts/shields/i2c-sensor.shield;
- * hyphenated shield identity renamed to underscored (btr-shields
- * convention): folder, shield.yml name, DT node name and every rig.yml
- * `shield:` reference all read `i2c_sensor`.
  */
 
 / {

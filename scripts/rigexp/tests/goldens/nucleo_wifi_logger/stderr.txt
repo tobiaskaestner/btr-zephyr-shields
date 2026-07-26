@@ -2,5 +2,5 @@ error[phys-net]: 2 drivers on one net — position D7 of socket 'nucleo_ard':
     - logger_1 (socket nucleo_ard, D7): rtc: int1-gpios (device output)
     - wifi_1 (socket nucleo_ard, D7): wifi: irq-gpios (device output)
     note: if these outputs are open-drain, wired-AND sharing is physically legal — drive-type on roles is a pending refinement (would downgrade this to a warning).
-    at <REPO_ROOT>/boards/shields/adafruit_data_logger/adafruit_data_logger.shield:24 (/shield-templates/adafruit_data_logger/i2c/rtc@68: int1-gpios)
+    at <REPO_ROOT>/boards/shields/adafruit_data_logger/adafruit_data_logger.shield:23 (/shield-templates/adafruit_data_logger/i2c/rtc@68: int1-gpios)
     at <REPO_ROOT>/boards/shields/adafruit_winc1500/adafruit_winc1500.shield:39 (/shield-templates/adafruit_winc1500/spi/wifi: irq-gpios)

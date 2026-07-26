@@ -8,11 +8,6 @@
  * channel; which sensor sits behind which is the rig's socket placement, R27).
  * The i2c device group is authored before the channel sockets so the mux is
  * known when they reference it.
- *
- * Ported from frontend-trial/common-dts/shields/i2c-mux.shield; hyphenated
- * shield identity renamed to underscored (btr-shields convention): folder,
- * shield.yml name, DT node name and every rig.yml `shield:` reference all
- * read `i2c_mux`.
  */
 
 / {

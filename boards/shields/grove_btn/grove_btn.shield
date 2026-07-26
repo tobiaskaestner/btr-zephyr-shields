@@ -1,12 +1,10 @@
-/* Shield: Button (bridle boards/shields/grove_btn port). Ported from
- * frontend-trial/candidate-2-hybrid/common-dts/shields/grove-btn.shield. ONE
- * shield definition that replaces bridle's 64 overlays (grove_btn_d0..d31 x
- * normal/inverted): the "which digital pin" axis becomes the socket the rig
- * places it in, and the normal/inverted axis becomes the per-instance
- * `invert:` parameter.
+/* Shield: Button. ONE shield definition replaces bridle's 64 overlays
+ * (grove_btn_d0..d31 x normal/inverted): the "which digital pin" axis
+ * becomes the socket the rig places it in, and the normal/inverted axis
+ * becomes the per-instance invert: parameter.
  *
  * The button drives a gpio-keys input on the Grove signal pin. Default
- * wiring matches bridle's grove_btn_d0.overlay (pull-down, active-high).
+ * wiring: pull-down, active-high.
  *
  * zephyr,code: drivers/input/input_gpio_keys.c's GPIO_KEYS_CFG_DEF
  * unconditionally expands DT_PROP(node_id, zephyr_code) for every gpio-keys
@@ -14,7 +12,7 @@
  * gpio-keys.yaml does not mark the property required. A keycode is an
  * INSTANCE fact, not a type-level one — two buttons of this same shield
  * plugged into one rig need DISTINCT keys — so it is declared here via
- * `shield,params` with no default authored: every rig instantiating this
+ * shield,params with no default authored: every rig instantiating this
  * shield MUST assign it (rig-variants-revisions.md "PER-INSTANCE
  * PARAMETERS").
  */

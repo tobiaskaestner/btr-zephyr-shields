@@ -1,30 +1,30 @@
-"""The edtlib READ side: guards over `boarddt`/`board_edt`/`edt_build`, the
-layer that projects a real board's own devicetree onto `model.Board`.
+"""The edtlib READ side: guards over boarddt/board_edt/edt_build, the
+layer that projects a real board's own devicetree onto model.Board.
 
-  * a real, PLAIN (no shield, no rig) `west build --cmake-only` per board
+  * a real, PLAIN (no shield, no rig) west build --cmake-only per board
     must configure clean -- the safety net a rig-enabling board change must
-    never break. `plain_build` (session-cached via `conftest.plain_build_for`)
+    never break. plain_build (session-cached via conftest.plain_build_for)
     performs + asserts this.
 
-  * the edt.pickle cross-check: the standalone `edtlib.EDT` this reader
-    builds -- read through the PRODUCTION entry point, `boarddt.load_board`,
+  * the edt.pickle cross-check: the standalone edtlib.EDT this reader
+    builds -- read through the PRODUCTION entry point, boarddt.load_board,
     exactly as the expander itself calls it -- must agree with pass-2's OWN
-    `edt.pickle` from the same board, on every rig-relevant projection
+    edt.pickle from the same board, on every rig-relevant projection
     (socket paths, gpio-map, bus phandles, cs-pool). This is the proof that
     the pass-1 recipe (cmake/dts.cmake's fork derives it from the real
     pre_dt outputs; standalone runs derive it from a cached build's
     build_info.yml) is equivalent to pass 2's real one -- if it weren't,
     pass 1 could read a socket that pass 2 never actually builds against.
 
-  * the production-plumbing guard: for every board, `boarddt.load_board`
-    (given the same `--board-dts` + recipe the dts.cmake fork would pass)
-    must produce the exact same `model.Board` as a DIRECT
-    `board_edt.load_board` call -- `boarddt.load_board` is a thin board-
-    resolution wrapper over `board_edt`, and this pins that the wrapping
+  * the production-plumbing guard: for every board, boarddt.load_board
+    (given the same --board-dts + recipe the dts.cmake fork would pass)
+    must produce the exact same model.Board as a DIRECT
+    board_edt.load_board call -- boarddt.load_board is a thin board-
+    resolution wrapper over board_edt, and this pins that the wrapping
     introduces no divergence.
 
-A pure-function unit test of `edt_build.recipe_from_build_info` itself lives
-in `test_edt_build.py` instead -- it has no rigexp product dependency at all,
+A pure-function unit test of edt_build.recipe_from_build_info itself lives
+in test_edt_build.py instead -- it has no rigexp product dependency at all,
 so it travels with the BSD-3 reader layer rather than this file's
 product-layer guards.
 """
@@ -49,7 +49,7 @@ from rigexp.diag import Diagnostics  # noqa: E402
 @pytest.fixture(params=BOARDS, ids=BOARDS)
 def plain_build(request: "pytest.FixtureRequest",
                 tmp_path_factory: "pytest.TempPathFactory") -> PlainBuild:
-    """Per-board plain build, session-memoized by `conftest.plain_build_for`
+    """Per-board plain build, session-memoized by conftest.plain_build_for
     -- other test files (test_tier1_goldens.py) request the SAME cached
     build for their own rigs naming this board, rather than configuring it
     again."""
@@ -71,9 +71,9 @@ def test_plain_build_configures_clean(plain_build: PlainBuild) -> None:
 
 @pytest.mark.build
 def test_edt_pickle_cross_check(plain_build: PlainBuild, tmp_path: Path) -> None:
-    """Pass-1, read through the PRODUCTION path (`boarddt.load_board`, with
-    the recipe recovered out of the SAME build's `build_info.yml`) must
-    agree with pass-2's OWN `edt.pickle`, for every board, on the
+    """Pass-1, read through the PRODUCTION path (boarddt.load_board, with
+    the recipe recovered out of the SAME build's build_info.yml) must
+    agree with pass-2's OWN edt.pickle, for every board, on the
     rig-relevant projection: socket node paths, gpio-map entries, bus
     phandle targets, cs-pool values. A divergence here would mean pass 1 can
     read a socket, controller, or cs-pool default that pass 2's real build
@@ -117,11 +117,11 @@ def test_edt_pickle_cross_check(plain_build: PlainBuild, tmp_path: Path) -> None
 @pytest.mark.build
 def test_production_matches_direct_read(plain_build: PlainBuild,
                                         tmp_path: Path) -> None:
-    """`boarddt.load_board` (what the expander actually calls) is a thin
-    board-resolution wrapper over `board_edt.load_board` -- assert they
-    produce the identical `model.Board`, given the same board-dts + recipe,
+    """boarddt.load_board (what the expander actually calls) is a thin
+    board-resolution wrapper over board_edt.load_board -- assert they
+    produce the identical model.Board, given the same board-dts + recipe,
     so that wrapping can never introduce a divergence between what the
-    expander sees and what a direct `board_edt` read would see."""
+    expander sees and what a direct board_edt read would see."""
     recipe = edt_build.recipe_from_build_info(str(plain_build.build_info))
     dts_path = str(REPO_ROOT / BOARD_DTS[plain_build.board])
 

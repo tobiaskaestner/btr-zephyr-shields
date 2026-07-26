@@ -4,12 +4,8 @@
 # index 1), and expansion emits the overlay plus a config sheet listing the two
 # physical actions (set the IRQ jumper; route the allocated CS to D9).
 #
-# This is what R6 buys: a pin clash that today forces a forked overlay is now a
-# one-line instantiation parameter.
-#
-# Ported from frontend-trial/candidate-2-hybrid/s2-wifi-logger-ok.rig.yml;
-# board reference migrated (E1) to the hwmv2 board EXTENSION `rig` variant
-# of the real upstream nucleo_f401re — was `nucleo_f401re_btr` (P3 3a).
+# This is what R6 buys: a pin clash that a plain shield overlay forces into a
+# forked overlay is here a one-line instantiation parameter.
 
 rig:
   name: nucleo_wifi_logger_ok

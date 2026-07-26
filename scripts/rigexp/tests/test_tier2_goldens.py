@@ -1,5 +1,5 @@
-"""Tier-2 goldens: the real pass-2 `zephyr.dts`, via `west build-rig
---cmake-only`.
+"""Tier-2 goldens: the real pass-2 zephyr.dts, via west build-rig
+--cmake-only.
 
 This is THE invariant that must hold regardless of how tier 1's exact text
 is produced: if a future change to the expander legitimately alters what
@@ -8,19 +8,19 @@ whether the BUILT devicetree actually changed; tier 1 then gets re-frozen
 with a justification note, using tier 2 as the oracle that nothing else
 moved.
 
-For each ACCEPT rig: `west build-rig --cmake-only` must configure clean, and
-the produced `zephyr.dts` must be STRUCTURALLY EQUIVALENT (via
-`scripts/dts_equiv.py`, NOT a byte diff — labels/phandle numbers/ordering are
+For each ACCEPT rig: west build-rig --cmake-only must configure clean, and
+the produced zephyr.dts must be STRUCTURALLY EQUIVALENT (via
+scripts/dts_equiv.py, NOT a byte diff — labels/phandle numbers/ordering are
 irrelevant, see that script's docstring) to the frozen golden.
 
-For each REJECT rig: the same `--cmake-only` invocation must FAIL, and its
-output must contain the expected `phys-*` diagnostic category string — the
+For each REJECT rig: the same --cmake-only invocation must FAIL, and its
+output must contain the expected phys-* diagnostic category string — the
 same diagnostic category must surface through the full west/CMake path, not
 just the standalone expander.
 
 These tests run a real CMake configure per rig (several minutes for the full
-13-rig corpus) — marked `@pytest.mark.build`; `CHECK_FAST=1` (scripts/check.sh)
-deselects them via `pytest -m "not build"`.
+13-rig corpus) — marked @pytest.mark.build; CHECK_FAST=1 (scripts/check.sh)
+deselects them via pytest -m "not build".
 
 Refreeze: RIGEXP_REFREEZE=1 rewrites tests/goldens/<rig-name>/zephyr.dts
 (ACCEPT rigs only) instead of comparing — inspect the diff before committing,
@@ -56,7 +56,7 @@ from conftest import (
 
 # Triggers python-devicetree onto sys.path (from $ZEPHYR_BASE) as an
 # import-time side effect, exactly like test_board_read.py -- needed to
-# unpickle a real edt.pickle below (its classes live in `devicetree.edtlib`).
+# unpickle a real edt.pickle below (its classes live in devicetree.edtlib).
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigexp import edt_build  # noqa: E402,F401
 
@@ -69,11 +69,11 @@ _APP = "zephyr/samples/hello_world"
 
 def _run_build(rig_name: str, build_dir: Path,
                 extra_defines: Optional[List[str]] = None) -> "subprocess.CompletedProcess[str]":
-    """`west build-rig --cmake-only` for one rig — a temp build dir; `-p
-    always` wipes it, so nothing durable may be read back from `build_dir`
-    beyond this one process's own output. `extra_defines` is threaded after
-    `--` -- empty for every rig except the lotus ones, whose board needs
-    `-DEXTRA_ZEPHYR_MODULES=<bridle_root>`."""
+    """west build-rig --cmake-only for one rig — a temp build dir; -p
+    always wipes it, so nothing durable may be read back from build_dir
+    beyond this one process's own output. extra_defines is threaded after
+    -- -- empty for every rig except the lotus ones, whose board needs
+    -DEXTRA_ZEPHYR_MODULES=<bridle_root>."""
     cmd = [
         WEST_EXE, "build-rig", "--rig", rig_name, _APP,
         "--cmake-only", "-p", "always", "-d", str(build_dir),
@@ -135,15 +135,15 @@ def test_tier2_reject_configure_fails(case: RigCase, tmp_path: Path) -> None:
 
 
 def test_tier2_user_extra_conf_wins_over_rig(tmp_path: Path) -> None:
-    """The rig's own `<rigname>_defconfig` rides `shield_conf_files` (an
+    """The rig's own <rigname>_defconfig rides shield_conf_files (an
     APPEND) rather than prepending onto EXTRA_CONF_FILE -- "user extras
     win" now falls out of upstream's own merge ordering
-    (kconfig.cmake's `merge_config_files`: shield_conf_files lands BEFORE
+    (kconfig.cmake's merge_config_files: shield_conf_files lands BEFORE
     EXTRA_CONF_FILE_AS_LIST), not from anything this fork does. Nothing of
     ours enforces that ordering any more, so pin it directly on the real
-    outcome: a user-passed `-DEXTRA_CONF_FILE` overriding a symbol
+    outcome: a user-passed -DEXTRA_CONF_FILE overriding a symbol
     nucleo_mux_farm_defconfig also sets must win in the resulting
-    `.config`. Contends over CONFIG_I2C_TCA954X_ROOT_INIT_PRIO (61 in the
+    .config. Contends over CONFIG_I2C_TCA954X_ROOT_INIT_PRIO (61 in the
     rig's own defconfig); the driver's BUILD_ASSERT(CHANNEL_INIT_PRIO >
     ROOT_INIT_PRIO) only fires on a full compile, never at --cmake-only, but
     55 keeps the override physically sensible regardless (still below the
@@ -171,15 +171,15 @@ def test_tier2_user_extra_conf_wins_over_rig(tmp_path: Path) -> None:
 
 def test_tier2_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
     """The permanent semantic invariant the expander's socket-relative
-    pwm/adc emission must hold: pass-2's own `edt.pickle` -- the resolved
-    `ControllerAndData` edtlib builds while compiling the real devicetree --
-    must show the servo's `pwms` and the light sensor's `io-channels`
+    pwm/adc emission must hold: pass-2's own edt.pickle -- the resolved
+    ControllerAndData edtlib builds while compiling the real devicetree --
+    must show the servo's pwms and the light sensor's io-channels
     landing on the expected (controller, channel/input, period). This is
     real ground truth rather than a text check on the generated overlay:
-    `vnd,pwm-servo`/`vnd,light-sensor` are typed (dts/bindings/test/), so
+    vnd,pwm-servo/vnd,light-sensor are typed (dts/bindings/test/), so
     pass 2 actually resolves the socket's pwm-map/io-channel-map nexus
     instead of leaving the props inert -- a text-only check on the emitted
-    `pwms`/`io-channels` line could pass even if the nexus itself were
+    pwms/io-channels line could pass even if the nexus itself were
     unresolvable."""
     build_dir = tmp_path / "build"
     extra = board_extra_defines(rig_board_name("lotus_pwm"))
@@ -214,13 +214,13 @@ def test_tier2_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
 
 
 def test_tier2_build_info_rig_provenance(tmp_path: Path) -> None:
-    """A rig build must record what it looked at into `build_info.yml`, via
-    zephyr's own `build_info()` (cmake/dts.cmake). It lands under
-    `cmake.vendor-specific.rig.*` -- `build-schema.yaml` is upstream and not
+    """A rig build must record what it looked at into build_info.yml, via
+    zephyr's own build_info() (cmake/dts.cmake). It lands under
+    cmake.vendor-specific.rig.* -- build-schema.yaml is upstream and not
     ours to extend, so this rides the schema's own downstream-owned escape
-    hatch rather than the naively-expected `cmake.rig.*`. Deliberately uses
+    hatch rather than the naively-expected cmake.rig.*. Deliberately uses
     frdm_eth_nest: it names TWO distinct shields (arduino_uno_click,
-    eth_click carried by THREE instances), because `build_info()`'s
+    eth_click carried by THREE instances), because build_info()'s
     vendor-specific VALUE silently truncates a multi-element CMake list to
     its first entry unless pre-JOINed -- a single-shield rig would not catch
     a regression in that join."""
@@ -249,9 +249,9 @@ def test_tier2_build_info_rig_provenance(tmp_path: Path) -> None:
     assert Path(rig["out-dir"]).is_dir()
 
     # The generated overlay is unconditional; frdm_eth_nest also has its own
-    # hand-authored `frdm_eth_nest_defconfig` (one of the corpus's 8 rigs
-    # that do), but no `rig-gen.conf` -- the emitter never produces one
-    # today, so `defconfig-gen` must be absent, not present-but-empty.
+    # hand-authored frdm_eth_nest_defconfig (one of the corpus's 8 rigs
+    # that do), but no rig-gen.conf -- the emitter never produces one
+    # today, so defconfig-gen must be absent, not present-but-empty.
     assert Path(rig["overlay-gen"]).is_file()
     assert rig["defconfig"].endswith("frdm_eth_nest_defconfig")
     assert "defconfig-gen" not in rig
@@ -260,12 +260,12 @@ def test_tier2_build_info_rig_provenance(tmp_path: Path) -> None:
 def test_tier2_build_info_shield_dir_collision(tmp_path: Path) -> None:
     """Shield name-collision across BOARD_ROOT: BOARD_ROOT holds both
     btr-shields and $ZEPHYR_BASE (zephyr-rigs), and the
-    latter ships its own stock `boards/shields/adafruit_data_logger` -- a
-    plain upstream shield (no `<name>.shield` rig-template marker), same name
-    as btr-shields' rig-template shield. `cmake/dts.cmake`'s shield tail must
+    latter ships its own stock boards/shields/adafruit_data_logger -- a
+    plain upstream shield (no <name>.shield rig-template marker), same name
+    as btr-shields' rig-template shield. cmake/dts.cmake's shield tail must
     resolve the collision to OUR (rig-template) folder, not whichever root
-    `list_shields.py` happened to sort last. `nucleo_datalogger` is the
-    corpus rig naming `adafruit_data_logger`, so it's the collision witness."""
+    list_shields.py happened to sort last. nucleo_datalogger is the
+    corpus rig naming adafruit_data_logger, so it's the collision witness."""
     build_dir = tmp_path / "build"
     result = _run_build("nucleo_datalogger", build_dir)
     assert result.returncode == 0, (
@@ -296,21 +296,21 @@ def test_tier2_build_info_shield_dir_collision(tmp_path: Path) -> None:
 
 
 def test_tier2_rig_depends_provenance(tmp_path: Path) -> None:
-    """Dependency-tracking handoff (RIG_DEPENDS): `cmake/dts.cmake` appends
-    the expander's own generated `context.cmake` `RIG_DEPENDS` list to
-    CMAKE_CONFIGURE_DEPENDS, so editing a `.shield` template or a connector
-    binding — not just rig.yml or the rig's own `<name>_defconfig`/
-    `<name>.overlay`, the pre-existing static registrations — retriggers
+    """Dependency-tracking handoff (RIG_DEPENDS): cmake/dts.cmake appends
+    the expander's own generated context.cmake RIG_DEPENDS list to
+    CMAKE_CONFIGURE_DEPENDS, so editing a .shield template or a connector
+    binding — not just rig.yml or the rig's own <name>_defconfig/
+    <name>.overlay, the pre-existing static registrations — retriggers
     configure. What's testable HERE, without
     mutating any corpus file (forbidden — modifying fixtures in a test would
-    make the test self-fulfilling): that `context.cmake`, as ACTUALLY written
-    into a real build dir, carries the rig.yml, at least one `.shield`, one
-    connector plug YAML, and the board `.dts`. The other half — that CMake
+    make the test self-fulfilling): that context.cmake, as ACTUALLY written
+    into a real build dir, carries the rig.yml, at least one .shield, one
+    connector plug YAML, and the board .dts. The other half — that CMake
     actually retriggers configure when a CMAKE_CONFIGURE_DEPENDS-listed file
     changes — is CMake's own long-standing guarantee for that property, not
     something this project needs to (or reasonably can, without touching
-    corpus files) re-prove; `set_property(... APPEND PROPERTY
-    CMAKE_CONFIGURE_DEPENDS ...)` in dts.cmake is the whole of our contribution."""
+    corpus files) re-prove; set_property(... APPEND PROPERTY
+    CMAKE_CONFIGURE_DEPENDS ...) in dts.cmake is the whole of our contribution."""
     build_dir = tmp_path / "build"
     extra = board_extra_defines(rig_board_name("lotus_pwm"))
     result = _run_build("lotus_pwm", build_dir, extra)

@@ -1,10 +1,8 @@
-/* Shield: Grove Servo (PWM). Ported from
- * frontend-trial/candidate-2-hybrid/common-dts/shields/grove-servo.shield
- * (Slice A). Uses the Grove signal pin as PWM (Slice A): the `pwms` property
- * targets the plug in the PWM function (#pwm-cells = 3: position, period,
- * flags); the expander resolves the position through the socket's pwm-map
- * to a (timer, channel), emits the resolved `pwms`, enables the timer, and
- * notes the board pin-mux.
+/* Shield: Grove Servo (PWM). Uses the Grove signal pin as PWM: the pwms
+ * property targets the plug in the PWM function (#pwm-cells = 3: position,
+ * period, flags); the expander resolves the position through the socket's
+ * pwm-map to a (timer, channel), emits the resolved pwms, enables the
+ * timer, and notes the board pin-mux.
  */
 
 #include <dt-bindings/connector/grove.h>

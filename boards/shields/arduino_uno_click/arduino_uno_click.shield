@@ -5,11 +5,6 @@
  * Arduino socket's, passed through the plug (socket,<bus> = <&auc_plug>).
  * The expander composes the chain: a click's mikroBUS CS resolves through the
  * adapter to the host board's Arduino CS pin.
- *
- * Ported from frontend-trial/common-dts/shields/arduino-uno-click.shield;
- * hyphenated shield identity renamed to underscored (btr-shields
- * convention): folder, shield.yml name, DT node name and every rig.yml
- * `shield:` reference all read `arduino_uno_click`.
  */
 
 #include <dt-bindings/connector/arduino-r3.h>

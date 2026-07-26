@@ -1,11 +1,11 @@
 """The unified connector-type files (dts/bindings/connectors/<type>.yaml)
-are REAL edtlib bindings — socket schema plus the plug contract as `plug,*`
+are REAL edtlib bindings — socket schema plus the plug contract as plug,*
 vendor-namespaced extension keys (opaque to edtlib, preserved in
-Binding.raw; zephyr rig-branch commit `1a657124349`).
+Binding.raw; zephyr rig-branch commit 1a657124349).
 
 Why edtlib-loading them here matters: edtlib's binding scan is
 content-sniffing — pass 2 only ever parses a binding file whose compatible
-string appears in the current devicetree. `socket,i2c-port` never does
+string appears in the current devicetree. socket,i2c-port never does
 (its sockets are shield-synthesized and lowered to plain mux children with
 no compatible), so WITHOUT this test that file is validated by nothing:
 it could go schema-invalid and no build would notice until the day some
@@ -23,7 +23,7 @@ from rigexp.edt_build import edtlib
 
 def _fname2path() -> dict:
     """Basename→path over both bindings roots (zephyr's + ours), enough to
-    resolve the `include:` chains of the connector bindings — the same
+    resolve the include: chains of the connector bindings — the same
     mapping shape edtlib.EDT itself builds over its bindings dirs."""
     mapping: dict = {}
     for root in (os.path.join(zephyr_base(), "dts", "bindings"),

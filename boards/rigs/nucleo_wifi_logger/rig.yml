@@ -1,19 +1,15 @@
-# S2 (reject) — two DIFFERENT shields on one shared bus (playbook S2). A WiFi
-# data logger: Adafruit Data Logger + WINC1500, stacked on one Arduino socket.
-# Here the WINC's IRQ jumper is left at its default D7 — where the data
-# logger's RTC INT already sits.
+# S2 (reject) — two DIFFERENT shields on one shared bus. A WiFi data logger:
+# Adafruit Data Logger + WINC1500, stacked on one Arduino socket. Here the
+# WINC's IRQ jumper is left at its default D7 — where the data logger's RTC
+# INT already sits.
 #
-# Today (verified, build-rig/upstream/S2): configure succeeds with ONE
-# ignorable warning, then a broken build. The rig model instead:
+# A plain build configures with ONE ignorable warning, then a broken build.
+# The rig model instead:
 #   - RESOLVES the CS clash by allocation (SD copper-fixed D10, WiFi pool -> D9)
-#     — R4, the collision that breaks silently today;
+#     — R4, the collision that breaks silently otherwise;
 #   - REJECTS the IRQ clash: RTC INT and WiFi IRQ both drive D7 (phys-net, R5).
 # Move the IRQ jumper to make it realizable — see the nucleo_wifi_logger_ok
 # rig.
-#
-# Ported from frontend-trial/candidate-2-hybrid/s2-wifi-logger.rig.yml; board
-# reference migrated (E1) to the hwmv2 board EXTENSION `rig` variant of the
-# real upstream nucleo_f401re — was `nucleo_f401re_btr` (P3 3a).
 
 rig:
   name: nucleo_wifi_logger

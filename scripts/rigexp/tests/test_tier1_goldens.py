@@ -1,18 +1,18 @@
-"""Tier-1 goldens: freeze the observed behavior of `python -m rigexp expand`
-for every rig in `boards/rigs/`.
+"""Tier-1 goldens: freeze the observed behavior of python -m rigexp expand
+for every rig in boards/rigs/.
 
 For each rig this pins: the verdict (exit code), the full rendered
 diagnostics (warnings on accepts too, not only reject errors), and whatever
-of `overlay` / `context.cmake` / `config-sheet.md` / `conf` the emitter
-produced. `expectations.yml` is deliberately excluded — it is emitted but
-never gated (see `claude/hw-expectations/`).
+of overlay / context.cmake / config-sheet.md / conf the emitter
+produced. expectations.yml is deliberately excluded — it is emitted but
+never gated (see claude/hw-expectations/).
 
 Pass 1 reads the REAL board devicetree (boarddt/board_edt/edt_build), which
 needs a real recipe (cpp include dirs + edtlib bindings dirs) — the
-cached-plain-build pattern (`conftest.plain_build_for`) supplies it via one
-real `west build --cmake-only` PER BOARD, memoized for the whole test
+cached-plain-build pattern (conftest.plain_build_for) supplies it via one
+real west build --cmake-only PER BOARD, memoized for the whole test
 session (4 boards, not 13 rigs) rather than 13 independent configures.
-`test_tier1_golden` is therefore `@pytest.mark.build`; `test_unknown_board_golden`
+test_tier1_golden is therefore @pytest.mark.build; test_unknown_board_golden
 stays UNMARKED — an unknown board is rejected by name-discovery alone
 (list_boards.py), before any recipe would even be needed, so it needs no
 build at all.
@@ -23,7 +23,7 @@ under tests/goldens/<rig-name>/ instead of asserting against them, e.g.:
     RIGEXP_REFREEZE=1 ZEPHYR_BASE=<zephyr-rigs tree> \\
         <venv>/bin/python3 -m pytest tests/test_tier1_goldens.py
 
-Always inspect `git diff tests/goldens` before committing a refreeze — it
+Always inspect git diff tests/goldens before committing a refreeze — it
 must reflect an INTENTIONAL, understood behavior change, never silent drift.
 """
 from __future__ import annotations
@@ -51,10 +51,10 @@ from conftest import (
 )
 
 # The artifact filenames the emitter may produce. Order is stable so a
-# refreeze's `git diff` stays readable. `rig-gen-includes.dtsi` is emitted
-# only when a rig declares `dt-includes:` (today, only lotus_buttons) —
-# `assert_absent_or_refreeze` covers the "correctly absent" case for every
-# other corpus rig, the same way it already does for `rig-gen.conf`.
+# refreeze's git diff stays readable. rig-gen-includes.dtsi is emitted
+# only when a rig declares dt-includes: (today, only lotus_buttons) —
+# assert_absent_or_refreeze covers the "correctly absent" case for every
+# other corpus rig, the same way it already does for rig-gen.conf.
 _EMITTED_FILES = ("rig-gen.overlay", "rig-gen-includes.dtsi", "context.cmake",
                   "config-sheet.md", "rig-gen.conf")
 
@@ -62,8 +62,8 @@ _EMITTED_FILES = ("rig-gen.overlay", "rig-gen-includes.dtsi", "context.cmake",
 @pytest.mark.parametrize("case", ALL_CASES, ids=lambda c: c.name)
 def test_corpus_rig_identity(case: RigCase) -> None:
     """Guard the corpus table against drift: a rig's folder under
-    `boards/rigs/` and its rig.yml `rig.name` must be the identical string
-    (Ground rule elsewhere in the front-end spec) — `RigCase.name` serves
+    boards/rigs/ and its rig.yml rig.name must be the identical string
+    (Ground rule elsewhere in the front-end spec) — RigCase.name serves
     as both."""
     with open(RIGS_DIR / case.name / "rig.yml") as f:
         doc = yaml.safe_load(f)
@@ -118,7 +118,7 @@ def test_tier1_golden(case: RigCase, tmp_path: Path,
 
 def test_unknown_board_golden(tmp_path: Path) -> None:
     """Synthetic fixture: a rig naming a nonexistent board must be rejected
-    with a `phys-board` diagnostic before pass 1 ever tries to read any
+    with a phys-board diagnostic before pass 1 ever tries to read any
     devicetree. No corpus rig exercises this path (every corpus rig names a
     real, existing board)."""
     out_dir = tmp_path / "out"
@@ -135,8 +135,8 @@ def test_unknown_board_golden(tmp_path: Path) -> None:
 
 
 def test_route_no_via_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: a wire `route:` that is a mapping without a `via:`
-    key must be rejected by the LOADER with a `lang-schema` diagnostic --
+    """Synthetic fixture: a wire route: that is a mapping without a via:
+    key must be rejected by the LOADER with a lang-schema diagnostic --
     an ambiguous route is a loader-level authoring error, never a silently
     resolved default. No corpus rig uses wires, so only this fixture locks
     that path. Fast: the loader rejects before any board recipe is needed."""
@@ -155,8 +155,8 @@ def test_route_no_via_golden(tmp_path: Path) -> None:
 
 
 def test_param_undeclared_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: per-instance-parameters rule 1 — a `params:` entry
-    naming a property the device did not declare via `shield,params` (typo
+    """Synthetic fixture: per-instance-parameters rule 1 — a params: entry
+    naming a property the device did not declare via shield,params (typo
     protection) must be rejected. Fast: the loader rejects before any board
     recipe is needed."""
     out_dir = tmp_path / "out"
@@ -192,7 +192,7 @@ def test_param_required_golden(tmp_path: Path) -> None:
 
 
 def test_param_unknown_device_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: per-instance-parameters rule 3 — a `params:` entry
+    """Synthetic fixture: per-instance-parameters rule 3 — a params: entry
     naming a device label the shield has no device for must be rejected."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "param-unknown-device" / "rig.yml"
@@ -210,7 +210,7 @@ def test_param_unknown_device_golden(tmp_path: Path) -> None:
 
 def test_param_unresolvable_golden(tmp_path: Path) -> None:
     """Synthetic fixture: per-instance-parameters rule 4 — an assigned token
-    that does not resolve against the rig's own declared `dt-includes:`
+    that does not resolve against the rig's own declared dt-includes:
     must be rejected, naming the fix."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "param-unresolvable" / "rig.yml"
@@ -228,7 +228,7 @@ def test_param_unresolvable_golden(tmp_path: Path) -> None:
 
 def test_param_no_vocabulary_golden(tmp_path: Path) -> None:
     """Synthetic fixture: per-instance-parameters rule 5 — a symbolic token
-    assigned by a rig that declares no `dt-includes:` at all. Distinct from
+    assigned by a rig that declares no dt-includes: at all. Distinct from
     rule 4: there is no vocabulary to resolve against, so the diagnostic must
     say that rather than blame the token, or the author is sent looking for a
     typo that is not there."""
@@ -248,7 +248,7 @@ def test_param_no_vocabulary_golden(tmp_path: Path) -> None:
 
 
 def test_param_missing_header_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: per-instance-parameters rule 6 — a `dt-includes:`
+    """Synthetic fixture: per-instance-parameters rule 6 — a dt-includes:
     entry naming a header that is not on the include path must be rejected at
     expand time, naming the searched dirs. Guards the vocabulary declaration
     itself: without this the failure would surface later as an unresolvable
@@ -269,7 +269,7 @@ def test_param_missing_header_golden(tmp_path: Path) -> None:
 
 def test_not_rig_enabled_golden(tmp_path: Path) -> None:
     """Synthetic fixture: a board whose devicetree EXISTS but declares no
-    `socket,*` node must be rejected with the DISTINCT "exists, but is not
+    socket,* node must be rejected with the DISTINCT "exists, but is not
     rig-enabled" phys-board diagnostic — the other half of the pair
     test_unknown_board_golden covers. Fast (no build): the fixture .dts is
     include-free, so the recipe is just zephyr's bindings dir passed
@@ -299,7 +299,7 @@ def test_pwm_nonzero_flags_golden(tmp_path: Path,
     """Synthetic fixture: a servo shield authoring a nonzero PWM flags value
     (PWM_POLARITY_INVERTED) on a real PWM-capable Grove socket -- every
     corpus shield authors flags=0, so this is the only fixture locking the
-    analyzer's `phys-function` rejection (analyzer.py:_collect_channel): the
+    analyzer's phys-function rejection (analyzer.py:_collect_channel): the
     expander's PWM emission carries only (position, period), so a nonzero
     flags value must be rejected before emission ever runs, preserving the
     emitter's "never fails on an analyzer-accepted rig" contract (cli.py).

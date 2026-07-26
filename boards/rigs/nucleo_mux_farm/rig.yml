@@ -4,12 +4,6 @@
 # realizable by the mux, because each channel is a NEW scope. The mux itself
 # claims 0x70 on the host bus. Address uniqueness is per-scope (R26); which
 # sensor sits behind which channel is socket placement (R27).
-#
-# Ported from frontend-trial/candidate-2-hybrid/s8-mux.rig.yml; board
-# reference migrated (E1) to the hwmv2 board EXTENSION `rig` variant of the
-# real upstream nucleo_f401re — was `nucleo_f401re_btr` (P3 3a); shield
-# references renamed hyphen->underscore (i2c-mux -> i2c_mux, i2c-sensor ->
-# i2c_sensor).
 
 rig:
   name: nucleo_mux_farm

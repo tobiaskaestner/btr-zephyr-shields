@@ -4,8 +4,8 @@
 
 /* Synthetic fixture for the controller-label determinism invariant: a
  * shared controller node carries TWO labels, attached in this textual
- * order -- `defining_ctrl` on the node itself (as a real SoC dtsi gives a
- * controller its primary label), `legacy_alias` appended afterward via a
+ * order -- defining_ctrl on the node itself (as a real SoC dtsi gives a
+ * controller its primary label), legacy_alias appended afterward via a
  * bare label-ref (as a later-composed module attaching a legacy per-pin
  * alias would do; dtlib's label list is append-only and never reordered).
  * A pwm-map/gpio-map consumer resolving this node must always see the

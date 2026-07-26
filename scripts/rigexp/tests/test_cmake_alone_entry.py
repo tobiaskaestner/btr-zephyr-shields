@@ -1,30 +1,30 @@
-"""cmake-alone rig entry: `cmake -B <dir> -S <app> -DRIG=<name>` with NO
-`-DBOARD` and west absent entirely must configure a build equivalent to the
-`west build-rig` path — the rig is the primary build coordinate, BOARD (and
-SHIELD) are derived from it (`cmake/boards.cmake` / `cmake/shields.cmake`'s
+"""cmake-alone rig entry: cmake -B <dir> -S <app> -DRIG=<name> with NO
+-DBOARD and west absent entirely must configure a build equivalent to the
+west build-rig path — the rig is the primary build coordinate, BOARD (and
+SHIELD) are derived from it (cmake/boards.cmake / cmake/shields.cmake's
 forks), never a separate coordinate the user also supplies.
 
-This file covers the properties exercised entirely through direct `cmake`
-invocations (no `west` subprocess at all):
+This file covers the properties exercised entirely through direct cmake
+invocations (no west subprocess at all):
 
   * a fresh cmake-alone configure resolves the SAME board target, a
-    structurally-equivalent `zephyr.dts`, and the same rig provenance in
-    `build_info.yml` (modulo the build directory itself) as `west
-    build-rig`.
+    structurally-equivalent zephyr.dts, and the same rig provenance in
+    build_info.yml (modulo the build directory itself) as west
+    build-rig.
   * RIG and BOARD are mutually exclusive: a fresh configure with BOTH given
     is a configure-time FATAL_ERROR regardless of whether the values agree
     (BOARD is derived data, never a separate coordinate the user may also
     supply); a RECONFIGURE of an existing rig build dir (BOARD
     cache-carried from our own earlier inference, not user-passed) proceeds.
-  * a qualified rig target (`name@rev` / `name/variant`) gets a loud
+  * a qualified rig target (name@rev / name/variant) gets a loud
     not-yet-supported diagnostic from the resolver — a placeholder until rig
     variants/revisions land, never silent/partial resolution.
-  * SHIELD gets the same exclusion as BOARD: `-DSHIELD` alongside `-DRIG` on
+  * SHIELD gets the same exclusion as BOARD: -DSHIELD alongside -DRIG on
     a fresh configure is a FATAL_ERROR (never a silent no-op); a plain
-    `--shield` build (no RIG) is untouched.
+    --shield build (no RIG) is untouched.
 
-All run a real CMake configure -- marked `@pytest.mark.build`; `CHECK_FAST=1`
-(scripts/check.sh) deselects them via `pytest -m "not build"`.
+All run a real CMake configure -- marked @pytest.mark.build; CHECK_FAST=1
+(scripts/check.sh) deselects them via pytest -m "not build".
 """
 from __future__ import annotations
 
@@ -60,10 +60,10 @@ _RIG = "nucleo_datalogger"
 
 def _run_build_rig(rig_name: str, build_dir: Path,
                     extra_defines: Optional[List[str]] = None) -> "subprocess.CompletedProcess[str]":
-    """The reference path: `west build-rig --cmake-only` for one rig — same
-    invocation shape as test_tier2_goldens.py's `_run_build`. `extra_defines`
-    is threaded after `--`, e.g. the lotus board's
-    `-DEXTRA_ZEPHYR_MODULES=<bridle_root>`."""
+    """The reference path: west build-rig --cmake-only for one rig — same
+    invocation shape as test_tier2_goldens.py's _run_build. extra_defines
+    is threaded after --, e.g. the lotus board's
+    -DEXTRA_ZEPHYR_MODULES=<bridle_root>."""
     cmd = [
         WEST_EXE, "build-rig", "--rig", rig_name, _APP,
         "--cmake-only", "-p", "always", "-d", str(build_dir),
@@ -75,19 +75,19 @@ def _run_build_rig(rig_name: str, build_dir: Path,
 
 
 def _cmake_alone_env() -> Dict[str, str]:
-    """A subprocess environment with `west` unresolvable on PATH, so a build
+    """A subprocess environment with west unresolvable on PATH, so a build
     that succeeds here provably did not reach for west anywhere:
-    strip the directory hosting the `west` console-script from PATH (in this
-    venv layout nothing else needed by the build lives ONLY there — `python3`
-    is passed explicitly instead, see `_run_cmake_alone`), leaving cmake/
+    strip the directory hosting the west console-script from PATH (in this
+    venv layout nothing else needed by the build lives ONLY there — python3
+    is passed explicitly instead, see _run_cmake_alone), leaving cmake/
     ninja/the toolchain reachable exactly as for any other build.
 
-    `west` the PYTHON PACKAGE staying importable is irrelevant here: Zephyr
+    west the PYTHON PACKAGE staying importable is irrelevant here: Zephyr
     module discovery (zephyr_module.py) resolves the workspace manifest via
-    west's manifest API directly, never by shelling out to a `west`
+    west's manifest API directly, never by shelling out to a west
     executable. This test's job is to prove the CMAKE-SIDE rig->board
     resolution (cmake/boards.cmake's fork + scripts/list_rigs.py) never
-    shells out to `west` either — not to uninstall the west package from the
+    shells out to west either — not to uninstall the west package from the
     interpreter, which no test here needs.
     """
     west_path = shutil.which("west")
@@ -109,11 +109,11 @@ def _cmake_alone_env() -> Dict[str, str]:
 
 
 def _cmake_alone_argv(build_dir: Path, extra_defines: list) -> list:
-    """The bare `cmake` invocation a rig build must support: `-S`/`-B`,
-    NO `-DBOARD`, and an explicit `-DPython3_EXECUTABLE` (this venv's own
+    """The bare cmake invocation a rig build must support: -S/-B,
+    NO -DBOARD, and an explicit -DPython3_EXECUTABLE (this venv's own
     interpreter) so CMake's Python discovery does not fall back to whatever a
-    stripped PATH might still turn up — mirrors what `west build` itself
-    effectively guarantees by setting `WEST_PYTHON`."""
+    stripped PATH might still turn up — mirrors what west build itself
+    effectively guarantees by setting WEST_PYTHON."""
     venv_python = WEST_TOPDIR / ".venv" / "bin" / "python3"
     app = str(WEST_TOPDIR / _APP)
     return [
@@ -132,10 +132,10 @@ def _run_cmake_alone(build_dir: Path, extra_defines: list) -> "subprocess.Comple
 
 
 def test_cmake_alone_entry_equivalent_to_build_rig(tmp_path: Path) -> None:
-    """`cmake -DRIG=<name>` alone (no -DBOARD, west absent from PATH) must
-    resolve the SAME board target, a structurally-equivalent `zephyr.dts`,
-    and the same rig provenance in `build_info.yml` (modulo the build
-    directory's own path) as `west build-rig --rig <name>`."""
+    """cmake -DRIG=<name> alone (no -DBOARD, west absent from PATH) must
+    resolve the SAME board target, a structurally-equivalent zephyr.dts,
+    and the same rig provenance in build_info.yml (modulo the build
+    directory's own path) as west build-rig --rig <name>."""
     reference_dir = tmp_path / "build-rig-reference"
     result_ref = _run_build_rig(_RIG, reference_dir)
     assert result_ref.returncode == 0, (
@@ -205,13 +205,13 @@ def test_cmake_alone_board_rig_both_given_is_fatal(tmp_path: Path) -> None:
 
 def test_cmake_alone_reconfigure_of_rig_build_dir_proceeds(tmp_path: Path) -> None:
     """The other half of BOARD/RIG exclusivity: a RECONFIGURE of an
-    EXISTING rig build dir must proceed even though BOARD is `DEFINED` on
+    EXISTING rig build dir must proceed even though BOARD is DEFINED on
     the second cmake invocation -- it is cache-carried from OUR OWN
     inference on the first
-    configure (recorded via the `RIG_INFERRED_BOARD` marker), never a
+    configure (recorded via the RIG_INFERRED_BOARD marker), never a
     user-passed value the second time around. Reruns cmake against the SAME
-    build dir with no -D flags at all, exactly like an incremental `west
-    build`/`ninja` would trigger."""
+    build dir with no -D flags at all, exactly like an incremental west
+    build/ninja would trigger."""
     build_dir = tmp_path / "reconfigure"
     first = _run_cmake_alone(build_dir, [f"-DRIG={_RIG}"])
     assert first.returncode == 0, (
@@ -249,7 +249,7 @@ def test_cmake_alone_qualified_rig_target_rejected(tmp_path: Path) -> None:
 
 
 def test_cmake_alone_shield_rig_both_given_is_fatal(tmp_path: Path) -> None:
-    """SHIELD gets the same exclusion as BOARD: `-DSHIELD` alongside `-DRIG`
+    """SHIELD gets the same exclusion as BOARD: -DSHIELD alongside -DRIG
     on a fresh configure is a FATAL_ERROR from the shields.cmake fork, never
     a silent no-op -- the dts.cmake fork's rig block unconditionally
     overwrites SHIELD_AS_LIST from the rig's own instances, so a
@@ -270,10 +270,10 @@ def test_cmake_alone_shield_rig_both_given_is_fatal(tmp_path: Path) -> None:
 
 
 def test_cmake_alone_plain_shield_build_untouched(tmp_path: Path) -> None:
-    """The other half of the SHIELD/RIG exclusion: a plain `--shield` build
+    """The other half of the SHIELD/RIG exclusion: a plain --shield build
     (no -DRIG at all) must be completely untouched by the guard above -- it
     never even reads SHIELD in that branch (the real shields.cmake module
-    owns it, via the unconditional `include()` in the fork's `else()`)."""
+    owns it, via the unconditional include() in the fork's else())."""
     build_dir = tmp_path / "plain-shield"
     venv_python = WEST_TOPDIR / ".venv" / "bin" / "python3"
     env = _cmake_alone_env()
@@ -351,8 +351,8 @@ def test_cmake_alone_rig_swap_same_board_proceeds(tmp_path: Path) -> None:
 
 
 def test_cmake_alone_lotus_needs_bridle_module(tmp_path: Path) -> None:
-    """The DOCUMENTED failure mode: `cmake -DRIG=lotus_pwm` WITHOUT
-    `-DEXTRA_ZEPHYR_MODULES=<bridle>` must fail. seeeduino_lotus/samd21g18a/rig's
+    """The DOCUMENTED failure mode: cmake -DRIG=lotus_pwm WITHOUT
+    -DEXTRA_ZEPHYR_MODULES=<bridle> must fail. seeeduino_lotus/samd21g18a/rig's
     base board lives entirely in the bridle Zephyr module, which the west
     manifest does NOT carry -- without the module define, hwmv2 board
     discovery never sees bridle's board_root, so the board plainly does not
@@ -369,9 +369,9 @@ def test_cmake_alone_lotus_needs_bridle_module(tmp_path: Path) -> None:
 
 
 def test_cmake_alone_lotus_with_bridle_module_configures(tmp_path: Path) -> None:
-    """cmake-alone, west-free, WITH `-DEXTRA_ZEPHYR_MODULES=<bridle_root>`
+    """cmake-alone, west-free, WITH -DEXTRA_ZEPHYR_MODULES=<bridle_root>
     must configure clean and resolve the SAME cross-module extension target
-    as `west build-rig` with the identical define threaded (same shape as
+    as west build-rig with the identical define threaded (same shape as
     test_cmake_alone_entry_equivalent_to_build_rig, a same-module board)."""
     extra = board_extra_defines(rig_board_name("lotus_pwm"))
     assert extra, "lotus_pwm's board must need EXTRA_ZEPHYR_MODULES (bridle)"

@@ -1,4 +1,4 @@
-# Synthetic fixture: a symbolic token assigned with no `dt-includes:` declared
+# Synthetic fixture: a symbolic token assigned with no dt-includes: declared
 # at all — rule 5 (lang-dt-include). Distinct from rule 4: there is no
 # vocabulary to resolve against in the first place, so the diagnostic must say
 # THAT rather than blaming the token.

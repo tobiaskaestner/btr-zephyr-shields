@@ -2,11 +2,6 @@
  * CS is pool-allocated from the socket (mikroBUS dedicated CS position). When
  * it sits on the adapter, the CS resolves through the two-level chain to the
  * host board's Arduino CS pin (R19/R21).
- *
- * Ported from frontend-trial/common-dts/shields/eth-click.shield; hyphenated
- * shield identity renamed to underscored (btr-shields convention): folder,
- * shield.yml name, DT node name and every rig.yml `shield:` reference all
- * read `eth_click`.
  */
 
 #include <dt-bindings/connector/mikrobus.h>

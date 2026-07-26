@@ -7,11 +7,6 @@
 # spi1, the same click in socket 3 lands on spi3 — a different controller with
 # a different CS pin. Here two flash clicks occupy the two different SPI
 # controllers, and a Temp&Hum click sits on the shared I2C.
-#
-# Ported from frontend-trial/candidate-2-hybrid/s4b-sockets.rig.yml; board
-# reference migrated (E2) to the hwmv2 board EXTENSION `rig` variant of the
-# real upstream mikroe_quail — was `mikroe_quail_btr` (the clone; deleted
-# in slice E4).
 
 rig:
   name: quail_sockets

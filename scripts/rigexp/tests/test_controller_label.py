@@ -1,14 +1,14 @@
 """Regression coverage for the controller-label determinism invariant
-(`board_edt._controller_label`): a `*-map` target's identity must be its
-DEFINING label (`node.labels[0]`), stable no matter what else composes onto
+(board_edt._controller_label): a *-map target's identity must be its
+DEFINING label (node.labels[0]), stable no matter what else composes onto
 the same node afterward. This is what makes the choice safe across module
 composition -- a socket file or an unrelated board extension attaching a
 further alias to a shared controller must never perturb what a pwm/adc
 consumer (emission, or an analyzer diagnostic) reports for it.
 
-Fast, no build: `fixtures/controller-label/socket.dts` is a standalone
-board-shaped fixture (like `fixtures/not-rig-enabled/socketless_board.dts`)
-carrying one real `socket,grove` node (the project's own binding) whose
+Fast, no build: fixtures/controller-label/socket.dts is a standalone
+board-shaped fixture (like fixtures/not-rig-enabled/socketless_board.dts)
+carrying one real socket,grove node (the project's own binding) whose
 pwm-map/gpio-map both resolve to a controller node with two labels attached
 in a fixed textual order -- the primary one on the node itself, a second
 one appended via a bare label-ref afterward, mirroring how a later-included
@@ -56,7 +56,7 @@ def test_controller_label_ignores_a_later_attached_alias(tmp_path: Path) -> None
     """The later-attached alias must never win: a module that composes an
     extra label onto a controller it does not own cannot change the identity
     reported for that controller. Asserted negatively against
-    `legacy_alias` so the fixture's second label is provably inert rather
+    legacy_alias so the fixture's second label is provably inert rather
     than merely absent."""
     board = board_edt.load_board(
         "controller-label-fixture", str(_FIXTURE / "socket.dts"), _recipe(),

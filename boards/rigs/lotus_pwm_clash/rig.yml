@@ -1,19 +1,14 @@
-# Slice A (reject) — the timer-channel clash. Two servos on grove_d2 and
-# grove_d4. Different pins (porta14 vs porta8), but the board's pwm-map lands
-# BOTH on tcc0 ch0 (real bridle fact: D2 and D4 share TCC0CH0). One timer
-# channel can't independently drive two servos — the expander catches it on
-# the channel net, even though the pins differ.
+# (reject) — the timer-channel clash. Two servos on grove_d2 and grove_d4.
+# Different pins (porta14 vs porta8), but the board's pwm-map lands BOTH on
+# tcc0 ch0 (real bridle fact: D2 and D4 share TCC0CH0). One timer channel
+# can't independently drive two servos — the expander catches it on the
+# channel net, even though the pins differ.
 #
-# Ported from frontend-trial/candidate-2-hybrid/lotus-pwm-clash.rig.yml
-# (P3 3c); board reference migrated (E3, board-extension-migration.md) to
-# the hwmv2 board EXTENSION `rig` variant of the real upstream
-# seeeduino_lotus (the CROSS-MODULE case: the base lives in the bridle
-# Zephyr module, which is not a west manifest project -- every build of
-# this target must pass -DEXTRA_ZEPHYR_MODULES=<west-topdir>/bridle
-# explicitly) -- was `seeeduino_lotus_btr` (the clone; deleted in slice
-# E4); shield identity underscored (grove-servo ->
-# grove_servo). No lotus_pwm_clash_defconfig: this rig is expected to
-# REJECT at analysis (phys-channel) — it must never reach the build.
+# seeeduino_lotus is a CROSS-MODULE hwmv2 board EXTENSION: its base lives in
+# the bridle Zephyr module, which is not a west manifest project -- every
+# build of this target must pass -DEXTRA_ZEPHYR_MODULES=<west-topdir>/bridle
+# explicitly. No lotus_pwm_clash_defconfig: this rig is expected to REJECT
+# at analysis (phys-channel) — it must never reach the build.
 
 rig:
   name: lotus_pwm_clash

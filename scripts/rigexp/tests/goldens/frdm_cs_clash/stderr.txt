@@ -2,5 +2,5 @@ error[phys-cs]: exclusive-resource conflict at the shared SoC net gpiod pin 0:
     - eth_1 (socket adapter_1.mb1, CS): eth: CS allocated at CS
     - logger_1 (socket frdm_ard, D10): sdhc: CS copper-fixed at D10 (shield,cs-position)
     two exclusive claims resolve to the same pin — shorted together, not realizable. If a CS is copper-fixed the pool cannot route around it: use different sockets, positions, or rework the copper.
-    at <REPO_ROOT>/boards/shields/eth_click/eth_click.shield:22 (eth)
-    at <REPO_ROOT>/boards/shields/adafruit_data_logger/adafruit_data_logger.shield:29 (dl_sd)
+    at <REPO_ROOT>/boards/shields/eth_click/eth_click.shield:17 (eth)
+    at <REPO_ROOT>/boards/shields/adafruit_data_logger/adafruit_data_logger.shield:28 (dl_sd)

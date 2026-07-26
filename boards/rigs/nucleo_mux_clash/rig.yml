@@ -2,12 +2,6 @@
 # SAME mux channel (ch0) share one scope, so they still collide. Confirms the
 # per-scope address check (R26) fires within a scope, not just across them.
 #
-# Ported from frontend-trial/candidate-2-hybrid/s8-mux-collision.rig.yml;
-# board reference migrated (E1) to the hwmv2 board EXTENSION `rig` variant
-# of the real upstream nucleo_f401re — was `nucleo_f401re_btr`; shield
-# references renamed hyphen->underscore (i2c-mux -> i2c_mux, i2c-sensor ->
-# i2c_sensor).
-#
 # REJECT: no nucleo_mux_clash_defconfig (structural rejection, never
 # reaches Kconfig).
 

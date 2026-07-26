@@ -1,4 +1,4 @@
-# Synthetic fixture: a `dt-includes:` entry that names a header which does not
+# Synthetic fixture: a dt-includes: entry that names a header which does not
 # exist on the include path — rule 6 (lang-dt-include). Rejected at expand
 # time, before any token is looked at, naming the dirs that were searched.
 rig:
