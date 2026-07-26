@@ -1,0 +1,12 @@
+# Synthetic fixture: rule 7 -- add-instances: naming an instance that
+# already exists.
+rig:
+  name: add-instances-already-exists
+  board: nucleo_f401re/stm32f401xe/rig
+  variants:
+    default: a
+    list: [a, b]
+  instances:
+    - name: logger
+      shield: adafruit_data_logger
+      socket: nucleo_ard

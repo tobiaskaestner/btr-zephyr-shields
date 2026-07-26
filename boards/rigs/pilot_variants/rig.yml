@@ -16,6 +16,13 @@
 # distinct Kconfig facts (variant_b's own MAIN_STACK_SIZE, revision 2's
 # evolved HEAP_MEM_POOL_SIZE) plus variant_b's overlay marker node -- the
 # qualified-build evidence this slice's acceptance criteria ask for.
+#
+# variant_c (V1b) is the topology-differing tuple: its own delta
+# (pilot_variants_variant_c.yml) substitutes the logger instance's shield
+# entirely (Adafruit Data Logger -> pilot_alt_button), proving that a
+# shield-substituting variant delta forces wholesale params replace (Sec.
+# 5) -- the base has no params: for 'logger' at all, so the delta's own
+# params: is the ONLY source, keyed to the NEW shield's device labels.
 rig:
   name: pilot_variants
   board: nucleo_f401re/stm32f401xe/rig
@@ -24,7 +31,7 @@ rig:
     list: [1, 2]
   variants:
     default: variant_a
-    list: [variant_a, variant_b]
+    list: [variant_a, variant_b, variant_c]
   instances:
     - name: logger
       shield: adafruit_data_logger

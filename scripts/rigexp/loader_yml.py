@@ -27,6 +27,15 @@ trial):
   rig.variants          (rig-variants-revisions.md V1a); load()'s
                         revision:/variant: params select against them,
                         applying the declared default for a bare target
+  <rigname>_<variant>.yml / <rigname>_<rev>.yml -- delta fragments (V1b):
+                        board:/sockets: (variant only), instances: (shallow
+                        replace, matched by name), add-instances:,
+                        remove-instances:, add-wires:/remove-wires:
+                        (matched by endpoint pair), dt-includes: (unions),
+                        params: (wholesale replace + restate-check).
+                        Resolution order is base -> variant -> revision;
+                        the per-instance-parameter invariant is re-checked
+                        after every stage.
 
 Source locations come from YAML composer marks (line-accurate), so the
 comparison against dtlib file:line quality is fair.
@@ -183,22 +192,54 @@ def _parse_axis_decl(rig_v: _Val, key: str, diags) -> AxisDecl | None:
     return AxisDecl(values=values, default=default)
 
 
+def _normalize_revision(rev: str) -> str:
+    """hwmv2's own revision normalization (zephyr_build_string,
+    extensions.cmake:1772, design-log 2026-07-26d): a dotted revision id
+    becomes underscores in the constructed filename (1.2 -> 1_2). Applied
+    everywhere a revision segment is joined into a fragment filename --
+    never to the SELECTED value itself, which stays the raw declared
+    string for validation/provenance."""
+    return rev.replace(".", "_")
+
+
 def _check_axis_collision(rig: Rig, src: SrcRef, diags) -> None:
-    """Rule 4: a variant name equal to a declared revision id -- the
-    constructed fragment filenames would collide (both axes join as
-    <rigname>_<id>...), so this is checked once, independent of what a
-    particular target selects."""
-    if rig.variants is None or rig.revisions is None:
-        return
-    collision = sorted(set(rig.variants.values) & set(rig.revisions.values))
-    if collision:
-        diags.error(
-            "lang-variant",
-            f"rig '{rig.name}': variant name(s) {', '.join(collision)} "
-            "collide with a declared revision id -- the constructed "
-            "fragment filenames (<rigname>_<id>...) would be ambiguous "
-            "between the two axes",
-            [src])
+    """Rule 4, WIDENED for combined fragments (design-log 2026-07-26d): no
+    two distinct (variant, revision) SELECTIONS may construct the same
+    fragment stem. Q6's protection is that filenames are only ever
+    CONSTRUCTED, never parsed, so the hazard is not misparsing -- it is two
+    DIFFERENT selections landing on one literal filename (e.g. a variant
+    literally named 'variant_a_2' constructs the same stem as variant
+    'variant_a' + revision '2' combined). Enumerates every stem the
+    declared axes could ever construct -- each axis alone, plus every
+    combined (variant, revision) pair -- and checks none of them collide.
+    This subsumes the original (narrower) rule: a variant name equal to a
+    revision id is just the case where two SINGLE-axis stems collide."""
+    variants = rig.variants.values if rig.variants is not None else []
+    revisions = rig.revisions.values if rig.revisions is not None else []
+    origins: dict[str, list[str]] = {}
+
+    def note(stem: str, origin: str) -> None:
+        origins.setdefault(stem, []).append(origin)
+
+    for v in variants:
+        note(f"{rig.name}_{v}", f"variant '{v}'")
+    for r in revisions:
+        note(f"{rig.name}_{_normalize_revision(r)}", f"revision '{r}'")
+    for v in variants:
+        for r in revisions:
+            note(f"{rig.name}_{v}_{_normalize_revision(r)}",
+                 f"variant '{v}' + revision '{r}'")
+
+    for stem in sorted(origins):
+        stem_origins = origins[stem]
+        if len(stem_origins) > 1:
+            diags.error(
+                "lang-variant",
+                f"rig '{rig.name}': {' and '.join(stem_origins)} all "
+                f"construct the same fragment stem '{stem}' -- the "
+                "constructed filenames would be ambiguous about which "
+                "selection a fragment belongs to",
+                [src])
 
 
 def _resolve_axis(rig_name: str, axis_kind: str, decl_key: str,
@@ -241,7 +282,9 @@ def _resolve_axis(rig_name: str, axis_kind: str, decl_key: str,
     return None
 
 
-def _check_fragment_presence(rig: Rig, rig_dir: str, src: SrcRef, diags) -> None:
+def _check_fragment_presence(rig: Rig, rig_dir: str, src: SrcRef, diags,
+                             has_variant_delta: bool = False,
+                             has_revision_delta: bool = False) -> None:
     """Rule 10: a selected NON-DEFAULT axis value that contributes NOTHING --
     no fragment of any kind found for it -- naming the files that were looked
     for. A value that changes nothing is meaningless, so it is an authoring
@@ -254,30 +297,424 @@ def _check_fragment_presence(rig: Rig, rig_dir: str, src: SrcRef, diags) -> None
     be required to, or declaring an axis on an existing rig would break it
     until a fragment describing what the rig already is gets authored.
 
-    V1a's only fragment kinds are .overlay/_defconfig (collected by the
-    cmake fork); the .yml delta fragment is V1b, not checked here."""
+    Three fragment kinds count as "contributes something" as of V1b: the
+    cmake-collected .overlay/_defconfig (V1a), and now the .yml delta this
+    module itself applies -- has_variant_delta/has_revision_delta report
+    whether one was found on disk (the caller already looked, to load it)."""
     if rig.variant is not None and not (
             rig.variants is not None and rig.variant == rig.variants.default):
         overlay = f"{rig.name}_{rig.variant}.overlay"
         defconfig = f"{rig.name}_{rig.variant}_defconfig"
-        if not (os.path.isfile(os.path.join(rig_dir, overlay))
+        delta = f"{rig.name}_{rig.variant}.yml"
+        if not (has_variant_delta
+                or os.path.isfile(os.path.join(rig_dir, overlay))
                 or os.path.isfile(os.path.join(rig_dir, defconfig))):
             diags.error(
                 "lang-variant",
                 f"rig '{rig.name}': variant '{rig.variant}' contributes "
-                f"nothing -- looked for {overlay} and {defconfig}, neither "
-                "exists",
+                f"nothing -- looked for {overlay}, {defconfig} and {delta}, "
+                "none exist",
                 [src])
     if rig.revision is not None and not (
             rig.revisions is not None
             and rig.revision == rig.revisions.default):
-        defconfig = f"{rig.name}_{rig.revision}_defconfig"
-        if not os.path.isfile(os.path.join(rig_dir, defconfig)):
+        norm = _normalize_revision(rig.revision)
+        defconfig = f"{rig.name}_{norm}_defconfig"
+        delta = f"{rig.name}_{norm}.yml"
+        if not (has_revision_delta
+                or os.path.isfile(os.path.join(rig_dir, defconfig))):
             diags.error(
                 "lang-rev",
                 f"rig '{rig.name}': revision '{rig.revision}' contributes "
-                f"nothing -- looked for {defconfig}, which does not exist",
+                f"nothing -- looked for {defconfig} and {delta}, neither "
+                "exists",
                 [src])
+
+
+# ---------------------------------------------------------------- V1b delta engine
+
+def _load_delta_doc(path: str, deps: Depends | None) -> _Val:
+    """Parse ONE <rigname>_<variant|rev>.yml delta fragment (rig-variants-
+    revisions.md V1b Sec. 5): a FLAT top-level mapping -- unlike the base
+    file, there is no `rig:` wrapper, since a delta is a document about the
+    base topology, not a rig identity of its own. board:/sockets:/
+    instances:/add-instances:/remove-instances:/add-wires:/remove-wires:/
+    dt-includes:/params (the restate-check) all live at this top level."""
+    if deps is not None:
+        deps.see(path)
+    with open(path) as f:
+        try:
+            root_node = yaml.compose(f, yaml.SafeLoader)
+        except yaml.YAMLError as e:
+            raise LoadError(Diagnostic(
+                "error", "lang-parse", f"YAML parse error in {path}\n{e}",
+                [SrcRef(path, getattr(getattr(e, 'problem_mark', None), 'line', 0) + 1)]))
+    return _walk(root_node, "", path)
+
+
+def _union_dt_includes(rig: Rig, dt_includes_v: _Val | None) -> None:
+    """dt-includes: UNIONS across delta stages (Sec. 5, NEW 2026-07-26) --
+    the one merge key with union semantics: a vocabulary is additive by
+    nature, and a variant substituting a different shield legitimately
+    needs a header the base never declared. A header already present
+    (declared by an earlier stage) is skipped, keeping that stage's own
+    SrcRef rather than the later one."""
+    if dt_includes_v is None:
+        return
+    for h_v in dt_includes_v.v:
+        if h_v.v not in rig.dt_includes:
+            rig.dt_includes.append(h_v.v)
+            rig.dt_includes_refs.append(h_v.src)
+
+
+def _check_param_invariant(instances, diags) -> None:
+    """The per-stage invariant (Sec. 4, NEW 2026-07-26): after EVERY delta
+    stage, every instance's EFFECTIVE shield/params must satisfy P's rule 2
+    (every declared, no-default-authored parameter is assigned). This
+    REPLACES an earlier proposal to forbid revisions from touching
+    parameters at all -- deltas never "add parameters", shields DECLARE
+    them and rigs ASSIGN them, so a parameter set changes only as a
+    consequence of a shield change, and a revision swapping a shield is the
+    motivating example for revisions existing at all. A shield REVISION
+    (V1c) can change the set too (a default authored where the base had
+    none, or a new required device); this ONE invariant, re-checked fresh
+    after every stage, covers all three sources with no special-casing."""
+    for inst in instances:
+        shield = inst.shield
+        assigned = inst.params
+        for dev in shield.devices:
+            pset = assigned.get(dev.label, {})
+            for pname in dev.declared_params:
+                if pname in pset:
+                    continue
+                if any(name == pname for name, _ in dev.extra_props):
+                    continue      # shield authored a default; may be omitted
+                diags.error(
+                    "lang-param",
+                    f"instance '{inst.name}': device '{dev.label}' of "
+                    f"shield '{shield.name}' declares '{pname}' as "
+                    "required (shield,params, no default authored) but "
+                    f"this instance does not assign it — add params: "
+                    f"{{{dev.label}: {{{pname}: <value>}}}}",
+                    [inst.src])
+
+
+def _apply_params_block(params_v: _Val | None, inst: Instance, shield: Shield,
+                        rig: Rig, workdir: str, diags,
+                        unknown_device_context: str | None = None) -> None:
+    """Parse ONE params: block -- the base assignment, OR a delta's
+    wholesale replacement (Sec. 5) -- into inst.params/param_refs. Rules 1/3
+    (undeclared property / unknown device) fire immediately against the
+    CURRENT shield; rules 4/5 (token resolution) too. Rule 2 (every
+    required parameter assigned) is deliberately NOT checked here -- it is
+    the per-stage invariant (_check_param_invariant), run once per stage
+    over every instance, since a LATER stage may still supply what an
+    EARLIER one left required-but-unassigned.
+
+    unknown_device_context, if given, is folded into rule 3's message when
+    it fires (rule 12, NEW 2026-07-26): a family-wide revision's params
+    naming a device the POST-VARIANT shield does not have is unavoidable by
+    construction whenever a variant already substituted the shield (under
+    variant hpm the delta must say hpm_dev, under bosch bme_dev, and one
+    fragment cannot serve both) -- so the message names the variant rather
+    than leaving the author to guess why an existing label stopped
+    resolving."""
+    if params_v is None:
+        return
+    devices_by_label = {d.label: d for d in shield.devices}
+    for dev_label, props_v in params_v.v.items():
+        dev = devices_by_label.get(dev_label)
+        if dev is None:
+            context = f" ({unknown_device_context})" if unknown_device_context else ""
+            diags.error(
+                "lang-param",
+                f"instance '{inst.name}': params names no device "
+                f"'{dev_label}' of shield '{shield.name}'{context}\n"
+                f"devices of '{shield.name}': "
+                f"{', '.join(sorted(devices_by_label)) or 'none'}",
+                [props_v.src])
+            continue
+        for prop_name, val_v in props_v.v.items():
+            if prop_name not in dev.declared_params:
+                diags.error(
+                    "lang-param",
+                    f"instance '{inst.name}': device '{dev_label}' of "
+                    f"shield '{shield.name}' declares no parameter "
+                    f"'{prop_name}' (shield,params)\n"
+                    f"declared parameters of '{dev_label}': "
+                    f"{', '.join(dev.declared_params) or 'none'}",
+                    [val_v.src])
+                continue
+            raw = str(val_v.v)
+            inst.params.setdefault(dev_label, {})[prop_name] = raw
+            inst.param_refs.setdefault(dev_label, {})[prop_name] = val_v.src
+            if not is_int_literal(raw):
+                _check_param_token(inst, dev_label, prop_name, raw, rig,
+                                   workdir, val_v.src, diags)
+
+
+def _apply_pin_block(pin_v: _Val | None, inst: Instance, shield: Shield,
+                     diags) -> None:
+    """pin: {config-element-name: value} -- shared by the base parse and a
+    delta's instances: patch (which resets pins/jumpers first, so this
+    always starts from empty when called from a patch)."""
+    if pin_v is None:
+        return
+    for cfg_name, val_v in pin_v.v.items():
+        # resolution rule: pin keys name a config element (strap OR
+        # routing jumper) WITHIN the named shield
+        elem = shield.config_element(cfg_name.replace("_", "-")) \
+            or shield.config_element(cfg_name)
+        if elem is None:
+            names = sorted(list(shield.straps) + list(shield.jumpers))
+            diags.error(
+                "lang-pin",
+                f"instance '{inst.name}': pin names no config element "
+                f"'{cfg_name}' of shield '{shield.name}'\n"
+                f"config elements of '{shield.name}': {', '.join(names) or 'none'}",
+                [val_v.src])
+            continue
+        if isinstance(elem, Strap):
+            inst.pins[elem.name] = val_v.v
+            inst.pin_refs[elem.name] = val_v.src
+        else:                                   # Jumper: position value
+            inst.jumpers[elem.name] = val_v.v
+            inst.jumper_refs[elem.name] = val_v.src
+
+
+def _check_restate(params_v: _Val, inst: Instance, diags) -> None:
+    """Rule 11 (Sec. 5): if a delta supplies params for an instance whose
+    shield it does NOT change, it must RESTATE every property the
+    effective topology had already assigned; omitting one is an error
+    naming it. The hazard this closes: same shield + a previously-assigned
+    OPTIONAL parameter + a delta that forgets to repeat it = a SILENT
+    revert to the shield default, since params: replaces WHOLESALE (Sec.
+    5) rather than deep-merging. Called BEFORE inst.params is cleared for
+    the wholesale replace, so it sees what the effective topology had."""
+    restated = {
+        (dev_label, prop_name)
+        for dev_label, props_v in params_v.v.items()
+        for prop_name in props_v.v
+    }
+    for dev_label, props in inst.params.items():
+        for prop_name in props:
+            if (dev_label, prop_name) not in restated:
+                diags.error(
+                    "lang-param",
+                    f"instance '{inst.name}': this delta supplies params "
+                    f"for device '{dev_label}' without restating "
+                    f"'{prop_name}', which the effective topology already "
+                    "assigns -- wholesale replace means omitting it "
+                    "silently reverts to the shield default; restate it "
+                    "explicitly or remove it deliberately",
+                    [params_v.src])
+
+
+def _find_wire(wires: list[Wire], frm: str | None, to: str | None) -> Wire | None:
+    """Match remove-wires: by RAW endpoint pair (<instance>.<node> strings on
+    both sides, Sec. 5) -- a wire carries no identity beyond its endpoints
+    (Q7), so this is the only stable way to find one to remove."""
+    if frm is None or to is None:
+        return None
+    for w in wires:
+        if (f"{w.frm.instance.name}.{w.frm.node}" == frm
+                and f"{w.to.instance.name}.{w.to.node}" == to):
+            return w
+    return None
+
+
+def _apply_instance_patch(item: _Val, inst: Instance, shields, rig: Rig,
+                          workdir: str, diags, stage: str, stage_value: str,
+                          resolve_socket) -> None:
+    """Shallow-replace an EXISTING instance's top-level keys (Sec. 5): a
+    GIVEN key REPLACES; an unspecified key INHERITS. shield/socket/invert/
+    pin/params are each the deepest merge unit -- no key merges into what
+    was there before, it wholesale replaces it. When shield changes, the
+    OLD params are keyed to the OLD shield's devices and are therefore
+    meaningless against the new one, so they are dropped rather than
+    carried forward (Sec. 5's reasoning for why wholesale replace is
+    REQUIRED, not merely acceptable)."""
+    shield_changed = False
+    if "shield" in item.v:
+        shield_v = item.v["shield"]
+        shield = shields.get(shield_v.v)
+        if shield is None:
+            diags.error(
+                "lang-instance-shield",
+                f"instance '{inst.name}': unknown shield '{shield_v.v}'\n"
+                f"known shields: {', '.join(sorted(shields))}",
+                [shield_v.src])
+            return
+        inst.shield = shield
+        shield_changed = True
+        inst.params = {}
+        inst.param_refs = {}
+
+    if "socket" in item.v:
+        inst.socket = resolve_socket(item.v["socket"].v)
+
+    if "invert" in item.v:
+        inst.invert = bool(item.v["invert"].v)
+
+    if "pin" in item.v:
+        inst.pins = {}
+        inst.pin_refs = {}
+        inst.jumpers = {}
+        inst.jumper_refs = {}
+        _apply_pin_block(item.v["pin"], inst, inst.shield, diags)
+
+    if "params" in item.v:
+        if not shield_changed:
+            _check_restate(item.v["params"], inst, diags)   # rule 11
+            inst.params = {}
+            inst.param_refs = {}
+        # rule 12: a family-wide revision's params landing on a device the
+        # POST-VARIANT shield lacks needs the variant named, since that is
+        # unavoidably why an existing device label stopped resolving.
+        context = None
+        if stage == "revision" and rig.variant is not None:
+            context = (f"this instance's shield is '{inst.shield.name}' "
+                       f"because of variant '{rig.variant}'")
+        _apply_params_block(item.v["params"], inst, inst.shield, rig,
+                            workdir, diags, unknown_device_context=context)
+
+
+def _apply_delta(delta_v: _Val, stage: str, stage_value: str, rig: Rig,
+                 shields, effective: dict[str, Instance], order: list[str],
+                 wires: list[Wire], removed_by: dict[str, str],
+                 workdir: str, diags) -> None:
+    """Apply ONE delta stage (Sec. 5) onto the effective topology IN PLACE.
+    `stage` is "variant" or "revision" (rules 5-9 differ only in which
+    fragment kind may carry board:/sockets:, and in the diagnostic code);
+    `stage_value` is the selected axis value itself, folded into rule-8/12
+    wording so drift cannot hide."""
+    code = "lang-variant" if stage == "variant" else "lang-rev"
+    doc = delta_v.v
+
+    # board:/sockets: -- VARIANT fragments only (rule 5).
+    if "board" in doc:
+        if stage != "variant":
+            diags.error(
+                code,
+                f"rig '{rig.name}': the {stage} '{stage_value}' fragment "
+                "carries board:, a VARIANT-only key",
+                [doc["board"].src])
+        else:
+            # Legal in the vocabulary, but rejected until board resolution
+            # itself reads deltas: list_rigs.py resolves the board BEFORE any
+            # fragment loads, and cmake sets BOARD from that answer, so
+            # applying an override here would leave the model's board (and
+            # the overlay header and context.cmake's RIG_BOARD derived from
+            # it) disagreeing with the board pass 1 actually read and pass 2
+            # actually builds. A loud rejection beats a silent
+            # inconsistency; lift this once the resolver reads deltas.
+            diags.error(
+                code,
+                f"rig '{rig.name}': variant '{stage_value}' carries board:, "
+                "which is not yet wired into board resolution -- the board "
+                "is resolved before any fragment is read, so an override "
+                "here would silently disagree with the board actually "
+                "built. Use a separate rig until this is supported.",
+                [doc["board"].src])
+
+    socket_map: dict[str, str] = {}
+    if "sockets" in doc:
+        if stage != "variant":
+            diags.error(
+                code,
+                f"rig '{rig.name}': the {stage} '{stage_value}' fragment "
+                "carries sockets:, a VARIANT-only key",
+                [doc["sockets"].src])
+        else:
+            socket_map = {k: v.v for k, v in doc["sockets"].v.items()}
+
+    def resolve_socket(value: str) -> str:
+        return socket_map.get(value, value)
+
+    # instances: -- matched by name against the EFFECTIVE topology; a
+    # match that is not found is always an error (rule 6): additions are
+    # never implicit, that is what add-instances: is for.
+    instances_v = doc.get("instances")
+    if instances_v is not None:
+        for item in instances_v.v:
+            name_v = _require(item, "name", f"{stage} instances:", diags)
+            if name_v is None:
+                continue
+            name = name_v.v
+            inst = effective.get(name)
+            if inst is None:
+                diags.error(
+                    code,
+                    f"{stage} '{stage_value}': instances: names '{name}', "
+                    "which the effective topology does not have",
+                    [item.src])
+                continue
+            _apply_instance_patch(item, inst, shields, rig, workdir, diags,
+                                  stage, stage_value, resolve_socket)
+
+    # add-instances: -- full declarations; the name must NOT already exist
+    # (rule 7).
+    add_v = doc.get("add-instances")
+    if add_v is not None:
+        for item in add_v.v:
+            new_inst = _parse_instance(item, shields, rig, workdir, diags)
+            if new_inst is None:
+                continue
+            if "socket" in item.v:
+                new_inst.socket = resolve_socket(item.v["socket"].v)
+            if new_inst.name in effective:
+                diags.error(
+                    code,
+                    f"{stage} '{stage_value}': add-instances: names "
+                    f"'{new_inst.name}', which already exists",
+                    [item.src])
+                continue
+            effective[new_inst.name] = new_inst
+            order.append(new_inst.name)
+
+    # remove-instances: -- names must exist (rule 8); if a variant already
+    # removed it, the message NAMES the variant so drift cannot hide.
+    remove_v = doc.get("remove-instances")
+    if remove_v is not None:
+        for name_v in remove_v.v:
+            name = name_v.v
+            if name not in effective:
+                prior = removed_by.get(name)
+                hint = f" (variant '{prior}' already removed it)" if prior else ""
+                diags.error(
+                    code,
+                    f"{stage} '{stage_value}': remove-instances: names "
+                    f"'{name}', which does not exist{hint}",
+                    [name_v.src])
+                continue
+            del effective[name]
+            removed_by[name] = stage_value
+
+    # remove-wires:/add-wires: -- matched by endpoint pair (rule 9); a
+    # re-route is remove+add, there is no wire "replace".
+    remove_wires_v = doc.get("remove-wires")
+    if remove_wires_v is not None:
+        for item in remove_wires_v.v:
+            frm_v = item.v.get("from")
+            to_v = item.v.get("to")
+            frm = frm_v.v if frm_v is not None else None
+            to = to_v.v if to_v is not None else None
+            match = _find_wire(wires, frm, to)
+            if match is None:
+                diags.error(
+                    code,
+                    f"{stage} '{stage_value}': remove-wires: names "
+                    f"{{from: {frm}, to: {to}}}, which does not exist",
+                    [item.src])
+                continue
+            wires.remove(match)
+
+    add_wires_v = doc.get("add-wires")
+    if add_wires_v is not None:
+        for item in add_wires_v.v:
+            wire = _parse_wire(item, effective, diags)
+            if wire is not None:
+                wires.append(wire)
 
 
 # ---------------------------------------------------------------- loader
@@ -309,11 +746,10 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
         return None
     rig = Rig(name=name_v.v, board=board_v.v, src=rig_v.src)
 
-    # V1a qualifier axes: declare (shape-validated), resolve the SELECTED
-    # value for each (rules 1-4), then check the selection actually
-    # contributes a fragment (rule 10). No delta engine yet, so nothing
-    # below this depends on rig.revision/rig.variant -- they exist purely
-    # for validation and provenance (context.cmake, build_info).
+    # Qualifier axes: declare (shape-validated), resolve the SELECTED value
+    # for each (rules 1-4). rig.revision/rig.variant exist for validation
+    # and provenance (context.cmake, build_info) regardless of whether a
+    # delta engine ever runs below.
     rig.revisions = _parse_axis_decl(rig_v, "revisions", diags)
     rig.variants = _parse_axis_decl(rig_v, "variants", diags)
     _check_axis_collision(rig, rig_v.src, diags)
@@ -321,31 +757,83 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
                                  rig.revisions, revision, rig_v.src, diags)
     rig.variant = _resolve_axis(rig.name, "variant", "variants",
                                 rig.variants, variant, rig_v.src, diags)
-    if rig.revision is not None or rig.variant is not None:
-        _check_fragment_presence(rig, os.path.dirname(rig_path), rig_v.src, diags)
 
-    # dt-includes: parsed and header-validated (rule 6) BEFORE instances, so
-    # every params: assignment resolved while parsing instances below has an
-    # already-known-good vocabulary to resolve against.
-    dt_includes_v = rig_v.v.get("dt-includes")
-    if dt_includes_v is not None:
-        for h_v in dt_includes_v.v:
-            rig.dt_includes.append(h_v.v)
-            rig.dt_includes_refs.append(h_v.src)
+    # V1b delta fragments: looked up by the SAME constructed stems rule 10
+    # checks, built from rig.revision/rig.variant alone -- never ${RIG},
+    # per THE TRAP. Loaded (not yet APPLIED) here, before rule 10 (an
+    # existing .yml counts as "contributes something") and before
+    # dt-includes union (a delta's own vocabulary must be known before ANY
+    # params get token-validated, including the base's own).
+    rig_dir = os.path.dirname(rig_path)
+    variant_delta_v: _Val | None = None
+    if rig.variant is not None:
+        variant_delta_path = os.path.join(rig_dir, f"{rig.name}_{rig.variant}.yml")
+        if os.path.isfile(variant_delta_path):
+            variant_delta_v = _load_delta_doc(variant_delta_path, deps)
+
+    revision_delta_v: _Val | None = None
+    if rig.revision is not None:
+        rev_norm = _normalize_revision(rig.revision)
+        revision_delta_path = os.path.join(rig_dir, f"{rig.name}_{rev_norm}.yml")
+        if os.path.isfile(revision_delta_path):
+            revision_delta_v = _load_delta_doc(revision_delta_path, deps)
+
+    if rig.revision is not None or rig.variant is not None:
+        _check_fragment_presence(
+            rig, rig_dir, rig_v.src, diags,
+            has_variant_delta=variant_delta_v is not None,
+            has_revision_delta=revision_delta_v is not None)
+
+    # dt-includes: UNION base + variant delta + revision delta (Sec. 5, NEW
+    # 2026-07-26), all BEFORE any params get token-validated below.
+    _union_dt_includes(rig, rig_v.v.get("dt-includes"))
+    if variant_delta_v is not None:
+        _union_dt_includes(rig, variant_delta_v.v.get("dt-includes"))
+    if revision_delta_v is not None:
+        _union_dt_includes(rig, revision_delta_v.v.get("dt-includes"))
+    if rig.dt_includes:
         _check_dt_includes(rig, workdir, diags)
 
-    by_name: dict[str, Instance] = {}
+    # Stage 0: base topology. The per-stage invariant (rule 2) is checked
+    # PER INSTANCE, immediately after each is parsed -- exactly the order
+    # V1a used, so the 13 axis-less corpus rigs see byte-identical
+    # diagnostics (no delta ever selected for them, so nothing below this
+    # comment ever runs for them beyond this loop).
+    effective: dict[str, Instance] = {}
+    order: list[str] = []
     insts_v = _require(rig_v, "instances", "rig", diags)
     for item in (insts_v.v if insts_v else []):
         inst = _parse_instance(item, shields, rig, workdir, diags)
         if inst:
-            rig.instances.append(inst)
-            by_name[inst.name] = inst
+            effective[inst.name] = inst
+            order.append(inst.name)
+            _check_param_invariant([inst], diags)
 
+    wires: list[Wire] = []
     for item in rig_v.v.get("wires", _Val([], rig_v.src)).v:
-        wire = _parse_wire(item, by_name, diags)
+        wire = _parse_wire(item, effective, diags)
         if wire:
-            rig.wires.append(wire)
+            wires.append(wire)
+
+    removed_by: dict[str, str] = {}
+
+    # Stage 1: variant delta.
+    if variant_delta_v is not None:
+        assert rig.variant is not None    # a delta only loads for a selected axis
+        _apply_delta(variant_delta_v, "variant", rig.variant, rig, shields,
+                     effective, order, wires, removed_by, workdir, diags)
+        _check_param_invariant(effective.values(), diags)
+
+    # Stage 2: revision delta -- ONE family-wide stream, applied AFTER the
+    # variant (Q9); per-variant streams stay deferred (rule 12).
+    if revision_delta_v is not None:
+        assert rig.revision is not None   # a delta only loads for a selected axis
+        _apply_delta(revision_delta_v, "revision", rig.revision, rig, shields,
+                     effective, order, wires, removed_by, workdir, diags)
+        _check_param_invariant(effective.values(), diags)
+
+    rig.instances = [effective[n] for n in order if n in effective]
+    rig.wires = wires
     return rig
 
 
@@ -369,91 +857,9 @@ def _parse_instance(item: _Val, shields, rig: Rig, workdir: str, diags) -> Insta
     inv_v = item.v.get("invert")
     inst.invert = bool(inv_v.v) if inv_v is not None else False
 
-    pin_v = item.v.get("pin")
-    if pin_v is not None:
-        for cfg_name, val_v in pin_v.v.items():
-            # resolution rule: pin keys name a config element (strap OR
-            # routing jumper) WITHIN the named shield
-            elem = shield.config_element(cfg_name.replace("_", "-")) \
-                or shield.config_element(cfg_name)
-            if elem is None:
-                names = sorted(list(shield.straps) + list(shield.jumpers))
-                diags.error(
-                    "lang-pin",
-                    f"instance '{inst.name}': pin names no config element "
-                    f"'{cfg_name}' of shield '{shield.name}'\n"
-                    f"config elements of '{shield.name}': {', '.join(names) or 'none'}",
-                    [val_v.src])
-                continue
-            if isinstance(elem, Strap):
-                inst.pins[elem.name] = val_v.v
-                inst.pin_refs[elem.name] = val_v.src
-            else:                                   # Jumper: position value
-                inst.jumpers[elem.name] = val_v.v
-                inst.jumper_refs[elem.name] = val_v.src
-
-    _parse_params(item, inst, shield, rig, workdir, diags)
+    _apply_pin_block(item.v.get("pin"), inst, shield, diags)
+    _apply_params_block(item.v.get("params"), inst, shield, rig, workdir, diags)
     return inst
-
-
-def _parse_params(item: _Val, inst: Instance, shield: Shield, rig: Rig,
-                  workdir: str, diags) -> None:
-    """rig params: — per-instance property assignment (rig-variants-
-    revisions.md "PER-INSTANCE PARAMETERS"): keyed by shield-local DEVICE
-    LABEL (the same addressing style pin: uses for config elements), then
-    by property name. Validates rules 1-5; rule 6 (dt-includes header
-    existence) was already checked once for the whole rig, before any
-    instance was parsed."""
-    devices_by_label = {d.label: d for d in shield.devices}
-    params_v = item.v.get("params")
-    if params_v is not None:
-        for dev_label, props_v in params_v.v.items():
-            dev = devices_by_label.get(dev_label)
-            if dev is None:
-                diags.error(
-                    "lang-param",
-                    f"instance '{inst.name}': params names no device "
-                    f"'{dev_label}' of shield '{shield.name}'\n"
-                    f"devices of '{shield.name}': "
-                    f"{', '.join(sorted(devices_by_label)) or 'none'}",
-                    [props_v.src])
-                continue
-            for prop_name, val_v in props_v.v.items():
-                if prop_name not in dev.declared_params:
-                    diags.error(
-                        "lang-param",
-                        f"instance '{inst.name}': device '{dev_label}' of "
-                        f"shield '{shield.name}' declares no parameter "
-                        f"'{prop_name}' (shield,params)\n"
-                        f"declared parameters of '{dev_label}': "
-                        f"{', '.join(dev.declared_params) or 'none'}",
-                        [val_v.src])
-                    continue
-                raw = str(val_v.v)
-                inst.params.setdefault(dev_label, {})[prop_name] = raw
-                inst.param_refs.setdefault(dev_label, {})[prop_name] = val_v.src
-                if not is_int_literal(raw):
-                    _check_param_token(inst, dev_label, prop_name, raw, rig,
-                                       workdir, val_v.src, diags)
-
-    # rule 2: every device's REQUIRED (declared, no shield-authored default)
-    # parameter must be assigned by THIS instance — checked for every device
-    # of the shield, not just ones params: happens to mention.
-    for dev in shield.devices:
-        assigned = inst.params.get(dev.label, {})
-        for pname in dev.declared_params:
-            if pname in assigned:
-                continue
-            if any(name == pname for name, _ in dev.extra_props):
-                continue      # shield authored a default; the rig may omit it
-            diags.error(
-                "lang-param",
-                f"instance '{inst.name}': device '{dev.label}' of shield "
-                f"'{shield.name}' declares '{pname}' as required "
-                "(shield,params, no default authored) but this instance "
-                f"does not assign it — add params: {{{dev.label}: "
-                f"{{{pname}: <value>}}}}",
-                [inst.src])
 
 
 def _check_param_token(inst: Instance, dev_label: str, prop_name: str, raw: str,

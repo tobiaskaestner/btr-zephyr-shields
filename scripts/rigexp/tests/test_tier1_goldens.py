@@ -41,6 +41,7 @@ from conftest import (
     REPO_ROOT,
     RIGS_DIR,
     RigCase,
+    SHIELD_DIR,
     assert_absent_or_refreeze,
     freeze_or_assert,
     normalize,
@@ -393,6 +394,19 @@ def test_pilot_variant_b_revision_2_golden(tmp_path: Path,
                  revision="2", variant="variant_b")
 
 
+@pytest.mark.build
+def test_pilot_variant_c_golden(tmp_path: Path,
+                                tmp_path_factory: "pytest.TempPathFactory") -> None:
+    """variant_c @ revision 1 (V1b) -- the TOPOLOGY-differing tuple: its own
+    delta (pilot_variants_variant_c.yml) substitutes the logger instance's
+    shield entirely (Adafruit Data Logger -> pilot_alt_button), the case
+    that forces wholesale params replace (Sec. 5), since the base names no
+    params: for 'logger' at all. rig-gen.overlay must show
+    logger_pab_key/zephyr,code, never anything from the original shield."""
+    _pilot_golden(tmp_path, tmp_path_factory, "pilot_variants_variant_c",
+                 revision=None, variant="variant_c")
+
+
 # ---------------------------------------------------------------- V1a: qualifier rejects
 
 def test_unknown_revision_golden(tmp_path: Path) -> None:
@@ -460,7 +474,7 @@ def test_variant_revision_collision_golden(tmp_path: Path) -> None:
 
     assert result.returncode != 0, "a variant/revision id collision must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
-    assert "collide" in result.stderr, result.stderr
+    assert "construct the same fragment stem" in result.stderr, result.stderr
 
     zb = zephyr_base()
     golden_dir = GOLDENS_DIR / "variant-revision-collision"
@@ -470,12 +484,13 @@ def test_variant_revision_collision_golden(tmp_path: Path) -> None:
 
 def test_variant_no_fragment_golden(tmp_path: Path) -> None:
     """Synthetic fixture: rule 10 -- a selected NON-DEFAULT axis value none of
-    whose constructed fragment files exist, naming the files that were looked
-    for. A value that changes nothing is meaningless, so it is an authoring
-    error. The value must be non-default to reach this check: the declared
-    default is exempt, since the base rig file is that value's content (the
-    pilot family covers the exempt half, where revision 1 carries no
-    fragment and is accepted)."""
+    whose constructed fragment files (.overlay/_defconfig/.yml, V1b's third
+    kind) exist, naming the files that were looked for. A value that
+    changes nothing is meaningless, so it is an authoring error. The value
+    must be non-default to reach this check: the declared default is
+    exempt, since the base rig file is that value's content (the pilot
+    family covers the exempt half, where revision 1 carries no fragment
+    and is accepted)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "variant-no-fragment" / "rig.yml"
     result = run_expand(rig_yml, out_dir, variant="ghost")
@@ -485,9 +500,31 @@ def test_variant_no_fragment_golden(tmp_path: Path) -> None:
     assert "contributes nothing" in result.stderr, result.stderr
     assert "variant-no-fragment_ghost.overlay" in result.stderr, result.stderr
     assert "variant-no-fragment_ghost_defconfig" in result.stderr, result.stderr
+    assert "variant-no-fragment_ghost.yml" in result.stderr, result.stderr
 
     zb = zephyr_base()
     golden_dir = GOLDENS_DIR / "variant-no-fragment"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_widened_variant_revision_collision_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: rule 4 WIDENED (design-log 2026-07-26d) -- a
+    variant literally named 'variant_a_2' constructs the SAME fragment
+    stem as variant 'variant_a' + revision '2' combined, even though
+    neither axis value equals the other outright (the original, narrower
+    rule 4 would have missed this entirely)."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "combined-fragment-collision" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, "a combined-fragment stem collision must be rejected"
+    assert "[lang-variant]" in result.stderr, result.stderr
+    assert "construct the same fragment stem" in result.stderr, result.stderr
+    assert "combined-fragment-collision_variant_a_2" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "combined-fragment-collision"
     freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
 
@@ -508,5 +545,163 @@ def test_no_such_axis_golden(tmp_path: Path) -> None:
 
     zb = zephyr_base()
     golden_dir = GOLDENS_DIR / "no-such-axis"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+# ---------------------------------------------------------------- V1b: delta engine rejects
+
+def test_revision_carries_board_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: rule 5 -- a REVISION fragment carrying board:, a
+    VARIANT-only key."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "revision-carries-board" / "rig.yml"
+    result = run_expand(rig_yml, out_dir, revision="2")
+
+    assert result.returncode != 0, "a revision fragment carrying board: must be rejected"
+    assert "[lang-rev]" in result.stderr, result.stderr
+    assert "board:, a VARIANT-only key" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "revision-carries-board"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_instances_delta_unknown_instance_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: rule 6 -- an instances: delta naming an instance
+    the effective topology does not have (additions are never implicit)."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "instances-delta-unknown-instance" / "rig.yml"
+    result = run_expand(rig_yml, out_dir, variant="b")
+
+    assert result.returncode != 0, "instances: naming an unknown instance must be rejected"
+    assert "[lang-variant]" in result.stderr, result.stderr
+    assert "does not have" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "instances-delta-unknown-instance"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_add_instances_already_exists_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: rule 7 -- add-instances: naming an instance that
+    already exists."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "add-instances-already-exists" / "rig.yml"
+    result = run_expand(rig_yml, out_dir, variant="b")
+
+    assert result.returncode != 0, "add-instances: naming an existing instance must be rejected"
+    assert "[lang-variant]" in result.stderr, result.stderr
+    assert "already exists" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "add-instances-already-exists"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_remove_instance_drift_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: rule 8 -- remove-instances: naming an absent
+    instance. variant 'b' removes 'logger' first; the family-wide revision
+    '2' delta then tries removing it again -- the message must NAME the
+    variant that already removed it, so drift cannot hide."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "remove-instance-drift" / "rig.yml"
+    result = run_expand(rig_yml, out_dir, variant="b", revision="2")
+
+    assert result.returncode != 0, "remove-instances: naming an absent instance must be rejected"
+    assert "[lang-rev]" in result.stderr, result.stderr
+    assert "does not exist" in result.stderr, result.stderr
+    assert "variant 'b' already removed it" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "remove-instance-drift"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_remove_wire_missing_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: rule 9 -- remove-wires: naming an endpoint pair
+    that does not exist (the real wire is x.sq -> y.led-1; the delta tries
+    x.sq -> y.led-2)."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "remove-wire-missing" / "rig.yml"
+    result = run_expand(rig_yml, out_dir, variant="b")
+
+    assert result.returncode != 0, "remove-wires: naming a nonexistent pair must be rejected"
+    assert "[lang-variant]" in result.stderr, result.stderr
+    assert "remove-wires:" in result.stderr, result.stderr
+    assert "does not exist" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "remove-wire-missing"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_restate_check_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: rule 11 -- the params restate-check. variant b
+    does not change sensor_1's shield but supplies params: for it,
+    forgetting to restate vnd,threshold -- which wholesale replace would
+    otherwise silently revert to the shield's authored default."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "restate-check" / "rig.yml"
+    result = run_expand(rig_yml, out_dir, variant="b",
+                        shield_dirs=[FIXTURES_DIR / "v1b-shields"])
+
+    assert result.returncode != 0, "an un-restated optional parameter must be rejected"
+    assert "[lang-param]" in result.stderr, result.stderr
+    assert "without restating" in result.stderr, result.stderr
+    assert "vnd,threshold" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "restate-check"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_revision_crosses_variant_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: rule 12 -- a family-wide revision whose params
+    names a device the POST-VARIANT topology does not have (variant hpm
+    substituted sensor_1's shield, so 'rf_sensor' no longer exists) --
+    unavoidable by construction, so the error must name the variant."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "revision-crosses-variant" / "rig.yml"
+    result = run_expand(rig_yml, out_dir, variant="hpm", revision="2",
+                        shield_dirs=[FIXTURES_DIR / "v1b-shields", SHIELD_DIR])
+
+    assert result.returncode != 0, "a revision crossing a variant's shield swap must be rejected"
+    assert "[lang-param]" in result.stderr, result.stderr
+    assert "names no device 'rf_sensor'" in result.stderr, result.stderr
+    assert "because of variant 'hpm'" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "revision-crosses-variant"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_dotted_revision_no_fragment_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: hwmv2's revision dot-normalization
+    (design-log 2026-07-26d) -- a dotted revision id ('1.5') constructs a
+    fragment filename with the dot replaced by an underscore
+    (..._1_5_defconfig), never the literal dot. Rule 10 fires since no
+    such fragment exists, naming the NORMALIZED filename -- proof the
+    normalization happened, not just that rule 10 still works."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "dotted-revision-no-fragment" / "rig.yml"
+    result = run_expand(rig_yml, out_dir, revision="1.5")
+
+    assert result.returncode != 0, "a dotted revision contributing nothing must be rejected"
+    assert "[lang-rev]" in result.stderr, result.stderr
+    assert "dotted-revision-no-fragment_1_5_defconfig" in result.stderr, result.stderr
+    assert "dotted-revision-no-fragment_1.5_defconfig" not in result.stderr, (
+        "the dot must be NORMALIZED to an underscore, per hwmv2's own "
+        f"convention, not left literal\n{result.stderr}")
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "dotted-revision-no-fragment"
     freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))

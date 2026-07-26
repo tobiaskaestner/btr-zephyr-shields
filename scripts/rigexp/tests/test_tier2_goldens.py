@@ -177,11 +177,13 @@ def test_tier2_pilot_variant_b_revision_2(tmp_path: Path) -> None:
     don't prove a collected fragment took effect, so this test inspects
     the REAL build's own .config and zephyr.dts directly.
 
-    variant_b's own CONFIG_MAIN_STACK_SIZE (2222) AND revision 2's own
-    CONFIG_HEAP_MEM_POOL_SIZE (256) must BOTH be present in .config --
-    proving base -> variant -> revision really stack rather than one
-    silently overwriting the other -- and variant_b's overlay marker node
-    must be visible in the generated zephyr.dts."""
+    variant_b's own CONFIG_MAIN_STACK_SIZE (2222), revision 2's own
+    CONFIG_HEAP_MEM_POOL_SIZE (256), AND the COMBINED per-(variant,
+    revision) fragment's own CONFIG_ISR_STACK_SIZE (3333) must ALL be
+    present in .config -- proving base -> variant -> revision -> combined
+    really stack, none silently overwriting another -- and BOTH
+    variant_b's own overlay marker node AND the combined fragment's own
+    marker node must be visible in the generated zephyr.dts."""
     build_dir = _build_and_freeze_dts(
         "pilot_variants@2/variant_b", "pilot_variants_variant_b_2", tmp_path)
 
@@ -192,11 +194,47 @@ def test_tier2_pilot_variant_b_revision_2(tmp_path: Path) -> None:
     assert "CONFIG_HEAP_MEM_POOL_SIZE=256" in dotconfig, (
         "revision 2's own _defconfig symbol is missing from .config -- the "
         f"revision Kconfig fragment was not collected\n--- .config ---\n{dotconfig}")
+    assert "CONFIG_ISR_STACK_SIZE=3333" in dotconfig, (
+        "the COMBINED (variant, revision) _defconfig symbol is missing "
+        f"from .config -- the combined fragment was not collected\n"
+        f"--- .config ---\n{dotconfig}")
 
     zephyr_dts = (build_dir / "zephyr" / "zephyr.dts").read_text()
     assert "pilot-variant-b-marker" in zephyr_dts, (
         "variant_b's own .overlay marker node is missing from zephyr.dts -- "
         f"the variant DT fragment was not collected\n--- zephyr.dts ---\n{zephyr_dts}")
+    assert "pilot-combined-marker" in zephyr_dts, (
+        "the COMBINED (variant, revision) .overlay marker node is missing "
+        f"from zephyr.dts -- the combined DT fragment was not collected\n"
+        f"--- zephyr.dts ---\n{zephyr_dts}")
+
+
+def test_tier2_pilot_variant_c_shield_substitution(tmp_path: Path) -> None:
+    """variant_c (V1b): the topology-differing tuple -- its own delta
+    substitutes the logger instance's shield (Adafruit Data Logger ->
+    pilot_alt_button). THE EVIDENCE this slice's acceptance criteria ask
+    for (item 6): asserted on zephyr.dts directly, not on STATUS lines --
+    the SUBSTITUTED shield's own node/property must be present, and the
+    ORIGINAL shield's devices must be completely gone."""
+    build_dir = _build_and_freeze_dts(
+        "pilot_variants/variant_c", "pilot_variants_variant_c", tmp_path)
+
+    zephyr_dts = (build_dir / "zephyr" / "zephyr.dts").read_text()
+    assert "logger_pab_key" in zephyr_dts, (
+        "the substituted shield's own device (logger_pab_key) is missing "
+        f"from zephyr.dts\n--- zephyr.dts ---\n{zephyr_dts}")
+    # dtc always renders integers as hex in its own output.
+    assert "zephyr,code = < 0x5 >;" in zephyr_dts, (
+        "the variant delta's own wholesale params replace (zephyr,code=5) "
+        f"did not reach the real build\n--- zephyr.dts ---\n{zephyr_dts}")
+    assert "logger_dl_rtc" not in zephyr_dts, (
+        "the ORIGINAL shield's device (logger_dl_rtc, Adafruit Data "
+        "Logger's RTC) is still present -- the shield substitution did "
+        f"not actually replace the topology\n--- zephyr.dts ---\n{zephyr_dts}")
+    assert "logger_dl_sd" not in zephyr_dts, (
+        "the ORIGINAL shield's SD device is still present -- the shield "
+        f"substitution did not actually replace the topology\n"
+        f"--- zephyr.dts ---\n{zephyr_dts}")
 
 
 def test_tier2_pilot_build_info_provenance(tmp_path: Path) -> None:

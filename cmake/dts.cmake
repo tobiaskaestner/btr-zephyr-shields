@@ -256,12 +256,23 @@ set(_rig_conf "${_rig_out_dir}/rig-gen.conf")
 set(_rig_user_overlay "${_rig_dir}/${_rig_name}.overlay")
 set(_rig_conf_file "${_rig_dir}/${_rig_name}_defconfig")
 
-# Per-axis fragment filenames (rig-variants-revisions.md V1a Q6: constructed
-# by _-joining the resolved name + selected axis, never parsed) -- built
-# from _rig_name/_rig_revision/_rig_variant, per THE TRAP note above. Empty
+# Per-axis fragment filenames (rig-variants-revisions.md Q6: constructed by
+# _-joining the resolved name + selected axis, never parsed) -- built from
+# _rig_name/_rig_revision/_rig_variant, per THE TRAP note above. Empty
 # string (axis not selected / not declared) means no fragment of that kind
-# exists to look for. V1a has no .yml delta fragment yet (V1b) and no
-# per-revision .overlay (item 3): only these three.
+# exists to look for.
+#
+# _rig_revision_norm: hwmv2's own revision normalization
+# (zephyr_build_string, extensions.cmake:1772) -- a dotted revision id
+# becomes underscores in the constructed filename (1.2 -> 1_2). Applied
+# everywhere a revision segment joins into a fragment filename; _rig_revision
+# itself (the SELECTED value used for validation/provenance) stays
+# unnormalized.
+set(_rig_revision_norm "")
+if(_rig_revision)
+  string(REPLACE "." "_" _rig_revision_norm "${_rig_revision}")
+endif()
+
 set(_rig_variant_overlay "")
 set(_rig_variant_conf_file "")
 set(_rig_rev_conf_file "")
@@ -270,7 +281,23 @@ if(_rig_variant)
   set(_rig_variant_conf_file "${_rig_dir}/${_rig_name}_${_rig_variant}_defconfig")
 endif()
 if(_rig_revision)
-  set(_rig_rev_conf_file "${_rig_dir}/${_rig_name}_${_rig_revision}_defconfig")
+  set(_rig_rev_conf_file "${_rig_dir}/${_rig_name}_${_rig_revision_norm}_defconfig")
+endif()
+
+# Combined per-(variant, revision) fragments (V1b, design-log 2026-07-26d):
+# ORDER IS REVISION LAST (<rigname>_<variant>_<rev>...), matching hwmv2
+# exactly -- zephyr_build_string() (extensions.cmake:1774) joins
+# board -> qualifiers (soc/cpucluster/variant) -> revision, confirmed
+# against nrf9160dk_nrf9160_ns_0_14_0.overlay. Upstream deliberately does
+# NOT mirror its own selection grammar (which puts revision first); this
+# is not "fixed" here. Collected only when BOTH axes are selected.
+set(_rig_combined_overlay "")
+set(_rig_combined_conf_file "")
+if(_rig_variant AND _rig_revision)
+  set(_rig_combined_overlay
+    "${_rig_dir}/${_rig_name}_${_rig_variant}_${_rig_revision_norm}.overlay")
+  set(_rig_combined_conf_file
+    "${_rig_dir}/${_rig_name}_${_rig_variant}_${_rig_revision_norm}_defconfig")
 endif()
 
 # Shield-library roots: every board_root's boards/shields, mirroring how
@@ -653,13 +680,20 @@ if(EXISTS "${_rig_user_overlay}")
   list(APPEND _rig_overlay_files "${_rig_user_overlay}")
   message(STATUS "Rig: applying ${_rig_user_overlay}")
 endif()
-# Per-variant DT fragment (V1a: variant only -- revisions have no .overlay
-# kind, item 3): base -> variant, most specific last, same list-order
+# Per-variant DT fragment (variant only -- revisions have no single-axis
+# .overlay kind): base -> variant, most specific last, same list-order
 # precedence EXTRA_DTC_OVERLAY_FILE already gives the base pair above.
 if(_rig_variant_overlay AND EXISTS "${_rig_variant_overlay}")
   list(APPEND _rig_overlay_files "${_rig_variant_overlay}")
   list(APPEND _rig_applied_fragments "${_rig_variant_overlay}")
   message(STATUS "Rig: applying variant overlay ${_rig_variant_overlay}")
+endif()
+# Combined per-(variant, revision) DT fragment (V1b): the most specific of
+# all, so it collects last -- after the single-axis variant overlay above.
+if(_rig_combined_overlay AND EXISTS "${_rig_combined_overlay}")
+  list(APPEND _rig_overlay_files "${_rig_combined_overlay}")
+  list(APPEND _rig_applied_fragments "${_rig_combined_overlay}")
+  message(STATUS "Rig: applying combined overlay ${_rig_combined_overlay}")
 endif()
 set(EXTRA_DTC_OVERLAY_FILE ${_rig_overlay_files} ${EXTRA_DTC_OVERLAY_FILE})
 
@@ -678,7 +712,7 @@ if(EXISTS "${_rig_conf_file}")
 endif()
 
 # Per-axis Kconfig fragments, base -> variant -> revision (most specific
-# last, item 3) -- same APPEND slot the base pair above already rides.
+# last) -- same APPEND slot the base pair above already rides.
 if(_rig_variant_conf_file AND EXISTS "${_rig_variant_conf_file}")
   list(APPEND shield_conf_files "${_rig_variant_conf_file}")
   list(APPEND _rig_applied_fragments "${_rig_variant_conf_file}")
@@ -688,6 +722,13 @@ if(_rig_rev_conf_file AND EXISTS "${_rig_rev_conf_file}")
   list(APPEND shield_conf_files "${_rig_rev_conf_file}")
   list(APPEND _rig_applied_fragments "${_rig_rev_conf_file}")
   message(STATUS "Rig: applying revision defconfig ${_rig_rev_conf_file}")
+endif()
+# Combined per-(variant, revision) Kconfig fragment (V1b): most specific of
+# all, so it collects last of the whole chain.
+if(_rig_combined_conf_file AND EXISTS "${_rig_combined_conf_file}")
+  list(APPEND shield_conf_files "${_rig_combined_conf_file}")
+  list(APPEND _rig_applied_fragments "${_rig_combined_conf_file}")
+  message(STATUS "Rig: applying combined defconfig ${_rig_combined_conf_file}")
 endif()
 
 # Dependency-tracking (item 4/7): every APPLIED fragment must retrigger

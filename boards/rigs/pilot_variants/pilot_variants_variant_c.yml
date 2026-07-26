@@ -1,0 +1,12 @@
+# variant_c's own delta (rig-variants-revisions.md V1b pilot): substitutes
+# the logger instance's shield entirely (Adafruit Data Logger ->
+# pilot_alt_button, an Arduino R3 button). The base names no params: for
+# 'logger' at all, so this delta's own params: is the ONLY source of
+# pilot_alt_button's required zephyr,code -- wholesale replace, keyed to
+# the NEW shield's device label (pab_key), not the old one's.
+instances:
+  - name: logger
+    shield: pilot_alt_button
+    params:
+      pab_key:
+        zephyr,code: 5

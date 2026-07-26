@@ -1,0 +1,2 @@
+error[lang-rev]: rig 'revision-carries-board': the revision '2' fragment carries board:, a VARIANT-only key
+    at tests/fixtures/revision-carries-board/revision-carries-board_2.yml:2 (board)

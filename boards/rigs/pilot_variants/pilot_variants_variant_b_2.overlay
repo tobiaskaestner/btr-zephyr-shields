@@ -1,0 +1,8 @@
+/* Combined per-(variant, revision) DT fragment (V1b) -- an inert marker
+ * node distinct from variant_b's own, proving the COMBINED overlay
+ * collects independently (most specific of all, collected last). */
+/ {
+	pilot-combined-marker {
+		status = "okay";
+	};
+};

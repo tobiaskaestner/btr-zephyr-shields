@@ -1,0 +1,9 @@
+# Synthetic fixture: rule 5 -- a REVISION fragment carrying board:, a
+# VARIANT-only key (Sec. 5).
+rig:
+  name: revision-carries-board
+  board: nucleo_f401re/stm32f401xe/rig
+  revisions:
+    default: 1
+    list: [1, 2]
+  instances: []

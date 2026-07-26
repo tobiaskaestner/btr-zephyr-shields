@@ -1,0 +1,7 @@
+# Combined per-(variant, revision) Kconfig fragment (V1b, design-log
+# 2026-07-26d): ORDER IS REVISION LAST in the filename
+# (pilot_variants_variant_b_2_defconfig), matching hwmv2 exactly. The most
+# specific fragment of the whole chain, so it collects last, after
+# variant_b's own and revision 2's own -- a THIRD distinct symbol proves
+# it collected independently of either single-axis fragment.
+CONFIG_ISR_STACK_SIZE=3333

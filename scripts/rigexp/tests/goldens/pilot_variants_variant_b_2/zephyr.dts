@@ -1357,4 +1357,9 @@
 	pilot-variant-b-marker {
 		status = "okay"; /* in btr-shields/boards/rigs/pilot_variants/pilot_variants_variant_b.overlay:8 */
 	};
+
+	/* node '/pilot-combined-marker' defined in btr-shields/boards/rigs/pilot_variants/pilot_variants_variant_b_2.overlay:5 */
+	pilot-combined-marker {
+		status = "okay"; /* in btr-shields/boards/rigs/pilot_variants/pilot_variants_variant_b_2.overlay:6 */
+	};
 };

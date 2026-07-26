@@ -1,0 +1,5 @@
+# remove-wires: names x.sq -> y.led-2, which does not exist (the real
+# wire is x.sq -> y.led-1) -- rule 9.
+remove-wires:
+  - from: x.sq
+    to: y.led-2

@@ -1,0 +1,17 @@
+# Synthetic fixture: rule 4 WIDENED for combined fragments (design-log
+# 2026-07-26d). variant_a_2's own single-axis stem
+# (combined-fragment-collision_variant_a_2) is IDENTICAL to the combined
+# stem variant_a + revision 2 would construct
+# (combined-fragment-collision_variant_a_2) -- two distinct selections,
+# one filename. Neither axis value equals the other outright, so the
+# original (narrower) rule 4 would have missed this.
+rig:
+  name: combined-fragment-collision
+  board: nucleo_f401re/stm32f401xe/rig
+  revisions:
+    default: 1
+    list: [1, 2]
+  variants:
+    default: variant_a
+    list: [variant_a, variant_a_2]
+  instances: []
