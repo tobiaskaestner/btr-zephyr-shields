@@ -423,8 +423,11 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
   "${_RIG_BTR_ROOT}/scripts/list_rigs.py")
 
 # Handoff: the expander wrote context.cmake telling us what the rig instantiated
-# (RIG_NAME / RIG_BOARD / RIG_SHIELDS / RIG_REVISION / RIG_VARIANT). Step 5
-# drives its Kconfig/bookkeeping loop over RIG_SHIELDS instead of -DSHIELD.
+# (RIG_NAME / RIG_BOARD / RIG_SHIELDS / RIG_SHIELD_REVISIONS / RIG_REVISION /
+# RIG_VARIANT). Step 5 drives its Kconfig/bookkeeping loop over RIG_SHIELDS
+# instead of -DSHIELD, consulting RIG_SHIELD_REVISIONS ("<name>@<rev>" per
+# distinct shield revision resolved, V1c) for each shield's own
+# revision Kconfig fragment.
 include(${_rig_out_dir}/context.cmake OPTIONAL)
 set(_rig_qualifier_desc "")
 if(RIG_REVISION)
@@ -434,6 +437,14 @@ if(RIG_VARIANT)
   string(APPEND _rig_qualifier_desc " variant=${RIG_VARIANT}")
 endif()
 message(STATUS "Rig: '${RIG_NAME}' board=${RIG_BOARD} shields=[${RIG_SHIELDS}]${_rig_qualifier_desc}")
+
+# _rig_applied_fragments: every axis/revision fragment actually collected --
+# initialized HERE (rather than at step 7, where its own rig-level fragments
+# used to be its first writer) so step 5's per-shield loop, below, can
+# append a selected shield revision's own Kconfig fragment to the SAME list
+# and get the SAME dependency-tracking + build_info treatment step 7/8
+# already give every other applied fragment.
+set(_rig_applied_fragments)
 
 # Dependency-tracking handoff (dynamic half): RIG_DEPENDS is every real
 # source-tree file THIS expand actually read — rig.yml, every parsed
@@ -599,7 +610,26 @@ foreach(s ${RIG_SHIELDS})
 
   # Provenance: which folder won for this shield name — non-obvious whenever
   # the rig-template-marker collision preference above had a choice to make.
-  message(STATUS "Rig: shield '${s}' <- ${SHIELD_DIR_${s}}")
+  # A resolved shield revision (V1c, RIG_SHIELD_REVISIONS entries are
+  # "<name>@<rev>") is shown alongside it, since it decides which
+  # DT/Kconfig content this shield actually contributed. Present for every
+  # shield declaring a revisions: axis, defaults included -- a build log
+  # that named only non-default revisions could not distinguish "revision
+  # 1" from "this shield has no revisions at all".
+  set(_rig_shield_rev "")
+  foreach(_rig_sr ${RIG_SHIELD_REVISIONS})
+    string(FIND "${_rig_sr}" "@" _rig_sr_at)
+    string(SUBSTRING "${_rig_sr}" 0 ${_rig_sr_at} _rig_sr_name)
+    if(_rig_sr_name STREQUAL s)
+      math(EXPR _rig_sr_rev_start "${_rig_sr_at} + 1")
+      string(SUBSTRING "${_rig_sr}" ${_rig_sr_rev_start} -1 _rig_shield_rev)
+    endif()
+  endforeach()
+  if(_rig_shield_rev)
+    message(STATUS "Rig: shield '${s}' <- ${SHIELD_DIR_${s}} (revision ${_rig_shield_rev})")
+  else()
+    message(STATUS "Rig: shield '${s}' <- ${SHIELD_DIR_${s}}")
+  endif()
 
   include(${SHIELD_DIR_${s}}/pre_dt_shield.cmake OPTIONAL)
 
@@ -610,6 +640,24 @@ foreach(s ${RIG_SHIELDS})
       shield_conf_files
       ${SHIELD_DIR_${s}}/${s}.conf
       )
+  endif()
+
+  # The selected shield revision's OWN Kconfig fragment (<name>_<rev>.conf,
+  # shield convention — the rig-vs-shield fragment-naming table), collected
+  # in the precedence position that matches the DT layering (base .shield
+  # first, revision .shield cpp-included after it into the same TU): this
+  # fragment lands AFTER the shield's own base .conf above. hwmv2's
+  # revision dot-normalization applies to the segment here exactly as it
+  # does to a rig axis fragment's own filename. Optional, like every other
+  # axis Kconfig fragment: a revision may carry DT only.
+  if(_rig_shield_rev)
+    string(REPLACE "." "_" _rig_shield_rev_norm "${_rig_shield_rev}")
+    set(_rig_shield_rev_conf "${SHIELD_DIR_${s}}/${s}_${_rig_shield_rev_norm}.conf")
+    if(EXISTS "${_rig_shield_rev_conf}")
+      list(APPEND shield_conf_files "${_rig_shield_rev_conf}")
+      list(APPEND _rig_applied_fragments "${_rig_shield_rev_conf}")
+      message(STATUS "Rig: applying shield revision Kconfig ${_rig_shield_rev_conf}")
+    endif()
   endif()
 
   # Add board-specific .conf files to shield_conf_files (KCONF only).
@@ -674,7 +722,9 @@ pre_dt_module_run()
 # the controller (status="okay") and names the pin in the config sheet; it
 # does not author SoC pinmux. Applied after the expander overlay so it can
 # augment nodes the expander created.
-set(_rig_applied_fragments)
+# _rig_applied_fragments is already initialized (step 4, above step 5) --
+# NOT reset here, since step 5's shield loop may already have appended a
+# selected shield revision's own Kconfig fragment to it.
 set(_rig_overlay_files "${_rig_overlay}")
 if(EXISTS "${_rig_user_overlay}")
   list(APPEND _rig_overlay_files "${_rig_user_overlay}")
@@ -756,6 +806,14 @@ build_info(vendor-specific rig yml VALUE "${_rig_yml}")
 build_info(vendor-specific rig board-dts VALUE "${_rig_board_dts}")
 build_info(vendor-specific rig shields VALUE "${_rig_shields_joined}")
 build_info(vendor-specific rig shield-dirs VALUE "${_rig_shield_dirs_joined}")
+# Symmetric with the rig's own revision/variant below (V1c): every DISTINCT
+# shield revision resolved, "<name>@<rev>", defaults included exactly as
+# RIG_REVISION records a defaulted rig revision -- absent entirely when no
+# shield declares an axis, the same "no declaration, no key" precedent.
+if(RIG_SHIELD_REVISIONS)
+  list(JOIN RIG_SHIELD_REVISIONS ", " _rig_shield_revisions_joined)
+  build_info(vendor-specific rig shield-revisions VALUE "${_rig_shield_revisions_joined}")
+endif()
 build_info(vendor-specific rig out-dir VALUE "${_rig_out_dir}")
 build_info(vendor-specific rig overlay-gen VALUE "${_rig_overlay}")
 if(_rig_revision)

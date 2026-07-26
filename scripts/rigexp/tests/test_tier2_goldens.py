@@ -209,6 +209,30 @@ def test_tier2_pilot_variant_b_revision_2(tmp_path: Path) -> None:
         f"--- zephyr.dts ---\n{zephyr_dts}")
 
 
+def test_tier2_shield_rev_family_revision_2(tmp_path: Path) -> None:
+    """The two revision axes composing, through a REAL build: rig revision
+    2's delta moves the sensor to the shield's revision 2, so revision 2's
+    compatible must reach zephyr.dts AND the shield revision's own Kconfig
+    fragment must be collected -- the latter proving the composition
+    survives the whole handoff (loader resolves the delta, the expander
+    reports the resolved shield revision through context.cmake, dts.cmake
+    turns that into a collected <name>_<rev>.conf), not just the loader."""
+    build_dir = _build_and_freeze_dts(
+        "shield_rev_family@2", "shield_rev_family_2", tmp_path)
+
+    zephyr_dts = (build_dir / "zephyr" / "zephyr.dts").read_text()
+    assert "vnd,temp0x48v2" in zephyr_dts, (
+        "the shield's revision-2 compatible is missing from zephyr.dts -- "
+        f"the rig revision's delta did not select it\n"
+        f"--- zephyr.dts ---\n{zephyr_dts}")
+
+    dotconfig = (build_dir / "zephyr" / ".config").read_text()
+    assert "CONFIG_MAIN_STACK_SIZE=2600" in dotconfig, (
+        "i2c_sensor_2.conf's own symbol is missing from .config -- a shield "
+        "revision selected BY A RIG REVISION did not reach the shield "
+        f"Kconfig tail\n--- .config ---\n{dotconfig}")
+
+
 def test_tier2_pilot_variant_c_shield_substitution(tmp_path: Path) -> None:
     """variant_c (V1b): the topology-differing tuple -- its own delta
     substitutes the logger instance's shield (Adafruit Data Logger ->
@@ -260,6 +284,37 @@ def test_tier2_pilot_build_info_provenance(tmp_path: Path) -> None:
     assert "pilot_variants_variant_b.overlay" in fragments
     assert "pilot_variants_variant_b_defconfig" in fragments
     assert "pilot_variants_2_defconfig" in fragments
+
+
+# ---------------------------------------------------------------- V1c: shield revisions
+
+def test_tier2_shield_revision_conf_collected(tmp_path: Path) -> None:
+    """THE EVIDENCE the shield-revision Kconfig-collection claim asks for
+    (rig-variants-revisions.md V1c step 4): inspects the real build's OWN
+    .config, not a STATUS-line claim. shield_rev_pilot selects shield:
+    i2c_sensor@2, whose OWN i2c_sensor_2.conf must be collected by
+    cmake/dts.cmake's shield Kconfig tail (base .shield/.conf first,
+    revision after, matching the DT layering) -- distinguishable from any
+    rig-level fragment's own MAIN_STACK_SIZE choice by its value alone."""
+    build_dir = tmp_path / "build"
+    result = _run_build("shield_rev_pilot", build_dir)
+    assert result.returncode == 0, (
+        f"shield_rev_pilot: expected `west build-rig --cmake-only` to "
+        f"configure clean\n--- stdout ---\n{result.stdout}\n"
+        f"--- stderr ---\n{result.stderr}")
+
+    dotconfig = (build_dir / "zephyr" / ".config").read_text()
+    assert "CONFIG_MAIN_STACK_SIZE=2600" in dotconfig, (
+        "i2c_sensor_2.conf's own symbol is missing from .config -- the "
+        f"selected shield revision's Kconfig fragment was not collected\n"
+        f"--- .config ---\n{dotconfig}")
+
+    with open(build_dir / "build_info.yml") as f:
+        build_info = yaml.safe_load(f)
+    rig = build_info["cmake"]["vendor-specific"]["rig"]
+    assert rig["shield-revisions"] == "i2c_sensor@2", (
+        f"build_info rig.shield-revisions must record the selected shield "
+        f"revision: {rig!r}")
 
 
 @pytest.mark.parametrize("case", REJECT_CASES, ids=lambda c: c.name)

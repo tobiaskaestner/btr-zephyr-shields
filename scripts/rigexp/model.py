@@ -141,6 +141,15 @@ class Shield:
     jumpers: dict[str, Jumper] = field(default_factory=dict)
     exposes: dict[str, ExposedSocket] = field(default_factory=dict)
     by_path: dict[str, object] = field(default_factory=dict)   # dtlib path -> element (candidate-1 lookups)
+    # shield.yml's declared revisions: axis (rig-variants-revisions.md V1c)
+    # and which one THIS Shield object represents. Both None for a shield
+    # with no revisions: block
+    # (every pre-existing shield) -- required so an instance's shield:
+    # <name>@<rev> reference (identical grammar to a qualified rig target)
+    # resolves and validates against the SAME AxisDecl shape rig.yml uses,
+    # without a second parser (loader_yml._parse_axis_decl is reused as-is).
+    revisions: Optional[AxisDecl] = None
+    revision: Optional[str] = None
     src: Optional[SrcRef] = None
 
     def by_name(self, name: str) -> list:

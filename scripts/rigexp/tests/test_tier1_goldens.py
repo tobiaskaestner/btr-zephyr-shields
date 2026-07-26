@@ -385,6 +385,46 @@ def test_pilot_revision_2_golden(tmp_path: Path,
 
 
 @pytest.mark.build
+def test_shield_rev_family_revision_2_golden(
+        tmp_path: Path,
+        tmp_path_factory: "pytest.TempPathFactory") -> None:
+    """The two revision axes composing: rig revision 2's delta moves the
+    sensor instance to the SHIELD's revision 2, so the emitted overlay must
+    carry revision 2's own compatible where the bare (revision 1) tuple
+    carries the base one. Nothing in V1c was written for this -- an
+    instance patch's shield: resolves through the same resolver a base
+    reference does -- so the point of the golden is to keep that true."""
+    board = rig_board_name("shield_rev_family")
+    plain_build = plain_build_for(board, tmp_path_factory)
+    out_dir = tmp_path / "out"
+    result = run_expand(
+        RIGS_DIR / "shield_rev_family" / "rig.yml", out_dir,
+        board_dts=REPO_ROOT / BOARD_DTS[board],
+        build_info=plain_build.build_info,
+        revision="2")
+
+    assert result.returncode == 0, (
+        f"shield_rev_family@2: expected accept\n"
+        f"--- stderr ---\n{result.stderr}")
+    overlay = (out_dir / "rig-gen.overlay").read_text()
+    assert "vnd,temp0x48v2" in overlay, (
+        "the shield's revision-2 compatible is missing from the overlay -- "
+        f"the rig revision's delta did not select it\n{overlay}")
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "shield_rev_family_2"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+    for fname in _EMITTED_FILES:
+        produced = out_dir / fname
+        golden_file = golden_dir / fname
+        if produced.is_file():
+            freeze_or_assert(golden_file, normalize(produced.read_text(), zb))
+        else:
+            assert_absent_or_refreeze(golden_file)
+
+
+@pytest.mark.build
 def test_pilot_variant_b_revision_2_golden(tmp_path: Path,
                                            tmp_path_factory: "pytest.TempPathFactory") -> None:
     """variant_b @ revision 2 -- the fully qualified tuple, both chains and
@@ -703,5 +743,154 @@ def test_dotted_revision_no_fragment_golden(tmp_path: Path) -> None:
 
     zb = zephyr_base()
     golden_dir = GOLDENS_DIR / "dotted-revision-no-fragment"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+# ---------------------------------------------------------------- V1c: shield revisions
+
+def test_shield_undeclared_revision_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: rule 13 -- shield: <name>@<rev> naming a revision
+    shield.yml does not declare. i2c_sensor (a production shield,
+    rig-variants-revisions.md V1c pilot) declares "1"/"2" only. Loader-level
+    (shield resolution fires before any board recipe is needed), like the
+    other synthetic fixtures above."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "shield-undeclared-revision" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, "an undeclared shield revision must be rejected"
+    assert "[lang-rev]" in result.stderr, result.stderr
+    assert "is not declared" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "shield-undeclared-revision"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_shield_no_revisions_declared_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: @rev against a shield declaring no revisions: at
+    all -- the shield-side analogue of the rig axis "declares no such
+    axis" wording (P's rule-5 precedent, mirrored via _resolve_axis's own
+    three failure shapes). flash_click is a production shield with no
+    revisions: block."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "shield-no-revisions-declared" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, (
+        "an @rev against a shield declaring no revisions: must be rejected")
+    assert "[lang-rev]" in result.stderr, result.stderr
+    assert "declares no revisions: at all" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "shield-no-revisions-declared"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_shield_missing_fragment_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: the missing non-default shield-revision fragment
+    check -- the shield-side analogue of rule 10, same default exemption
+    (the default MAY carry a fragment, it just must not be REQUIRED to).
+    rev_fixture (fixture-only shield) declares revision "2" but ships
+    neither rev_fixture_2.shield nor rev_fixture_2.conf."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "shield-missing-fragment" / "rig.yml"
+    result = run_expand(rig_yml, out_dir,
+                        shield_dirs=[FIXTURES_DIR / "v1c-shields"])
+
+    assert result.returncode != 0, (
+        "a shield revision contributing nothing must be rejected")
+    assert "[lang-rev]" in result.stderr, result.stderr
+    assert "contributes nothing" in result.stderr, result.stderr
+    assert "rev_fixture_2.shield" in result.stderr, result.stderr
+    assert "rev_fixture_2.conf" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "shield-missing-fragment"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_shield_revision_param_invariant_golden(tmp_path: Path) -> None:
+    """Proves the per-stage parameter invariant claim (rig-variants-
+    revisions.md V1c step 4) BY TEST rather than by inspection: a shield
+    REVISION (not a rig delta) introduces a new required parameter
+    (paramrev_2.shield adds shield,params with no default to pr_dev), and
+    _check_param_invariant -- already re-checked fresh after resolving
+    each instance's shield, with no special case for a shield-revision-
+    introduced requirement -- must still reject an instance that never
+    assigns it."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "shield-revision-param-invariant" / "rig.yml"
+    result = run_expand(rig_yml, out_dir,
+                        shield_dirs=[FIXTURES_DIR / "v1c-shields"])
+
+    assert result.returncode != 0, (
+        "a shield-revision-introduced required parameter must be rejected "
+        "when unassigned")
+    assert "[lang-param]" in result.stderr, result.stderr
+    assert "declares 'vnd,threshold' as" in result.stderr, result.stderr
+    assert "required" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "shield-revision-param-invariant"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_shield_bad_revisions_block_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: a malformed revisions: block in a SHIELD's own
+    shield.yml is blamed on that shield, BY NAME. One parser serves both
+    rig.yml and shield.yml (the same {default:, list: []} shape, learned
+    once), so it has to be told which file it is reading -- otherwise every
+    shield.yml shape defect reports "rig revisions: ...", blaming the rig for
+    a declaration it has no part in and naming no shield at all.
+
+    Its own fixture shields root, because a shape defect is reported at
+    library-scan time for every folder scanned: sharing v1c-shields would
+    add this diagnostic to every other V1c fixture's output."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "shield-bad-revisions-block" / "rig.yml"
+    result = run_expand(rig_yml, out_dir,
+                        shield_dirs=[FIXTURES_DIR / "v1c-badyml"])
+
+    assert result.returncode != 0, (
+        "a malformed shield.yml revisions: block must be rejected")
+    assert "[lang-schema]" in result.stderr, result.stderr
+    assert "shield 'badyml_fixture' revisions:" in result.stderr, result.stderr
+    assert "rig revisions:" not in result.stderr, (
+        f"a shield.yml defect must not be blamed on the rig\n{result.stderr}")
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "shield-bad-revisions-block"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_shield_node_name_mismatch_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: a .shield template whose node name disagrees with
+    the folder it lives in. Shield.name remains the DT node name, but the
+    RESOLUTION key is the folder basename -- it is what <name>.shield
+    discovery constructs, what shield.yml is read beside, and what an
+    instance's shield: reference carries into RIG_SHIELDS. The two must
+    agree, nothing else in the tree enforces it, and resolving to whichever
+    single shield the file happened to define would leave the folder name
+    and the node name disagreeing about what was built."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "shield-node-name-mismatch" / "rig.yml"
+    result = run_expand(rig_yml, out_dir,
+                        shield_dirs=[FIXTURES_DIR / "v1c-misnamed"])
+
+    assert result.returncode != 0, (
+        "a .shield node name not matching its folder must be rejected")
+    assert "[lang-shield-name]" in result.stderr, result.stderr
+    assert "misnamed_fixture" in result.stderr, result.stderr
+    assert "other_name" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "shield-node-name-mismatch"
     freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))

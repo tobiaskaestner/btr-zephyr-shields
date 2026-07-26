@@ -135,9 +135,25 @@ def _expand(rig_path: str, shield_dirs: Optional[List[str]], out_dir: str,
     # mapping; dts.cmake resolves each shield to its folder + drives the Kconfig /
     # bookkeeping. Kept out of emitter.emit() (which stays rig-artifacts-only).
     shields = []
+    shield_revisions = []
     for inst in rig.instances:
         if inst.shield.name not in shields:
             shields.append(inst.shield.name)
+        # The RESOLVED revision of every shield that DECLARES a revisions:
+        # axis, default selections included — symmetric with RIG_REVISION /
+        # RIG_VARIANT below, which likewise appear whenever the rig declares
+        # the axis rather than only when a non-default value was chosen.
+        # Suppressing a defaulted revision would leave provenance unable to
+        # answer which revision of a shield a given build actually used
+        # (silence would mean both "revision 1" and "this shield has no
+        # revisions"), which is the question build provenance exists for; a
+        # value with a raw and a resolved form is always recorded in its
+        # RESOLVED form.
+        shield = inst.shield
+        if shield.revision is not None and shield.revisions is not None:
+            pair = f"{shield.name}@{shield.revision}"
+            if pair not in shield_revisions:
+                shield_revisions.append(pair)
     # RIG_DEPENDS: the dependency-tracking handoff. The expander is the sole
     # authority on what pass 1 actually read — cmake/dts.cmake appends this
     # (sorted, absolute) to CMAKE_CONFIGURE_DEPENDS, on top of its own static
@@ -154,6 +170,12 @@ def _expand(rig_path: str, shield_dirs: Optional[List[str]], out_dir: str,
         f.write(f'set(RIG_NAME "{rig.name}")\n')
         f.write(f'set(RIG_BOARD "{rig.board}")\n')
         f.write(f'set(RIG_SHIELDS "{";".join(shields)}")\n')
+        # RIG_SHIELD_REVISIONS: "<name>@<rev>" per DISTINCT shield revision
+        # resolved — written only when non-empty, the same "no declaration,
+        # no artifact" precedent as RIG_REVISION/RIG_VARIANT below, so a
+        # shield with no revisions: axis costs every rig naming it NOTHING.
+        if shield_revisions:
+            f.write(f'set(RIG_SHIELD_REVISIONS "{";".join(shield_revisions)}")\n')
         # RIG_REVISION/RIG_VARIANT: written only when this rig actually
         # declares the corresponding axis (rig.revision/rig.variant is
         # None otherwise) — same "no declaration, no artifact, zero

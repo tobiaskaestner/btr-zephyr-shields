@@ -197,6 +197,17 @@ ACCEPT_CASES: List[RigCase] = [
     # three qualifier combinations get their own dedicated tests below,
     # since a single corpus folder now resolves to more than one tuple.
     RigCase("pilot_variants", True),
+    # Shield revisions accept pilot (V1c): shield: i2c_sensor@2 is an
+    # ordinary instance-level string, needing no rig-level qualifier at
+    # all, so it rides the standard corpus machinery directly rather than
+    # a dedicated test function like the rig-axis pilot above.
+    RigCase("shield_rev_pilot", True),
+    # The two revision axes composing (V1c): this entry covers the BARE
+    # target, whose default revision 1 must resolve the sensor to the
+    # shield's revision 1; revision 2, where the rig's own delta moves it
+    # to the shield's revision 2, gets its own tests since one folder
+    # again resolves to more than one tuple.
+    RigCase("shield_rev_family", True),
 ]
 
 REJECT_CASES: List[RigCase] = [

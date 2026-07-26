@@ -36,12 +36,22 @@ trial):
                         Resolution order is base -> variant -> revision;
                         the per-instance-parameter invariant is re-checked
                         after every stage.
+  instances[].shield    also accepts the identical <name>@<rev> grammar
+                        (V1c): shield.yml gains the SAME {default:, list:
+                        []} revisions: axis as rig.yml (one schema, reused
+                        via _parse_axis_decl), and a revision is a native
+                        DT overlay -- base <name>.shield plus
+                        <name>_<rev>.shield cpp-included after it into the
+                        SAME translation unit, DT's own overlay-by-label
+                        semantics doing the merge. No YAML merge
+                        vocabulary on the shield side at all.
 
 Source locations come from YAML composer marks (line-accurate), so the
 comparison against dtlib file:line quality is fair.
 """
 from __future__ import annotations
 
+import dataclasses
 import glob
 import os
 
@@ -51,7 +61,8 @@ from .ctypes_registry import load_types
 from .diag import Depends, Diagnostic, Diagnostics, LoadError, SrcRef
 from .dtsio import (MODULE_INC, MODULE_ROOT, ZEPHYR_INC, check_include,
                     is_int_literal, parse_tu, resolve_token, source_files)
-from .model import AxisDecl, Instance, Rig, Shield, Strap, Wire, WireEnd
+from .model import (AxisDecl, ConnectorType, Instance, Rig, Shield, Strap,
+                    Wire, WireEnd)
 from .shields import parse_shields
 
 # The vendored default shield library (direct API / test use only — see
@@ -60,27 +71,250 @@ from .shields import parse_shields
 SHIELDS_DIR = os.path.join(MODULE_ROOT, "boards", "shields")
 
 
+@dataclasses.dataclass
+class ShieldLibrary:
+    """Every discovered shield template, keyed for V1c revision resolution.
+
+    shields is keyed by the CONSTRUCTED stems rule 13 resolves against —
+    "<name>" (a revision-less shield, or a revisioned one's DEFAULT) and
+    "<name>@<rev>" (any declared revision, once resolved) — never by the
+    .shield DT node name alone, which is IDENTICAL across a shield's own
+    revisions (the base and every <name>_<rev>.shield fragment share one
+    node label, since the fragment only ever augments it by reference).
+    axes maps every discovered shield NAME to its declared revisions:
+    axis (None if shield.yml is absent, or present but declares no
+    revisions: block) — needed so resolve() can tell "no such shield"
+    apart from "declares revisions:, but no default", a case that has no
+    entry in shields under the bare name either.
+
+    A shield's BASE template is parsed eagerly when the library is built
+    (this runs before rig.yml is even opened, so the loader does not yet
+    know which shields any instance will name — the existing per-folder
+    eager parse this replaces already had no other option). A revision
+    OTHER than the default is resolved LAZILY, the first time resolve()
+    sees an instance actually select it: eagerly combining every declared
+    revision's translation unit regardless of use would (a) do real
+    cpp/dtlib work for revisions nothing in this rig ever selects, and
+    (b) leak that revision fragment's path into RIG_DEPENDS for every
+    OTHER rig sharing this shield library, purely because the revision was
+    DECLARED somewhere, not because anything in THIS rig referenced it —
+    breaking the very "declaring an axis is not a breaking change until a
+    fragment is authored" property rule 10 already established rig-side."""
+    shields: dict[str, Shield]
+    axes: dict[str, "AxisDecl | None"]
+    _pending: dict[str, tuple[str, str, "AxisDecl"]]   # name -> (dir, base_file, decl)
+    _ymls: dict[str, str]                              # name -> shield.yml, when present
+    _types: dict[str, ConnectorType]
+    _workdir: str
+    _diags: Diagnostics
+    _deps: Depends | None
+
+    def resolve(self, ref: str, ctx: str, src: SrcRef) -> Shield | None:
+        """<name> or <name>@<rev> (rule 13's identical @rev grammar) -> the
+        Shield object, parsing a not-yet-resolved revision on first use.
+        Mirrors _resolve_axis's three failure shapes (not declared at all /
+        not a member / no default), reported as lang-rev — the shield-side
+        analogue of a qualified rig target's own axis resolution — plus the
+        pre-existing lang-instance-shield "unknown shield" diagnostic for a
+        name this library never discovered at all. ctx names the caller
+        (e.g. "instance 'sensor_0'") for that diagnostic's message."""
+        name, sep, rev = ref.partition("@")
+        if name not in self.axes:
+            self._diags.error(
+                "lang-instance-shield",
+                f"{ctx}: unknown shield '{name}'\n"
+                f"known shields: {', '.join(sorted(self.axes))}",
+                [src])
+            return None
+        # This reference makes the shield's OWN shield.yml load-bearing for
+        # this rig: its revisions: block decides which revision a bare
+        # reference resolves to and which @rev values are legal, so editing
+        # it must retrigger configure. Recorded here rather than during the
+        # library scan so a rig depends only on the metadata of shields it
+        # actually names -- and recorded before resolution can fail, since
+        # declaring the missing revision is exactly how such a failure gets
+        # fixed.
+        if self._deps is not None and name in self._ymls:
+            self._deps.see(self._ymls[name])
+        decl = self.axes[name]
+        if sep:
+            if decl is None:
+                self._diags.error(
+                    "lang-rev",
+                    f"shield '{name}' names a revision ({rev!r}), but this "
+                    "shield declares no revisions: at all",
+                    [src])
+                return None
+            if rev not in decl.values:
+                self._diags.error(
+                    "lang-rev",
+                    f"shield '{name}': revision '{rev}' is not declared -- "
+                    f"known revisions: {', '.join(decl.values)}",
+                    [src])
+                return None
+            return self._resolve_revision(name, rev, decl, src)
+        if name in self.shields:
+            return self.shields[name]
+        if decl is None:
+            # A shield with no declared axis is parsed EAGERLY, so a missing
+            # entry here means its template defined no shield node under this
+            # folder name -- already reported against the template itself by
+            # _pick_shield during the scan. Returning quietly keeps the
+            # diagnostic pointed at the file that is wrong instead of
+            # echoing it once per instance that referenced the shield.
+            return None
+        # A DECLARED default is resolved lazily here, on this bare
+        # reference's first use -- exactly like an explicit @rev, since
+        # load_shield_library defers every revisioned shield's parse
+        # (default included) until something actually selects it.
+        if decl.default is not None:
+            return self._resolve_revision(name, decl.default, decl, src)
+        self._diags.error(
+            "lang-rev",
+            f"shield '{name}': no revision selected, and this shield "
+            f"declares no default revision -- choose one of: "
+            f"{', '.join(decl.values)}",
+            [src])
+        return None
+
+    def _resolve_revision(self, name: str, rev: str, decl: "AxisDecl",
+                          src: SrcRef) -> Shield | None:
+        key = f"{name}@{rev}"
+        cached = self.shields.get(key)
+        if cached is not None:
+            return cached
+        shield_dir, base_file, _ = self._pending[name]
+        rev_norm = _normalize_revision(rev)
+        rev_file = os.path.join(shield_dir, f"{name}_{rev_norm}.shield")
+        rev_conf = os.path.join(shield_dir, f"{name}_{rev_norm}.conf")
+        has_rev_file = os.path.isfile(rev_file)
+        is_default = rev == decl.default
+        # Shield-side analogue of rule 10's default exemption: a NON-DEFAULT
+        # revision that contributes NOTHING (neither DT nor Kconfig) is an
+        # authoring error, named by the files that were looked for; the
+        # default is exempt, exactly as the base shield template already IS
+        # that revision's content.
+        if not is_default and not (has_rev_file or os.path.isfile(rev_conf)):
+            self._diags.error(
+                "lang-rev",
+                f"shield '{name}': revision '{rev}' contributes nothing -- "
+                f"looked for {name}_{rev_norm}.shield and "
+                f"{name}_{rev_norm}.conf, neither exists",
+                [src])
+            return None
+        includes = [base_file] + ([rev_file] if has_rev_file else [])
+        if has_rev_file and self._deps is not None:
+            self._deps.see(rev_file)
+        dt = parse_tu(includes, self._workdir, f"shield-{name}-{rev_norm}.dts")
+        if self._deps is not None:
+            for real_src in source_files(dt, self._workdir):
+                self._deps.see(real_src)
+        parsed = parse_shields(dt, self._types, self._diags)
+        shield = _pick_shield(parsed, name, base_file, self._diags)
+        if shield is None:
+            return None
+        shield.revisions = decl
+        shield.revision = rev
+        self.shields[key] = shield
+        if is_default:
+            self.shields[name] = shield
+        return shield
+
+
+def _pick_shield(parsed: dict[str, Shield], name: str, template: str,
+                 diags: Diagnostics) -> Shield | None:
+    """The shield a template's translation unit defines, looked up by the
+    FOLDER name rather than by whatever node name parse_shields returned.
+
+    Shield.name is the .shield DT node name and remains the identity every
+    diagnostic and every generated artifact spells. The RESOLUTION key,
+    however, is the folder basename: it is what <name>.shield discovery
+    constructs, what shield.yml's revisions: block is read from, and what an
+    instance's shield: reference carries into RIG_SHIELDS (hence into
+    list_shields.py's own name for the same shield). Those two names must
+    therefore AGREE, and nothing in the tree enforces it -- so a mismatch is
+    reported here instead of silently resolving to whichever single shield
+    the file happened to define, which would leave the folder name and the
+    node name disagreeing about what was built."""
+    shield = parsed.get(name)
+    if shield is not None:
+        return shield
+    defined = ", ".join(sorted(parsed)) or "none"
+    diags.error(
+        "lang-shield-name",
+        f"shield template {os.path.basename(template)} defines no shield "
+        f"node named '{name}' -- a .shield node name must match the folder "
+        f"it lives in, because that folder name is what an instance's "
+        f"shield: reference and shield discovery both construct\n"
+        f"nodes defined here: {defined}",
+        [SrcRef(template, 1)])
+    return None
+
+
+def _load_shield_revisions(shield_dir: str, diags: Diagnostics) -> "AxisDecl | None":
+    """shield.yml's revisions: declaration (rig-variants-revisions.md V1c):
+    the SAME axis shape as rig.yml's own revisions:/variants: blocks, so
+    _parse_axis_decl is reused as-is rather than writing a second parser —
+    shield.yml wraps its metadata under a shield: key exactly as rig.yml
+    wraps its own under rig:, so the same {default:, list: []} extraction
+    applies unchanged.
+
+    shield.yml itself stays OPTIONAL from the loader's own perspective —
+    a folder with no shield.yml at all (or one with no revisions: key)
+    declares no axis, exactly like every shield with no revisions to
+    represent and every fixture-only shield used elsewhere in this test
+    suite.
+
+    Dependency tracking happens in ShieldLibrary.resolve, NOT here: this
+    function runs for every discoverable shield folder during the library
+    scan, so recording the file here would put every shield's shield.yml
+    into every rig's RIG_DEPENDS regardless of what that rig references.
+    A shield.yml's revisions: block can only affect a rig that actually
+    NAMES that shield, so the dependency is recorded exactly where that
+    reference is resolved."""
+    path = os.path.join(shield_dir, "shield.yml")
+    if not os.path.isfile(path):
+        return None
+    with open(path) as f:
+        try:
+            root_node = yaml.compose(f, yaml.SafeLoader)
+        except yaml.YAMLError as e:
+            raise LoadError(Diagnostic(
+                "error", "lang-parse", f"YAML parse error in {path}\n{e}",
+                [SrcRef(path, getattr(getattr(e, 'problem_mark', None), 'line', 0) + 1)]))
+    doc = _walk(root_node, "", path)
+    shield_v = doc.v.get("shield")
+    if shield_v is None:
+        return None
+    return _parse_axis_decl(shield_v, "revisions", diags,
+                            owner=f"shield '{os.path.basename(shield_dir)}'")
+
+
 def load_shield_library(workdir: str, diags: Diagnostics,
                         shield_dirs: list[str] | None = None,
-                        deps: Depends | None = None) -> dict[str, Shield]:
-    """Load every shield template. Each .shield file is its OWN translation
-    unit (Ground rule 3), so labels are shield-scoped — two shields may reuse
-    gl_plug etc. without colliding, and no cross-shield prefix discipline is
-    needed. Merged by shield name (which is unique).
+                        deps: Depends | None = None) -> ShieldLibrary:
+    """Load every shield template. Each .shield file (base + any resolved
+    revision fragment) is its OWN translation unit (Ground rule 3), so
+    labels are shield-scoped — two shields may reuse gl_plug etc. without
+    colliding, and no cross-shield prefix discipline is needed.
 
     Shields live one per folder, upstream-shield-shape: <shield-dir>/<name>/
-    <name>.shield (alongside that folder's shield.yml metadata, not parsed
-    here — the .shield DT node name remains the sole identity source, per
-    Shield.name = node.name in shields.py). We therefore look for exactly
-    <dir>/<dir-basename>.shield per subfolder, rather than a */*.shield
-    glob — the folder now also holds upstream-convention Kconfig fragments
-    (Kconfig.shield, Kconfig.defconfig), which also end in the literal
-    substring ".shield" and would otherwise be mis-globbed as shield
-    templates (Kconfig.shield matches a bare *.shield wildcard). This
-    <name>.shield-presence check is also what self-filters a shields
-    directory: legacy (non-rig) shields ship a <name>.overlay, not a
+    <name>.shield. We therefore look for exactly <dir>/<dir-basename>.shield
+    per subfolder, rather than a */*.shield glob — the folder now also holds
+    upstream-convention Kconfig fragments (Kconfig.shield, Kconfig.defconfig),
+    which also end in the literal substring ".shield" and would otherwise be
+    mis-globbed as shield templates (Kconfig.shield matches a bare *.shield
+    wildcard). This <name>.shield-presence check is also what self-filters a
+    shields directory: legacy (non-rig) shields ship a <name>.overlay, not a
     .shield, so scanning a whole boards/shields tree picks up ONLY rig
     templates and silently skips the rest.
+
+    The .shield DT node name remains the SOLE identity source (Shield.name
+    = node.name in shields.py) — shield.yml supplies only the revisions:
+    axis declaration (V1c), read via _load_shield_revisions, never a second
+    identity. A folder with no declared axis keeps a plain one-name-one-
+    parse arrangement; one WITH a declared axis defers every revision but
+    the default to ShieldLibrary.resolve (see its docstring for why).
 
     shield_dirs is a LIST of shield-library roots (each a boards/shields
     directory), unioned into one library — because rig shield templates are
@@ -89,30 +323,47 @@ def load_shield_library(workdir: str, diags: Diagnostics,
     list from BOARD_ROOT, exactly as list_shields.py does; None falls back to
     the vendored default (SHIELDS_DIR), used only by direct API / tests.
 
-    deps, if given, records every .shield file this call parses, plus (via
-    dtsio.source_files) whatever real files each one's translation unit
-    #includes — the temp workdir the TU is synthesized in is excluded,
-    since it holds a generated file with no counterpart in the source
-    tree."""
+    deps, if given, records every .shield file this call parses (base
+    templates unconditionally; a revision fragment only once resolve()
+    actually selects it), plus (via dtsio.source_files) whatever real
+    files each one's translation unit #includes — the temp workdir the TU
+    is synthesized in is excluded, since it holds a generated file with no
+    counterpart in the source tree."""
     types = load_types(deps)
-    shields = {}
+    shields: dict[str, Shield] = {}
+    axes: dict[str, "AxisDecl | None"] = {}
+    pending: dict[str, tuple[str, str, "AxisDecl"]] = {}
+    ymls: dict[str, str] = {}
     directories = shield_dirs if shield_dirs is not None else [SHIELDS_DIR]
     for directory in directories:
         for shield_dir in sorted(glob.glob(os.path.join(directory, "*"))):
             if not os.path.isdir(shield_dir):
                 continue
             name = os.path.basename(shield_dir)
-            f = os.path.join(shield_dir, name + ".shield")
-            if not os.path.isfile(f):
+            base_file = os.path.join(shield_dir, name + ".shield")
+            if not os.path.isfile(base_file):
                 continue
             if deps is not None:
-                deps.see(f)
-            dt = parse_tu([f], workdir, f"shield-{name}.dts")
-            if deps is not None:
-                for src in source_files(dt, workdir):
-                    deps.see(src)
-            shields.update(parse_shields(dt, types, diags))
-    return shields
+                deps.see(base_file)
+            shield_yml = os.path.join(shield_dir, "shield.yml")
+            if os.path.isfile(shield_yml):
+                ymls[name] = shield_yml
+            decl = _load_shield_revisions(shield_dir, diags)
+            axes[name] = decl
+            if decl is None:
+                dt = parse_tu([base_file], workdir, f"shield-{name}.dts")
+                if deps is not None:
+                    for src in source_files(dt, workdir):
+                        deps.see(src)
+                shield = _pick_shield(parse_shields(dt, types, diags), name,
+                                      base_file, diags)
+                if shield is not None:
+                    shields[name] = shield
+            else:
+                pending[name] = (shield_dir, base_file, decl)
+    return ShieldLibrary(shields=shields, axes=axes, _pending=pending,
+                         _ymls=ymls, _types=types, _workdir=workdir,
+                         _diags=diags, _deps=deps)
 
 
 # ---------------------------------------------------------------- mark-aware YAML
@@ -160,22 +411,29 @@ def _require(mapping: _Val, key: str, ctx: str, diags) -> _Val | None:
 
 # ---------------------------------------------------------------- V1a qualifier axes
 
-def _parse_axis_decl(rig_v: _Val, key: str, diags) -> AxisDecl | None:
-    """rig.yml's revisions:/variants: declaration block (rig-variants-
-    revisions.md V1a): {default:, list: []}. Absent key -> no axis declared
-    (None). Shape is validated strictly here: list: must be non-empty, and
-    default: (if given) must be one of its own members -- both are
-    lang-schema, like every other malformed-shape error this loader reports,
-    since they are defects of rig.yml itself, not of a particular
-    selection."""
-    axis_v = rig_v.v.get(key)
+def _parse_axis_decl(container_v: _Val, key: str, diags,
+                     owner: str = "rig") -> AxisDecl | None:
+    """A revisions:/variants: declaration block (rig-variants-revisions.md
+    V1a): {default:, list: []}. Absent key -> no axis declared (None). Shape
+    is validated strictly here: list: must be non-empty, and default: (if
+    given) must be one of its own members -- both are lang-schema, like every
+    other malformed-shape error this loader reports, since they are defects of
+    the declaring FILE itself, not of a particular selection.
+
+    owner names the file that declares the block, and it must, because this
+    one parser serves BOTH rig.yml and shield.yml (V1c reuses it rather than
+    growing a second parser for the same shape). Without it every shield.yml
+    shape defect reported "rig revisions: ..." -- blaming the rig for a
+    shield's own malformed declaration, and naming no shield at all. Callers
+    pass the specific spelling ("rig", "shield 'x'")."""
+    axis_v = container_v.v.get(key)
     if axis_v is None:
         return None
     list_v = axis_v.v.get("list")
     values = [str(v.v) for v in list_v.v] if list_v is not None else []
     if not values:
         diags.error("lang-schema",
-                    f"rig {key}: 'list' must be a non-empty list",
+                    f"{owner} {key}: 'list' must be a non-empty list",
                     [axis_v.src])
         return None
     default_v = axis_v.v.get("default")
@@ -185,7 +443,7 @@ def _parse_axis_decl(rig_v: _Val, key: str, diags) -> AxisDecl | None:
     if default not in values:
         diags.error(
             "lang-schema",
-            f"rig {key}: default '{default}' is not one of the declared "
+            f"{owner} {key}: default '{default}' is not one of the declared "
             f"values ({', '.join(values)})",
             [default_v.src])
         return None
@@ -523,7 +781,7 @@ def _find_wire(wires: list[Wire], frm: str | None, to: str | None) -> Wire | Non
     return None
 
 
-def _apply_instance_patch(item: _Val, inst: Instance, shields, rig: Rig,
+def _apply_instance_patch(item: _Val, inst: Instance, lib: ShieldLibrary, rig: Rig,
                           workdir: str, diags, stage: str, stage_value: str,
                           resolve_socket) -> None:
     """Shallow-replace an EXISTING instance's top-level keys (Sec. 5): a
@@ -533,17 +791,17 @@ def _apply_instance_patch(item: _Val, inst: Instance, shields, rig: Rig,
     OLD params are keyed to the OLD shield's devices and are therefore
     meaningless against the new one, so they are dropped rather than
     carried forward (Sec. 5's reasoning for why wholesale replace is
-    REQUIRED, not merely acceptable)."""
+    REQUIRED, not merely acceptable).
+
+    A delta's shield: value carries the identical <name>@<rev> grammar as
+    a base instance's own (V1c) -- lib.resolve is the single resolution
+    path for both, so a variant/revision substituting a shield may equally
+    substitute a specific revision of it."""
     shield_changed = False
     if "shield" in item.v:
         shield_v = item.v["shield"]
-        shield = shields.get(shield_v.v)
+        shield = lib.resolve(shield_v.v, f"instance '{inst.name}'", shield_v.src)
         if shield is None:
-            diags.error(
-                "lang-instance-shield",
-                f"instance '{inst.name}': unknown shield '{shield_v.v}'\n"
-                f"known shields: {', '.join(sorted(shields))}",
-                [shield_v.src])
             return
         inst.shield = shield
         shield_changed = True
@@ -580,7 +838,7 @@ def _apply_instance_patch(item: _Val, inst: Instance, shields, rig: Rig,
 
 
 def _apply_delta(delta_v: _Val, stage: str, stage_value: str, rig: Rig,
-                 shields, effective: dict[str, Instance], order: list[str],
+                 lib: ShieldLibrary, effective: dict[str, Instance], order: list[str],
                  wires: list[Wire], removed_by: dict[str, str],
                  workdir: str, diags) -> None:
     """Apply ONE delta stage (Sec. 5) onto the effective topology IN PLACE.
@@ -649,7 +907,7 @@ def _apply_delta(delta_v: _Val, stage: str, stage_value: str, rig: Rig,
                     "which the effective topology does not have",
                     [item.src])
                 continue
-            _apply_instance_patch(item, inst, shields, rig, workdir, diags,
+            _apply_instance_patch(item, inst, lib, rig, workdir, diags,
                                   stage, stage_value, resolve_socket)
 
     # add-instances: -- full declarations; the name must NOT already exist
@@ -657,7 +915,7 @@ def _apply_delta(delta_v: _Val, stage: str, stage_value: str, rig: Rig,
     add_v = doc.get("add-instances")
     if add_v is not None:
         for item in add_v.v:
-            new_inst = _parse_instance(item, shields, rig, workdir, diags)
+            new_inst = _parse_instance(item, lib, rig, workdir, diags)
             if new_inst is None:
                 continue
             if "socket" in item.v:
@@ -726,7 +984,7 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
         variant: str | None = None) -> Rig | None:
     if deps is not None:
         deps.see(rig_path)
-    shields = load_shield_library(workdir, diags, shield_dirs, deps)
+    lib = load_shield_library(workdir, diags, shield_dirs, deps)
 
     with open(rig_path) as f:
         try:
@@ -803,7 +1061,7 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     order: list[str] = []
     insts_v = _require(rig_v, "instances", "rig", diags)
     for item in (insts_v.v if insts_v else []):
-        inst = _parse_instance(item, shields, rig, workdir, diags)
+        inst = _parse_instance(item, lib, rig, workdir, diags)
         if inst:
             effective[inst.name] = inst
             order.append(inst.name)
@@ -820,7 +1078,7 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     # Stage 1: variant delta.
     if variant_delta_v is not None:
         assert rig.variant is not None    # a delta only loads for a selected axis
-        _apply_delta(variant_delta_v, "variant", rig.variant, rig, shields,
+        _apply_delta(variant_delta_v, "variant", rig.variant, rig, lib,
                      effective, order, wires, removed_by, workdir, diags)
         _check_param_invariant(effective.values(), diags)
 
@@ -828,7 +1086,7 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     # variant (Q9); per-variant streams stay deferred (rule 12).
     if revision_delta_v is not None:
         assert rig.revision is not None   # a delta only loads for a selected axis
-        _apply_delta(revision_delta_v, "revision", rig.revision, rig, shields,
+        _apply_delta(revision_delta_v, "revision", rig.revision, rig, lib,
                      effective, order, wires, removed_by, workdir, diags)
         _check_param_invariant(effective.values(), diags)
 
@@ -837,20 +1095,15 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     return rig
 
 
-def _parse_instance(item: _Val, shields, rig: Rig, workdir: str, diags) -> Instance | None:
+def _parse_instance(item: _Val, lib: ShieldLibrary, rig: Rig, workdir: str, diags) -> Instance | None:
     name_v = _require(item, "name", "instance", diags)
     shield_v = _require(item, "shield", "instance", diags)
     socket_v = _require(item, "socket", "instance", diags)
     if not (name_v and shield_v and socket_v):
         return None
 
-    shield = shields.get(shield_v.v)
+    shield = lib.resolve(shield_v.v, f"instance '{name_v.v}'", shield_v.src)
     if shield is None:
-        diags.error(
-            "lang-instance-shield",
-            f"instance '{name_v.v}': unknown shield '{shield_v.v}'\n"
-            f"known shields: {', '.join(sorted(shields))}",
-            [shield_v.src])
         return None
 
     inst = Instance(name=name_v.v, shield=shield, socket=socket_v.v, src=item.src)

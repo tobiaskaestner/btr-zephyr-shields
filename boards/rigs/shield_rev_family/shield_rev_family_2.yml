@@ -1,0 +1,11 @@
+# Rig revision 2: the same topology with the sensor instance moved to the
+# shield's own revision 2. A shallow instance patch matched by name (Sec.
+# 5), carrying nothing but the shield reference -- socket and everything
+# else are inherited, since only keys present here replace.
+#
+# This fragment is also what satisfies rule 10 for revision 2: a
+# non-default axis value must contribute something, and a delta counts, so
+# no shield_rev_family_2_defconfig is needed alongside it.
+instances:
+  - name: sensor_0
+    shield: i2c_sensor@2
