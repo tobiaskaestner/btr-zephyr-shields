@@ -1,0 +1,10 @@
+/* variant_b's own DT fragment -- an inert marker node (no compatible, so
+ * no binding is needed and pass 2's edtlib never touches it) whose sole
+ * purpose is to be VISIBLE in the real build's generated zephyr.dts,
+ * proving this overlay was actually collected onto EXTRA_DTC_OVERLAY_FILE
+ * (rig-variants-revisions.md V1a pilot). */
+/ {
+	pilot-variant-b-marker {
+		status = "okay";
+	};
+};

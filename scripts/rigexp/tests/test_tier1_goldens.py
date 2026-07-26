@@ -327,3 +327,186 @@ def test_pwm_nonzero_flags_golden(tmp_path: Path,
 
     for fname in _EMITTED_FILES:
         assert_absent_or_refreeze(golden_dir / fname)
+
+
+# ---------------------------------------------------------------- V1a: qualifier accepts
+
+def _pilot_golden(tmp_path, tmp_path_factory, golden_name, revision, variant):
+    """Shared body for the pilot rig family's three NON-default qualifier
+    tuples (the bare/default tuple already rides the standard
+    test_tier1_golden via ACCEPT_CASES's pilot_variants entry, above) --
+    same board/build for every tuple, since variants/revisions carry no
+    delta engine yet (V1a) and never change the board."""
+    board = rig_board_name("pilot_variants")
+    plain_build = plain_build_for(board, tmp_path_factory)
+    out_dir = tmp_path / "out"
+    result = run_expand(
+        RIGS_DIR / "pilot_variants" / "rig.yml", out_dir,
+        board_dts=REPO_ROOT / BOARD_DTS[board],
+        build_info=plain_build.build_info,
+        revision=revision, variant=variant)
+
+    assert result.returncode == 0, (
+        f"pilot_variants (revision={revision!r} variant={variant!r}): "
+        f"expected accept\n--- stderr ---\n{result.stderr}")
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / golden_name
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+    for fname in _EMITTED_FILES:
+        produced = out_dir / fname
+        golden_file = golden_dir / fname
+        if produced.is_file():
+            freeze_or_assert(golden_file, normalize(produced.read_text(), zb))
+        else:
+            assert_absent_or_refreeze(golden_file)
+
+
+@pytest.mark.build
+def test_pilot_variant_b_golden(tmp_path: Path,
+                                tmp_path_factory: "pytest.TempPathFactory") -> None:
+    """variant_b @ revision 1 (the declared default revision, explicit
+    variant): variant_b supplies BOTH a .overlay and a _defconfig, so this
+    tuple exercises the DT collection chain the bare/default tuple
+    (variant_a, no .overlay) does not."""
+    _pilot_golden(tmp_path, tmp_path_factory, "pilot_variants_variant_b",
+                 revision=None, variant="variant_b")
+
+
+@pytest.mark.build
+def test_pilot_revision_2_golden(tmp_path: Path,
+                                 tmp_path_factory: "pytest.TempPathFactory") -> None:
+    """variant_a (default) @ revision 2: exercises the revision Kconfig
+    chain stacking onto the (still default) variant's own."""
+    _pilot_golden(tmp_path, tmp_path_factory, "pilot_variants_2",
+                 revision="2", variant=None)
+
+
+@pytest.mark.build
+def test_pilot_variant_b_revision_2_golden(tmp_path: Path,
+                                           tmp_path_factory: "pytest.TempPathFactory") -> None:
+    """variant_b @ revision 2 -- the fully qualified tuple, both chains and
+    both axes stacking in the same build: variant_b's .overlay + _defconfig
+    AND revision 2's _defconfig all collected together."""
+    _pilot_golden(tmp_path, tmp_path_factory, "pilot_variants_variant_b_2",
+                 revision="2", variant="variant_b")
+
+
+# ---------------------------------------------------------------- V1a: qualifier rejects
+
+def test_unknown_revision_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: rule 1 -- a --revision naming a value outside the
+    declared revisions: list. Loader-level (fires before any board recipe
+    is needed), like the other synthetic fixtures above."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "unknown-revision" / "rig.yml"
+    result = run_expand(rig_yml, out_dir, revision="99")
+
+    assert result.returncode != 0, "an undeclared revision must be rejected"
+    assert "[lang-rev]" in result.stderr, result.stderr
+    assert "not declared" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "unknown-revision"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_unknown_variant_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: rule 2 -- a --variant naming a value outside the
+    declared variants: list."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "unknown-variant" / "rig.yml"
+    result = run_expand(rig_yml, out_dir, variant="nope")
+
+    assert result.returncode != 0, "an undeclared variant must be rejected"
+    assert "[lang-variant]" in result.stderr, result.stderr
+    assert "not declared" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "unknown-variant"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_no_default_variant_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: rule 3 -- a bare target (no --variant) against a
+    declared axis with values but no declared default, naming the axis and
+    listing its values (Q5)."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "no-default-variant" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, "no selection + no default must be rejected"
+    assert "[lang-variant]" in result.stderr, result.stderr
+    assert "no default variant" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "no-default-variant"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_variant_revision_collision_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: rule 4 -- a declared variant name equal to a
+    declared revision id, so the constructed fragment filenames
+    (<rigname>_<id>...) would be ambiguous between the two axes (Q6).
+    Checked unconditionally once both axes are declared, so a bare
+    invocation already triggers it."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "variant-revision-collision" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, "a variant/revision id collision must be rejected"
+    assert "[lang-variant]" in result.stderr, result.stderr
+    assert "collide" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "variant-revision-collision"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_variant_no_fragment_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: rule 10 -- a selected NON-DEFAULT axis value none of
+    whose constructed fragment files exist, naming the files that were looked
+    for. A value that changes nothing is meaningless, so it is an authoring
+    error. The value must be non-default to reach this check: the declared
+    default is exempt, since the base rig file is that value's content (the
+    pilot family covers the exempt half, where revision 1 carries no
+    fragment and is accepted)."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "variant-no-fragment" / "rig.yml"
+    result = run_expand(rig_yml, out_dir, variant="ghost")
+
+    assert result.returncode != 0, "a variant contributing nothing must be rejected"
+    assert "[lang-variant]" in result.stderr, result.stderr
+    assert "contributes nothing" in result.stderr, result.stderr
+    assert "variant-no-fragment_ghost.overlay" in result.stderr, result.stderr
+    assert "variant-no-fragment_ghost_defconfig" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "variant-no-fragment"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_no_such_axis_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: the declares-no-such-axis wording (item 5, P's
+    rule-5 precedent) -- a target naming an axis (--variant) this rig does
+    not declare AT ALL gets a DISTINCT message from rule 2's "not a
+    declared member", pointing the author at the missing declaration
+    itself rather than implying a typo in an existing one."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "no-such-axis" / "rig.yml"
+    result = run_expand(rig_yml, out_dir, variant="anything")
+
+    assert result.returncode != 0, "a qualifier against an undeclared axis must be rejected"
+    assert "[lang-variant]" in result.stderr, result.stderr
+    assert "declares no variants:" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "no-such-axis"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))

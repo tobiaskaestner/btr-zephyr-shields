@@ -117,6 +117,113 @@ def test_tier2_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
         f"(dts_equiv.py):\n{check.stdout}\n{check.stderr}")
 
 
+# ---------------------------------------------------------------- V1a: qualified pilot builds
+
+def _build_and_freeze_dts(rig_target: str, golden_name: str,
+                          tmp_path: Path) -> Path:
+    """Shared body for the pilot family's three NON-default qualified tiers
+    (the bare tuple already rides test_tier2_accept_zephyr_dts via
+    ACCEPT_CASES's pilot_variants entry, above) -- west build-rig --rig
+    accepts a FULL qualified target string verbatim (rig.py forwards it,
+    zero rig knowledge), so no cmake/west-command change was needed for
+    this to work. Returns the build dir for callers that need to inspect
+    more than zephyr.dts (e.g. .config)."""
+    build_dir = tmp_path / "build"
+    result = _run_build(rig_target, build_dir)
+    assert result.returncode == 0, (
+        f"{rig_target}: expected `west build-rig --cmake-only` to configure "
+        f"clean\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+
+    candidate = build_dir / "zephyr" / "zephyr.dts"
+    assert candidate.is_file(), f"{rig_target}: no zephyr.dts at {candidate}"
+
+    golden = GOLDENS_DIR / golden_name / "zephyr.dts"
+    if REFREEZE:
+        golden.parent.mkdir(parents=True, exist_ok=True)
+        golden.write_text(normalize_dts_provenance(candidate.read_text()))
+        return build_dir
+
+    if not golden.is_file():
+        pytest.fail(
+            f"golden missing: {golden} (run with RIGEXP_REFREEZE=1 to create it)")
+
+    zb = zephyr_base()
+    check = subprocess.run(
+        [sys.executable, str(DTS_EQUIV), str(golden), str(candidate)],
+        env={**os.environ, "ZEPHYR_BASE": zb},
+        capture_output=True, text=True)
+    assert check.returncode == 0, (
+        f"{rig_target}: zephyr.dts not structurally equivalent to the "
+        f"golden (dts_equiv.py):\n{check.stdout}\n{check.stderr}")
+    return build_dir
+
+
+def test_tier2_pilot_variant_b(tmp_path: Path) -> None:
+    """variant_b @ revision 1: the variant's own .overlay must actually
+    reach the real build (dts_equiv.py's structural comparison is what
+    proves it, not just a text diff on the generated overlay)."""
+    _build_and_freeze_dts("pilot_variants/variant_b",
+                          "pilot_variants_variant_b", tmp_path)
+
+
+def test_tier2_pilot_revision_2(tmp_path: Path) -> None:
+    """variant_a (default) @ revision 2."""
+    _build_and_freeze_dts("pilot_variants@2", "pilot_variants_2", tmp_path)
+
+
+def test_tier2_pilot_variant_b_revision_2(tmp_path: Path) -> None:
+    """The fully qualified tuple (variant_b @ revision 2) -- THE EVIDENCE
+    this slice's acceptance criteria ask for: STATUS-line claims alone
+    don't prove a collected fragment took effect, so this test inspects
+    the REAL build's own .config and zephyr.dts directly.
+
+    variant_b's own CONFIG_MAIN_STACK_SIZE (2222) AND revision 2's own
+    CONFIG_HEAP_MEM_POOL_SIZE (256) must BOTH be present in .config --
+    proving base -> variant -> revision really stack rather than one
+    silently overwriting the other -- and variant_b's overlay marker node
+    must be visible in the generated zephyr.dts."""
+    build_dir = _build_and_freeze_dts(
+        "pilot_variants@2/variant_b", "pilot_variants_variant_b_2", tmp_path)
+
+    dotconfig = (build_dir / "zephyr" / ".config").read_text()
+    assert "CONFIG_MAIN_STACK_SIZE=2222" in dotconfig, (
+        "variant_b's own _defconfig symbol is missing from .config -- the "
+        f"variant Kconfig fragment was not collected\n--- .config ---\n{dotconfig}")
+    assert "CONFIG_HEAP_MEM_POOL_SIZE=256" in dotconfig, (
+        "revision 2's own _defconfig symbol is missing from .config -- the "
+        f"revision Kconfig fragment was not collected\n--- .config ---\n{dotconfig}")
+
+    zephyr_dts = (build_dir / "zephyr" / "zephyr.dts").read_text()
+    assert "pilot-variant-b-marker" in zephyr_dts, (
+        "variant_b's own .overlay marker node is missing from zephyr.dts -- "
+        f"the variant DT fragment was not collected\n--- zephyr.dts ---\n{zephyr_dts}")
+
+
+def test_tier2_pilot_build_info_provenance(tmp_path: Path) -> None:
+    """Provenance (item 6/7): build_info.yml's cmake.vendor-specific.rig.*
+    carries the SELECTED revision/variant and the applied fragment list --
+    same assertion shape as test_tier2_build_info_rig_provenance above,
+    the established pattern for inspecting this block."""
+    build_dir = tmp_path / "build"
+    result = _run_build("pilot_variants@2/variant_b", build_dir)
+    assert result.returncode == 0, (
+        f"pilot_variants@2/variant_b: expected `west build-rig --cmake-only` "
+        f"to configure clean\n--- stdout ---\n{result.stdout}\n"
+        f"--- stderr ---\n{result.stderr}")
+
+    with open(build_dir / "build_info.yml") as f:
+        build_info = yaml.safe_load(f)
+    rig = build_info["cmake"]["vendor-specific"]["rig"]
+
+    assert rig["revision"] == "2"
+    assert rig["variant"] == "variant_b"
+    fragments = rig["fragments"]
+    assert fragments.endswith(".overlay") or "_defconfig" in fragments
+    assert "pilot_variants_variant_b.overlay" in fragments
+    assert "pilot_variants_variant_b_defconfig" in fragments
+    assert "pilot_variants_2_defconfig" in fragments
+
+
 @pytest.mark.parametrize("case", REJECT_CASES, ids=lambda c: c.name)
 def test_tier2_reject_configure_fails(case: RigCase, tmp_path: Path) -> None:
     build_dir = tmp_path / "build"

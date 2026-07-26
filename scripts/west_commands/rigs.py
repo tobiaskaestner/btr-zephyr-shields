@@ -83,6 +83,10 @@ class Rigs(WestCommand):
             - name: rig name (the rig.yml `rig.name` field, the rig's identity)
             - board: the board the rig targets
             - dir: directory that contains the rig definition
+            - revisions: declared revision axis values (rig-variants-
+              revisions.md V1a), comma-separated, empty if undeclared
+            - variants: declared variant axis values, comma-separated,
+              empty if undeclared
             '''))
 
         # Remember to update west-commands.yml help if you add or remove flags.
@@ -118,4 +122,8 @@ class Rigs(WestCommand):
                 name=rig.name,
                 dir=rig.dir,
                 board=rig.board if rig.board is not None else '',
+                revisions=', '.join(str(v) for v in rig.revisions['list'])
+                if rig.revisions else '',
+                variants=', '.join(str(v) for v in rig.variants['list'])
+                if rig.variants else '',
             ))

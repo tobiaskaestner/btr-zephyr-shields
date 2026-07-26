@@ -1,0 +1,31 @@
+# Pilot rig family (rig-variants-revisions.md V1a). Validates qualifier
+# resolution + per-axis fragment collection with NO delta engine yet: the
+# SAME base topology (one Adafruit Data Logger on the Nucleo Arduino
+# header -- nucleo_datalogger's own setup) under every revision/variant
+# selection; only the COLLECTED .overlay/_defconfig content differs,
+# proving base -> variant -> revision collection order end to end.
+#
+# The family demonstrates BOTH halves of rule 10's default exemption: the
+# default VARIANT (variant_a) carries a _defconfig, which is legal but not
+# required, while the default REVISION (1) carries none at all -- the base
+# pilot_variants_defconfig IS what revision 1 means. variant_b supplies a
+# _defconfig AND a .overlay, so both collected chains are exercised, and
+# revision 2 evolves the base's own HEAP_MEM_POOL_SIZE (128 -> 256) rather
+# than adding an unrelated symbol, a real temporal change.
+# Selecting pilot_variants@2/variant_b therefore stacks TWO
+# distinct Kconfig facts (variant_b's own MAIN_STACK_SIZE, revision 2's
+# evolved HEAP_MEM_POOL_SIZE) plus variant_b's overlay marker node -- the
+# qualified-build evidence this slice's acceptance criteria ask for.
+rig:
+  name: pilot_variants
+  board: nucleo_f401re/stm32f401xe/rig
+  revisions:
+    default: 1
+    list: [1, 2]
+  variants:
+    default: variant_a
+    list: [variant_a, variant_b]
+  instances:
+    - name: logger
+      shield: adafruit_data_logger
+      socket: nucleo_ard

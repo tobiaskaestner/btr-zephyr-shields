@@ -23,6 +23,10 @@ trial):
                         straps; must be unique there
   wires[].route         "adhoc" | {via: <position name>} (name from the
                         dt-bindings header, e.g. D2)
+  rig.revisions/        {default:, list: []} qualifier axis declarations
+  rig.variants          (rig-variants-revisions.md V1a); load()'s
+                        revision:/variant: params select against them,
+                        applying the declared default for a bare target
 
 Source locations come from YAML composer marks (line-accurate), so the
 comparison against dtlib file:line quality is fair.
@@ -38,7 +42,7 @@ from .ctypes_registry import load_types
 from .diag import Depends, Diagnostic, Diagnostics, LoadError, SrcRef
 from .dtsio import (MODULE_INC, MODULE_ROOT, ZEPHYR_INC, check_include,
                     is_int_literal, parse_tu, resolve_token, source_files)
-from .model import Instance, Rig, Shield, Strap, Wire, WireEnd
+from .model import AxisDecl, Instance, Rig, Shield, Strap, Wire, WireEnd
 from .shields import parse_shields
 
 # The vendored default shield library (direct API / test use only — see
@@ -145,11 +149,144 @@ def _require(mapping: _Val, key: str, ctx: str, diags) -> _Val | None:
     return mapping.v[key]
 
 
+# ---------------------------------------------------------------- V1a qualifier axes
+
+def _parse_axis_decl(rig_v: _Val, key: str, diags) -> AxisDecl | None:
+    """rig.yml's revisions:/variants: declaration block (rig-variants-
+    revisions.md V1a): {default:, list: []}. Absent key -> no axis declared
+    (None). Shape is validated strictly here: list: must be non-empty, and
+    default: (if given) must be one of its own members -- both are
+    lang-schema, like every other malformed-shape error this loader reports,
+    since they are defects of rig.yml itself, not of a particular
+    selection."""
+    axis_v = rig_v.v.get(key)
+    if axis_v is None:
+        return None
+    list_v = axis_v.v.get("list")
+    values = [str(v.v) for v in list_v.v] if list_v is not None else []
+    if not values:
+        diags.error("lang-schema",
+                    f"rig {key}: 'list' must be a non-empty list",
+                    [axis_v.src])
+        return None
+    default_v = axis_v.v.get("default")
+    if default_v is None:
+        return AxisDecl(values=values)
+    default = str(default_v.v)
+    if default not in values:
+        diags.error(
+            "lang-schema",
+            f"rig {key}: default '{default}' is not one of the declared "
+            f"values ({', '.join(values)})",
+            [default_v.src])
+        return None
+    return AxisDecl(values=values, default=default)
+
+
+def _check_axis_collision(rig: Rig, src: SrcRef, diags) -> None:
+    """Rule 4: a variant name equal to a declared revision id -- the
+    constructed fragment filenames would collide (both axes join as
+    <rigname>_<id>...), so this is checked once, independent of what a
+    particular target selects."""
+    if rig.variants is None or rig.revisions is None:
+        return
+    collision = sorted(set(rig.variants.values) & set(rig.revisions.values))
+    if collision:
+        diags.error(
+            "lang-variant",
+            f"rig '{rig.name}': variant name(s) {', '.join(collision)} "
+            "collide with a declared revision id -- the constructed "
+            "fragment filenames (<rigname>_<id>...) would be ambiguous "
+            "between the two axes",
+            [src])
+
+
+def _resolve_axis(rig_name: str, axis_kind: str, decl_key: str,
+                  decl: AxisDecl | None, selected: str | None,
+                  src: SrcRef, diags) -> str | None:
+    """Resolve ONE qualifier axis (`revision` or `variant`) to its final
+    SELECTED value. A `selected` value naming an UNDECLARED axis says so by
+    name ("this rig declares no revisions:") rather than the generic
+    not-a-member wording (P's rule-5 precedent) -- it points the author at
+    the right place, given the loader's own permissiveness about unknown
+    rig-level keys. A selected value against a DECLARED axis must be one of
+    its members (rule 1/2). A bare (unselected) axis takes the declared
+    default; if the axis is declared but has none, that is rule 3."""
+    code = "lang-rev" if axis_kind == "revision" else "lang-variant"
+    if selected is not None:
+        if decl is None:
+            diags.error(
+                code,
+                f"rig '{rig_name}' names a {axis_kind} ({selected!r}), but "
+                f"this rig declares no {decl_key}: at all",
+                [src])
+            return None
+        if selected not in decl.values:
+            diags.error(
+                code,
+                f"rig '{rig_name}': {axis_kind} '{selected}' is not "
+                f"declared -- known {axis_kind}s: {', '.join(decl.values)}",
+                [src])
+            return None
+        return selected
+    if decl is None:
+        return None
+    if decl.default is not None:
+        return decl.default
+    diags.error(
+        code,
+        f"rig '{rig_name}': no {axis_kind} selected, and this rig declares "
+        f"no default {axis_kind} -- choose one of: {', '.join(decl.values)}",
+        [src])
+    return None
+
+
+def _check_fragment_presence(rig: Rig, rig_dir: str, src: SrcRef, diags) -> None:
+    """Rule 10: a selected NON-DEFAULT axis value that contributes NOTHING --
+    no fragment of any kind found for it -- naming the files that were looked
+    for. A value that changes nothing is meaningless, so it is an authoring
+    error rather than a silent no-op.
+
+    The DECLARED DEFAULT of an axis is exempt: the base rig file IS that
+    value's content, exactly as hwmv2 boards have <board>.dts plus
+    <board>_<variant>.dts and never a <board>_<default>.dts. A default MAY
+    still carry a fragment (see the pilot's variant_a) -- it just must not
+    be required to, or declaring an axis on an existing rig would break it
+    until a fragment describing what the rig already is gets authored.
+
+    V1a's only fragment kinds are .overlay/_defconfig (collected by the
+    cmake fork); the .yml delta fragment is V1b, not checked here."""
+    if rig.variant is not None and not (
+            rig.variants is not None and rig.variant == rig.variants.default):
+        overlay = f"{rig.name}_{rig.variant}.overlay"
+        defconfig = f"{rig.name}_{rig.variant}_defconfig"
+        if not (os.path.isfile(os.path.join(rig_dir, overlay))
+                or os.path.isfile(os.path.join(rig_dir, defconfig))):
+            diags.error(
+                "lang-variant",
+                f"rig '{rig.name}': variant '{rig.variant}' contributes "
+                f"nothing -- looked for {overlay} and {defconfig}, neither "
+                "exists",
+                [src])
+    if rig.revision is not None and not (
+            rig.revisions is not None
+            and rig.revision == rig.revisions.default):
+        defconfig = f"{rig.name}_{rig.revision}_defconfig"
+        if not os.path.isfile(os.path.join(rig_dir, defconfig)):
+            diags.error(
+                "lang-rev",
+                f"rig '{rig.name}': revision '{rig.revision}' contributes "
+                f"nothing -- looked for {defconfig}, which does not exist",
+                [src])
+
+
 # ---------------------------------------------------------------- loader
 
 def load(rig_path: str, workdir: str, diags: Diagnostics,
         shield_dirs: list[str] | None = None,
-        deps: Depends | None = None) -> Rig | None:
+        deps: Depends | None = None,
+        revision: str | None = None,
+        variant: str | None = None) -> Rig | None:
     if deps is not None:
         deps.see(rig_path)
     shields = load_shield_library(workdir, diags, shield_dirs, deps)
@@ -171,6 +308,21 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     if name_v is None or board_v is None:
         return None
     rig = Rig(name=name_v.v, board=board_v.v, src=rig_v.src)
+
+    # V1a qualifier axes: declare (shape-validated), resolve the SELECTED
+    # value for each (rules 1-4), then check the selection actually
+    # contributes a fragment (rule 10). No delta engine yet, so nothing
+    # below this depends on rig.revision/rig.variant -- they exist purely
+    # for validation and provenance (context.cmake, build_info).
+    rig.revisions = _parse_axis_decl(rig_v, "revisions", diags)
+    rig.variants = _parse_axis_decl(rig_v, "variants", diags)
+    _check_axis_collision(rig, rig_v.src, diags)
+    rig.revision = _resolve_axis(rig.name, "revision", "revisions",
+                                 rig.revisions, revision, rig_v.src, diags)
+    rig.variant = _resolve_axis(rig.name, "variant", "variants",
+                                rig.variants, variant, rig_v.src, diags)
+    if rig.revision is not None or rig.variant is not None:
+        _check_fragment_presence(rig, os.path.dirname(rig_path), rig_v.src, diags)
 
     # dt-includes: parsed and header-validated (rule 6) BEFORE instances, so
     # every params: assignment resolved while parsing instances below has an

@@ -232,6 +232,15 @@ class Wire:
 
 
 @dataclass
+class AxisDecl:
+    """One declared qualifier axis (rig.yml revisions: or variants:, V1a):
+    the values a `-DRIG=name[@rev][/variant]` target may select from, and
+    the one a bare (unqualified) target takes by default."""
+    values: list[str]
+    default: Optional[str] = None
+
+
+@dataclass
 class Rig:
     name: str
     board: str                      # cross-tree string
@@ -241,4 +250,12 @@ class Rig:
     # against, exactly as they would appear in a DTS #include <...>.
     dt_includes: list[str] = field(default_factory=list)
     dt_includes_refs: list[SrcRef] = field(default_factory=list)
+    # V1a qualifier axes (rig-variants-revisions.md): the DECLARED axis, if
+    # any, and the SELECTED value after defaulting -- topology itself is
+    # untouched in V1a (no delta engine yet), so these exist purely for
+    # validation and provenance; the analyzer/emitter never read them.
+    revisions: Optional[AxisDecl] = None
+    variants: Optional[AxisDecl] = None
+    revision: Optional[str] = None
+    variant: Optional[str] = None
     src: Optional[SrcRef] = None

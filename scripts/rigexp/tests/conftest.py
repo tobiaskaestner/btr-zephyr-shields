@@ -191,6 +191,12 @@ ACCEPT_CASES: List[RigCase] = [
     RigCase("nucleo_mux_farm", True),
     RigCase("lotus_pwm", True),
     RigCase("lotus_buttons", True),
+    # Pilot rig family (rig-variants-revisions.md V1a): this entry alone
+    # exercises the BARE target (declared defaults revision=1/variant=
+    # variant_a) through the standard tier-1/tier-2 machinery; the other
+    # three qualifier combinations get their own dedicated tests below,
+    # since a single corpus folder now resolves to more than one tuple.
+    RigCase("pilot_variants", True),
 ]
 
 REJECT_CASES: List[RigCase] = [
@@ -288,6 +294,8 @@ def run_expand(rig_yml: Path, out_dir: Path,
                board_dts: Optional[Path] = None,
                build_info: Optional[Path] = None,
                bindings_dirs: Optional[List[Path]] = None,
+               revision: Optional[str] = None,
+               variant: Optional[str] = None,
                ) -> "subprocess.CompletedProcess[str]":
     """Run python -m rigexp expand exactly as dts.cmake does (modulo the
     recipe form: dts.cmake passes --include-dir/--bindings-dir explicitly;
@@ -300,7 +308,13 @@ def run_expand(rig_yml: Path, out_dir: Path,
     board_dts/build_info are both None for the unknown-board fixture —
     deliberately, so the CLI exercises boarddt's own name->dts DISCOVERY
     (list_boards.py) and its "board not found" diagnostic, exactly as a bare
-    standalone invocation would."""
+    standalone invocation would.
+
+    revision/variant carry the SELECTED qualifier axis values (rig-variants-
+    revisions.md V1a) — the harness's stand-in for what cmake/dts.cmake's
+    fork would resolve via list_rigs.py before invoking this same CLI.
+    Omitted (None) means a bare target: the loader applies the rig's own
+    declared default, if any."""
     zb = zephyr_base()
     env = dict(os.environ)
     env["ZEPHYR_BASE"] = zb
@@ -315,6 +329,10 @@ def run_expand(rig_yml: Path, out_dir: Path,
         cmd += ["--build-info", str(build_info)]
     for b in bindings_dirs or []:
         cmd += ["--bindings-dir", str(b)]
+    if revision is not None:
+        cmd += ["--revision", revision]
+    if variant is not None:
+        cmd += ["--variant", variant]
     cmd += ["--out-dir", str(out_dir)]
     return subprocess.run(cmd, env=env, cwd=str(REPO_ROOT),
                            capture_output=True, text=True, timeout=120)

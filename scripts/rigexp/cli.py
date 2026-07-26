@@ -27,6 +27,12 @@ mirror by hand). Omitting all recipe inputs is not fatal by itself — an
 unknown board is still reported as such, since board resolution never
 needs a recipe — but a named, existing board with no usable recipe is its
 own "phys-board" diagnostic (see boarddt.load_board), not a crash.
+
+--revision/--variant carry the SELECTED qualifier axis values (rig-
+variants-revisions.md V1a) -- the resolved counterpart of a target's
+@rev/variant, which cmake/dts.cmake's fork already worked out via
+list_rigs.py before invoking this CLI. Omit either for a bare target;
+loader_yml.load applies the rig's declared default, if any.
 """
 from __future__ import annotations
 
@@ -74,7 +80,9 @@ def _resolve_recipe(include_dirs: Optional[List[str]],
 def _expand(rig_path: str, shield_dirs: Optional[List[str]], out_dir: str,
            board_dts: Optional[str], include_dirs: Optional[List[str]],
            bindings_dirs: Optional[List[str]],
-           build_info: Optional[str]) -> int:
+           build_info: Optional[str],
+           revision: Optional[str] = None,
+           variant: Optional[str] = None) -> int:
     # Resolve to absolute paths up front: the loader parses each shield in a
     # temp workdir and cpp-includes it by the glob'd path, so a relative
     # --shield-dir yields a relative #include that cpp cannot find from the
@@ -99,7 +107,7 @@ def _expand(rig_path: str, shield_dirs: Optional[List[str]], out_dir: str,
 
     try:
         rig = loader_yml.load(rig_path, workdir, diags, shield_dirs=shield_dirs,
-                              deps=deps)
+                              deps=deps, revision=revision, variant=variant)
     except LoadError as e:
         diags.append(e.diag)
         print(diags.render(), file=sys.stderr)
@@ -146,6 +154,15 @@ def _expand(rig_path: str, shield_dirs: Optional[List[str]], out_dir: str,
         f.write(f'set(RIG_NAME "{rig.name}")\n')
         f.write(f'set(RIG_BOARD "{rig.board}")\n')
         f.write(f'set(RIG_SHIELDS "{";".join(shields)}")\n')
+        # RIG_REVISION/RIG_VARIANT: written only when this rig actually
+        # declares the corresponding axis (rig.revision/rig.variant is
+        # None otherwise) — same "no declaration, no artifact, zero
+        # churn" precedent as rig-gen-includes.dtsi for dt-includes:, so
+        # the 13 axis-less corpus rigs' context.cmake stays byte-identical.
+        if rig.revision is not None:
+            f.write(f'set(RIG_REVISION "{rig.revision}")\n')
+        if rig.variant is not None:
+            f.write(f'set(RIG_VARIANT "{rig.variant}")\n')
         f.write(f'set(RIG_DEPENDS "{deps_list}")\n')
 
     if diags:   # warnings only (errors would have exited above) — surfaced,
@@ -188,6 +205,16 @@ def _add_expand(sub: argparse._SubParsersAction) -> None:
                          "--bindings-dir — standalone/dev convenience "
                          "(edt_build.recipe_from_build_info); wins over "
                          "--include-dir/--bindings-dir if both are given.")
+    p.add_argument("--revision", default=None, metavar="REV",
+                    help="the selected revision axis value (the @rev half "
+                         "of a qualified -DRIG=name@rev/variant target); "
+                         "omit for a bare target, which takes the rig's "
+                         "declared default revision, if any.")
+    p.add_argument("--variant", default=None, metavar="NAME",
+                    help="the selected variant axis value (the /variant "
+                         "half of a qualified target); omit for a bare "
+                         "target, which takes the rig's declared default "
+                         "variant, if any.")
     p.add_argument("--out-dir", required=True,
                     help="directory to write overlay / config-sheet.md / "
                          "expectations.yml into")
@@ -204,7 +231,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "expand":
         return _expand(args.rig, args.shield_dirs, args.out_dir,
                        args.board_dts, args.include_dirs, args.bindings_dirs,
-                       args.build_info)
+                       args.build_info, args.revision, args.variant)
     ap.error(f"unknown command {args.command!r}")
     return 2   # unreachable; ap.error() exits
 

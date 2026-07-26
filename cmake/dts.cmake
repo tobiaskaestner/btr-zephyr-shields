@@ -25,15 +25,17 @@
 #                                  (step 1's output) + BOARD_DIRECTORIES;
 #                                  board dts via _rig_resolve_board_dts()
 #                                  (boards.cmake fork)
-#   3. run the expander        -- rig->folder resolution (reuses the
-#                                  boards.cmake fork's _RIG_RESOLVED_DIR
-#                                  stash, avoiding a second resolution of the
-#                                  same rig; falls back to its own
-#                                  list_rigs.py --json run if that stash is
-#                                  absent), VERBOSE render, rerun-expand.sh,
+#   3. run the expander        -- rig->folder + qualifier-axis resolution
+#                                  (reuses the boards.cmake fork's
+#                                  _RIG_RESOLVED_DIR/REVISION/VARIANT stash,
+#                                  avoiding a second resolution of the same
+#                                  rig; falls back to its own list_rigs.py
+#                                  --rig= run if that stash is absent),
+#                                  VERBOSE render, rerun-expand.sh,
 #                                  RIG_EXPAND_COMMAND knob, error reporting
-#   4. context.cmake handoff   -- RIG_NAME/RIG_BOARD/RIG_SHIELDS, RIG_DEPENDS
-#                                  + static CMAKE_CONFIGURE_DEPENDS
+#   4. context.cmake handoff   -- RIG_NAME/RIG_BOARD/RIG_SHIELDS/
+#                                  RIG_REVISION/RIG_VARIANT, RIG_DEPENDS +
+#                                  static CMAKE_CONFIGURE_DEPENDS
 #   5. shield resolution       -- list_shields discovery, rig-template-marker
 #                                  collision preference, SHIELD_DIRS,
 #                                  pre_dt_shield.cmake includes,
@@ -44,8 +46,12 @@
 #                                  included)
 #   7. overlay/conf handoff    -- prepend to EXTRA_DTC_OVERLAY_FILE; APPEND
 #                                  to shield_conf_files (see the asymmetry
-#                                  note at step 7 below)
-#   8. build_info provenance
+#                                  note at step 7 below); collects the
+#                                  per-variant/-revision fragments too, base
+#                                  -> variant -> revision (V1a, no delta
+#                                  engine yet -- .overlay/_defconfig only)
+#   8. build_info provenance   -- + the selected revision/variant and the
+#                                  applied fragment list
 #   9. include(real dts.cmake) -- LAST line
 
 include_guard(GLOBAL)
@@ -182,71 +188,54 @@ endif()
 # ---------------------------------------------------------------------------
 # Step 3: run the expander.
 
-# Resolve -DRIG=<name> to a rig folder.
+# Resolve -DRIG=<target> to a rig folder + its SELECTED qualifier axes
+# (rig-variants-revisions.md V1a: @rev/variant, or the declared defaults
+# for a bare target). THE TRAP: every fragment filename built below derives
+# from _rig_name/_rig_revision/_rig_variant, NEVER from ${RIG} itself, which
+# from this slice on genuinely carries "name@rev/variant" — using it
+# directly would silently look for the wrong (nonexistent) fragment files.
 #
-# Fall back to a fresh list_rigs.py --json enumeration only if that stash
-# is absent — e.g. a standalone SUB_COMPONENTS configure that reaches dts
-# without ever loading boards.
+# Fall back to a fresh list_rigs.py --rig= resolution only if the
+# boards.cmake fork's stash is absent — e.g. a standalone SUB_COMPONENTS
+# configure that reaches dts without ever loading boards. Same resolver,
+# same --cmakeformat keys as boards.cmake's Step 1: this file must never
+# re-derive rig->folder/axis resolution by hand (design rule 1).
 if(DEFINED _RIG_RESOLVED_DIR AND NOT "${_RIG_RESOLVED_DIR}" STREQUAL "")
   set(_rig_dir "${_RIG_RESOLVED_DIR}")
   set(_rig_name "${_RIG_RESOLVED_NAME}")
+  set(_rig_revision "${_RIG_RESOLVED_REVISION}")
+  set(_rig_variant "${_RIG_RESOLVED_VARIANT}")
 else()
   message(VERBOSE
     "Rig: _RIG_RESOLVED_DIR is unset -- boards.cmake's fork did not run "
     "before this file in this configure; resolving -DRIG=${RIG} again via "
-    "list_rigs.py --json.")
+    "list_rigs.py --rig=.")
 
-  # Mirrors exactly how the shield resolution step below resolves shield
-  # names via list_shields.py --json.
   list(TRANSFORM BOARD_ROOT PREPEND "--board-root=" OUTPUT_VARIABLE _rig_board_root_args)
 
-  set(_rig_list_rigs_argv
-    ${PYTHON_EXECUTABLE} ${_RIG_BTR_ROOT}/scripts/list_rigs.py
-    ${_rig_board_root_args} --json)
-
-  set(_list_rigs_commands COMMAND ${_rig_list_rigs_argv})
-
-  # No env prefix applies here (list_rigs.py needs neither PYTHONPATH nor
-  # ZEPHYR_BASE) — just the plain, copy-pasteable argv.
-  _rig_shell_quote_argv(_rig_list_rigs_render ${_rig_list_rigs_argv})
-  message(VERBOSE "Rig: list_rigs command:\n${_rig_list_rigs_render}")
-
-  execute_process(${_list_rigs_commands}
-    OUTPUT_VARIABLE _rigs_json
-    ERROR_VARIABLE _err_rigs
-    RESULT_VARIABLE _ret_val_rigs
-  )
-
-  if(_ret_val_rigs)
-    message(FATAL_ERROR "Error finding rigs\nError message: ${_err_rigs}")
+  execute_process(
+    COMMAND ${PYTHON_EXECUTABLE} ${_RIG_BTR_ROOT}/scripts/list_rigs.py
+      ${_rig_board_root_args} --rig=${RIG}
+      --cmakeformat={NAME}\;{DIR}\;{BOARD}\;{REVISION}\;{VARIANT}
+    OUTPUT_VARIABLE _rig_fallback_out
+    ERROR_VARIABLE _rig_fallback_err
+    RESULT_VARIABLE _rig_fallback_rv)
+  if(_rig_fallback_rv)
+    message(FATAL_ERROR "Rig: -DRIG=${RIG} did not resolve:\n${_rig_fallback_err}")
   endif()
+  string(STRIP "${_rig_fallback_out}" _rig_fallback_out)
+  cmake_parse_arguments(_RIG_FALLBACK "" "NAME;DIR;BOARD;REVISION;VARIANT" "" ${_rig_fallback_out})
 
-  string(JSON _rigs_length LENGTH ${_rigs_json})
-
-  set(_rig_dir)
-  set(RIG_LIST)
-  if(_rigs_length GREATER 0)
-    math(EXPR _rigs_length "${_rigs_length} - 1")
-
-    foreach(i RANGE ${_rigs_length})
-      string(JSON _rig_entry GET "${_rigs_json}" "${i}")
-      string(JSON _rig_entry_name GET ${_rig_entry} name)
-      string(JSON _rig_entry_dir GET ${_rig_entry} dir)
-      list(APPEND RIG_LIST ${_rig_entry_name})
-      if(_rig_entry_name STREQUAL RIG)
-        set(_rig_dir ${_rig_entry_dir})
-        set(_rig_name ${_rig_entry_name})
-      endif()
-    endforeach()
-  endif()
-  list(SORT RIG_LIST)
-
-  if(NOT _rig_dir)
-    string(REPLACE ";" "\n" _rig_string "${RIG_LIST}")
-    message(FATAL_ERROR
-      "Rig: -DRIG=${RIG} does not resolve to a rig.\n"
-      "Please choose from among the following rigs:\n${_rig_string}")
-  endif()
+  set(_rig_dir "${_RIG_FALLBACK_DIR}")
+  set(_rig_name "${_RIG_FALLBACK_NAME}")
+  set(_rig_revision "${_RIG_FALLBACK_REVISION}")
+  set(_rig_variant "${_RIG_FALLBACK_VARIANT}")
+endif()
+if(_rig_revision STREQUAL "NOTFOUND")
+  set(_rig_revision "")
+endif()
+if(_rig_variant STREQUAL "NOTFOUND")
+  set(_rig_variant "")
 endif()
 
 set(_rig_yml "${_rig_dir}/rig.yml")
@@ -266,6 +255,23 @@ set(_rig_conf "${_rig_out_dir}/rig-gen.conf")
 
 set(_rig_user_overlay "${_rig_dir}/${_rig_name}.overlay")
 set(_rig_conf_file "${_rig_dir}/${_rig_name}_defconfig")
+
+# Per-axis fragment filenames (rig-variants-revisions.md V1a Q6: constructed
+# by _-joining the resolved name + selected axis, never parsed) -- built
+# from _rig_name/_rig_revision/_rig_variant, per THE TRAP note above. Empty
+# string (axis not selected / not declared) means no fragment of that kind
+# exists to look for. V1a has no .yml delta fragment yet (V1b) and no
+# per-revision .overlay (item 3): only these three.
+set(_rig_variant_overlay "")
+set(_rig_variant_conf_file "")
+set(_rig_rev_conf_file "")
+if(_rig_variant)
+  set(_rig_variant_overlay "${_rig_dir}/${_rig_name}_${_rig_variant}.overlay")
+  set(_rig_variant_conf_file "${_rig_dir}/${_rig_name}_${_rig_variant}_defconfig")
+endif()
+if(_rig_revision)
+  set(_rig_rev_conf_file "${_rig_dir}/${_rig_name}_${_rig_revision}_defconfig")
+endif()
 
 # Shield-library roots: every board_root's boards/shields, mirroring how
 # list_shields.py itself discovers shields (root/boards/shields). The expander
@@ -300,6 +306,18 @@ else()
     ${_rig_include_dir_args}
     ${_rig_bindings_dir_args}
     --out-dir "${_rig_out_dir}")
+  # --revision/--variant carry the SELECTED axis (empty = not selected /
+  # not declared), so the loader validates against rig.yml's own
+  # declarations and applies defaults exactly as list_rigs.py already did
+  # for cmake's own filename construction above -- omitted entirely rather
+  # than passed empty, so the loader sees "bare target" (None), not a
+  # selected empty-string axis.
+  if(_rig_revision)
+    list(APPEND _rig_debug_argv --revision "${_rig_revision}")
+  endif()
+  if(_rig_variant)
+    list(APPEND _rig_debug_argv --variant "${_rig_variant}")
+  endif()
   set(_rig_cmd "${CMAKE_COMMAND}" -E env ${_rig_debug_env} ${_rig_debug_argv})
 endif()
 
@@ -378,10 +396,17 @@ set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
   "${_RIG_BTR_ROOT}/scripts/list_rigs.py")
 
 # Handoff: the expander wrote context.cmake telling us what the rig instantiated
-# (RIG_NAME / RIG_BOARD / RIG_SHIELDS). Step 5 drives its Kconfig/bookkeeping
-# loop over RIG_SHIELDS instead of -DSHIELD.
+# (RIG_NAME / RIG_BOARD / RIG_SHIELDS / RIG_REVISION / RIG_VARIANT). Step 5
+# drives its Kconfig/bookkeeping loop over RIG_SHIELDS instead of -DSHIELD.
 include(${_rig_out_dir}/context.cmake OPTIONAL)
-message(STATUS "Rig: '${RIG_NAME}' board=${RIG_BOARD} shields=[${RIG_SHIELDS}]")
+set(_rig_qualifier_desc "")
+if(RIG_REVISION)
+  string(APPEND _rig_qualifier_desc " revision=${RIG_REVISION}")
+endif()
+if(RIG_VARIANT)
+  string(APPEND _rig_qualifier_desc " variant=${RIG_VARIANT}")
+endif()
+message(STATUS "Rig: '${RIG_NAME}' board=${RIG_BOARD} shields=[${RIG_SHIELDS}]${_rig_qualifier_desc}")
 
 # Dependency-tracking handoff (dynamic half): RIG_DEPENDS is every real
 # source-tree file THIS expand actually read — rig.yml, every parsed
@@ -622,10 +647,19 @@ pre_dt_module_run()
 # the controller (status="okay") and names the pin in the config sheet; it
 # does not author SoC pinmux. Applied after the expander overlay so it can
 # augment nodes the expander created.
+set(_rig_applied_fragments)
 set(_rig_overlay_files "${_rig_overlay}")
 if(EXISTS "${_rig_user_overlay}")
   list(APPEND _rig_overlay_files "${_rig_user_overlay}")
   message(STATUS "Rig: applying ${_rig_user_overlay}")
+endif()
+# Per-variant DT fragment (V1a: variant only -- revisions have no .overlay
+# kind, item 3): base -> variant, most specific last, same list-order
+# precedence EXTRA_DTC_OVERLAY_FILE already gives the base pair above.
+if(_rig_variant_overlay AND EXISTS "${_rig_variant_overlay}")
+  list(APPEND _rig_overlay_files "${_rig_variant_overlay}")
+  list(APPEND _rig_applied_fragments "${_rig_variant_overlay}")
+  message(STATUS "Rig: applying variant overlay ${_rig_variant_overlay}")
 endif()
 set(EXTRA_DTC_OVERLAY_FILE ${_rig_overlay_files} ${EXTRA_DTC_OVERLAY_FILE})
 
@@ -642,6 +676,28 @@ if(EXISTS "${_rig_conf_file}")
   list(APPEND shield_conf_files "${_rig_conf_file}")
   message(STATUS "Rig: applying ${_rig_conf_file}")
 endif()
+
+# Per-axis Kconfig fragments, base -> variant -> revision (most specific
+# last, item 3) -- same APPEND slot the base pair above already rides.
+if(_rig_variant_conf_file AND EXISTS "${_rig_variant_conf_file}")
+  list(APPEND shield_conf_files "${_rig_variant_conf_file}")
+  list(APPEND _rig_applied_fragments "${_rig_variant_conf_file}")
+  message(STATUS "Rig: applying variant defconfig ${_rig_variant_conf_file}")
+endif()
+if(_rig_rev_conf_file AND EXISTS "${_rig_rev_conf_file}")
+  list(APPEND shield_conf_files "${_rig_rev_conf_file}")
+  list(APPEND _rig_applied_fragments "${_rig_rev_conf_file}")
+  message(STATUS "Rig: applying revision defconfig ${_rig_rev_conf_file}")
+endif()
+
+# Dependency-tracking (item 4/7): every APPLIED fragment must retrigger
+# configure on edit, same as the base pair already registered in step 4 --
+# these are cmake-known (constructed + EXISTS-checked above, never opened
+# by the loader), so they are added directly rather than round-tripped
+# through the expander's own RIG_DEPENDS report.
+if(_rig_applied_fragments)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_rig_applied_fragments})
+endif()
 # ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
@@ -651,6 +707,7 @@ endif()
 # uses for its own devicetree section.
 list(JOIN RIG_SHIELDS ", " _rig_shields_joined)
 list(JOIN SHIELD_DIRS ", " _rig_shield_dirs_joined)
+list(JOIN _rig_applied_fragments ", " _rig_fragments_joined)
 
 build_info(vendor-specific rig name VALUE "${RIG_NAME}")
 build_info(vendor-specific rig board VALUE "${RIG_BOARD}")
@@ -660,6 +717,15 @@ build_info(vendor-specific rig shields VALUE "${_rig_shields_joined}")
 build_info(vendor-specific rig shield-dirs VALUE "${_rig_shield_dirs_joined}")
 build_info(vendor-specific rig out-dir VALUE "${_rig_out_dir}")
 build_info(vendor-specific rig overlay-gen VALUE "${_rig_overlay}")
+if(_rig_revision)
+  build_info(vendor-specific rig revision VALUE "${_rig_revision}")
+endif()
+if(_rig_variant)
+  build_info(vendor-specific rig variant VALUE "${_rig_variant}")
+endif()
+if(_rig_applied_fragments)
+  build_info(vendor-specific rig fragments VALUE "${_rig_fragments_joined}")
+endif()
 if(EXISTS "${_rig_conf}")
   build_info(vendor-specific rig defconfig-gen VALUE "${_rig_conf}")
 endif()

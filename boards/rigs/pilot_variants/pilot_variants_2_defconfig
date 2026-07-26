@@ -1,0 +1,7 @@
+# Revision 2's own Kconfig fragment -- evolves revision 1's own value of
+# the same symbol (128 -> 256): a real temporal change, not just an
+# unrelated addition. A qualified build (pilot_variants@2/<variant>) shows
+# BOTH the variant's own symbol AND this one in .config, proving
+# base -> variant -> revision really stack rather than one silently
+# overwriting the other.
+CONFIG_HEAP_MEM_POOL_SIZE=256

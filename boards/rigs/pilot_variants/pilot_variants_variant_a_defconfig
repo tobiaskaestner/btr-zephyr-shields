@@ -1,0 +1,6 @@
+# variant_a's own Kconfig fragment (rig-variants-revisions.md V1a pilot):
+# a distinctive, always-available core kernel symbol value, so a real
+# build's .config proves this fragment was actually collected -- no driver
+# dependency, so it can never be silently dropped by an unmet Kconfig
+# dependency.
+CONFIG_MAIN_STACK_SIZE=1111

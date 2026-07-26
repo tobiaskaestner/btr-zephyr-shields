@@ -41,7 +41,8 @@ if(DEFINED RIG)
   list(TRANSFORM BOARD_ROOT PREPEND "--board-root=" OUTPUT_VARIABLE _rig_broot_args)
   execute_process(
     COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/../scripts/list_rigs.py
-      ${_rig_broot_args} --rig=${RIG} --cmakeformat={NAME}\;{DIR}\;{BOARD}
+      ${_rig_broot_args} --rig=${RIG}
+      --cmakeformat={NAME}\;{DIR}\;{BOARD}\;{REVISION}\;{VARIANT}
     OUTPUT_VARIABLE _rig_resolve_out
     ERROR_VARIABLE _rig_resolve_err
     RESULT_VARIABLE _rig_resolve_rv)
@@ -50,7 +51,18 @@ if(DEFINED RIG)
   endif()
   string(STRIP "${_rig_resolve_out}" _rig_resolve_out)
 
-  cmake_parse_arguments(_RIG_RESOLVED "" "NAME;DIR;BOARD" "" ${_rig_resolve_out})
+  # REVISION/VARIANT are the SELECTED qualifier axes (rig-variants-
+  # revisions.md V1a) -- list_rigs.py already validated them against the
+  # rig's own declarations and applied defaults for a bare target, so what
+  # comes back here is either NOTFOUND (axis undeclared / not selected) or
+  # the concrete string every fragment filename downstream is built from.
+  cmake_parse_arguments(_RIG_RESOLVED "" "NAME;DIR;BOARD;REVISION;VARIANT" "" ${_rig_resolve_out})
+  if(_RIG_RESOLVED_REVISION STREQUAL "NOTFOUND")
+    set(_RIG_RESOLVED_REVISION "")
+  endif()
+  if(_RIG_RESOLVED_VARIANT STREQUAL "NOTFOUND")
+    set(_RIG_RESOLVED_VARIANT "")
+  endif()
 
   # RIG and BOARD are mutually exclusive, it asks "did the USER pass
   # BOARD", which is not the same question as "is BOARD defined": BOARD is
@@ -100,7 +112,14 @@ reconfigure of the SAME build dir is not mistaken for a user-passed \
 -DBOARD")
   endif()
 
-  message(STATUS "Rig: ${_RIG_RESOLVED_NAME} (${_RIG_RESOLVED_DIR}/rig.yml), board: ${_RIG_RESOLVED_BOARD}")
+  set(_rig_boards_qualifiers_desc "")
+  if(_RIG_RESOLVED_REVISION)
+    string(APPEND _rig_boards_qualifiers_desc " revision: ${_RIG_RESOLVED_REVISION}")
+  endif()
+  if(_RIG_RESOLVED_VARIANT)
+    string(APPEND _rig_boards_qualifiers_desc " variant: ${_RIG_RESOLVED_VARIANT}")
+  endif()
+  message(STATUS "Rig: ${_RIG_RESOLVED_NAME} (${_RIG_RESOLVED_DIR}/rig.yml), board: ${_RIG_RESOLVED_BOARD}${_rig_boards_qualifiers_desc}")
 endif()
 # ---------------------------------------------------------------------------
 

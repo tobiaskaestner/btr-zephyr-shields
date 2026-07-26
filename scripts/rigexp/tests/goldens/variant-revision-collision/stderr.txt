@@ -1,0 +1,2 @@
+error[lang-variant]: rig 'variant-revision-collision': variant name(s) 2 collide with a declared revision id -- the constructed fragment filenames (<rigname>_<id>...) would be ambiguous between the two axes
+    at tests/fixtures/variant-revision-collision/rig.yml:7 (rig)

@@ -21,7 +21,7 @@ import argparse
 import json
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import yaml
@@ -47,6 +47,14 @@ class Rig:
     name: str
     dir: Path
     board: str | None = None
+    # DECLARED qualifier axes (rig.yml revisions:/variants:, V1a), each
+    # {'default': str|None, 'list': [str, ...]} or None if undeclared.
+    revisions: dict | None = None
+    variants: dict | None = None
+    # SELECTED axis values, filled in only by resolve_rig_target (never by
+    # find_rigs_in, which just enumerates declarations) -- None until then.
+    revision: str | None = None
+    variant: str | None = None
 
 
 def rig_key(rig):
@@ -83,8 +91,14 @@ def find_rigs_in(root):
         name = rig_data.get('name')
         if not name:
             sys.exit(f'ERROR: rig has no rig.name: {rig_yml.as_posix()}')
+        # Declared axes: read here (not validated for shape -- that is the
+        # rigexp loader's job, the canonical rig.yml content parser; this
+        # is enough to resolve a bare target's default for filename
+        # construction, per resolve_rig_target below).
         ret.append(Rig(name=name, dir=maybe_rig,
-                       board=rig_data.get('board')))
+                       board=rig_data.get('board'),
+                       revisions=rig_data.get('revisions'),
+                       variants=rig_data.get('variants')))
 
     return sorted(ret, key=rig_key)
 
@@ -105,6 +119,38 @@ def parse_rig_target(target):
     return name, revision, variant
 
 
+def _resolve_axis(rig_name, axis_kind, decl_key, declared, selected):
+    """Resolve one qualifier axis (revision or variant) against its rig.yml
+    declaration: an explicitly selected value must be a declared member; a
+    bare (unselected) axis takes the declared default, erroring if there is
+    none. Mirrors rigexp.loader_yml._resolve_axis (rules 1-3) -- this
+    lightweight copy exists so cmake can construct fragment filenames
+    BEFORE ever invoking the expander; the loader is still the canonical
+    validator once `rigexp expand` itself runs (every real build reaches
+    it). Returns the resolved value, or None if the axis is undeclared and
+    nothing was selected."""
+    if selected is not None:
+        if declared is None:
+            sys.exit(f"ERROR: rig '{rig_name}' names a {axis_kind} "
+                      f"({selected!r}), but this rig declares no "
+                      f"{decl_key}: at all.")
+        values = [str(v) for v in (declared.get('list') or [])]
+        if selected not in values:
+            sys.exit(f"ERROR: rig '{rig_name}': {axis_kind} '{selected}' is "
+                      f"not declared -- known {axis_kind}s: "
+                      f"{', '.join(values) or '(none)'}")
+        return selected
+    if declared is None:
+        return None
+    default = declared.get('default')
+    if default is not None:
+        return str(default)
+    values = [str(v) for v in (declared.get('list') or [])]
+    sys.exit(f"ERROR: rig '{rig_name}' names no {axis_kind}, and this rig "
+              f"declares no default {axis_kind} -- choose one of: "
+              f"{', '.join(values) or '(none)'}")
+
+
 def resolve_rig_target(target, args):
     """Resolve a FULL `-DRIG=<target>` string to the ONE rig it names — the
     cmake-facing seam for cmake/boards.cmake's fork (rig->board inference +
@@ -113,12 +159,16 @@ def resolve_rig_target(target, args):
     `west rigs --rig <target>` use.
 
     Design rule 1 (ratified 2026-07-24): cmake never parses rig CONTENT — it
-    hands this function the target VERBATIM; resolution semantics live here
-    (and, once V1/V2 land, in the rigexp loader this may come to call), never
-    reimplemented in cmake. Pre-V1/V2 only a bare name resolves: `@rev` /
-    `/variant` are recognized (the grammar is accepted from day one, so V1/V2
-    land with zero cmake churn) but loudly rejected here — a placeholder that
-    deepens into real resolution behind this SAME interface.
+    hands this function the target VERBATIM; resolution semantics live here,
+    never reimplemented in cmake. `@rev`/`/variant` resolve fully as of V1a:
+    the selected value is validated against the rig's OWN declared
+    revisions:/variants: (or defaulted, for a bare target) and returned
+    alongside NAME/DIR/BOARD, so cmake can construct the per-axis fragment
+    filenames (`<name>_<variant>.overlay` etc.) without parsing rig.yml
+    itself. `rigexp expand`, invoked later in the SAME configure, is the
+    canonical validator (lang-rev/lang-variant diagnostics) -- this
+    resolution exists so cmake has concrete axis strings to build filenames
+    from, not to duplicate that diagnostic quality.
 
     Exits (via `sys.exit`, mirroring `find_rigs_in`'s existing error
     convention in this module) rather than raising, so a cmake
@@ -126,17 +176,6 @@ def resolve_rig_target(target, args):
     no Python traceback.
     """
     name, revision, variant = parse_rig_target(target)
-    if revision or variant:
-        parts = []
-        if revision:
-            parts.append(f'a revision (@{revision})')
-        if variant:
-            parts.append(f'a variant (/{variant})')
-        sys.exit(
-            f"ERROR: rig target '{target}' names {' and '.join(parts)} -- "
-            "rig revisions/variants are not yet supported (V1/V2, parked); "
-            f"only a bare rig name resolves today. Try -DRIG={name}."
-        )
     rigs = find_rigs(args)
     for rig in rigs:
         if rig.name == name:
@@ -144,7 +183,12 @@ def resolve_rig_target(target, args):
                 sys.exit(
                     f"ERROR: rig '{name}' ({(rig.dir / RIG_YML).as_posix()}) "
                     "has no rig.board -- cannot resolve a board target.")
-            return rig
+            resolved_revision = _resolve_axis(
+                rig.name, 'revision', 'revisions', rig.revisions, revision)
+            resolved_variant = _resolve_axis(
+                rig.name, 'variant', 'variants', rig.variants, variant)
+            return replace(rig, revision=resolved_revision,
+                           variant=resolved_variant)
     available = ', '.join(r.name for r in rigs) or '(none)'
     sys.exit(f"ERROR: -DRIG={target} does not resolve to a rig.\n"
               f"  available rigs: {available}")
@@ -174,14 +218,16 @@ def add_args_formatting(parser):
     parser.add_argument("--cmakeformat", default=None,
                          help='CMake format string for --rig (mirrors '
                               "list_boards.py's --board query mode); "
-                              'available keys: {NAME}, {DIR}, {BOARD}')
+                              'available keys: {NAME}, {DIR}, {BOARD}, '
+                              '{REVISION}, {VARIANT}')
 
 
 def dump_rigs(rigs, args):
     if args.json:
         print(
             json.dumps([{'dir': rig.dir.as_posix(), 'name': rig.name,
-                         'board': rig.board} for rig in rigs])
+                         'board': rig.board, 'revisions': rig.revisions,
+                         'variants': rig.variants} for rig in rigs])
         )
     else:
         for rig in rigs:
@@ -196,6 +242,8 @@ def dump_rig_target(rig, args):
             NAME='NAME;' + rig.name,
             DIR='DIR;' + rig.dir.as_posix(),
             BOARD='BOARD;' + notfound(rig.board),
+            REVISION='REVISION;' + notfound(rig.revision),
+            VARIANT='VARIANT;' + notfound(rig.variant),
         )
         print(info)
     else:

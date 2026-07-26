@@ -1,0 +1,6 @@
+# The rig's own base Kconfig fragment. Holds the value revision 2 evolves
+# (HEAP_MEM_POOL_SIZE 128 -> 256), so the temporal change is a real
+# evolution of an existing setting rather than an unrelated addition -- and
+# so revision 1, the declared default, needs no fragment of its own: the
+# base file IS what revision 1 means.
+CONFIG_HEAP_MEM_POOL_SIZE=128

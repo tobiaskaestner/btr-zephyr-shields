@@ -229,23 +229,63 @@ def test_cmake_alone_reconfigure_of_rig_build_dir_proceeds(tmp_path: Path) -> No
         f"--- stderr ---\n{second.stderr}")
 
 
-def test_cmake_alone_qualified_rig_target_rejected(tmp_path: Path) -> None:
-    """A qualified target (@rev or /variant) gets a loud not-yet-supported
-    diagnostic from the resolver — a placeholder until rig variants/
-    revisions land, never silent/partial resolution."""
+def test_cmake_alone_qualified_target_resolves(tmp_path: Path) -> None:
+    """rig-variants-revisions.md V1a, end-to-end at the cmake-alone entry
+    point specifically (not just west build-rig): a FULLY qualified target
+    (name@rev/variant) must resolve to the SAME board and rig provenance
+    (including the SELECTED revision/variant themselves, and the applied
+    fragment list) as west build-rig with the identical target string --
+    same shape as test_cmake_alone_entry_equivalent_to_build_rig, but
+    proving the qualifier axes specifically survive both entry points."""
+    target = "pilot_variants@2/variant_b"
+    reference_dir = tmp_path / "build-rig-reference"
+    result_ref = _run_build_rig(target, reference_dir)
+    assert result_ref.returncode == 0, (
+        f"west build-rig --rig {target} --cmake-only failed\n"
+        f"--- stdout ---\n{result_ref.stdout}\n--- stderr ---\n{result_ref.stderr}")
+
+    cmake_dir = tmp_path / "cmake-alone"
+    result_cmake = _run_cmake_alone(cmake_dir, [f"-DRIG={target}"])
+    assert result_cmake.returncode == 0, (
+        f"cmake -DRIG={target} (no -DBOARD, west absent) failed to configure\n"
+        f"--- stdout ---\n{result_cmake.stdout}\n--- stderr ---\n{result_cmake.stderr}")
+
+    with open(reference_dir / "build_info.yml") as f:
+        ref_info = yaml.safe_load(f)
+    with open(cmake_dir / "build_info.yml") as f:
+        cmake_info = yaml.safe_load(f)
+
+    ref_rig = ref_info["cmake"]["vendor-specific"]["rig"]
+    cmake_rig = cmake_info["cmake"]["vendor-specific"]["rig"]
+    for key in ("name", "board", "revision", "variant", "fragments"):
+        assert cmake_rig.get(key) == ref_rig.get(key), (
+            f"rig provenance {key!r} differs between cmake-alone and "
+            f"build-rig: {cmake_rig.get(key)!r} vs {ref_rig.get(key)!r}")
+    assert ref_rig["revision"] == "2"
+    assert ref_rig["variant"] == "variant_b"
+
+
+def test_cmake_alone_qualified_rig_target_against_undeclared_axis_rejected(
+        tmp_path: Path) -> None:
+    """rig-variants-revisions.md V1a: qualifiers now RESOLVE (the old
+    unconditional not-yet-supported placeholder is gone) — list_rigs.py's
+    own resolve_rig_target validates a selected axis against the rig's OWN
+    declarations, so a qualifier against nucleo_datalogger (which declares
+    NEITHER axis) is rejected with the declares-no-such-axis wording,
+    reached all the way through a real cmake-alone configure (the
+    qualified-pilot-build tier-2 tests exercise the ACCEPT half of this
+    same resolution path)."""
     build_dir = tmp_path / "qualified-revision"
     result = _run_cmake_alone(build_dir, [f"-DRIG={_RIG}@1"])
     assert result.returncode != 0
     combined = result.stdout + result.stderr
-    assert "not yet supported" in combined, combined
-    assert "revision" in combined, combined
+    assert "declares no revisions" in combined, combined
 
     build_dir = tmp_path / "qualified-variant"
     result = _run_cmake_alone(build_dir, [f"-DRIG={_RIG}/foo"])
     assert result.returncode != 0
     combined = result.stdout + result.stderr
-    assert "not yet supported" in combined, combined
-    assert "variant" in combined, combined
+    assert "declares no variants" in combined, combined
 
 
 def test_cmake_alone_shield_rig_both_given_is_fatal(tmp_path: Path) -> None:

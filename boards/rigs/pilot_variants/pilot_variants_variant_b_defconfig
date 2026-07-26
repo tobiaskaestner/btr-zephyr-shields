@@ -1,0 +1,4 @@
+# variant_b's own Kconfig fragment -- a DIFFERENT value of the same
+# always-available symbol variant_a sets, so the two variants are
+# distinguishable in a real .config by this value alone.
+CONFIG_MAIN_STACK_SIZE=2222
