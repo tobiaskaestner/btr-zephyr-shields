@@ -1,0 +1,13 @@
+# Synthetic fixture: a top-level board: alongside a variants: axis that
+# ALSO declares its own boards. Two legal shapes exist (one board once at
+# the top level, or one per variant) and mixing them makes "which board
+# won" unanswerable from the file alone -- rejected rather than resolved
+# by an implicit precedence rule.
+rig:
+  name: board-declared-twice
+  board: nucleo_f401re/stm32f401xe/rig
+  variants:
+    default: a
+    list:
+      - name: a
+        board: frdm_k64f/mk64f12/rig

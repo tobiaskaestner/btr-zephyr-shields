@@ -1,0 +1,3 @@
+error[lang-schema]: rig 'board-declared-twice' declares a top-level board: while its variants also declare their own -- a rig may declare a board per variant or once at the top level, never both
+    at tests/fixtures/board-declared-twice/rig.yml:8 (rig.board)
+    at tests/fixtures/board-declared-twice/rig.yml:7 (rig)

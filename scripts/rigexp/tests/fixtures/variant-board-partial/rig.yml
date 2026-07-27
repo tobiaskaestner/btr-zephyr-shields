@@ -1,0 +1,12 @@
+# Synthetic fixture: only SOME declared variants carry a board: --
+# variant 'b' declares none while 'a' does. Every variant must declare a
+# board, or none should; a partial declaration would leave 'b' resolving
+# to no board at all, which is not a silent fallback this split permits.
+rig:
+  name: variant-board-partial
+  variants:
+    default: a
+    list:
+      - name: a
+        board: nucleo_f401re/stm32f401xe/rig
+      - b

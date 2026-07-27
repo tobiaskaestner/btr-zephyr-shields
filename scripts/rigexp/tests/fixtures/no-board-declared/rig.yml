@@ -1,0 +1,5 @@
+# Synthetic fixture: neither a top-level board: nor a variants: axis
+# declaring one per value -- the rig names no board at all, in either
+# legal shape.
+rig:
+  name: no-board-declared

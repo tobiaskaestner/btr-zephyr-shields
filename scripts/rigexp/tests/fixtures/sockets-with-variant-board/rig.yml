@@ -1,0 +1,15 @@
+# Synthetic fixture: a top-level sockets: map while every variant ALSO
+# declares its own board (and could carry its own socket map beside it).
+# A top-level sockets: only makes sense paired with a top-level board: in
+# the degenerate single-board shape; once boards are per-variant, a
+# top-level map has no single board to be a map FOR.
+rig:
+  name: sockets-with-variant-board
+  sockets:
+    ard: nucleo_ard
+  variants:
+    default: a
+    list:
+      - name: a
+        board: nucleo_f401re/stm32f401xe/rig
+        sockets: {ard: nucleo_ard}

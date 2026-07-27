@@ -1076,3 +1076,178 @@ def test_unmapped_socket_golden(tmp_path: Path,
     golden_dir = GOLDENS_DIR / "unmapped-socket"
     freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+# ---------------------------------------------------------------- _resolve_board shape rules
+#
+# Every lang-schema rejection _resolve_board (loader_yml.py) and its
+# _parse_axis_decl/_reject_metadata_keys neighbours can raise, pinned one
+# case at a time. All are pure loader-level shape defects -- none reaches
+# the analyzer, so none needs a real board recipe (no @pytest.mark.build).
+
+
+def test_revision_mapping_entry_golden(tmp_path: Path) -> None:
+    """A mapping entry ({name:, board:}) in a NON-variant axis's list: is
+    rejected -- only a rig's variants: axis may take that shape; a
+    revision is a change within one physical family, never a move to a
+    different host board, so revisions: (and every shield.yml revisions:)
+    takes bare names only."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "revision-mapping-entry" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, (
+        "a mapping entry in a non-variant axis list must be rejected")
+    assert "[lang-schema]" in result.stderr, result.stderr
+    assert "legal only in a rig's variants: list" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "revision-mapping-entry"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_board_declared_twice_golden(tmp_path: Path) -> None:
+    """A top-level board: alongside a variants: axis that ALSO declares
+    its own boards is rejected: two legal shapes exist (one board once at
+    the top level, or one per variant), and a rig taking both would make
+    "which board won" unanswerable from the file alone."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "board-declared-twice" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, (
+        "a top-level board: alongside per-variant boards must be rejected")
+    assert "[lang-schema]" in result.stderr, result.stderr
+    assert "never both" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "board-declared-twice"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_variant_board_partial_golden(tmp_path: Path) -> None:
+    """Only SOME declared variants carrying a board: is rejected: a
+    partial declaration would leave the other variant resolving to no
+    board at all, which is not a silent fallback this split permits --
+    every variant must declare a board, or none should."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "variant-board-partial" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, (
+        "only some variants declaring board: must be rejected")
+    assert "[lang-schema]" in result.stderr, result.stderr
+    assert "every variant must declare a board, or none should" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "variant-board-partial"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_sockets_with_variant_board_golden(tmp_path: Path) -> None:
+    """A top-level sockets: map is rejected once every variant declares
+    its own board: a top-level map only makes sense paired with a
+    top-level board in the degenerate single-board shape; once boards are
+    per-variant, a top-level map has no single board to be a map for."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "sockets-with-variant-board" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, (
+        "a top-level sockets: map alongside per-variant boards must be rejected")
+    assert "[lang-schema]" in result.stderr, result.stderr
+    assert "declares a top-level sockets: map" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "sockets-with-variant-board"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_no_board_declared_golden(tmp_path: Path) -> None:
+    """A rig declaring no board at all -- neither a top-level board: nor
+    one per variant -- is rejected: every rig must name at least one host
+    board, in one of the two legal shapes."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "no-board-declared" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, "a rig with no board declared at all must be rejected"
+    assert "[lang-schema]" in result.stderr, result.stderr
+    assert "declares no board:" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "no-board-declared"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_content_file_carries_board_golden(tmp_path: Path) -> None:
+    """The BASE content file (<rigname>.yml), not a delta fragment,
+    carrying board: is rejected -- the hole the metadata/content split
+    left in its first slice: a content file is topology only, so board:
+    surviving there is a defect regardless of whether it arrives via a
+    fragment or the base file itself."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "content-file-carries-board" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, (
+        "a base content file carrying board: must be rejected")
+    assert "[lang-schema]" in result.stderr, result.stderr
+    assert "'board:' is rig.yml metadata" in result.stderr, result.stderr
+    assert "content-file-carries-board.yml" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "content-file-carries-board"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_content_file_carries_sockets_golden(tmp_path: Path) -> None:
+    """The other half of the same rejection: the base content file
+    carrying sockets: instead of board:. Both keys are rig.yml metadata;
+    neither is legal in a content file of any kind."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "content-file-carries-sockets" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, (
+        "a base content file carrying sockets: must be rejected")
+    assert "[lang-schema]" in result.stderr, result.stderr
+    assert "'sockets:' is rig.yml metadata" in result.stderr, result.stderr
+    assert "content-file-carries-sockets.yml" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "content-file-carries-sockets"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_shield_revisions_mapping_entry_golden(tmp_path: Path) -> None:
+    """The identical mapping-entry rejection, raised from a SHIELD's own
+    shield.yml revisions: list rather than a rig's: blamed on the shield,
+    BY NAME, since the axis parser is shared with rig.yml and would
+    otherwise report "rig revisions: ...", naming no shield at all. Its
+    own fixture shields root, because the defect is reported at
+    library-scan time for every folder scanned."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "shield-revisions-mapping-entry" / "rig.yml"
+    result = run_expand(rig_yml, out_dir,
+                        shield_dirs=[FIXTURES_DIR / "v1c-mapping-badyml"])
+
+    assert result.returncode != 0, (
+        "a mapping entry in a shield's own revisions: list must be rejected")
+    assert "[lang-schema]" in result.stderr, result.stderr
+    assert "shield 'mapentry_fixture' revisions:" in result.stderr, result.stderr
+    assert "legal only in a rig's variants: list" in result.stderr, result.stderr
+    assert "rig revisions:" not in result.stderr, (
+        f"a shield.yml defect must not be blamed on the rig\n{result.stderr}")
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "shield-revisions-mapping-entry"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))

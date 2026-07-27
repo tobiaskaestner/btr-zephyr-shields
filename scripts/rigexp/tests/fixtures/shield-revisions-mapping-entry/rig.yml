@@ -1,0 +1,3 @@
+rig:
+  name: shield-revisions-mapping-entry
+  board: nucleo_f401re/stm32f401xe/rig
