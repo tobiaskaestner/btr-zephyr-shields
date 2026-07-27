@@ -10,11 +10,10 @@ Fast, no build, and hermetic: fixtures/controller-label/socket.dts is a
 standalone board-shaped fixture (like
 fixtures/not-rig-enabled/socketless_board.dts) carrying one socket,* node
 of fixtures/connectors' purpose-built connector type
-(connectors/bindings/socket-fixture-nexus.yaml, compatible
+(connectors/bindings/fixture-nexus.yaml, compatible
 "socket,fixture-nexus" -- never a copy of the real
-dts/bindings/connectors/*.yaml types, and not reachable through
-ctypes_registry.py's registry, which always scans that real directory
-instead) whose pwm-map/gpio-map both resolve to a controller node with two
+dts/bindings/connectors/*.yaml types) whose pwm-map/gpio-map both resolve
+to a controller node with two
 labels attached in a fixed textual order -- the primary one on the node
 itself, a second one appended via a bare label-ref afterward, mirroring
 how a later-included module attaches a legacy alias to a node it does not

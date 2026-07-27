@@ -97,12 +97,25 @@ _DEFINE_RE = re.compile(r"^\s*#define\s+(\w+)\s+(\d+|0x[0-9a-fA-F]+)\s*$", re.M)
 
 
 def parse_header_indices(type_name: str,
+                         header_dirs: Optional[List[str]] = None,
                          deps: Depends | None = None) -> dict[str, int]:
-    """include/dt-bindings/connector/<type>.h -- the module's REAL
-    position-index single source of truth. Returns {short position name:
-    index} with the common macro prefix stripped
-    (ARDUINO_HEADER_R3_D7 -> D7)."""
-    path = os.path.join(MODULE_INC, "dt-bindings", "connector", f"{type_name}.h")
+    """dt-bindings/connector/<type>.h -- the position-index single source of
+    truth for connector type_name. Returns {short position name: index} with
+    the common macro prefix stripped (ARDUINO_HEADER_R3_D7 -> D7).
+
+    header_dirs is searched in order, first match wins, exactly as cpp
+    resolves #include <dt-bindings/connector/x.h> against a -I list --
+    MODULE_INC is always tried last, so a caller passing no header_dirs (or
+    one whose entries don't carry this header) sees exactly today's single
+    real path, unchanged. This is deliberately the same directory list a
+    caller threads as --include-dir for cpp itself, not a second knob: a
+    type's header lives beside whatever other headers its shield templates
+    #include, so one list serves both resolutions."""
+    dirs = list(header_dirs) if header_dirs else []
+    dirs.append(MODULE_INC)
+    rel = os.path.join("dt-bindings", "connector", f"{type_name}.h")
+    path = next((os.path.join(d, rel) for d in dirs
+                if os.path.isfile(os.path.join(d, rel))), os.path.join(dirs[-1], rel))
     if deps is not None:
         deps.see(path)
     with open(path) as f:

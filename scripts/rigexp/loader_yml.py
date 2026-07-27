@@ -314,7 +314,8 @@ def _load_shield_revisions(shield_dir: str, diags: Diagnostics) -> "AxisDecl | N
 
 def load_shield_library(workdir: str, diags: Diagnostics,
                         shield_dirs: list[str] | None = None,
-                        deps: Depends | None = None) -> ShieldLibrary:
+                        deps: Depends | None = None,
+                        types: dict[str, ConnectorType] | None = None) -> ShieldLibrary:
     """Load every shield template. Each .shield file (base + any resolved
     revision fragment) is its OWN translation unit (Ground rule 3), so
     labels are shield-scoped — two shields may reuse gl_plug etc. without
@@ -350,8 +351,14 @@ def load_shield_library(workdir: str, diags: Diagnostics,
     actually selects it), plus (via dtsio.source_files) whatever real
     files each one's translation unit #includes — the temp workdir the TU
     is synthesized in is excluded, since it holds a generated file with no
-    counterpart in the source tree."""
-    types = load_types(deps)
+    counterpart in the source tree.
+
+    types is the connector-type registry every shield's plug is checked
+    against (shields.py); None falls back to load_types(deps=deps) (today's
+    single real directory) — direct API / test use only, since the CLI
+    always resolves the registry once itself and threads it down here."""
+    if types is None:
+        types = load_types(deps=deps)
     shields: dict[str, Shield] = {}
     axes: dict[str, "AxisDecl | None"] = {}
     pending: dict[str, tuple[str, str, "AxisDecl"]] = {}
@@ -1154,10 +1161,11 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
         shield_dirs: list[str] | None = None,
         deps: Depends | None = None,
         revision: str | None = None,
-        variant: str | None = None) -> Rig | None:
+        variant: str | None = None,
+        types: dict[str, ConnectorType] | None = None) -> Rig | None:
     if deps is not None:
         deps.see(rig_path)
-    lib = load_shield_library(workdir, diags, shield_dirs, deps)
+    lib = load_shield_library(workdir, diags, shield_dirs, deps, types=types)
 
     with open(rig_path) as f:
         try:

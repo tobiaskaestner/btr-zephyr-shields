@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import glob
 import os
+from typing import List, Optional
 
 import yaml
 
@@ -41,6 +42,10 @@ from .diag import Depends
 from .dtsio import MODULE_ROOT, parse_header_indices
 from .model import ConnectorType, Position
 
+# The default connector-type root: every real connector's unified binding.
+# load_types's connector_dirs parameter overrides this (test-fixture
+# connector types live elsewhere); every existing caller that omits it keeps
+# reading exactly this directory, unchanged.
 BINDINGS = os.path.join(MODULE_ROOT, "dts", "bindings", "connectors")
 
 
@@ -55,35 +60,52 @@ def _socket_facts(binding: dict) -> tuple[bool, list[int]]:
     return bool(stackable), list(cs_pool)
 
 
-def load_types(deps: Depends | None = None) -> dict[str, ConnectorType]:
+def load_types(connector_dirs: Optional[List[str]] = None,
+               header_dirs: Optional[List[str]] = None,
+               deps: Depends | None = None) -> dict[str, ConnectorType]:
+    """Assemble every connector type found under connector_dirs (default:
+    [BINDINGS], today's single real directory -- a caller omitting this
+    argument sees no behavior change at all).
+
+    header_dirs is the search list parse_header_indices resolves each
+    type's <type>.h against, first match wins, with MODULE_INC always tried
+    last -- deliberately the SAME list a caller threads as --include-dir for
+    cpp, so a type's YAML and its header are found by the identical rule cpp
+    itself uses for #include <dt-bindings/connector/x.h>. A caller wanting
+    more than one connector root (a fixture tree, alongside the real one)
+    passes both directories in connector_dirs and the matching header root
+    in header_dirs; resolve ONCE per CLI invocation and thread the result
+    down, rather than calling this six times per run."""
+    dirs = connector_dirs if connector_dirs is not None else [BINDINGS]
     types = {}
-    for path in sorted(glob.glob(os.path.join(BINDINGS, "*.yaml"))):
-        if deps is not None:
-            deps.see(path)
-        with open(path) as f:
-            binding = yaml.safe_load(f)
-        name = os.path.splitext(os.path.basename(path))[0]
+    for directory in dirs:
+        for path in sorted(glob.glob(os.path.join(directory, "*.yaml"))):
+            if deps is not None:
+                deps.see(path)
+            with open(path) as f:
+                binding = yaml.safe_load(f)
+            name = os.path.splitext(os.path.basename(path))[0]
 
-        stackable, cs_pool = _socket_facts(binding)
+            stackable, cs_pool = _socket_facts(binding)
 
-        indices = parse_header_indices(name, deps)
-        positions = {}
-        for pname, meta in binding.get("plug,positions", {}).items():
-            if pname not in indices:
-                raise KeyError(
-                    f"unified binding for '{name}' names position '{pname}' "
-                    f"which is not in dt-bindings/connector/{name}.h")
-            positions[pname] = Position(
-                name=pname, index=indices[pname],
-                function=meta.get("function", "gpio"),
-                optional=bool(meta.get("optional", False)))
+            indices = parse_header_indices(name, header_dirs, deps)
+            positions = {}
+            for pname, meta in binding.get("plug,positions", {}).items():
+                if pname not in indices:
+                    raise KeyError(
+                        f"unified binding for '{name}' names position '{pname}' "
+                        f"which is not in dt-bindings/connector/{name}.h")
+                positions[pname] = Position(
+                    name=pname, index=indices[pname],
+                    function=meta.get("function", "gpio"),
+                    optional=bool(meta.get("optional", False)))
 
-        types[name] = ConnectorType(
-            name=name,
-            positions=positions,
-            index2name={v: k for k, v in indices.items()},
-            bus_proxies=list(binding.get("plug,bus-proxies", [])),
-            stackable=stackable,
-            cs_pool=list(cs_pool),
-        )
+            types[name] = ConnectorType(
+                name=name,
+                positions=positions,
+                index2name={v: k for k, v in indices.items()},
+                bus_proxies=list(binding.get("plug,bus-proxies", [])),
+                stackable=stackable,
+                cs_pool=list(cs_pool),
+            )
     return types

@@ -23,7 +23,7 @@ from .boarddt import load_board
 from .ctypes_registry import load_types
 from .diag import Depends, Diagnostics
 from .edt_build import BuildRecipe
-from .model import Board, BoardSocket, BusRef, Device, Instance, Rig
+from .model import Board, BoardSocket, BusRef, ConnectorType, Device, Instance, Rig
 
 _DRIVER_HINTS = ("int", "irq")
 
@@ -50,6 +50,7 @@ class NetClaim:
 class Solved:
     rig: Rig
     board: Board
+    types: dict[str, ConnectorType] = field(default_factory=dict)       # emitter reuses this
     sockets: dict[str, BoardSocket] = field(default_factory=dict)       # instance -> socket
     addr: dict[tuple[str, str], int] = field(default_factory=dict)      # (inst, dev) -> address
     straps: list = field(default_factory=list)  # (inst, strap, state, addr) for the config sheet
@@ -72,12 +73,20 @@ def _key(inst: Instance, dev: Device):
 def analyze(rig: Rig, workdir: str, diags: Diagnostics,
             board_dts: str | None = None,
             recipe: BuildRecipe | None = None,
-            deps: Depends | None = None) -> Solved | None:
+            deps: Depends | None = None,
+            types: dict[str, ConnectorType] | None = None) -> Solved | None:
+    """types is the connector-type registry board sockets and shield plugs
+    are checked against; None falls back to load_types(deps=deps) (today's
+    single real directory) — direct API / test use only, since the CLI
+    always resolves the registry once itself and threads it down here.
+    Stored on the returned Solved so the emitter reuses the SAME dict
+    rather than re-globbing the connector tree per output it renders."""
     board = load_board(rig.board, workdir, diags, board_dts, recipe, deps)
     if board is None:
         return None
-    solved = Solved(rig=rig, board=board)
-    types = load_types(deps)
+    if types is None:
+        types = load_types(deps=deps)
+    solved = Solved(rig=rig, board=board, types=types)
 
     _check_matings(rig, board, types, solved, diags)
     # instances whose mating failed are absent from solved.sockets; every

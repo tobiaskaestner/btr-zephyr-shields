@@ -33,6 +33,15 @@ variants-revisions.md V1a) -- the resolved counterpart of a target's
 @rev/variant, which cmake/dts.cmake's fork already worked out via
 list_rigs.py before invoking this CLI. Omit either for a bare target;
 loader_yml.load applies the rig's declared default, if any.
+
+Connector-type registry: --connector-dir names the type-YAML root(s)
+(ctypes_registry.load_types); each type's <type>.h header is looked up
+against --include-dir, first match wins, MODULE_INC tried last -- the same
+list already threaded for the board .dts cpp preprocess, not a second knob.
+Resolved exactly ONCE here (never re-derived by loader_yml/analyzer/
+emitter) and threaded down as the types parameter both stages take.
+Omitting --connector-dir/--include-dir reproduces today's single real
+directory unchanged.
 """
 from __future__ import annotations
 
@@ -42,6 +51,7 @@ import sys
 import tempfile
 from typing import List, Optional
 
+from .ctypes_registry import load_types
 from .diag import Depends, Diagnostics, LoadError
 from .edt_build import BuildRecipe, recipe_from_build_info
 from . import analyzer, emitter, loader_yml
@@ -82,13 +92,14 @@ def _expand(rig_path: str, shield_dirs: Optional[List[str]], out_dir: str,
            bindings_dirs: Optional[List[str]],
            build_info: Optional[str],
            revision: Optional[str] = None,
-           variant: Optional[str] = None) -> int:
+           variant: Optional[str] = None,
+           connector_dirs: Optional[List[str]] = None) -> int:
     # Resolve to absolute paths up front: the loader parses each shield in a
     # temp workdir and cpp-includes it by the glob'd path, so a relative
     # --shield-dir yields a relative #include that cpp cannot find from the
     # temp dir. The cmake seam runs this CLI from the build dir, so all inputs
     # must be cwd-independent — --board-dts/--include-dir/--bindings-dir/
-    # --build-info too (see _resolve_recipe).
+    # --build-info/--connector-dir too (see _resolve_recipe).
     rig_path = os.path.abspath(rig_path)
     if shield_dirs is not None:
         shield_dirs = [os.path.abspath(d) for d in shield_dirs]
@@ -96,6 +107,16 @@ def _expand(rig_path: str, shield_dirs: Optional[List[str]], out_dir: str,
     if board_dts is not None:
         board_dts = os.path.abspath(board_dts)
     recipe = _resolve_recipe(include_dirs, bindings_dirs, build_info)
+    resolved_connector_dirs = ([os.path.abspath(d) for d in connector_dirs]
+                               if connector_dirs else None)
+    # header_dirs for the connector-type registry is the RAW --include-dir
+    # list (not recipe.include_dirs, which may instead come from
+    # --build-info's recovered board directories) — the ratified plumbing:
+    # a type's <type>.h resolves against exactly the -I list a caller
+    # threads explicitly, first match wins, MODULE_INC tried last, mirroring
+    # how cpp itself would resolve the same #include.
+    header_dirs = ([os.path.abspath(d) for d in include_dirs]
+                   if include_dirs else None)
 
     diags = Diagnostics()
     workdir = tempfile.mkdtemp(prefix="rigexp-")
@@ -106,9 +127,21 @@ def _expand(rig_path: str, shield_dirs: Optional[List[str]], out_dir: str,
     # configure when any of them changes.
     deps = Depends()
 
+    # Resolved ONCE here and threaded down to both the loader (shield plug
+    # checks) and the analyzer (board socket type facts) — replaces what
+    # used to be six independent load_types() calls (loader_yml once,
+    # analyzer once, emitter four times per run), each re-globbing and
+    # re-parsing the whole connector tree. connector_dirs is None absent
+    # --connector-dir (today's single real directory, unchanged); header_dirs
+    # is None absent --include-dir (MODULE_INC alone, unchanged) — a caller
+    # supplying neither sees exactly the pre-existing behavior.
+    types = load_types(connector_dirs=resolved_connector_dirs,
+                       header_dirs=header_dirs, deps=deps)
+
     try:
         rig = loader_yml.load(rig_path, workdir, diags, shield_dirs=shield_dirs,
-                              deps=deps, revision=revision, variant=variant)
+                              deps=deps, revision=revision, variant=variant,
+                              types=types)
     except LoadError as e:
         diags.append(e.diag)
         print(diags.render(), file=sys.stderr)
@@ -118,7 +151,8 @@ def _expand(rig_path: str, shield_dirs: Optional[List[str]], out_dir: str,
         print(diags.render(), file=sys.stderr)
         return 1
 
-    solved = analyzer.analyze(rig, workdir, diags, board_dts, recipe, deps)
+    solved = analyzer.analyze(rig, workdir, diags, board_dts, recipe, deps,
+                              types=types)
     if solved is None or diags.errors:
         print(diags.render(), file=sys.stderr)
         return 1
@@ -219,11 +253,21 @@ def _add_expand(sub: argparse._SubParsersAction) -> None:
                     help="a cpp -I directory for the board .dts preprocess; "
                          "repeatable. With --bindings-dir, the explicit "
                          "recipe form dts.cmake passes (it computes these "
-                         "itself).")
+                         "itself). Also the search list a connector type's "
+                         "dt-bindings/connector/<type>.h resolves against, "
+                         "first match wins, MODULE_INC tried last.")
     p.add_argument("--bindings-dir", dest="bindings_dirs", action="append",
                     metavar="DIR", default=None,
                     help="an edtlib bindings directory (globbed for "
                          "*.yaml); repeatable.")
+    p.add_argument("--connector-dir", dest="connector_dirs", action="append",
+                    metavar="DIR", default=None,
+                    help="a connector-type root (globbed for *.yaml unified "
+                         "socket+plug bindings, ctypes_registry.py); "
+                         "repeatable. Omit to use the vendored default "
+                         "(dts/bindings/connectors, direct/API use only). "
+                         "Each type's <type>.h header is looked up in "
+                         "--include-dir, not here.")
     p.add_argument("--build-info", default=None, metavar="PATH",
                     help="recover the cpp/bindings recipe from a real "
                          "build's build_info.yml instead of --include-dir/"
@@ -256,7 +300,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "expand":
         return _expand(args.rig, args.shield_dirs, args.out_dir,
                        args.board_dts, args.include_dirs, args.bindings_dirs,
-                       args.build_info, args.revision, args.variant)
+                       args.build_info, args.revision, args.variant,
+                       args.connector_dirs)
     ap.error(f"unknown command {args.command!r}")
     return 2   # unreachable; ap.error() exits
 

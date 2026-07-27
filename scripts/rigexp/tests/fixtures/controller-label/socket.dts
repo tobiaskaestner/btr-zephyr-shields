@@ -1,6 +1,6 @@
 /dts-v1/;
 
-#include <dt-bindings/fixture/nexus.h>
+#include <dt-bindings/connector/fixture-nexus.h>
 
 /* Synthetic fixture for the controller-label determinism invariant: a
  * shared controller node carries TWO labels, attached in this textual
@@ -12,9 +12,13 @@
  * FIRST-attached label, never whichever alias happened to attach last.
  *
  * The socket node's compatible is this fixture's OWN purpose-built
- * connector type (bindings/socket-fixture-nexus.yaml), not the real
+ * connector type (bindings/fixture-nexus.yaml), not the real
  * "socket,grove" -- the real connector types all include: Zephyr's own
- * gpio-nexus.yaml/base.yaml, which this test must not depend on. */
+ * gpio-nexus.yaml/base.yaml, which this test must not depend on. This test
+ * reads the type only via --bindings-dir/--include-dir (board_edt.py, plain
+ * edtlib), never through ctypes_registry.py's registry -- see
+ * fixtures/reference-shields for the registry-visible use of the SAME
+ * file. */
 / {
 	model = "Controller-Label Fixture Board";
 	compatible = "vnd,controller-label-fixture";

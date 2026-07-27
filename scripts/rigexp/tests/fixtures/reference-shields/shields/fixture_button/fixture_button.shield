@@ -1,0 +1,38 @@
+/* SPDX-License-Identifier: Apache-2.0
+ *
+ * Reference shield (rigs test suite): a GPIO collection member carrying a
+ * required per-instance parameter. Two instances of this shield in one rig
+ * aggregate into ONE shared collection node while each still needs its OWN
+ * key code -- shield,params declares that requirement with no default
+ * authored, so a rig instantiating this shield MUST assign it (rule 4/5).
+ * See boards/shields/grove_btn for the identical pattern on a real
+ * connector type, where the assigned token is a zephyr,code MACRO resolved
+ * against a rig's dt-includes:; this fixture assigns a plain integer
+ * instead, to keep the reference set free of any dependency outside its
+ * own fixture tree.
+ *
+ * The gpio position below is the literal FIXTURE_D0 index (2) rather than
+ * the macro: a .shield template's own cpp #include search is
+ * ZEPHYR_INC/MODULE_INC only (dtsio.run_cpp), not --include-dir, so this
+ * fixture tree's own header is not reachable from a .shield file -- see
+ * fixture_logger.shield's own comment for the same limitation, and the
+ * board.dts sibling for where the macro form IS reachable (a board's own
+ * cpp preprocess honors --include-dir).
+ */
+
+/ {
+	shield-templates {
+		fixture_button: fixture_button {
+			shield,plugs = "fixture-nexus";
+			fb_plug: plug { #gpio-cells = <2>; };
+
+			gpio {
+				fb_key: button {
+					shield,collect = "vnd,fixture-keys";
+					shield,params = "zephyr,code";
+					gpios = <&fb_plug 2 0>;	/* FIXTURE_D0 */
+				};
+			};
+		};
+	};
+};

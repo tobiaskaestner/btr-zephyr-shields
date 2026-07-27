@@ -1,0 +1,9 @@
+# Reference-set fixture rig (rigs test suite): mates fixture_logger once and
+# fixture_button twice against reference_board.dts's three sockets, exercised
+# END TO END through load -> analyze -> emit as an ACCEPT case -- a reference
+# implementation nobody runs is documentation, and documentation drifts.
+# board: names this fixture's own board.dts (passed via --board-dts in the
+# test), not a real hwmv2 target.
+rig:
+  name: reference_shields
+  board: reference_board

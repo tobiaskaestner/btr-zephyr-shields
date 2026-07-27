@@ -1,6 +1,6 @@
 /dts-v1/;
 
-#include <dt-bindings/fixture/nexus.h>
+#include <dt-bindings/connector/fixture-nexus.h>
 
 /* Synthetic fixture board for test_unmapped_socket_golden: the real board
  * is incidental to what this test proves -- an instance socket name

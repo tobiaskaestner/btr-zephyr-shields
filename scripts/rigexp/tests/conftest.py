@@ -361,6 +361,7 @@ def run_expand(rig_yml: Path, out_dir: Path,
                include_dirs: Optional[List[Path]] = None,
                revision: Optional[str] = None,
                variant: Optional[str] = None,
+               connector_dirs: Optional[List[Path]] = None,
                ) -> "subprocess.CompletedProcess[str]":
     """Run python -m rigexp expand exactly as dts.cmake does (modulo the
     recipe form: dts.cmake passes --include-dir/--bindings-dir explicitly;
@@ -386,7 +387,13 @@ def run_expand(rig_yml: Path, out_dir: Path,
     revisions.md V1a) — the harness's stand-in for what cmake/dts.cmake's
     fork would resolve via list_rigs.py before invoking this same CLI.
     Omitted (None) means a bare target: the loader applies the rig's own
-    declared default, if any."""
+    declared default, if any.
+
+    connector_dirs is cli.py's --connector-dir (repeatable): a fixture rig
+    that must MATE a shield against a synthetic connector type needs this,
+    since ctypes_registry's default is the real dts/bindings/connectors
+    directory alone. Each type's header still resolves through
+    include_dirs, not a separate list — see cli.py's own docstring."""
     zb = zephyr_base()
     env = dict(os.environ)
     env["ZEPHYR_BASE"] = zb
@@ -403,6 +410,8 @@ def run_expand(rig_yml: Path, out_dir: Path,
         cmd += ["--bindings-dir", str(b)]
     for i in include_dirs or []:
         cmd += ["--include-dir", str(i)]
+    for c in connector_dirs or []:
+        cmd += ["--connector-dir", str(c)]
     if revision is not None:
         cmd += ["--revision", revision]
     if variant is not None:
