@@ -1,22 +1,3 @@
-# (reject) — the timer-channel clash. Two servos on grove_d2 and grove_d4.
-# Different pins (porta14 vs porta8), but the board's pwm-map lands BOTH on
-# tcc0 ch0 (real bridle fact: D2 and D4 share TCC0CH0). One timer channel
-# can't independently drive two servos — the expander catches it on the
-# channel net, even though the pins differ.
-#
-# seeeduino_lotus is a CROSS-MODULE hwmv2 board EXTENSION: its base lives in
-# the bridle Zephyr module, which is not a west manifest project -- every
-# build of this target must pass -DEXTRA_ZEPHYR_MODULES=<west-topdir>/bridle
-# explicitly. No lotus_pwm_clash_defconfig: this rig is expected to REJECT
-# at analysis (phys-channel) — it must never reach the build.
-
 rig:
   name: lotus_pwm_clash
   board: seeeduino_lotus/samd21g18a/rig
-  instances:
-    - name: servo_a
-      shield: grove_servo
-      socket: grove_d2               # SIG0 → PWM tcc0 ch0
-    - name: servo_b
-      shield: grove_servo
-      socket: grove_d4               # SIG0 → PWM tcc0 ch0  (same channel!)

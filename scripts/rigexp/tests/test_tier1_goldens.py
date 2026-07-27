@@ -841,6 +841,28 @@ def test_shield_revision_param_invariant_golden(tmp_path: Path) -> None:
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
 
 
+def test_missing_content_file_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: metadata that resolves with NO content file beside
+    it. The content file is REQUIRED, and the distinction the diagnostic has
+    to keep is between a rig whose instances: list is EMPTY (legal, and how
+    the axis-rule fixtures are written) and a rig whose content file is
+    absent (an authoring mistake). The message names the path that was
+    constructed from the rig's own identity, since that name is never
+    parsed from the folder and is therefore not obvious from the layout."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "missing-content-file" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, "a missing content file must be rejected"
+    assert "[lang-content]" in result.stderr, result.stderr
+    assert "missing-content-file.yml" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "missing-content-file"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
 def test_shield_bad_revisions_block_golden(tmp_path: Path) -> None:
     """Synthetic fixture: a malformed revisions: block in a SHIELD's own
     shield.yml is blamed on that shield, BY NAME. One parser serves both

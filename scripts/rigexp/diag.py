@@ -81,8 +81,9 @@ class LoadError(Exception):
 
 class Depends(set):
     """Absolute paths of every real source-tree file one expand run actually
-    opened -- rig.yml, .shield templates (+ their cpp-included files),
-    connector plug/socket bindings, index headers, the board .dts. Threaded
+    opened -- rig.yml, its <rigname>.yml content file, .shield templates
+    (+ their cpp-included files), connector plug/socket bindings, index
+    headers, the board .dts. Threaded
     through the pipeline the same way Diagnostics is: an optional, mutable
     accumulator passed down to whichever module does the actual open().
     cli.py sorts + writes it into context.cmake as RIG_DEPENDS, which

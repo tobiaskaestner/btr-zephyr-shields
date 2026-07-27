@@ -245,6 +245,23 @@ if(NOT EXISTS "${_rig_yml}")
     "  Expected: ${_rig_yml}")
 endif()
 
+# The rig's REQUIRED content file (metadata/content split: rig.yml is
+# metadata-only, instances:/wires:/dt-includes: live in <rigname>.yml).
+# Its name depends on the RESOLVED rig name, already in hand above (from
+# either boards.cmake's stash or the list_rigs.py fallback) -- never
+# parsed from rig.yml itself, per THE TRAP note on the axis fragments
+# below. No EXISTS check here: an absent content file is the loader's own
+# lang-content diagnostic (it names the file it looked for), not a
+# cmake-level FATAL_ERROR -- cmake only needs the constructed PATH, added
+# to the static CMAKE_CONFIGURE_DEPENDS set alongside rig.yml (step 4).
+# That static registration is the ordering fix this file needs: a content
+# file broken enough that expansion fails never reaches the point of
+# writing RIG_DEPENDS, so relying solely on the expander's own dynamic
+# report would leave editing a MISSING or malformed content file unable to
+# ever retrigger configure -- the exact failure mode CMAKE_CONFIGURE_DEPENDS
+# exists to close for rig.yml itself already.
+set(_rig_content_yml "${_rig_dir}/${_rig_name}.yml")
+
 set(_rig_out_dir "${CMAKE_BINARY_DIR}/rig")
 file(MAKE_DIRECTORY "${_rig_out_dir}")
 # The CLI writes the literal emitter keys into --out-dir: "rig-gen.overlay",
@@ -409,6 +426,10 @@ endif()
 # ---------------------------------------------------------------------------
 # Step 4: context.cmake handoff.
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_rig_yml}")
+# The content file (see its own comment above): registered unconditionally,
+# same as rig.yml, regardless of whether it currently EXISTS -- the whole
+# point is to retrigger configure once a missing/broken one gets fixed.
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_rig_content_yml}")
 if(EXISTS "${_rig_conf_file}")
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_rig_conf_file}")
 endif()
@@ -803,6 +824,7 @@ list(JOIN _rig_applied_fragments ", " _rig_fragments_joined)
 build_info(vendor-specific rig name VALUE "${RIG_NAME}")
 build_info(vendor-specific rig board VALUE "${RIG_BOARD}")
 build_info(vendor-specific rig yml VALUE "${_rig_yml}")
+build_info(vendor-specific rig content-yml VALUE "${_rig_content_yml}")
 build_info(vendor-specific rig board-dts VALUE "${_rig_board_dts}")
 build_info(vendor-specific rig shields VALUE "${_rig_shields_joined}")
 build_info(vendor-specific rig shield-dirs VALUE "${_rig_shield_dirs_joined}")

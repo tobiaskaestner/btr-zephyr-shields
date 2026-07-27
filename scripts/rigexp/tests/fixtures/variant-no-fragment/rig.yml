@@ -8,4 +8,3 @@ rig:
   variants:
     default: base_only
     list: [base_only, ghost]
-  instances: []

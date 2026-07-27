@@ -12,4 +12,3 @@ rig:
   variants:
     default: 2
     list: [2, 3]
-  instances: []

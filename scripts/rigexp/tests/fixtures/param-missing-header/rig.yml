@@ -1,15 +1,3 @@
-# Synthetic fixture: a dt-includes: entry that names a header which does not
-# exist on the include path — rule 6 (lang-dt-include). Rejected at expand
-# time, before any token is looked at, naming the dirs that were searched.
 rig:
   name: param-missing-header
   board: nucleo_f401re/stm32f401xe/rig
-  dt-includes:
-    - zephyr/dt-bindings/input/no-such-header.h
-  instances:
-    - name: btn
-      shield: grove_btn
-      socket: grove_d2
-      params:
-        gb_key:
-          zephyr,code: INPUT_KEY_0

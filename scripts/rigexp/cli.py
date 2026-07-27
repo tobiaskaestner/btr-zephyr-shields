@@ -99,10 +99,11 @@ def _expand(rig_path: str, shield_dirs: Optional[List[str]], out_dir: str,
 
     diags = Diagnostics()
     workdir = tempfile.mkdtemp(prefix="rigexp-")
-    # Every real source-tree file this run opens (rig.yml, .shield templates
-    # + their cpp includes, connector bindings, index headers, the board
-    # .dts) — the dependency-tracking handoff (RIG_DEPENDS, below), so
-    # cmake/dts.cmake can retrigger configure when any of them changes.
+    # Every real source-tree file this run opens (rig.yml, its <rigname>.yml
+    # content file, .shield templates + their cpp includes, connector
+    # bindings, index headers, the board .dts) — the dependency-tracking
+    # handoff (RIG_DEPENDS, below), so cmake/dts.cmake can retrigger
+    # configure when any of them changes.
     deps = Depends()
 
     try:
@@ -157,10 +158,10 @@ def _expand(rig_path: str, shield_dirs: Optional[List[str]], out_dir: str,
     # RIG_DEPENDS: the dependency-tracking handoff. The expander is the sole
     # authority on what pass 1 actually read — cmake/dts.cmake appends this
     # (sorted, absolute) to CMAKE_CONFIGURE_DEPENDS, on top of its own static
-    # registrations (rig.yml / the rig's own <name>_defconfig/
-    # <name>.overlay / rigexp sources / list_rigs.py), which cover the
-    # pre-expansion trigger set. One-configure lag: this list is only as
-    # fresh as the LAST successful expand, so a
+    # registrations (rig.yml / its <name>.yml content file / the rig's own
+    # <name>_defconfig/<name>.overlay / rigexp sources / list_rigs.py),
+    # which cover the pre-expansion trigger set. One-configure lag: this
+    # list is only as fresh as the LAST successful expand, so a
     # brand-new dependency (e.g. a rig naming a shield for the first time)
     # needs one configure to register before edits to IT retrigger — the
     # static set is what guarantees that first configure happens at all.
@@ -197,7 +198,9 @@ def _add_expand(sub: argparse._SubParsersAction) -> None:
         "expand",
         help="run one rig through load -> analyze -> emit and write the "
              "outputs to --out-dir")
-    p.add_argument("rig", help="path to the <rig>.rig.yml file")
+    p.add_argument("rig", help="path to the rig's metadata file, rig.yml "
+                    "(the content file, <rigname>.yml, is derived from its "
+                    "own name: and read alongside it)")
     p.add_argument("--shield-dir", dest="shield_dirs", action="append",
                     metavar="DIR", default=None,
                     help="a shield-library root (a boards/shields directory); "

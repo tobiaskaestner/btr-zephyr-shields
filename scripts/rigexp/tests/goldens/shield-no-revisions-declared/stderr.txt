@@ -1,2 +1,2 @@
 error[lang-rev]: shield 'flash_click' names a revision ('1'), but this shield declares no revisions: at all
-    at tests/fixtures/shield-no-revisions-declared/rig.yml:11 (rig.instances[0].shield)
+    at tests/fixtures/shield-no-revisions-declared/shield-no-revisions-declared.yml:8 (instances[0].shield)

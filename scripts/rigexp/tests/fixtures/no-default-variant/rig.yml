@@ -6,4 +6,3 @@ rig:
   board: nucleo_f401re/stm32f401xe/rig
   variants:
     list: [a, b]
-  instances: []

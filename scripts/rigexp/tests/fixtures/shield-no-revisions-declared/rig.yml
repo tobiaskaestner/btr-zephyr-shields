@@ -1,12 +1,3 @@
-# Synthetic fixture: @rev against a shield declaring no revisions: at all
-# (the shield-side analogue of rule 3's "declares no such axis" wording,
-# rig-variants-revisions.md V1c). flash_click is a production shield with
-# no revisions: block. Fails inside the loader itself, so no board recipe
-# is ever needed -- the board string is a placeholder.
 rig:
   name: shield-no-revisions-declared
   board: nucleo_f401re/stm32f401xe/rig
-  instances:
-    - name: flash_a
-      shield: flash_click@1
-      socket: nucleo_ard

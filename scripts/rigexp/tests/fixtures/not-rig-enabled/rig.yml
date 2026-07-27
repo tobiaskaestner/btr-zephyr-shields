@@ -8,4 +8,3 @@
 rig:
   name: not-rig-enabled
   board: socketless_board
-  instances: []

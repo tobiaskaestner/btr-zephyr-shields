@@ -1,0 +1,11 @@
+# Synthetic fixture: an assigned token that does not resolve against the
+# rig's own declared dt-includes: — rule 4 (lang-dt-include).
+dt-includes:
+  - zephyr/dt-bindings/input/input-event-codes.h
+instances:
+  - name: btn
+    shield: grove_btn
+    socket: grove_d2
+    params:
+      gb_key:
+        zephyr,code: NOT_A_REAL_KEYCODE

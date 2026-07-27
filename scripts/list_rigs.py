@@ -8,7 +8,12 @@
 # `rig.name` field inside rig.yml — NOT the folder basename. The folder name is
 # conventionally the same as the rig name but is not authoritative (exactly as
 # list_shields.py takes the name from shield.yml's `name:`, not the folder).
-# Beyond the name, the rig file's *content* is the expander's job.
+#
+# rig.yml holds ONLY metadata (name/board/revisions/variants) — never a
+# hardware description. The assembled topology (instances/wires/dt-includes)
+# lives in a separate, required content file, `<rigname>.yml`, which this
+# module never opens: everything past the four keys read below is the
+# rigexp loader's job, the canonical content parser.
 #
 # This is shared code between the build system's rig resolution
 # (cmake/boards.cmake's fork, `-DRIG=<target>` -> board; cmake/dts.cmake's
@@ -91,10 +96,11 @@ def find_rigs_in(root):
         name = rig_data.get('name')
         if not name:
             sys.exit(f'ERROR: rig has no rig.name: {rig_yml.as_posix()}')
-        # Declared axes: read here (not validated for shape -- that is the
-        # rigexp loader's job, the canonical rig.yml content parser; this
-        # is enough to resolve a bare target's default for filename
-        # construction, per resolve_rig_target below).
+        # Declared axes: read here (not validated for shape -- rig.yml
+        # carries only metadata, and this is enough to resolve a bare
+        # target's default for filename construction, per
+        # resolve_rig_target below; shape validation, and the separate
+        # content file's own existence, are the rigexp loader's job).
         ret.append(Rig(name=name, dir=maybe_rig,
                        board=rig_data.get('board'),
                        revisions=rig_data.get('revisions'),

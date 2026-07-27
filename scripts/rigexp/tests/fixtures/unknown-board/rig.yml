@@ -7,4 +7,3 @@
 rig:
   name: unknown-board
   board: nonexistent_board_xyz
-  instances: []

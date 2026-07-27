@@ -6,4 +6,3 @@ rig:
   variants:
     default: a
     list: [a, b]
-  instances: []

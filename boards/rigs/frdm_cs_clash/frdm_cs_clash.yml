@@ -1,0 +1,23 @@
+# S6 (reject) — the cross-layer chip-select clash (R21). The ETH Click's CS,
+# resolved two levels deep (adapter mb1 -> Arduino D10 -> host PTD0), lands on
+# the SAME SoC pin as a Data Logger stacked directly on the host Arduino socket
+# (its SD CS is copper-fixed at D10 -> PTD0). Both drive spi0's CS on one pin
+# — a coincidence a plain build never verifies.
+#
+# The expander resolves both claims to the same SoC pin THROUGH the nesting
+# chain and rejects, naming the shared pin and both claimants — one at the
+# board level, one two layers deep.
+#
+# REJECT: no frdm_cs_clash_defconfig (structural rejection, never reaches
+# Kconfig).
+
+instances:
+  - name: adapter_1
+    shield: arduino_uno_click
+    socket: frdm_ard
+  - name: eth_1
+    shield: eth_click
+    socket: adapter_1.mb1          # CS -> D10 -> PTD0
+  - name: logger_1
+    shield: adafruit_data_logger
+    socket: frdm_ard               # stacked on the host Arduino; SD CS copper-fixed D10 -> PTD0

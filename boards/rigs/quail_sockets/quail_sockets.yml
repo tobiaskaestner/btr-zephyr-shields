@@ -1,0 +1,20 @@
+# S4-b (realizable) — MikroE Quail, four mikroBUS sockets. A socket is one
+# referenceable unit bundling heterogeneous resources with THREE sharing
+# regimes (R14/R15): SPI shared pairwise (sockets 1,2 -> spi1; 3,4 -> spi3),
+# I2C shared by all (-> i2c1), CS/RST dedicated per socket.
+#
+# Socket SELECTION picks the controller: a Flash Click in socket 1 lands on
+# spi1, the same click in socket 3 lands on spi3 — a different controller with
+# a different CS pin. Here two flash clicks occupy the two different SPI
+# controllers, and a Temp&Hum click sits on the shared I2C.
+
+instances:
+  - name: flash_1
+    shield: flash_click
+    socket: quail_sock1            # -> spi1, CS = socket-1 CS pin
+  - name: flash_3
+    shield: flash_click
+    socket: quail_sock3            # -> spi3, CS = socket-3 CS pin (different controller)
+  - name: th_2
+    shield: temp_hum_click
+    socket: quail_sock2            # -> i2c1 @0x5f

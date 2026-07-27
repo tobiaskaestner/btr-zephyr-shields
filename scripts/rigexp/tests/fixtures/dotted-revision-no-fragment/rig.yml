@@ -11,4 +11,3 @@ rig:
   revisions:
     default: 1
     list: [1, "1.5"]
-  instances: []

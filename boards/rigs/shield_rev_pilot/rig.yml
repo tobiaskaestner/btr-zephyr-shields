@@ -1,17 +1,3 @@
-# Shield revisions accept pilot (rig-variants-revisions.md V1c). i2c_sensor
-# gained a revisions: axis (default "1" -- the pre-existing corpus shield,
-# byte-unchanged; rev "2" a newer sensor die at the same 0x48 footprint).
-# This rig exercises the shield: <name>@<rev> selection grammar end to end,
-# on the same mux topology nucleo_mux_farm already proves realizable (S8):
-# one mux channel carrying the NON-default sensor revision.
-
 rig:
   name: shield_rev_pilot
   board: nucleo_f401re/stm32f401xe/rig
-  instances:
-    - name: mux_1
-      shield: i2c_mux
-      socket: nucleo_ard
-    - name: sensor_0
-      shield: i2c_sensor@2
-      socket: mux_1.ch0

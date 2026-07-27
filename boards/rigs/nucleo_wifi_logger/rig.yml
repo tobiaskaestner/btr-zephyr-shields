@@ -1,25 +1,3 @@
-# S2 (reject) — two DIFFERENT shields on one shared bus. A WiFi data logger:
-# Adafruit Data Logger + WINC1500, stacked on one Arduino socket. Here the
-# WINC's IRQ jumper is left at its default D7 — where the data logger's RTC
-# INT already sits.
-#
-# A plain build configures with ONE ignorable warning, then a broken build.
-# The rig model instead:
-#   - RESOLVES the CS clash by allocation (SD copper-fixed D10, WiFi pool -> D9)
-#     — R4, the collision that breaks silently otherwise;
-#   - REJECTS the IRQ clash: RTC INT and WiFi IRQ both drive D7 (phys-net, R5).
-# Move the IRQ jumper to make it realizable — see the nucleo_wifi_logger_ok
-# rig.
-
 rig:
   name: nucleo_wifi_logger
   board: nucleo_f401re/stm32f401xe/rig
-  instances:
-    - name: logger_1
-      shield: adafruit_data_logger
-      socket: nucleo_ard
-    - name: wifi_1
-      shield: adafruit_winc1500
-      socket: nucleo_ard             # stacked mating (arduino-r3 stackable)
-      pin:
-        irq_jmp: D7                  # default position — collides with the RTC INT

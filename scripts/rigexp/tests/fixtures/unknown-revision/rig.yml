@@ -6,4 +6,3 @@ rig:
   revisions:
     default: 1
     list: [1, 2]
-  instances: []

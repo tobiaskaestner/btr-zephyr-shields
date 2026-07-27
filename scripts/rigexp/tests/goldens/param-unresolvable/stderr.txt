@@ -1,2 +1,2 @@
-error[lang-dt-include]: instance 'btn': device 'gb_key' property 'zephyr,code' assigns 'NOT_A_REAL_KEYCODE', which does not resolve against this rig's declared dt-includes (zephyr/dt-bindings/input/input-event-codes.h) — add the header that defines it to rig.yml dt-includes:
-    at tests/fixtures/param-unresolvable/rig.yml:14 (rig.instances[0].params.gb_key.zephyr,code)
+error[lang-dt-include]: instance 'btn': device 'gb_key' property 'zephyr,code' assigns 'NOT_A_REAL_KEYCODE', which does not resolve against this rig's declared dt-includes (zephyr/dt-bindings/input/input-event-codes.h) — add the header that defines it to param-unresolvable.yml dt-includes:
+    at tests/fixtures/param-unresolvable/param-unresolvable.yml:11 (instances[0].params.gb_key.zephyr,code)

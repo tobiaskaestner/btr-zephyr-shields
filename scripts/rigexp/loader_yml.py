@@ -1,4 +1,18 @@
-"""Candidate-2 loader: rig.yml (YAML/DTS hybrid) -> rig model.
+"""Candidate-2 loader: rig.yml + <rigname>.yml (YAML/DTS hybrid) -> rig model.
+
+Two files, two roles, mirroring board.yml+<board>.dts and
+shield.yml+<name>.shield: rig.yml is METADATA, named after the entity TYPE
+and carrying no hardware description at all -- name:, board:, revisions:,
+variants:, all nested under a rig: key. <rigname>.yml is CONTENT, named
+after the entity INSTANCE (constructed from rig.yml's own name:, never
+parsed from the folder) and holds everything that describes an assembled
+topology -- instances:, wires:, dt-includes: -- as a FLAT top-level
+mapping, structurally identical to the <rigname>_<variant>.yml /
+<rigname>_<rev>.yml delta fragments that already layer onto it (both are
+"a document about topology"; only one of them is the base). The content
+file is REQUIRED: a rig whose metadata resolves but has no content file is
+an authoring mistake, not a rig with zero instances (an empty instances:
+list is legal and distinct).
 
 Everything candidate-1 gets from dtlib must be built here by hand: the
 dotted-reference resolution rules and their error reporting are THE open
@@ -15,7 +29,7 @@ trial):
                         name); the property must be one the device declared
                         via shield,params (rig-variants-revisions.md
                         "PER-INSTANCE PARAMETERS")
-  rig.dt-includes       list of headers (as written in a DTS #include
+  dt-includes           list of headers (as written in a DTS #include
                         <...>) the rig's assigned param tokens resolve
                         against
   wires[].from/to       <instance>.<node> — instance by name; node resolved
@@ -592,12 +606,17 @@ def _check_fragment_presence(rig: Rig, rig_dir: str, src: SrcRef, diags,
 # ---------------------------------------------------------------- V1b delta engine
 
 def _load_delta_doc(path: str, deps: Depends | None) -> _Val:
-    """Parse ONE <rigname>_<variant|rev>.yml delta fragment (rig-variants-
-    revisions.md V1b Sec. 5): a FLAT top-level mapping -- unlike the base
-    file, there is no `rig:` wrapper, since a delta is a document about the
-    base topology, not a rig identity of its own. board:/sockets:/
-    instances:/add-instances:/remove-instances:/add-wires:/remove-wires:/
-    dt-includes:/params (the restate-check) all live at this top level."""
+    """Parse ONE FLAT top-level YAML document naming real source-tree
+    content: either the rig's <rigname>.yml BASE CONTENT file (the
+    metadata/content split) or a <rigname>_<variant|rev>.yml delta
+    fragment (rig-variants-revisions.md V1b Sec. 5) layered onto it. There
+    is no `rig:` wrapper in either case -- unlike rig.yml, neither is a
+    rig IDENTITY of its own, both are a document ABOUT topology (one the
+    base, one a patch), so the same top-level shape and the same parser
+    serve both: instances:/wires:/dt-includes: (base and delta alike),
+    board:/sockets:/add-instances:/remove-instances:/add-wires:/
+    remove-wires:/params (delta-only keys, rejected or ignored by whichever
+    caller does not expect them)."""
     if deps is not None:
         deps.see(path)
     with open(path) as f:
@@ -608,6 +627,30 @@ def _load_delta_doc(path: str, deps: Depends | None) -> _Val:
                 "error", "lang-parse", f"YAML parse error in {path}\n{e}",
                 [SrcRef(path, getattr(getattr(e, 'problem_mark', None), 'line', 0) + 1)]))
     return _walk(root_node, "", path)
+
+
+def _load_base_content(rig_name: str, rig_dir: str, rig_src: SrcRef,
+                       deps: Depends | None, diags: Diagnostics) -> _Val | None:
+    """<rigname>.yml — the rig's REQUIRED content file (the metadata/content
+    split): instances:/wires:/dt-includes: live here, never in rig.yml.
+    Named from the rig's own IDENTITY (rig.yml's name:), constructed —
+    never parsed from the folder — exactly like every delta fragment
+    already is; structurally identical to one (see _load_delta_doc), so
+    parsing reuses it rather than a second parser.
+
+    Absent entirely is a hard error naming the file that was looked for,
+    in the lang-* family every other loader defect uses: a rig whose
+    metadata resolves but has nothing to build is an authoring mistake,
+    distinct from a rig with zero instances (an empty instances: list is
+    legal — a content file missing altogether is not)."""
+    path = os.path.join(rig_dir, f"{rig_name}.yml")
+    if not os.path.isfile(path):
+        diags.error(
+            "lang-content",
+            f"rig '{rig_name}': no content file found -- expected {path}",
+            [rig_src])
+        return None
+    return _load_delta_doc(path, deps)
 
 
 def _union_dt_includes(rig: Rig, dt_includes_v: _Val | None) -> None:
@@ -1003,6 +1046,7 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     if name_v is None or board_v is None:
         return None
     rig = Rig(name=name_v.v, board=board_v.v, src=rig_v.src)
+    rig_dir = os.path.dirname(rig_path)
 
     # Qualifier axes: declare (shape-validated), resolve the SELECTED value
     # for each (rules 1-4). rig.revision/rig.variant exist for validation
@@ -1016,13 +1060,19 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     rig.variant = _resolve_axis(rig.name, "variant", "variants",
                                 rig.variants, variant, rig_v.src, diags)
 
+    # The rig's REQUIRED content file (the metadata/content split):
+    # instances:/wires:/dt-includes: live here, never in rig.yml -- named
+    # from the rig's own identity (rig.name), never the folder.
+    content_v = _load_base_content(rig.name, rig_dir, rig_v.src, deps, diags)
+    if content_v is None:
+        return None
+
     # V1b delta fragments: looked up by the SAME constructed stems rule 10
     # checks, built from rig.revision/rig.variant alone -- never ${RIG},
     # per THE TRAP. Loaded (not yet APPLIED) here, before rule 10 (an
     # existing .yml counts as "contributes something") and before
     # dt-includes union (a delta's own vocabulary must be known before ANY
     # params get token-validated, including the base's own).
-    rig_dir = os.path.dirname(rig_path)
     variant_delta_v: _Val | None = None
     if rig.variant is not None:
         variant_delta_path = os.path.join(rig_dir, f"{rig.name}_{rig.variant}.yml")
@@ -1044,7 +1094,7 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
 
     # dt-includes: UNION base + variant delta + revision delta (Sec. 5, NEW
     # 2026-07-26), all BEFORE any params get token-validated below.
-    _union_dt_includes(rig, rig_v.v.get("dt-includes"))
+    _union_dt_includes(rig, content_v.v.get("dt-includes"))
     if variant_delta_v is not None:
         _union_dt_includes(rig, variant_delta_v.v.get("dt-includes"))
     if revision_delta_v is not None:
@@ -1052,14 +1102,14 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     if rig.dt_includes:
         _check_dt_includes(rig, workdir, diags)
 
-    # Stage 0: base topology. The per-stage invariant (rule 2) is checked
-    # PER INSTANCE, immediately after each is parsed -- exactly the order
-    # V1a used, so the 13 axis-less corpus rigs see byte-identical
-    # diagnostics (no delta ever selected for them, so nothing below this
-    # comment ever runs for them beyond this loop).
+    # Stage 0: base topology, read from the content file. The per-stage
+    # invariant (rule 2) is checked PER INSTANCE, immediately after each is
+    # parsed -- exactly the order V1a used, so the 13 axis-less corpus rigs
+    # see byte-identical diagnostics (no delta ever selected for them, so
+    # nothing below this comment ever runs for them beyond this loop).
     effective: dict[str, Instance] = {}
     order: list[str] = []
-    insts_v = _require(rig_v, "instances", "rig", diags)
+    insts_v = _require(content_v, "instances", "rig", diags)
     for item in (insts_v.v if insts_v else []):
         inst = _parse_instance(item, lib, rig, workdir, diags)
         if inst:
@@ -1068,7 +1118,7 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
             _check_param_invariant([inst], diags)
 
     wires: list[Wire] = []
-    for item in rig_v.v.get("wires", _Val([], rig_v.src)).v:
+    for item in content_v.v.get("wires", _Val([], content_v.src)).v:
         wire = _parse_wire(item, effective, diags)
         if wire:
             wires.append(wire)
@@ -1136,7 +1186,7 @@ def _check_param_token(inst: Instance, dev_label: str, prop_name: str, raw: str,
         f"instance '{inst.name}': device '{dev_label}' property "
         f"'{prop_name}' assigns '{raw}', which does not resolve against "
         f"this rig's declared dt-includes ({', '.join(rig.dt_includes)}) — "
-        "add the header that defines it to rig.yml dt-includes:",
+        f"add the header that defines it to {rig.name}.yml dt-includes:",
         [ref])
 
 

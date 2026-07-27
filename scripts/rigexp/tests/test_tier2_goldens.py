@@ -437,6 +437,14 @@ def test_tier2_build_info_rig_provenance(tmp_path: Path) -> None:
     assert rig["name"] == "frdm_eth_nest"
     assert rig["board"] == "frdm_k64f/mk64f12/rig"
     assert rig["yml"].endswith("boards/rigs/frdm_eth_nest/rig.yml")
+    # The content file (metadata/content split): its path is constructed
+    # from the RESOLVED rig name, cmake's own, before the expander ever
+    # runs — recorded here even though this rig declares no revisions:/
+    # variants: axis at all, unlike RIG_REVISION/RIG_VARIANT's "no
+    # declaration, no key" precedent, since every rig has exactly one
+    # content file regardless of what axes it declares.
+    assert rig["content-yml"].endswith(
+        "boards/rigs/frdm_eth_nest/frdm_eth_nest.yml")
     assert rig["board-dts"].endswith(
         "boards/extend/nxp/frdm_k64f/frdm_k64f_mk64f12_rig.dts")
 
@@ -499,18 +507,19 @@ def test_tier2_rig_depends_provenance(tmp_path: Path) -> None:
     """Dependency-tracking handoff (RIG_DEPENDS): cmake/dts.cmake appends
     the expander's own generated context.cmake RIG_DEPENDS list to
     CMAKE_CONFIGURE_DEPENDS, so editing a .shield template or a connector
-    binding — not just rig.yml or the rig's own <name>_defconfig/
-    <name>.overlay, the pre-existing static registrations — retriggers
-    configure. What's testable HERE, without
+    binding — not just rig.yml, its <name>.yml content file, or the rig's
+    own <name>_defconfig/<name>.overlay, the pre-existing static
+    registrations — retriggers configure. What's testable HERE, without
     mutating any corpus file (forbidden — modifying fixtures in a test would
     make the test self-fulfilling): that context.cmake, as ACTUALLY written
-    into a real build dir, carries the rig.yml, at least one .shield, one
-    connector plug YAML, and the board .dts. The other half — that CMake
-    actually retriggers configure when a CMAKE_CONFIGURE_DEPENDS-listed file
-    changes — is CMake's own long-standing guarantee for that property, not
-    something this project needs to (or reasonably can, without touching
-    corpus files) re-prove; set_property(... APPEND PROPERTY
-    CMAKE_CONFIGURE_DEPENDS ...) in dts.cmake is the whole of our contribution."""
+    into a real build dir, carries the rig.yml, its content file, at least
+    one .shield, one connector plug YAML, and the board .dts. The other
+    half — that CMake actually retriggers configure when a
+    CMAKE_CONFIGURE_DEPENDS-listed file changes — is CMake's own
+    long-standing guarantee for that property, not something this project
+    needs to (or reasonably can, without touching corpus files) re-prove;
+    set_property(... APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ...) in
+    dts.cmake is the whole of our contribution."""
     build_dir = tmp_path / "build"
     extra = board_extra_defines(rig_board_name("lotus_pwm"))
     result = _run_build("lotus_pwm", build_dir, extra)
@@ -526,6 +535,7 @@ def test_tier2_rig_depends_provenance(tmp_path: Path) -> None:
         f"no RIG_DEPENDS in generated context.cmake:\n{context_cmake}")
 
     assert "boards/rigs/lotus_pwm/rig.yml" in depends_line
+    assert "boards/rigs/lotus_pwm/lotus_pwm.yml" in depends_line
     assert "boards/shields/grove_servo/grove_servo.shield" in depends_line
     assert "dts/bindings/connectors/grove.yaml" in depends_line
     assert ("boards/extend/seeed/seeeduino_lotus/"

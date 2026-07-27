@@ -1,13 +1,3 @@
-# S1 — the baseline: one board, one shield, today's model. Adafruit Data
-# Logger on the Nucleo Arduino header — the exact setup of
-# west build -b nucleo_f401re --shield adafruit_data_logger. The generated
-# overlay must be EQUIVALENT (R2 — not byte-identical; labels may differ) to
-# the legacy shield overlay's output.
-
 rig:
   name: nucleo_datalogger
   board: nucleo_f401re/stm32f401xe/rig
-  instances:
-    - name: logger
-      shield: adafruit_data_logger
-      socket: nucleo_ard

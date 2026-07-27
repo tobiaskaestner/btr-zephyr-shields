@@ -1,0 +1,19 @@
+# A rig revision selecting a SHIELD revision (rig-variants-revisions.md
+# V1c). Distinct from shield_rev_pilot, which references shield:
+# i2c_sensor@2 directly from its base topology: here the base names the
+# sensor's revision 1 and the rig's OWN revision 2 swaps it to revision 2
+# via a delta fragment, so the two revision axes compose. That composition
+# needs no dedicated code -- an instance patch's shield: resolves through
+# the same resolver a base reference does -- which is exactly why it is
+# pinned by a golden rather than left to be true by accident.
+#
+# The topology is nucleo_mux_farm's proven S8 mux arrangement, so nothing
+# about realizability is under test here; only which sensor revision each
+# rig revision resolves to.
+instances:
+  - name: mux_1
+    shield: i2c_mux
+    socket: nucleo_ard
+  - name: sensor_0
+    shield: i2c_sensor@1
+    socket: mux_1.ch0

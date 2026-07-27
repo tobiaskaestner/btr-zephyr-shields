@@ -6,4 +6,3 @@
 rig:
   name: no-such-axis
   board: nucleo_f401re/stm32f401xe/rig
-  instances: []

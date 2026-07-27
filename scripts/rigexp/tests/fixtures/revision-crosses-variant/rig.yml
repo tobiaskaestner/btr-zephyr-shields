@@ -1,11 +1,3 @@
-# Synthetic fixture: rule 12 -- a family-wide revision whose params names
-# a device the POST-VARIANT topology does not have. variant 'hpm'
-# substitutes sensor_1's shield (restate_fixture -> pilot_alt_button,
-# device label rf_sensor -> pab_key); revision '2' (family-wide, so it
-# applies regardless of which variant ran) still tries to set params for
-# 'rf_sensor', which pilot_alt_button does not have. Unavoidable by
-# construction (Sec. 6 rule 12): one fragment cannot serve both variants'
-# device-label vocabularies.
 rig:
   name: revision-crosses-variant
   board: nucleo_f401re/stm32f401xe/rig
@@ -15,10 +7,3 @@ rig:
   variants:
     default: a
     list: [a, hpm]
-  instances:
-    - name: sensor_1
-      shield: restate_fixture
-      socket: nucleo_ard
-      params:
-        rf_sensor:
-          vnd,threshold: 20

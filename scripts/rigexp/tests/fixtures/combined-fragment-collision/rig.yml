@@ -14,4 +14,3 @@ rig:
   variants:
     default: variant_a
     list: [variant_a, variant_a_2]
-  instances: []
