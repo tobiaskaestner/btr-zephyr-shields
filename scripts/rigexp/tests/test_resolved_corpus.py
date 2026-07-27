@@ -85,7 +85,7 @@ def _run_build(rig_name: str, build_dir: Path,
 
 
 @pytest.mark.parametrize("case", ACCEPT_CASES, ids=lambda c: c.name)
-def test_tier2_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
+def test_resolved_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
     build_dir = tmp_path / "build"
     extra = board_extra_defines(rig_board_name(case.name))
     result = _run_build(case.name, build_dir, extra)
@@ -121,8 +121,8 @@ def test_tier2_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
 
 def _build_and_freeze_dts(rig_target: str, golden_name: str,
                           tmp_path: Path) -> Path:
-    """Shared body for the pilot family's three NON-default qualified tiers
-    (the bare tuple already rides test_tier2_accept_zephyr_dts via
+    """Shared body for the pilot family's three NON-default qualified tuples
+    (the bare tuple already rides test_resolved_accept_zephyr_dts via
     ACCEPT_CASES's pilot_variants entry, above) -- west build-rig --rig
     accepts a FULL qualified target string verbatim (rig.py forwards it,
     zero rig knowledge), so no cmake/west-command change was needed for
@@ -158,7 +158,7 @@ def _build_and_freeze_dts(rig_target: str, golden_name: str,
     return build_dir
 
 
-def test_tier2_pilot_variant_b(tmp_path: Path) -> None:
+def test_resolved_pilot_variant_b(tmp_path: Path) -> None:
     """variant_b @ revision 1: the variant's own .overlay must actually
     reach the real build (dts_equiv.py's structural comparison is what
     proves it, not just a text diff on the generated overlay)."""
@@ -166,12 +166,12 @@ def test_tier2_pilot_variant_b(tmp_path: Path) -> None:
                           "pilot_variants_variant_b", tmp_path)
 
 
-def test_tier2_pilot_revision_2(tmp_path: Path) -> None:
+def test_resolved_pilot_revision_2(tmp_path: Path) -> None:
     """variant_a (default) @ revision 2."""
     _build_and_freeze_dts("pilot_variants@2", "pilot_variants_2", tmp_path)
 
 
-def test_tier2_pilot_variant_b_revision_2(tmp_path: Path) -> None:
+def test_resolved_pilot_variant_b_revision_2(tmp_path: Path) -> None:
     """The fully qualified tuple (variant_b @ revision 2) -- THE EVIDENCE
     this slice's acceptance criteria ask for: STATUS-line claims alone
     don't prove a collected fragment took effect, so this test inspects
@@ -209,7 +209,7 @@ def test_tier2_pilot_variant_b_revision_2(tmp_path: Path) -> None:
         f"--- zephyr.dts ---\n{zephyr_dts}")
 
 
-def test_tier2_shield_rev_family_revision_2(tmp_path: Path) -> None:
+def test_resolved_shield_rev_family_revision_2(tmp_path: Path) -> None:
     """The two revision axes composing, through a REAL build: rig revision
     2's delta moves the sensor to the shield's revision 2, so revision 2's
     compatible must reach zephyr.dts AND the shield revision's own Kconfig
@@ -233,7 +233,7 @@ def test_tier2_shield_rev_family_revision_2(tmp_path: Path) -> None:
         f"Kconfig tail\n--- .config ---\n{dotconfig}")
 
 
-def test_tier2_pilot_variant_c_shield_substitution(tmp_path: Path) -> None:
+def test_resolved_pilot_variant_c_shield_substitution(tmp_path: Path) -> None:
     """variant_c (V1b): the topology-differing tuple -- its own delta
     substitutes the logger instance's shield (Adafruit Data Logger ->
     pilot_alt_button). THE EVIDENCE this slice's acceptance criteria ask
@@ -261,10 +261,10 @@ def test_tier2_pilot_variant_c_shield_substitution(tmp_path: Path) -> None:
         f"--- zephyr.dts ---\n{zephyr_dts}")
 
 
-def test_tier2_pilot_build_info_provenance(tmp_path: Path) -> None:
+def test_resolved_pilot_build_info_provenance(tmp_path: Path) -> None:
     """Provenance (item 6/7): build_info.yml's cmake.vendor-specific.rig.*
     carries the SELECTED revision/variant and the applied fragment list --
-    same assertion shape as test_tier2_build_info_rig_provenance above,
+    same assertion shape as test_resolved_build_info_rig_provenance above,
     the established pattern for inspecting this block."""
     build_dir = tmp_path / "build"
     result = _run_build("pilot_variants@2/variant_b", build_dir)
@@ -288,7 +288,7 @@ def test_tier2_pilot_build_info_provenance(tmp_path: Path) -> None:
 
 # ---------------------------------------------------------------- V1c: shield revisions
 
-def test_tier2_shield_revision_conf_collected(tmp_path: Path) -> None:
+def test_resolved_shield_revision_conf_collected(tmp_path: Path) -> None:
     """THE EVIDENCE the shield-revision Kconfig-collection claim asks for
     (rig-variants-revisions.md V1c step 4): inspects the real build's OWN
     .config, not a STATUS-line claim. shield_rev_pilot selects shield:
@@ -318,7 +318,7 @@ def test_tier2_shield_revision_conf_collected(tmp_path: Path) -> None:
 
 
 @pytest.mark.parametrize("case", REJECT_CASES, ids=lambda c: c.name)
-def test_tier2_reject_configure_fails(case: RigCase, tmp_path: Path) -> None:
+def test_resolved_reject_configure_fails(case: RigCase, tmp_path: Path) -> None:
     build_dir = tmp_path / "build"
     extra = board_extra_defines(rig_board_name(case.name))
     result = _run_build(case.name, build_dir, extra)
@@ -334,7 +334,7 @@ def test_tier2_reject_configure_fails(case: RigCase, tmp_path: Path) -> None:
         f"full west/CMake path, not just the standalone expander\n{combined}")
 
 
-def test_tier2_user_extra_conf_wins_over_rig(tmp_path: Path) -> None:
+def test_resolved_user_extra_conf_wins_over_rig(tmp_path: Path) -> None:
     """The rig's own <rigname>_defconfig rides shield_conf_files (an
     APPEND) rather than prepending onto EXTRA_CONF_FILE -- "user extras
     win" now falls out of upstream's own merge ordering
@@ -369,7 +369,7 @@ def test_tier2_user_extra_conf_wins_over_rig(tmp_path: Path) -> None:
         f"--- .config ---\n{dotconfig}")
 
 
-def test_tier2_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
+def test_resolved_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
     """The permanent semantic invariant the expander's socket-relative
     pwm/adc emission must hold: pass-2's own edt.pickle -- the resolved
     ControllerAndData edtlib builds while compiling the real devicetree --
@@ -413,7 +413,7 @@ def test_tier2_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
         f"light io-channels resolved to {adc_spec.data!r}, expected input 0")
 
 
-def test_tier2_build_info_rig_provenance(tmp_path: Path) -> None:
+def test_resolved_build_info_rig_provenance(tmp_path: Path) -> None:
     """A rig build must record what it looked at into build_info.yml, via
     zephyr's own build_info() (cmake/dts.cmake). It lands under
     cmake.vendor-specific.rig.* -- build-schema.yaml is upstream and not
@@ -465,7 +465,7 @@ def test_tier2_build_info_rig_provenance(tmp_path: Path) -> None:
     assert "defconfig-gen" not in rig
 
 
-def test_tier2_build_info_shield_dir_collision(tmp_path: Path) -> None:
+def test_resolved_build_info_shield_dir_collision(tmp_path: Path) -> None:
     """Shield name-collision across BOARD_ROOT: BOARD_ROOT holds both
     btr-shields and $ZEPHYR_BASE (zephyr-rigs), and the
     latter ships its own stock boards/shields/adafruit_data_logger -- a
@@ -503,7 +503,7 @@ def test_tier2_build_info_shield_dir_collision(tmp_path: Path) -> None:
         f"{shield_dir!r}")
 
 
-def test_tier2_rig_depends_provenance(tmp_path: Path) -> None:
+def test_resolved_rig_depends_provenance(tmp_path: Path) -> None:
     """Dependency-tracking handoff (RIG_DEPENDS): cmake/dts.cmake appends
     the expander's own generated context.cmake RIG_DEPENDS list to
     CMAKE_CONFIGURE_DEPENDS, so editing a .shield template or a connector
@@ -545,16 +545,16 @@ def test_tier2_rig_depends_provenance(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- board-per-variant
 
 
-def test_tier2_ard_datalogger_frdm(tmp_path: Path) -> None:
+def test_resolved_ard_datalogger_frdm(tmp_path: Path) -> None:
     """ard_datalogger's frdm variant, through a REAL build: the bare/
-    default (nucleo) tuple already rides test_tier2_accept_zephyr_dts via
+    default (nucleo) tuple already rides test_resolved_accept_zephyr_dts via
     ACCEPT_CASES; this proves the SAME content also configures clean
     through the OTHER declared board, with no fragment file collected for
     it at all (there is none to collect)."""
     _build_and_freeze_dts("ard_datalogger/frdm", "ard_datalogger_frdm", tmp_path)
 
 
-def test_tier2_ard_datalogger_dual_host_d10(tmp_path: Path) -> None:
+def test_resolved_ard_datalogger_dual_host_d10(tmp_path: Path) -> None:
     """THE portability evidence, as real ground truth rather than a
     STATUS-line claim: ARDUINO_HEADER_R3_D10 is index 16 in the SAME
     shared dt-bindings header on both hosts, but nucleo_ard and frdm_ard

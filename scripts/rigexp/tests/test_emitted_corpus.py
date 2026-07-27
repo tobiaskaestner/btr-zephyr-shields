@@ -1,7 +1,7 @@
 """Emitted goldens: the corpus sweep, plus the synthetic fixtures whose
 own behavior still depends on real repo content.
 
-For each rig under boards/rigs/ (test_tier1_golden, @pytest.mark.build)
+For each rig under boards/rigs/ (test_emitted_golden, @pytest.mark.build)
 this pins: the verdict (exit code), the full rendered diagnostics
 (warnings on accepts too, not only reject errors), and whatever of
 overlay / context.cmake / config-sheet.md / conf the emitter
@@ -86,7 +86,7 @@ def test_corpus_complete() -> None:
 
 @pytest.mark.build
 @pytest.mark.parametrize("case", ALL_CASES, ids=lambda c: c.name)
-def test_tier1_golden(case: RigCase, tmp_path: Path,
+def test_emitted_golden(case: RigCase, tmp_path: Path,
                       tmp_path_factory: "pytest.TempPathFactory") -> None:
     board = rig_board_name(case.name)
     plain_build = plain_build_for(board, tmp_path_factory)
@@ -208,7 +208,7 @@ def test_pwm_nonzero_flags_golden(tmp_path: Path,
 def _pilot_golden(tmp_path, tmp_path_factory, golden_name, revision, variant):
     """Shared body for the pilot rig family's three NON-default qualifier
     tuples (the bare/default tuple already rides the standard
-    test_tier1_golden via ACCEPT_CASES's pilot_variants entry, above) --
+    test_emitted_golden via ACCEPT_CASES's pilot_variants entry, above) --
     same board/build for every tuple, since variants/revisions carry no
     delta engine yet (V1a) and never change the board."""
     board = rig_board_name("pilot_variants")

@@ -146,8 +146,9 @@ _VENV_WEST = WEST_TOPDIR / ".venv" / "bin" / "west"
 WEST_EXE = str(_VENV_WEST) if _VENV_WEST.is_file() else "west"
 
 # RIGEXP_REFREEZE=1 rewrites goldens instead of asserting against them (both
-# tiers). Always inspect git diff tests/goldens after a refreeze — it must
-# reflect an INTENTIONAL, understood behavior change, never silent drift.
+# emitted and resolved). Always inspect git diff tests/goldens after a
+# refreeze — it must reflect an INTENTIONAL, understood behavior change,
+# never silent drift.
 REFREEZE = bool(os.environ.get("RIGEXP_REFREEZE"))
 
 _WORKDIR_RE = re.compile(r"/tmp/rigexp-[^/\s]+")
@@ -155,7 +156,7 @@ _WORKDIR_RE = re.compile(r"/tmp/rigexp-[^/\s]+")
 # A resolved zephyr.dts's own DT provenance comments (/* in PATH:LINE */,
 # /* node 'X' defined in PATH:LINE */) render PATH relative to the build's
 # cwd (WEST_TOPDIR) — e.g. ../../../tmp/pytest-of-<user>/pytest-52/
-# test_tier2_accept_zephyr_dts_l0/build/rig/rig-gen.overlay:25 — which embeds
+# test_resolved_accept_zephyr_dt0/build/rig/rig-gen.overlay:25 — which embeds
 # pytest's OWN per-session tmp dir (tmp_path, a fresh directory every test
 # run: test_resolved_corpus._run_build builds into tmp_path / "build").
 # Byte-freezing that raw text would make every refreeze session rewrite
@@ -475,6 +476,25 @@ def assert_absent_or_refreeze(golden_path: Path) -> None:
 # node id -> (module name, the unit/integration markers it carries).
 MarkerCensus = Dict[str, Tuple[str, FrozenSet[str]]]
 
+# The markers scripts/markers.sh reports on, in display order -- the same
+# three pyproject.toml declares. Deliberately NOT every marker on an item
+# (iter_markers() also yields pytest's own parametrize marker, which is
+# noise for this report).
+_REPORTED_MARKERS = ("unit", "integration", "build")
+
+
+def pytest_addoption(parser: "pytest.Parser") -> None:
+    """--markers-report (scripts/markers.sh): one collection, not three/four
+    separate `-m <expr>` collections, and it cannot miss an unmarked test by
+    construction -- it walks the FULL collected item list itself rather than
+    inferring "unmarked" from what three positive -m passes failed to
+    select."""
+    parser.addoption(
+        "--markers-report", action="store_true", default=False,
+        help="print every collected test's node id and its "
+             "unit/integration/build markers, then exit without running "
+             "anything -- see scripts/markers.sh")
+
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_collection_modifyitems(config: "pytest.Config",
@@ -485,7 +505,13 @@ def pytest_collection_modifyitems(config: "pytest.Config",
     test_marker_discipline.py reads config's stashed census rather than
     request.session.items, since a run invoked as `pytest -m unit` would
     otherwise only see the unit-selected subset by the time a test body
-    executes, making both enforcement checks pass vacuously."""
+    executes, making both enforcement checks pass vacuously.
+
+    Also implements --markers-report: same tryfirst=True timing gives the
+    report the FULL collected set too, so a test carrying neither unit nor
+    integration cannot be silently absent from it the way it would be from
+    three separate `pytest -m <expr> --collect-only` passes that each only
+    select what they positively match."""
     census: MarkerCensus = {}
     for item in items:
         markers = frozenset(m.name for m in item.iter_markers()
@@ -497,3 +523,14 @@ def pytest_collection_modifyitems(config: "pytest.Config",
         module = item.nodeid.split("::", 1)[0]
         census[item.nodeid] = (module, markers)
     config._rigexp_marker_census = census  # type: ignore[attr-defined]
+
+    if not config.getoption("--markers-report"):
+        return
+    for item in sorted(items, key=lambda i: i.nodeid):
+        present = {m.name for m in item.iter_markers()}
+        tags = [name for name in _REPORTED_MARKERS if name in present]
+        _module, classified = census[item.nodeid]
+        if not classified:
+            tags.insert(0, "UNMARKED")
+        print(f"{item.nodeid}\t{' '.join(tags)}")
+    pytest.exit("--markers-report: printed, nothing was run", returncode=0)

@@ -274,7 +274,7 @@ def test_cmake_alone_qualified_rig_target_against_undeclared_axis_rejected(
     declarations, so a qualifier against nucleo_datalogger (which declares
     NEITHER axis) is rejected with the declares-no-such-axis wording,
     reached all the way through a real cmake-alone configure (the
-    qualified-pilot-build tier-2 tests exercise the ACCEPT half of this
+    qualified-pilot-build resolved tests exercise the ACCEPT half of this
     same resolution path)."""
     build_dir = tmp_path / "qualified-revision"
     result = _run_cmake_alone(build_dir, [f"-DRIG={_RIG}@1"])

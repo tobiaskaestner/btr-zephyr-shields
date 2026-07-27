@@ -147,8 +147,8 @@ def _controller_label(node: edtlib.Node) -> str:
     module: *-map controllers get the identical treatment.
 
     Constraint the code cannot show: this label is emitted verbatim into
-    overlay text (&<label> { ... }), so tier-1 golden text is the only
-    guard on it -- tier-2 (dts_equiv) resolves labels away and cannot
+    overlay text (&<label> { ... }), so emitted golden text is the only
+    guard on it -- resolved (dts_equiv) resolves labels away and cannot
     catch a regression here."""
     if not node.labels:
         raise ValueError(f"controller node {node.path} has no label")

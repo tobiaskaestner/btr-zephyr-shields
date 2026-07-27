@@ -4,7 +4,7 @@ the opposite of every other fixture in this suite, which is named for the
 defect it triggers. A reference implementation nobody exercises is
 documentation, and documentation drifts, so this test runs the whole
 pipeline (load -> analyze -> emit) end to end through the CLI and asserts
-on the accepted result, the same way the corpus tier-1 goldens do for real
+on the accepted result, the same way the corpus emitted goldens do for real
 rigs.
 
 The reference shields also #include this fixture tree's own
