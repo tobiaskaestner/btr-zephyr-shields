@@ -1,12 +1,12 @@
-"""Tier-2 goldens: the real pass-2 zephyr.dts, via west build-rig
+"""Resolved goldens: the real pass-2 zephyr.dts, via west build-rig
 --cmake-only.
 
-This is THE invariant that must hold regardless of how tier 1's exact text
-is produced: if a future change to the expander legitimately alters what
-tier 1 freezes (e.g. how a nexus is wired in the overlay), tier 2 confirms
-whether the BUILT devicetree actually changed; tier 1 then gets re-frozen
-with a justification note, using tier 2 as the oracle that nothing else
-moved.
+This is THE invariant that must hold regardless of how an emitted golden's
+exact text is produced: if a future change to the expander legitimately
+alters what test_emitted_corpus.py freezes (e.g. how a nexus is wired in
+the overlay), this file confirms whether the BUILT devicetree actually
+changed; the emitted golden then gets re-frozen with a justification note,
+using the resolved tree as the oracle that nothing else moved.
 
 For each ACCEPT rig: west build-rig --cmake-only must configure clean, and
 the produced zephyr.dts must be STRUCTURALLY EQUIVALENT (via
@@ -19,12 +19,12 @@ same diagnostic category must surface through the full west/CMake path, not
 just the standalone expander.
 
 These tests run a real CMake configure per rig (several minutes for the full
-13-rig corpus) — marked @pytest.mark.build; CHECK_FAST=1 (scripts/check.sh)
-deselects them via pytest -m "not build".
+13-rig corpus) — marked @pytest.mark.build and @pytest.mark.integration;
+CHECK_FAST=1 (scripts/check.sh) deselects them via pytest -m "not build".
 
 Refreeze: RIGEXP_REFREEZE=1 rewrites tests/goldens/<rig-name>/zephyr.dts
 (ACCEPT rigs only) instead of comparing — inspect the diff before committing,
-same rule as tier 1.
+same rule as an emitted golden.
 """
 from __future__ import annotations
 
@@ -60,7 +60,7 @@ from conftest import (
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigexp import edt_build  # noqa: E402,F401
 
-pytestmark = pytest.mark.build
+pytestmark = [pytest.mark.build, pytest.mark.integration]
 
 # Relative to WEST_TOPDIR — any app works for a cmake-only configure;
 # hello_world is the reference app this suite standardizes on.

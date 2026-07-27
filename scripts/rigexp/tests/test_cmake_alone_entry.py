@@ -23,8 +23,9 @@ invocations (no west subprocess at all):
     a fresh configure is a FATAL_ERROR (never a silent no-op); a plain
     --shield build (no RIG) is untouched.
 
-All run a real CMake configure -- marked @pytest.mark.build; CHECK_FAST=1
-(scripts/check.sh) deselects them via pytest -m "not build".
+All run a real CMake configure -- marked @pytest.mark.build and
+@pytest.mark.integration; CHECK_FAST=1 (scripts/check.sh) deselects them
+via pytest -m "not build".
 """
 from __future__ import annotations
 
@@ -47,10 +48,10 @@ from conftest import (
     zephyr_base,
 )
 
-pytestmark = pytest.mark.build
+pytestmark = [pytest.mark.build, pytest.mark.integration]
 
 # Relative to WEST_TOPDIR — any app works for a cmake-only configure;
-# hello_world is the corpus's own reference app (see test_tier2_goldens.py).
+# hello_world is the corpus's own reference app (see test_resolved_corpus.py).
 _APP = "zephyr/samples/hello_world"
 
 # nucleo_datalogger (nucleo_f401re/stm32f401xe/rig, a board EXTENSION) is
@@ -61,7 +62,7 @@ _RIG = "nucleo_datalogger"
 def _run_build_rig(rig_name: str, build_dir: Path,
                     extra_defines: Optional[List[str]] = None) -> "subprocess.CompletedProcess[str]":
     """The reference path: west build-rig --cmake-only for one rig — same
-    invocation shape as test_tier2_goldens.py's _run_build. extra_defines
+    invocation shape as test_resolved_corpus.py's _run_build. extra_defines
     is threaded after --, e.g. the lotus board's
     -DEXTRA_ZEPHYR_MODULES=<bridle_root>."""
     cmd = [

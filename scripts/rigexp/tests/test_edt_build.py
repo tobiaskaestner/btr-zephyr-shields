@@ -12,10 +12,14 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 from conftest import REPO_ROOT
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigexp import edt_build  # noqa: E402
+
+pytestmark = pytest.mark.unit
 
 
 def test_recipe_from_build_info(tmp_path: Path) -> None:

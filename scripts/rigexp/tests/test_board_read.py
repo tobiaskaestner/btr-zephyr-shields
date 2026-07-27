@@ -42,6 +42,8 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigexp import board_edt, boarddt, edt_build  # noqa: E402
 from rigexp.diag import Diagnostics  # noqa: E402
 
+pytestmark = pytest.mark.integration
+
 
 # ---------------------------------------------------------------- plain-build fixture
 
@@ -50,7 +52,7 @@ from rigexp.diag import Diagnostics  # noqa: E402
 def plain_build(request: "pytest.FixtureRequest",
                 tmp_path_factory: "pytest.TempPathFactory") -> PlainBuild:
     """Per-board plain build, session-memoized by conftest.plain_build_for
-    -- other test files (test_tier1_goldens.py) request the SAME cached
+    -- other test files (test_emitted_corpus.py) request the SAME cached
     build for their own rigs naming this board, rather than configuring it
     again."""
     return plain_build_for(request.param, tmp_path_factory)

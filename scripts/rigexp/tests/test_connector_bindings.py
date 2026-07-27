@@ -16,12 +16,16 @@ from __future__ import annotations
 import glob
 import os
 
-from conftest import REPO_ROOT, zephyr_base
+import pytest
+
+from conftest import FIXTURES_DIR, REPO_ROOT, zephyr_base
 from rigexp.ctypes_registry import BINDINGS, load_types
 from rigexp.edt_build import ensure_devicetree_on_path
 
 ensure_devicetree_on_path()
 from devicetree import edtlib  # noqa: E402
+
+pytestmark = pytest.mark.integration
 
 
 def _fname2path() -> dict:
@@ -55,3 +59,27 @@ def test_unified_connector_bindings_are_valid_edtlib_bindings() -> None:
         assert "plug,bus-proxies" in binding.raw, path
         # And the rig loader assembled a ConnectorType from the same file.
         assert name in types, path
+
+
+def test_fixture_nexus_type_is_registry_visible() -> None:
+    """The ceiling T0 hit, lifted: ctypes_registry.load_types can see the
+    fixture connector type when pointed at its directory explicitly, and
+    still sees the four real types when it is not — the same function, two
+    different roots, proving the default-preserving fallback rather than
+    merely asserting it. Moved here (not test_reference_shields.py, where
+    it was authored) because the second half asserts directly on
+    repo-production connector-type names -- integration by that half's
+    purpose, and no module may mix unit and integration tests."""
+    connectors = FIXTURES_DIR / "connectors"
+    fixture_types = load_types(
+        connector_dirs=[str(connectors / "bindings")],
+        header_dirs=[str(connectors / "include")])
+    assert set(fixture_types) == {"fixture-nexus"}
+    ctype = fixture_types["fixture-nexus"]
+    assert set(ctype.positions) == {"D0", "D1", "CS"}
+    assert ctype.bus_proxies == ["i2c", "spi"]
+    assert ctype.cs_pool == [4]
+
+    real_types = load_types()
+    assert set(real_types) == {"arduino-r3", "grove", "i2c-port", "mikrobus"}
+    assert BINDINGS == str(REPO_ROOT / "dts" / "bindings" / "connectors")

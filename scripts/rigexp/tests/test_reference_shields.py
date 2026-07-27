@@ -7,20 +7,19 @@ pipeline (load -> analyze -> emit) end to end through the CLI and asserts
 on the accepted result, the same way the corpus tier-1 goldens do for real
 rigs.
 
-This is also the connector-type registry's own proof of configurability
-(ctypes_registry.load_types's connector_dirs/header_dirs parameters,
-threaded through cli.py's --connector-dir plus the existing
---include-dir): fixtures/connectors/bindings/fixture-nexus.yaml is
-registry-complete (plug,positions, plug,bus-proxies, socket facts) and
-mates a synthetic shield exactly as a real shield mates
-dts/bindings/connectors/arduino-r3.yaml — something T0's fixture connector
-type could not do (it was invisible to shields.py's plug-type check; see
-that module's own docstring history before this slice). The reference
-shields also #include this fixture tree's own <dt-bindings/connector/
-fixture-nexus.h> and claim positions by macro (FIXTURE_D0, FIXTURE_CS),
-exactly the Convention-4 idiom a real shield uses — the same
---include-dir list now reaches a .shield template's own cpp preprocess
-(dtsio.run_cpp), not only the board .dts and the registry's header lookup.
+The reference shields also #include this fixture tree's own
+<dt-bindings/connector/fixture-nexus.h> and claim positions by macro
+(FIXTURE_D0, FIXTURE_CS), exactly the Convention-4 idiom a real shield
+uses — the same --include-dir list now reaches a .shield template's own
+cpp preprocess (dtsio.run_cpp), not only the board .dts and the registry's
+header lookup.
+
+The connector-type registry's own proof of configurability
+(ctypes_registry.load_types's connector_dirs/header_dirs parameters) lives
+in test_connector_bindings.test_fixture_nexus_type_is_registry_visible
+rather than here: that test asserts on the real registry's four
+connector-type names too (the default-preserving fallback half of the
+same proof), which is integration, and no module here may mix the two.
 
 Board + registry pieces are fixture-local (assert_fixture_local, below); the
 per-instance parameter values are plain integers rather than zephyr,code
@@ -33,7 +32,7 @@ against a registry-complete connector type mates, and that its devices
 resolve to the right positions/buses/addresses. It proves nothing about
 whether any REAL board's binding agrees with what its schema promises; it
 could not have caught the sam0 two-cell PWM bug (test_pwm_nonzero_flags_
-golden, test_tier1_goldens.py), which only surfaced against a real
+golden, test_emitted_corpus.py), which only surfaced against a real
 binding. The corpus rigs under boards/rigs/ remain the proof that real
 hardware works.
 """
@@ -42,10 +41,13 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 from conftest import FIXTURES_DIR, REPO_ROOT, assert_fixture_local, run_expand
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-from rigexp.ctypes_registry import BINDINGS, load_types  # noqa: E402
+
+pytestmark = pytest.mark.unit
 
 _FIXTURE = FIXTURES_DIR / "reference-shields"
 _CONNECTORS = FIXTURES_DIR / "connectors"
@@ -103,23 +105,3 @@ def test_reference_shields_accept(tmp_path: Path) -> None:
     assert "fixture_socket_a" in config_sheet
     assert "fixture_socket_b" in config_sheet
     assert "fixture_socket_c" in config_sheet
-
-
-def test_fixture_nexus_type_is_registry_visible() -> None:
-    """The ceiling T0 hit, lifted: ctypes_registry.load_types can see the
-    fixture connector type when pointed at its directory explicitly, and
-    still sees the four real types when it is not — the same function, two
-    different roots, proving the default-preserving fallback rather than
-    merely asserting it."""
-    fixture_types = load_types(
-        connector_dirs=[str(_CONNECTORS / "bindings")],
-        header_dirs=[str(_CONNECTORS / "include")])
-    assert set(fixture_types) == {"fixture-nexus"}
-    ctype = fixture_types["fixture-nexus"]
-    assert set(ctype.positions) == {"D0", "D1", "CS"}
-    assert ctype.bus_proxies == ["i2c", "spi"]
-    assert ctype.cs_pool == [4]
-
-    real_types = load_types()
-    assert set(real_types) == {"arduino-r3", "grove", "i2c-port", "mikrobus"}
-    assert BINDINGS == str(REPO_ROOT / "dts" / "bindings" / "connectors")

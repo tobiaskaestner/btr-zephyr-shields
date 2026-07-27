@@ -29,11 +29,15 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
+import pytest
+
 from conftest import REPO_ROOT, assert_fixture_local
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigexp import board_edt  # noqa: E402
 from rigexp.edt_build import BuildRecipe  # noqa: E402
+
+pytestmark = pytest.mark.unit
 
 _FIXTURE = REPO_ROOT / "scripts" / "rigexp" / "tests" / "fixtures" / "controller-label"
 _CONNECTORS = REPO_ROOT / "scripts" / "rigexp" / "tests" / "fixtures" / "connectors"

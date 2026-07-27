@@ -1,21 +1,29 @@
 """Shared fixtures and helpers for the rig-expander golden tests.
 
-test_tier1_goldens.py / test_tier2_goldens.py freeze the expander's
-observed behavior for every rig in boards/rigs/, as committed fixtures, in
-two tiers:
+The corpus of rigs under boards/rigs/, plus a set of synthetic fixtures,
+is frozen at two levels, named for the ARTIFACT each freezes rather than
+the order the two layers were built:
 
-  tier 1 (test_tier1_goldens.py) — expander-level, every rig, fast: verdict +
-  rendered diagnostics + emitted rig-gen.overlay/context.cmake/
-  config-sheet.md/rig-gen.conf.
+  emitted (test_emitted_rejects.py, test_emitted_corpus.py) —
+  expander-level, every rig: verdict + rendered diagnostics + whatever of
+  rig-gen.overlay/context.cmake/config-sheet.md/rig-gen.conf the run
+  produced (EMITTED_FILES, below), frozen byte-exact after normalization.
+  Split in two so no module mixes unit and integration tests (Tobi,
+  2026-07-27): test_emitted_rejects.py holds the fixture-only rejects that
+  need no Zephyr DATA at all; test_emitted_corpus.py holds the real corpus
+  sweep plus the handful of synthetic fixtures whose own behavior still
+  depends on real repo content (board discovery, real Zephyr bindings).
 
-  tier 2 (test_tier2_goldens.py, @pytest.mark.build) — the real pass-2
+  resolved (test_resolved_corpus.py, @pytest.mark.build) — the real pass-2
   zephyr.dts, compared STRUCTURALLY (via dts_equiv.py), not byte-for-byte
   — labels/phandle numbers/ordering may legitimately differ between the
-  expander's overlay text and the golden, so only tier 2 is the invariant a
-  change to HOW the overlay is worded must preserve; tier 1 is refrozen
-  whenever such a change legitimately alters the emitted text.
+  expander's overlay text and the golden, so only the resolved tree is the
+  invariant a change to HOW the overlay is worded must preserve; an
+  emitted golden is refrozen whenever such a change legitimately alters
+  the emitted text, using the resolved tree as the oracle that nothing
+  else moved.
 
-This module holds only the plumbing both tiers share: the corpus table, path
+This module holds only the plumbing all three share: the corpus table, path
 discovery (self-locating — no workspace-name literals), the expander
 subprocess runner, normalization, and the freeze/assert primitives.
 expectations.yml is deliberately never read here — it is emitted but never
@@ -30,7 +38,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, FrozenSet, List, Optional, Tuple, Union
 
 import pytest
 import yaml
@@ -67,9 +75,9 @@ def assert_fixture_local(paths: List[Union[Path, str]]) -> None:
 DTS_EQUIV = REPO_ROOT / "scripts" / "dts_equiv.py"
 
 # board name -> its OWN .dts, relative to the repo root (Conv. 4: typed
-# socket nodes live in the board's own devicetree). Shared by test_tier1_
-# goldens.py (--board-dts per rig) and test_board_read.py (the plain-build /
-# edt.pickle-cross-check corpus).
+# socket nodes live in the board's own devicetree). Shared by
+# test_emitted_corpus.py (--board-dts per rig) and test_board_read.py (the
+# plain-build / edt.pickle-cross-check corpus).
 #
 # Every board here is an hwmv2 board EXTENSION: board: in rig.yml is the
 # FULL qualified target, read verbatim (no expander-side sugar), and each
@@ -115,7 +123,8 @@ def bridle_root() -> Path:
 
 def board_extra_defines(board: str) -> List[str]:
     """Per-board extra -D cmake defines every build path (plain build,
-    tier-2 west build-rig, cmake-alone) must thread through identically --
+    the resolved-corpus west build-rig, cmake-alone) must thread through
+    identically --
     a case-level mechanism keyed on the board string, not a global flag, so
     non-lotus boards get an empty list and their goldens stay byte-identical."""
     if board == _BRIDLE_MODULE_BOARD:
@@ -143,22 +152,22 @@ REFREEZE = bool(os.environ.get("RIGEXP_REFREEZE"))
 
 _WORKDIR_RE = re.compile(r"/tmp/rigexp-[^/\s]+")
 
-# A tier-2 zephyr.dts's own DT provenance comments (/* in PATH:LINE */,
+# A resolved zephyr.dts's own DT provenance comments (/* in PATH:LINE */,
 # /* node 'X' defined in PATH:LINE */) render PATH relative to the build's
 # cwd (WEST_TOPDIR) — e.g. ../../../tmp/pytest-of-<user>/pytest-52/
 # test_tier2_accept_zephyr_dts_l0/build/rig/rig-gen.overlay:25 — which embeds
 # pytest's OWN per-session tmp dir (tmp_path, a fresh directory every test
-# run: test_tier2_goldens._run_build builds into tmp_path / "build").
-# Byte-freezing that raw text would make every refreeze session rewrite every
-# tier-2 golden on this fragment alone, with no content change at all.
-# (?:\.\./)+ (not a fixed count) tolerates whatever depth WEST_TOPDIR sits
-# at under the filesystem root on a given machine.
+# run: test_resolved_corpus._run_build builds into tmp_path / "build").
+# Byte-freezing that raw text would make every refreeze session rewrite
+# every resolved golden on this fragment alone, with no content change at
+# all. (?:\.\./)+ (not a fixed count) tolerates whatever depth WEST_TOPDIR
+# sits at under the filesystem root on a given machine.
 _DTS_BUILD_PROVENANCE_RE = re.compile(
     r"(?:\.\./)+tmp/pytest-of-[^/\s]+/pytest-\d+/[^/\s]+/build/(rig/[^:\s*]+):(\d+)")
 
 
 def normalize_dts_provenance(text: str) -> str:
-    """Replace a tier-2 zephyr.dts's pytest-tmp-dir-dependent provenance
+    """Replace a resolved zephyr.dts's pytest-tmp-dir-dependent provenance
     comment paths with a stable placeholder, keeping the meaningful
     generated-file-relative part (rig/<file>:<line>) intact — comments
     only, so dts_equiv.py's structural comparison (which ignores comments)
@@ -223,7 +232,7 @@ ACCEPT_CASES: List[RigCase] = [
     RigCase("lotus_buttons", True),
     # Pilot rig family (rig-variants-revisions.md V1a): this entry alone
     # exercises the BARE target (declared defaults revision=1/variant=
-    # variant_a) through the standard tier-1/tier-2 machinery; the other
+    # variant_a) through the standard emitted/resolved machinery; the other
     # three qualifier combinations get their own dedicated tests below,
     # since a single corpus folder now resolves to more than one tuple.
     RigCase("pilot_variants", True),
@@ -242,7 +251,7 @@ ACCEPT_CASES: List[RigCase] = [
     # entry rides the BARE target, whose declared default variant (nucleo)
     # resolves to nucleo_f401re/stm32f401xe/rig via rig_board_name's own
     # per-variant fallback above. The frdm variant gets its own dedicated
-    # tier-1/tier-2 tests below, since one folder again resolves to more
+    # emitted/resolved tests below, since one folder again resolves to more
     # than one tuple, and it is the tuple that carries NO fragment at all.
     RigCase("ard_datalogger", True),
 ]
@@ -256,6 +265,15 @@ REJECT_CASES: List[RigCase] = [
 ]
 
 ALL_CASES: List[RigCase] = ACCEPT_CASES + REJECT_CASES
+
+# The artifact filenames the emitter may produce, shared by
+# test_emitted_rejects.py and test_emitted_corpus.py. Order is stable so a
+# refreeze's git diff stays readable. rig-gen-includes.dtsi is emitted only
+# when a rig declares dt-includes: (today, only lotus_buttons) --
+# assert_absent_or_refreeze covers the "correctly absent" case for every
+# other corpus rig, the same way it already does for rig-gen.conf.
+EMITTED_FILES = ("rig-gen.overlay", "rig-gen-includes.dtsi", "context.cmake",
+                 "config-sheet.md", "rig-gen.conf")
 
 
 def rig_board_name(folder: str, variant: Optional[str] = None) -> str:
@@ -307,7 +325,7 @@ class PlainBuild:
 
 
 # Any app works for a cmake-only PLAIN configure; hello_world is the corpus's
-# own reference app (see test_tier2_goldens.py).
+# own reference app (see test_resolved_corpus.py).
 _PLAIN_BUILD_APP = "zephyr/samples/hello_world"
 
 _plain_build_cache: Dict[str, PlainBuild] = {}
@@ -319,7 +337,7 @@ def _run_plain_build(board: str, build_dir: Path) -> "subprocess.CompletedProces
     board path a rig-enabling board change must never break. Threads
     board_extra_defines(board) after -- (empty for every board except
     the lotus extension) — the same mechanism plain_build_for's callers
-    (test_tier1_goldens.py, test_board_read.py) get for free, since they
+    (test_emitted_corpus.py, test_board_read.py) get for free, since they
     never build the cmake argv themselves."""
     zb = zephyr_base()
     env = dict(os.environ)
@@ -452,3 +470,30 @@ def assert_absent_or_refreeze(golden_path: Path) -> None:
         return
     assert not golden_path.is_file(), (
         f"golden {golden_path} exists but this run produced no such file")
+
+
+# node id -> (module name, the unit/integration markers it carries).
+MarkerCensus = Dict[str, Tuple[str, FrozenSet[str]]]
+
+
+@pytest.hookimpl(tryfirst=True)
+def pytest_collection_modifyitems(config: "pytest.Config",
+                                  items: "List[pytest.Item]") -> None:
+    """Stash the unit/integration markers of every COLLECTED test, before
+    any -m deselection can narrow items down -- tryfirst=True so this runs
+    ahead of pytest's own markexpr filter, which mutates items in place.
+    test_marker_discipline.py reads config's stashed census rather than
+    request.session.items, since a run invoked as `pytest -m unit` would
+    otherwise only see the unit-selected subset by the time a test body
+    executes, making both enforcement checks pass vacuously."""
+    census: MarkerCensus = {}
+    for item in items:
+        markers = frozenset(m.name for m in item.iter_markers()
+                            if m.name in ("unit", "integration"))
+        # The file portion of the node id (before "::") IS the module --
+        # simpler and just as precise as item.module.__name__, and it
+        # sidesteps that attribute existing only on pytest.Function, not
+        # the base pytest.Item type every collected item is typed as here.
+        module = item.nodeid.split("::", 1)[0]
+        census[item.nodeid] = (module, markers)
+    config._rigexp_marker_census = census  # type: ignore[attr-defined]
