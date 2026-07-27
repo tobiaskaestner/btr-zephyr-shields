@@ -66,6 +66,47 @@ def rig_key(rig):
     return rig.name
 
 
+def variant_boards(variants):
+    """Every DECLARED per-variant board, keyed by variant name -- the raw
+    variants: dict's list: entries that are mappings ({name:, board:,
+    sockets:}) rather than bare names. Empty for a rig using the
+    degenerate single top-level board: shape, or one with no variants:
+    axis at all."""
+    boards = {}
+    for item in (variants or {}).get('list') or []:
+        if isinstance(item, dict):
+            name = item.get('name')
+            board = item.get('board')
+            if name is not None and board is not None:
+                boards[str(name)] = str(board)
+    return boards
+
+
+def variant_names(variants):
+    """Bare variant-axis values, whichever shape variants: list: entries
+    take -- a scalar, or a {name:, board:, sockets:} mapping in the
+    per-variant-board shape. Display/reporting code that only wants the
+    declared NAMES (west rigs' own variants= column) uses this rather
+    than assuming every entry is already a bare string."""
+    return [item.get('name') if isinstance(item, dict) else item
+            for item in (variants or {}).get('list') or []]
+
+
+def default_board(rig):
+    """The board to show for a rig that has not gone through
+    resolve_rig_target -- --list/--json below, and west rigs' own listing
+    text: the degenerate top-level board:, or -- for a per-variant rig --
+    the DECLARED DEFAULT variant's board, since showing nothing at all
+    would read as a broken entry rather than as "this rig has no single
+    board". None if even that cannot be answered (a malformed rig with
+    neither shape, or a per-variant rig declaring no default variant)."""
+    per_variant = variant_boards(rig.variants)
+    if not per_variant:
+        return rig.board
+    default = (rig.variants or {}).get('default')
+    return per_variant.get(str(default)) if default is not None else None
+
+
 def find_rigs(args):
     ret = []
 
@@ -134,13 +175,20 @@ def _resolve_axis(rig_name, axis_kind, decl_key, declared, selected):
     BEFORE ever invoking the expander; the loader is still the canonical
     validator once `rigexp expand` itself runs (every real build reaches
     it). Returns the resolved value, or None if the axis is undeclared and
-    nothing was selected."""
+    nothing was selected.
+
+    Membership is checked against variant_names(declared), never the raw
+    list: entries directly -- a rig's variants: axis may declare its list
+    as {name:, board:, sockets:} mappings (the per-variant-board shape),
+    and comparing a selected bare name against a stringified MAPPING would
+    never match. revisions: never takes that shape, so this is a no-op
+    there."""
     if selected is not None:
         if declared is None:
             sys.exit(f"ERROR: rig '{rig_name}' names a {axis_kind} "
                       f"({selected!r}), but this rig declares no "
                       f"{decl_key}: at all.")
-        values = [str(v) for v in (declared.get('list') or [])]
+        values = [str(v) for v in variant_names(declared)]
         if selected not in values:
             sys.exit(f"ERROR: rig '{rig_name}': {axis_kind} '{selected}' is "
                       f"not declared -- known {axis_kind}s: "
@@ -151,10 +199,41 @@ def _resolve_axis(rig_name, axis_kind, decl_key, declared, selected):
     default = declared.get('default')
     if default is not None:
         return str(default)
-    values = [str(v) for v in (declared.get('list') or [])]
+    values = [str(v) for v in variant_names(declared)]
     sys.exit(f"ERROR: rig '{rig_name}' names no {axis_kind}, and this rig "
               f"declares no default {axis_kind} -- choose one of: "
               f"{', '.join(values) or '(none)'}")
+
+
+def _resolve_board(rig, resolved_variant):
+    """The board a resolved rig target actually builds: the per-variant
+    board declared beside the SELECTED variant, or the rig's own
+    top-level board: in the degenerate single-board shape. Mirrors
+    rigexp.loader_yml._resolve_board's two-shape mixing rule closely
+    enough that cmake never constructs a fragment filename from a board
+    that rule would have rejected -- the loader stays the canonical
+    validator with the fuller diagnostic (naming every offending variant,
+    not just the one selected here)."""
+    per_variant = variant_boards(rig.variants)
+    if per_variant:
+        if rig.board is not None:
+            sys.exit(
+                f"ERROR: rig '{rig.name}' declares a top-level board: "
+                "while its variants also declare their own -- a rig may "
+                "declare a board per variant or once at the top level, "
+                "never both.")
+        if resolved_variant not in per_variant:
+            sys.exit(
+                f"ERROR: rig '{rig.name}': variant '{resolved_variant}' "
+                "declares no board:, but at least one other variant does "
+                "-- every variant must declare a board, or none should.")
+        return per_variant[resolved_variant]
+    if rig.board is None:
+        sys.exit(
+            f"ERROR: rig '{rig.name}' ({(rig.dir / RIG_YML).as_posix()}) "
+            "declares no board -- neither a top-level board: nor one for "
+            "every declared variant.")
+    return rig.board
 
 
 def resolve_rig_target(target, args):
@@ -176,6 +255,10 @@ def resolve_rig_target(target, args):
     resolution exists so cmake has concrete axis strings to build filenames
     from, not to duplicate that diagnostic quality.
 
+    The board is resolved LAST, after both axes, in the per-variant-board
+    shape it depends on which variant was actually selected -- see
+    _resolve_board.
+
     Exits (via `sys.exit`, mirroring `find_rigs_in`'s existing error
     convention in this module) rather than raising, so a cmake
     `execute_process` caller sees a clean nonzero exit + stderr message with
@@ -185,15 +268,12 @@ def resolve_rig_target(target, args):
     rigs = find_rigs(args)
     for rig in rigs:
         if rig.name == name:
-            if not rig.board:
-                sys.exit(
-                    f"ERROR: rig '{name}' ({(rig.dir / RIG_YML).as_posix()}) "
-                    "has no rig.board -- cannot resolve a board target.")
             resolved_revision = _resolve_axis(
                 rig.name, 'revision', 'revisions', rig.revisions, revision)
             resolved_variant = _resolve_axis(
                 rig.name, 'variant', 'variants', rig.variants, variant)
-            return replace(rig, revision=resolved_revision,
+            resolved_board = _resolve_board(rig, resolved_variant)
+            return replace(rig, board=resolved_board, revision=resolved_revision,
                            variant=resolved_variant)
     available = ', '.join(r.name for r in rigs) or '(none)'
     sys.exit(f"ERROR: -DRIG={target} does not resolve to a rig.\n"
@@ -229,10 +309,14 @@ def add_args_formatting(parser):
 
 
 def dump_rigs(rigs, args):
+    """--list / --json never resolves a target axis, so a per-variant rig
+    has no single selected board to report -- default_board falls back to
+    the DECLARED DEFAULT variant's, so this listing never prints a
+    board of None for a rig that legitimately has one per variant."""
     if args.json:
         print(
             json.dumps([{'dir': rig.dir.as_posix(), 'name': rig.name,
-                         'board': rig.board, 'revisions': rig.revisions,
+                         'board': default_board(rig), 'revisions': rig.revisions,
                          'variants': rig.variants} for rig in rigs])
         )
     else:

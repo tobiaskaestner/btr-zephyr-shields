@@ -40,16 +40,24 @@ trial):
   rig.revisions/        {default:, list: []} qualifier axis declarations
   rig.variants          (rig-variants-revisions.md V1a); load()'s
                         revision:/variant: params select against them,
-                        applying the declared default for a bare target
+                        applying the declared default for a bare target.
+                        A variants: list entry is either a bare name or a
+                        mapping {name:, board:, sockets:} -- board:/
+                        sockets: are METADATA, resolved before any content
+                        file is read; a rig instead declares them once at
+                        top level (rig: board:/sockets:) in the degenerate
+                        single-board shape. Neither key is ever legal in a
+                        revisions: list entry (variant-only) or in ANY
+                        content file (base or delta) -- see
+                        _reject_metadata_keys.
   <rigname>_<variant>.yml / <rigname>_<rev>.yml -- delta fragments (V1b):
-                        board:/sockets: (variant only), instances: (shallow
-                        replace, matched by name), add-instances:,
-                        remove-instances:, add-wires:/remove-wires:
-                        (matched by endpoint pair), dt-includes: (unions),
-                        params: (wholesale replace + restate-check).
-                        Resolution order is base -> variant -> revision;
-                        the per-instance-parameter invariant is re-checked
-                        after every stage.
+                        instances: (shallow replace, matched by name),
+                        add-instances:, remove-instances:, add-wires:/
+                        remove-wires: (matched by endpoint pair),
+                        dt-includes: (unions), params: (wholesale replace
+                        + restate-check). Resolution order is base ->
+                        variant -> revision; the per-instance-parameter
+                        invariant is re-checked after every stage.
   instances[].shield    also accepts the identical <name>@<rev> grammar
                         (V1c): shield.yml gains the SAME {default:, list:
                         []} revisions: axis as rig.yml (one schema, reused
@@ -426,12 +434,13 @@ def _require(mapping: _Val, key: str, ctx: str, diags) -> _Val | None:
 # ---------------------------------------------------------------- V1a qualifier axes
 
 def _parse_axis_decl(container_v: _Val, key: str, diags,
-                     owner: str = "rig") -> AxisDecl | None:
-    """A revisions:/variants: declaration block (rig-variants-revisions.md
-    V1a): {default:, list: []}. Absent key -> no axis declared (None). Shape
-    is validated strictly here: list: must be non-empty, and default: (if
-    given) must be one of its own members -- both are lang-schema, like every
-    other malformed-shape error this loader reports, since they are defects of
+                     owner: str = "rig",
+                     allow_variant_metadata: bool = False) -> AxisDecl | None:
+    """A revisions:/variants: declaration block: {default:, list: []}.
+    Absent key -> no axis declared (None). Shape is validated strictly
+    here: list: must be non-empty, and default: (if given) must be one of
+    its own members -- both are lang-schema, like every other
+    malformed-shape error this loader reports, since they are defects of
     the declaring FILE itself, not of a particular selection.
 
     owner names the file that declares the block, and it must, because this
@@ -439,12 +448,47 @@ def _parse_axis_decl(container_v: _Val, key: str, diags,
     growing a second parser for the same shape). Without it every shield.yml
     shape defect reported "rig revisions: ..." -- blaming the rig for a
     shield's own malformed declaration, and naming no shield at all. Callers
-    pass the specific spelling ("rig", "shield 'x'")."""
+    pass the specific spelling ("rig", "shield 'x'").
+
+    allow_variant_metadata gates the ONE shape a rig's own variants: list
+    may take that no other axis may: a list entry given as a mapping
+    {name:, board:, sockets:} rather than a bare name, carrying the board
+    that variant selects and its abstract-socket map. A rig's revisions:
+    axis and every shield.yml revisions: axis pass False (the default) and
+    so keep taking scalars only -- a revision is a change within one
+    physical family, never a move to a different host board, and this is
+    what enforces that at the declaration itself rather than leaving it to
+    a later semantic check."""
     axis_v = container_v.v.get(key)
     if axis_v is None:
         return None
     list_v = axis_v.v.get("list")
-    values = [str(v.v) for v in list_v.v] if list_v is not None else []
+    values: list[str] = []
+    boards: dict[str, str] = {}
+    sockets: dict[str, dict[str, str]] = {}
+    for item_v in (list_v.v if list_v is not None else []):
+        if isinstance(item_v.v, dict):
+            if not allow_variant_metadata:
+                diags.error(
+                    "lang-schema",
+                    f"{owner} {key}: a mapping entry (name:/board:/"
+                    "sockets:) is legal only in a rig's variants: list -- "
+                    "this axis takes bare names",
+                    [item_v.src])
+                continue
+            name_v = _require(item_v, "name", f"{owner} {key} entry", diags)
+            if name_v is None:
+                continue
+            name = str(name_v.v)
+            values.append(name)
+            board_v = item_v.v.get("board")
+            if board_v is not None:
+                boards[name] = board_v.v
+            sockets_v = item_v.v.get("sockets")
+            if sockets_v is not None:
+                sockets[name] = {k: v.v for k, v in sockets_v.v.items()}
+        else:
+            values.append(str(item_v.v))
     if not values:
         diags.error("lang-schema",
                     f"{owner} {key}: 'list' must be a non-empty list",
@@ -452,7 +496,7 @@ def _parse_axis_decl(container_v: _Val, key: str, diags,
         return None
     default_v = axis_v.v.get("default")
     if default_v is None:
-        return AxisDecl(values=values)
+        return AxisDecl(values=values, boards=boards, sockets=sockets)
     default = str(default_v.v)
     if default not in values:
         diags.error(
@@ -461,7 +505,77 @@ def _parse_axis_decl(container_v: _Val, key: str, diags,
             f"values ({', '.join(values)})",
             [default_v.src])
         return None
-    return AxisDecl(values=values, default=default)
+    return AxisDecl(values=values, default=default, boards=boards, sockets=sockets)
+
+
+def _resolve_board(rig: Rig, board_v: _Val | None, sockets_v: _Val | None,
+                   src: SrcRef, diags) -> dict[str, str]:
+    """The board this rig actually builds, and the abstract-socket map its
+    content resolves against. Two legal shapes, and mixing them is an
+    error: a single top-level board: (optionally paired with a top-level
+    sockets: map, applied regardless of which variant is selected), or a
+    board: declared beside EVERY variants: list entry (each with its own
+    optional sockets:). A silent fallback between the two would make
+    "which board won" unanswerable from the file alone -- exactly the
+    defect this split exists to remove -- so a top-level board: alongside
+    any per-variant board:, or only SOME variants declaring one, is
+    rejected rather than resolved.
+
+    Sets rig.board and returns the socket map to apply while parsing this
+    rig's topology (base content and every delta). On any rejection here
+    rig.board is left as the empty string and the returned map is empty;
+    neither is read again, since the CLI stops before the analyzer once
+    the loader has recorded a diagnostic."""
+    variants = rig.variants
+    per_variant_boards = variants.boards if variants is not None else {}
+    if variants is not None and per_variant_boards:
+        if board_v is not None:
+            diags.error(
+                "lang-schema",
+                f"rig '{rig.name}' declares a top-level board: while its "
+                "variants also declare their own -- a rig may declare a "
+                "board per variant or once at the top level, never both",
+                [board_v.src, src])
+            rig.board = ""
+            return {}
+        missing = [v for v in variants.values if v not in per_variant_boards]
+        if missing:
+            diags.error(
+                "lang-schema",
+                f"rig '{rig.name}': variant(s) {', '.join(missing)} declare "
+                f"no board:, but variant(s) "
+                f"{', '.join(sorted(per_variant_boards))} do -- every "
+                "variant must declare a board, or none should",
+                [src])
+            rig.board = ""
+            return {}
+        if sockets_v is not None:
+            diags.error(
+                "lang-schema",
+                f"rig '{rig.name}' declares a top-level sockets: map "
+                "while its variants declare their own boards -- put each "
+                "variant's own socket map beside its board: under "
+                "variants: list instead",
+                [sockets_v.src])
+            rig.board = ""
+            return {}
+        if rig.variant is None:
+            rig.board = ""    # an earlier axis error already reported why
+            return {}
+        rig.board = per_variant_boards[rig.variant]
+        return dict(variants.sockets.get(rig.variant, {}))
+    if board_v is None:
+        diags.error(
+            "lang-schema",
+            f"rig '{rig.name}' declares no board: -- add a top-level "
+            "board:, or give every declared variant its own",
+            [src])
+        rig.board = ""
+        return {}
+    rig.board = board_v.v
+    if sockets_v is None:
+        return {}
+    return {k: v.v for k, v in sockets_v.v.items()}
 
 
 def _normalize_revision(rev: str) -> str:
@@ -554,6 +668,26 @@ def _resolve_axis(rig_name: str, axis_kind: str, decl_key: str,
     return None
 
 
+def _variant_metadata_differs(rig: Rig) -> bool:
+    """Rule 10's metadata avenue: whether the SELECTED variant's own board
+    and socket map actually differ from the declared default variant's --
+    the strengthened reading a bare board: key's presence does not itself
+    satisfy. A rig with no per-variant boards at all (rig.variants.boards
+    empty) never contributes this way, since there is nothing per-variant
+    to differ."""
+    if rig.variants is None or rig.variant is None or rig.variants.default is None:
+        return False
+    if rig.variant == rig.variants.default:
+        return False
+    boards = rig.variants.boards
+    if not boards:
+        return False
+    if boards.get(rig.variant) != boards.get(rig.variants.default):
+        return True
+    sockets = rig.variants.sockets
+    return sockets.get(rig.variant, {}) != sockets.get(rig.variants.default, {})
+
+
 def _check_fragment_presence(rig: Rig, rig_dir: str, src: SrcRef, diags,
                              has_variant_delta: bool = False,
                              has_revision_delta: bool = False) -> None:
@@ -569,6 +703,13 @@ def _check_fragment_presence(rig: Rig, rig_dir: str, src: SrcRef, diags,
     be required to, or declaring an axis on an existing rig would break it
     until a fragment describing what the rig already is gets authored.
 
+    A variant has a SECOND way to contribute, carrying no fragment at all:
+    its own declared board and/or socket map, if either actually DIFFERS
+    from the default variant's. Merely declaring a board is not enough --
+    a variant restating the default's board and map verbatim is precisely
+    the silent no-op this rule exists to catch (_variant_metadata_differs
+    is the comparison).
+
     Three fragment kinds count as "contributes something" as of V1b: the
     cmake-collected .overlay/_defconfig (V1a), and now the .yml delta this
     module itself applies -- has_variant_delta/has_revision_delta report
@@ -580,12 +721,17 @@ def _check_fragment_presence(rig: Rig, rig_dir: str, src: SrcRef, diags,
         delta = f"{rig.name}_{rig.variant}.yml"
         if not (has_variant_delta
                 or os.path.isfile(os.path.join(rig_dir, overlay))
-                or os.path.isfile(os.path.join(rig_dir, defconfig))):
+                or os.path.isfile(os.path.join(rig_dir, defconfig))
+                or _variant_metadata_differs(rig)):
+            metadata_hint = ""
+            if rig.variants is not None and rig.variants.boards:
+                metadata_hint = (", and its board/sockets metadata does "
+                                 "not differ from the default variant's")
             diags.error(
                 "lang-variant",
                 f"rig '{rig.name}': variant '{rig.variant}' contributes "
                 f"nothing -- looked for {overlay}, {defconfig} and {delta}, "
-                "none exist",
+                f"none exist{metadata_hint}",
                 [src])
     if rig.revision is not None and not (
             rig.revisions is not None
@@ -826,7 +972,7 @@ def _find_wire(wires: list[Wire], frm: str | None, to: str | None) -> Wire | Non
 
 def _apply_instance_patch(item: _Val, inst: Instance, lib: ShieldLibrary, rig: Rig,
                           workdir: str, diags, stage: str, stage_value: str,
-                          resolve_socket) -> None:
+                          socket_map: dict[str, str]) -> None:
     """Shallow-replace an EXISTING instance's top-level keys (Sec. 5): a
     GIVEN key REPLACES; an unspecified key INHERITS. shield/socket/invert/
     pin/params are each the deepest merge unit -- no key merges into what
@@ -839,7 +985,12 @@ def _apply_instance_patch(item: _Val, inst: Instance, lib: ShieldLibrary, rig: R
     A delta's shield: value carries the identical <name>@<rev> grammar as
     a base instance's own (V1c) -- lib.resolve is the single resolution
     path for both, so a variant/revision substituting a shield may equally
-    substitute a specific revision of it."""
+    substitute a specific revision of it.
+
+    socket_map is the SAME abstract-socket map the base topology resolved
+    against -- the selected variant's own, or the rig's top-level one --
+    never a delta-local map: sockets: is metadata, declared once in
+    rig.yml, so there is nothing for a delta to carry."""
     shield_changed = False
     if "shield" in item.v:
         shield_v = item.v["shield"]
@@ -852,7 +1003,8 @@ def _apply_instance_patch(item: _Val, inst: Instance, lib: ShieldLibrary, rig: R
         inst.param_refs = {}
 
     if "socket" in item.v:
-        inst.socket = resolve_socket(item.v["socket"].v)
+        value = item.v["socket"].v
+        inst.socket = socket_map.get(value, value)
 
     if "invert" in item.v:
         inst.invert = bool(item.v["invert"].v)
@@ -880,57 +1032,37 @@ def _apply_instance_patch(item: _Val, inst: Instance, lib: ShieldLibrary, rig: R
                             workdir, diags, unknown_device_context=context)
 
 
+def _reject_metadata_keys(doc_v: _Val, diags) -> None:
+    """board:/sockets: are rig.yml metadata now -- the axis declaration
+    carries them (per variant, or once at top level), never a content
+    file. A content file still carrying either -- the base <rigname>.yml
+    or any variant/revision delta alike -- names an authoring mistake at
+    the wrong layer, pointed at the place it now belongs."""
+    for key in ("board", "sockets"):
+        key_v = doc_v.v.get(key)
+        if key_v is not None:
+            diags.error(
+                "lang-schema",
+                f"{doc_v.src.file}: '{key}:' is rig.yml metadata -- move "
+                "it to the variant that owns it (or the top-level rig: "
+                "block, for a single-board rig), not a content file",
+                [key_v.src])
+
+
 def _apply_delta(delta_v: _Val, stage: str, stage_value: str, rig: Rig,
                  lib: ShieldLibrary, effective: dict[str, Instance], order: list[str],
                  wires: list[Wire], removed_by: dict[str, str],
-                 workdir: str, diags) -> None:
+                 workdir: str, socket_map: dict[str, str], diags) -> None:
     """Apply ONE delta stage (Sec. 5) onto the effective topology IN PLACE.
-    `stage` is "variant" or "revision" (rules 5-9 differ only in which
-    fragment kind may carry board:/sockets:, and in the diagnostic code);
-    `stage_value` is the selected axis value itself, folded into rule-8/12
-    wording so drift cannot hide."""
+    `stage` is "variant" or "revision" (rules 6-9 differ only in the
+    diagnostic code); `stage_value` is the selected axis value itself,
+    folded into rule-8/12 wording so drift cannot hide. socket_map is the
+    rig's own metadata map (see _apply_instance_patch), threaded through
+    unchanged -- a delta never carries its own."""
     code = "lang-variant" if stage == "variant" else "lang-rev"
     doc = delta_v.v
 
-    # board:/sockets: -- VARIANT fragments only (rule 5).
-    if "board" in doc:
-        if stage != "variant":
-            diags.error(
-                code,
-                f"rig '{rig.name}': the {stage} '{stage_value}' fragment "
-                "carries board:, a VARIANT-only key",
-                [doc["board"].src])
-        else:
-            # Legal in the vocabulary, but rejected until board resolution
-            # itself reads deltas: list_rigs.py resolves the board BEFORE any
-            # fragment loads, and cmake sets BOARD from that answer, so
-            # applying an override here would leave the model's board (and
-            # the overlay header and context.cmake's RIG_BOARD derived from
-            # it) disagreeing with the board pass 1 actually read and pass 2
-            # actually builds. A loud rejection beats a silent
-            # inconsistency; lift this once the resolver reads deltas.
-            diags.error(
-                code,
-                f"rig '{rig.name}': variant '{stage_value}' carries board:, "
-                "which is not yet wired into board resolution -- the board "
-                "is resolved before any fragment is read, so an override "
-                "here would silently disagree with the board actually "
-                "built. Use a separate rig until this is supported.",
-                [doc["board"].src])
-
-    socket_map: dict[str, str] = {}
-    if "sockets" in doc:
-        if stage != "variant":
-            diags.error(
-                code,
-                f"rig '{rig.name}': the {stage} '{stage_value}' fragment "
-                "carries sockets:, a VARIANT-only key",
-                [doc["sockets"].src])
-        else:
-            socket_map = {k: v.v for k, v in doc["sockets"].v.items()}
-
-    def resolve_socket(value: str) -> str:
-        return socket_map.get(value, value)
+    _reject_metadata_keys(delta_v, diags)
 
     # instances: -- matched by name against the EFFECTIVE topology; a
     # match that is not found is always an error (rule 6): additions are
@@ -951,18 +1083,16 @@ def _apply_delta(delta_v: _Val, stage: str, stage_value: str, rig: Rig,
                     [item.src])
                 continue
             _apply_instance_patch(item, inst, lib, rig, workdir, diags,
-                                  stage, stage_value, resolve_socket)
+                                  stage, stage_value, socket_map)
 
     # add-instances: -- full declarations; the name must NOT already exist
     # (rule 7).
     add_v = doc.get("add-instances")
     if add_v is not None:
         for item in add_v.v:
-            new_inst = _parse_instance(item, lib, rig, workdir, diags)
+            new_inst = _parse_instance(item, lib, rig, workdir, diags, socket_map)
             if new_inst is None:
                 continue
-            if "socket" in item.v:
-                new_inst.socket = resolve_socket(item.v["socket"].v)
             if new_inst.name in effective:
                 diags.error(
                     code,
@@ -1042,10 +1172,9 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     if rig_v is None:
         return None
     name_v = _require(rig_v, "name", "rig", diags)
-    board_v = _require(rig_v, "board", "rig", diags)
-    if name_v is None or board_v is None:
+    if name_v is None:
         return None
-    rig = Rig(name=name_v.v, board=board_v.v, src=rig_v.src)
+    rig = Rig(name=name_v.v, board="", src=rig_v.src)
     rig_dir = os.path.dirname(rig_path)
 
     # Qualifier axes: declare (shape-validated), resolve the SELECTED value
@@ -1053,12 +1182,21 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     # and provenance (context.cmake, build_info) regardless of whether a
     # delta engine ever runs below.
     rig.revisions = _parse_axis_decl(rig_v, "revisions", diags)
-    rig.variants = _parse_axis_decl(rig_v, "variants", diags)
+    rig.variants = _parse_axis_decl(rig_v, "variants", diags,
+                                    allow_variant_metadata=True)
     _check_axis_collision(rig, rig_v.src, diags)
     rig.revision = _resolve_axis(rig.name, "revision", "revisions",
                                  rig.revisions, revision, rig_v.src, diags)
     rig.variant = _resolve_axis(rig.name, "variant", "variants",
                                 rig.variants, variant, rig_v.src, diags)
+
+    # The board this rig builds, and the abstract-socket map its topology
+    # resolves against -- from rig.yml metadata alone (either the
+    # degenerate top-level pair, or the resolved variant's own), before any
+    # content file is opened (_resolve_board's own docstring has the two
+    # shapes and their mixing rule).
+    socket_map = _resolve_board(rig, rig_v.v.get("board"), rig_v.v.get("sockets"),
+                                rig_v.src, diags)
 
     # The rig's REQUIRED content file (the metadata/content split):
     # instances:/wires:/dt-includes: live here, never in rig.yml -- named
@@ -1066,6 +1204,7 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     content_v = _load_base_content(rig.name, rig_dir, rig_v.src, deps, diags)
     if content_v is None:
         return None
+    _reject_metadata_keys(content_v, diags)
 
     # V1b delta fragments: looked up by the SAME constructed stems rule 10
     # checks, built from rig.revision/rig.variant alone -- never ${RIG},
@@ -1111,7 +1250,7 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     order: list[str] = []
     insts_v = _require(content_v, "instances", "rig", diags)
     for item in (insts_v.v if insts_v else []):
-        inst = _parse_instance(item, lib, rig, workdir, diags)
+        inst = _parse_instance(item, lib, rig, workdir, diags, socket_map)
         if inst:
             effective[inst.name] = inst
             order.append(inst.name)
@@ -1129,7 +1268,7 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     if variant_delta_v is not None:
         assert rig.variant is not None    # a delta only loads for a selected axis
         _apply_delta(variant_delta_v, "variant", rig.variant, rig, lib,
-                     effective, order, wires, removed_by, workdir, diags)
+                     effective, order, wires, removed_by, workdir, socket_map, diags)
         _check_param_invariant(effective.values(), diags)
 
     # Stage 2: revision delta -- ONE family-wide stream, applied AFTER the
@@ -1137,7 +1276,7 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     if revision_delta_v is not None:
         assert rig.revision is not None   # a delta only loads for a selected axis
         _apply_delta(revision_delta_v, "revision", rig.revision, rig, lib,
-                     effective, order, wires, removed_by, workdir, diags)
+                     effective, order, wires, removed_by, workdir, socket_map, diags)
         _check_param_invariant(effective.values(), diags)
 
     rig.instances = [effective[n] for n in order if n in effective]
@@ -1145,7 +1284,8 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     return rig
 
 
-def _parse_instance(item: _Val, lib: ShieldLibrary, rig: Rig, workdir: str, diags) -> Instance | None:
+def _parse_instance(item: _Val, lib: ShieldLibrary, rig: Rig, workdir: str, diags,
+                    socket_map: dict[str, str]) -> Instance | None:
     name_v = _require(item, "name", "instance", diags)
     shield_v = _require(item, "shield", "instance", diags)
     socket_v = _require(item, "socket", "instance", diags)
@@ -1156,7 +1296,9 @@ def _parse_instance(item: _Val, lib: ShieldLibrary, rig: Rig, workdir: str, diag
     if shield is None:
         return None
 
-    inst = Instance(name=name_v.v, shield=shield, socket=socket_v.v, src=item.src)
+    socket_value = socket_v.v
+    inst = Instance(name=name_v.v, shield=shield,
+                    socket=socket_map.get(socket_value, socket_value), src=item.src)
     inv_v = item.v.get("invert")
     inst.invert = bool(inv_v.v) if inv_v is not None else False
 

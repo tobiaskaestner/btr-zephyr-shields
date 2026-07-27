@@ -118,12 +118,20 @@ class Rigs(WestCommand):
         for rig in list_rigs.find_rigs(args):
             if name_re is not None and not name_re.search(rig.name):
                 continue
+            # board: default_board falls back to the DECLARED DEFAULT
+            # variant's board for a per-variant rig (rig.board itself is
+            # None there) -- printing nothing would read as a broken
+            # entry. variants: variant_names extracts the bare NAME out of
+            # each list: entry, which may be a {name:, board:, sockets:}
+            # mapping rather than a scalar in that same shape.
+            board = list_rigs.default_board(rig)
             self.inf(args.format.format(
                 name=rig.name,
                 dir=rig.dir,
-                board=rig.board if rig.board is not None else '',
+                board=board if board is not None else '',
                 revisions=', '.join(str(v) for v in rig.revisions['list'])
                 if rig.revisions else '',
-                variants=', '.join(str(v) for v in rig.variants['list'])
+                variants=', '.join(str(v) for v in
+                                   list_rigs.variant_names(rig.variants))
                 if rig.variants else '',
             ))

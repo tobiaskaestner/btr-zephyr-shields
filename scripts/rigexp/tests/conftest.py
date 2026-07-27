@@ -208,6 +208,13 @@ ACCEPT_CASES: List[RigCase] = [
     # to the shield's revision 2, gets its own tests since one folder
     # again resolves to more than one tuple.
     RigCase("shield_rev_family", True),
+    # Dual-host rig (the metadata/content split, board per variant): this
+    # entry rides the BARE target, whose declared default variant (nucleo)
+    # resolves to nucleo_f401re/stm32f401xe/rig via rig_board_name's own
+    # per-variant fallback above. The frdm variant gets its own dedicated
+    # tier-1/tier-2 tests below, since one folder again resolves to more
+    # than one tuple, and it is the tuple that carries NO fragment at all.
+    RigCase("ard_datalogger", True),
 ]
 
 REJECT_CASES: List[RigCase] = [
@@ -221,12 +228,28 @@ REJECT_CASES: List[RigCase] = [
 ALL_CASES: List[RigCase] = ACCEPT_CASES + REJECT_CASES
 
 
-def rig_board_name(folder: str) -> str:
+def rig_board_name(folder: str, variant: Optional[str] = None) -> str:
     """The rig.yml rig.board for a corpus folder — which of BOARDS this
-    rig needs a plain build (and --board-dts) for."""
+    rig needs a plain build (and --board-dts) for.
+
+    A rig using the per-variant-board shape (no top-level rig.board:, one
+    board: per variants: list: entry — ard_datalogger) has no single
+    answer, so `variant` picks which one; omitted, it falls back to the
+    declared default variant, matching a bare (unqualified) target's own
+    resolution."""
     with open(RIGS_DIR / folder / "rig.yml") as f:
         doc = yaml.safe_load(f)
-    return str(doc["rig"]["board"])
+    rig = doc["rig"]
+    if "board" in rig:
+        return str(rig["board"])
+    variants = rig.get("variants") or {}
+    selected = variant or variants.get("default")
+    for item in variants.get("list") or []:
+        if isinstance(item, dict) and item.get("name") == selected:
+            return str(item["board"])
+    raise KeyError(
+        f"rig '{folder}': no board declared for variant {selected!r} "
+        f"(neither a top-level rig.board: nor a per-variant one)")
 
 
 # ---------------------------------------------------------------- cached plain builds

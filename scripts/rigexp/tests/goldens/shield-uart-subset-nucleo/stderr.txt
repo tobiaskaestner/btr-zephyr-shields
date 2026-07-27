@@ -1,0 +1,3 @@
+error[phys-subset]: instance 'probe': shield 'uart_probe' needs the socket's UART but 'nucleo_ard' does not expose socket,uart (subset exposure is declared by absence)
+    at tests/fixtures/shield-uart-subset/shield-uart-subset.yml:2 (instances[0])
+    at <REPO_ROOT>/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:27 (nucleo_ard)

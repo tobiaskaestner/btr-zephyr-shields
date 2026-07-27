@@ -1,0 +1,9 @@
+# Synthetic fixture: the DEGENERATE single-board shape's own top-level
+# sockets: map (rig-metadata-content-split-brief.md), exercised with a
+# socket name the map does not cover -- it passes through unresolved and
+# the board simply has no socket by that literal name.
+rig:
+  name: unmapped-socket
+  board: nucleo_f401re/stm32f401xe/rig
+  sockets:
+    ard: nucleo_ard

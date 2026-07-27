@@ -1,0 +1,17 @@
+# Dual-host rig: two BOARDS (nucleo_f401re, frdm_k64f) build the SAME
+# board-agnostic content file below, each supplying its own board and
+# socket map under its own variant entry rather than a single top-level
+# board: -- the shape this metadata/content split exists to enable. The
+# folder deliberately breaks the corpus's own <board>_<purpose> naming
+# convention: this rig has no single board to name.
+rig:
+  name: ard_datalogger
+  variants:
+    default: nucleo
+    list:
+      - name: nucleo
+        board: nucleo_f401re/stm32f401xe/rig
+        sockets: {ard: nucleo_ard}
+      - name: frdm
+        board: frdm_k64f/mk64f12/rig
+        sockets: {ard: frdm_ard}

@@ -1,0 +1,2 @@
+error[lang-variant]: rig 'variant-board-restated': variant 'nucleo_again' contributes nothing -- looked for variant-board-restated_nucleo_again.overlay, variant-board-restated_nucleo_again_defconfig and variant-board-restated_nucleo_again.yml, none exist, and its board/sockets metadata does not differ from the default variant's
+    at tests/fixtures/variant-board-restated/rig.yml:8 (rig)

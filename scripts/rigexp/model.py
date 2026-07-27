@@ -242,11 +242,23 @@ class Wire:
 
 @dataclass
 class AxisDecl:
-    """One declared qualifier axis (rig.yml revisions: or variants:, V1a):
-    the values a `-DRIG=name[@rev][/variant]` target may select from, and
-    the one a bare (unqualified) target takes by default."""
+    """One declared qualifier axis (rig.yml revisions: or variants:): the
+    values a name[@rev][/variant] target may select from, and the one a
+    bare (unqualified) target takes by default.
+
+    boards/sockets carry, per declared VALUE, the board a rig variant
+    selects and its abstract-socket map -- populated only for a rig's own
+    variants: axis when it uses the per-variant-board shape; empty for
+    every other axis (a rig's revisions:, and every shield.yml
+    revisions:), since none of those ever carries a board. Board
+    resolution must be answerable from this declaration alone, before any
+    content file is opened: a variant that changed host board via a
+    content-file override would arrive too late to agree with whatever
+    board was already resolved and handed to the rest of the build."""
     values: list[str]
     default: Optional[str] = None
+    boards: dict[str, str] = field(default_factory=dict)
+    sockets: dict[str, dict[str, str]] = field(default_factory=dict)
 
 
 @dataclass

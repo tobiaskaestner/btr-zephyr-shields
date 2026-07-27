@@ -1,5 +1,6 @@
-# Synthetic fixture: rule 5 -- a REVISION fragment carrying board:, a
-# VARIANT-only key (Sec. 5).
+# Synthetic fixture: a REVISION fragment carrying board:, now rejected as
+# a content file carrying a rig.yml metadata key (board: lives only in
+# rig.yml's own axis declaration, never in a content file of any kind).
 rig:
   name: revision-carries-board
   board: nucleo_f401re/stm32f401xe/rig

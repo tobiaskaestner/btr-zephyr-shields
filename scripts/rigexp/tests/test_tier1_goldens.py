@@ -592,15 +592,18 @@ def test_no_such_axis_golden(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- V1b: delta engine rejects
 
 def test_revision_carries_board_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: rule 5 -- a REVISION fragment carrying board:, a
-    VARIANT-only key."""
+    """Synthetic fixture: board: moved into rig.yml's own axis declaration
+    (the metadata/content split's per-variant board), so a revision
+    fragment still carrying it is now rejected as a CONTENT file carrying
+    a METADATA key -- a real authoring error, just a differently-
+    explained one than the old variant-only-key wording."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "revision-carries-board" / "rig.yml"
     result = run_expand(rig_yml, out_dir, revision="2")
 
     assert result.returncode != 0, "a revision fragment carrying board: must be rejected"
-    assert "[lang-rev]" in result.stderr, result.stderr
-    assert "board:, a VARIANT-only key" in result.stderr, result.stderr
+    assert "[lang-schema]" in result.stderr, result.stderr
+    assert "'board:' is rig.yml metadata" in result.stderr, result.stderr
 
     zb = zephyr_base()
     golden_dir = GOLDENS_DIR / "revision-carries-board"
@@ -914,5 +917,162 @@ def test_shield_node_name_mismatch_golden(tmp_path: Path) -> None:
 
     zb = zephyr_base()
     golden_dir = GOLDENS_DIR / "shield-node-name-mismatch"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+# ---------------------------------------------------------------- board-per-variant
+
+@pytest.mark.build
+def test_ard_datalogger_frdm_golden(tmp_path: Path,
+                                    tmp_path_factory: "pytest.TempPathFactory") -> None:
+    """ard_datalogger's frdm variant: a DIFFERENT host board than the bare/
+    default nucleo tuple (ACCEPT_CASES's ard_datalogger entry rides the
+    standard machinery for that one), the SAME content file, and NO
+    fragment of any kind on disk for frdm -- the evidence that content is
+    genuinely reused across hosts rather than merely declared reusable."""
+    board = rig_board_name("ard_datalogger", variant="frdm")
+    plain_build = plain_build_for(board, tmp_path_factory)
+    out_dir = tmp_path / "out"
+    result = run_expand(
+        RIGS_DIR / "ard_datalogger" / "rig.yml", out_dir,
+        board_dts=REPO_ROOT / BOARD_DTS[board],
+        build_info=plain_build.build_info,
+        variant="frdm")
+
+    assert result.returncode == 0, (
+        f"ard_datalogger/frdm: expected accept\n--- stderr ---\n{result.stderr}")
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "ard_datalogger_frdm"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+    for fname in _EMITTED_FILES:
+        produced = out_dir / fname
+        golden_file = golden_dir / fname
+        if produced.is_file():
+            freeze_or_assert(golden_file, normalize(produced.read_text(), zb))
+        else:
+            assert_absent_or_refreeze(golden_file)
+
+
+def test_variant_board_restated_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: rule 10 widened -- a non-default variant
+    declaring its OWN board and socket map, but restating the default's
+    verbatim, with no fragment file either. Presence of a board: key is
+    not itself contribution; this is the case the weaker (presence-only)
+    reading of the widened rule would have missed. Purely loader-level
+    (no board recipe needed): board/socket resolution here never touches
+    a real board.yml, only rig.yml's own declared strings."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "variant-board-restated" / "rig.yml"
+    result = run_expand(rig_yml, out_dir, variant="nucleo_again")
+
+    assert result.returncode != 0, (
+        "a variant restating the default's board/sockets with no fragment "
+        "must be rejected")
+    assert "[lang-variant]" in result.stderr, result.stderr
+    assert "contributes nothing" in result.stderr, result.stderr
+    assert "does not differ from the default variant's" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "variant-board-restated"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+@pytest.mark.build
+def test_shield_uart_subset_reject_on_nucleo_golden(
+        tmp_path: Path, tmp_path_factory: "pytest.TempPathFactory") -> None:
+    """A shield needing socket,uart, mated through the DEFAULT (nucleo)
+    variant's own socket map: nucleo_ard deliberately exposes no
+    socket,uart (subset exposure, declared by absence), so this must
+    reject -- the same content that test_shield_uart_subset_accept_on_frdm
+    below builds clean on the OTHER host, which is the property this
+    fixture pair exists to freeze."""
+    board = "nucleo_f401re/stm32f401xe/rig"
+    plain_build = plain_build_for(board, tmp_path_factory)
+    fixture = FIXTURES_DIR / "shield-uart-subset"
+    out_dir = tmp_path / "out"
+    result = run_expand(
+        fixture / "rig.yml", out_dir,
+        shield_dirs=[fixture / "shields"],
+        board_dts=REPO_ROOT / BOARD_DTS[board],
+        build_info=plain_build.build_info)
+
+    assert result.returncode != 0, (
+        "a shield needing socket,uart on a socket that offers none must "
+        "be rejected")
+    assert "[phys-subset]" in result.stderr, result.stderr
+    assert "socket,uart" in result.stderr, result.stderr
+    assert "nucleo_ard" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "shield-uart-subset-nucleo"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+@pytest.mark.build
+def test_shield_uart_subset_accept_on_frdm_golden(
+        tmp_path: Path, tmp_path_factory: "pytest.TempPathFactory") -> None:
+    """The other half of the pair above: the IDENTICAL content, mated
+    through the frdm variant's socket map instead -- frdm_ard exposes
+    socket,uart (uart3), so the same rig accepts here. Proves the subset-
+    exposure check runs against metadata-sourced sockets, not only a
+    single fixed board mapping."""
+    board = "frdm_k64f/mk64f12/rig"
+    plain_build = plain_build_for(board, tmp_path_factory)
+    fixture = FIXTURES_DIR / "shield-uart-subset"
+    out_dir = tmp_path / "out"
+    result = run_expand(
+        fixture / "rig.yml", out_dir,
+        shield_dirs=[fixture / "shields"],
+        board_dts=REPO_ROOT / BOARD_DTS[board],
+        build_info=plain_build.build_info,
+        variant="frdm")
+
+    assert result.returncode == 0, (
+        f"shield-uart-subset/frdm: expected accept\n--- stderr ---\n{result.stderr}")
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "shield-uart-subset-frdm"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+    for fname in _EMITTED_FILES:
+        produced = out_dir / fname
+        golden_file = golden_dir / fname
+        if produced.is_file():
+            freeze_or_assert(golden_file, normalize(produced.read_text(), zb))
+        else:
+            assert_absent_or_refreeze(golden_file)
+
+
+@pytest.mark.build
+def test_unmapped_socket_golden(tmp_path: Path,
+                                tmp_path_factory: "pytest.TempPathFactory") -> None:
+    """Synthetic fixture: the DEGENERATE shape's own top-level sockets:
+    map (rig-metadata-content-split-brief.md), with an instance naming a
+    socket the map does not cover -- it passes through unresolved, and the
+    board simply has no socket by that literal name (the pre-existing
+    phys-socket diagnostic, exercised here through the metadata-sourced
+    resolution path rather than a raw board-socket label)."""
+    board = "nucleo_f401re/stm32f401xe/rig"
+    plain_build = plain_build_for(board, tmp_path_factory)
+    rig_yml = FIXTURES_DIR / "unmapped-socket" / "rig.yml"
+    out_dir = tmp_path / "out"
+    result = run_expand(
+        rig_yml, out_dir,
+        board_dts=REPO_ROOT / BOARD_DTS[board],
+        build_info=plain_build.build_info)
+
+    assert result.returncode != 0, (
+        "an instance socket name absent from the declared map must be "
+        "rejected against the real board's own socket set")
+    assert "[phys-socket]" in result.stderr, result.stderr
+    assert "no socket 'other'" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "unmapped-socket"
     freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))

@@ -1,0 +1,18 @@
+# Synthetic fixture: the dual-host shape (rig-metadata-content-split-
+# brief.md's per-variant board), naming a shield that needs socket,uart --
+# nucleo_ard deliberately exposes none while frdm_ard exposes uart3 (both
+# real board sockets), so the SAME content is realizable on frdm and
+# loudly rejected on nucleo. Proves the subset-exposure check still runs
+# once socket,* comes from per-variant metadata rather than a single
+# board's fixed sockets: map.
+rig:
+  name: shield-uart-subset
+  variants:
+    default: nucleo
+    list:
+      - name: nucleo
+        board: nucleo_f401re/stm32f401xe/rig
+        sockets: {ard: nucleo_ard}
+      - name: frdm
+        board: frdm_k64f/mk64f12/rig
+        sockets: {ard: frdm_ard}

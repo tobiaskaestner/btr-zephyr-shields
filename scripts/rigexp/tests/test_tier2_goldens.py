@@ -540,3 +540,66 @@ def test_tier2_rig_depends_provenance(tmp_path: Path) -> None:
     assert "dts/bindings/connectors/grove.yaml" in depends_line
     assert ("boards/extend/seeed/seeeduino_lotus/"
             "seeeduino_lotus_samd21g18a_rig.dts") in depends_line
+
+
+# ---------------------------------------------------------------- board-per-variant
+
+
+def test_tier2_ard_datalogger_frdm(tmp_path: Path) -> None:
+    """ard_datalogger's frdm variant, through a REAL build: the bare/
+    default (nucleo) tuple already rides test_tier2_accept_zephyr_dts via
+    ACCEPT_CASES; this proves the SAME content also configures clean
+    through the OTHER declared board, with no fragment file collected for
+    it at all (there is none to collect)."""
+    _build_and_freeze_dts("ard_datalogger/frdm", "ard_datalogger_frdm", tmp_path)
+
+
+def test_tier2_ard_datalogger_dual_host_d10(tmp_path: Path) -> None:
+    """THE portability evidence, as real ground truth rather than a
+    STATUS-line claim: ARDUINO_HEADER_R3_D10 is index 16 in the SAME
+    shared dt-bindings header on both hosts, but nucleo_ard and frdm_ard
+    map it to different controllers/pins (gpiob 6 vs gpiod 0, verified
+    against both boards' own arduino_r3_socket.dtsi). adafruit_data_logger
+    pins its SD card's CS there via shield,cs-position, so the identical
+    ard_datalogger.yml content must resolve cs-gpios to DIFFERENT real
+    hardware depending on which variant selected the board -- inspected
+    via each build's own edt.pickle (pass-2 ground truth), not the
+    generated overlay's text."""
+    nucleo_dir = tmp_path / "build-nucleo"
+    result = _run_build("ard_datalogger", nucleo_dir)
+    assert result.returncode == 0, (
+        f"ard_datalogger: expected `west build-rig --cmake-only` to "
+        f"configure clean\n--- stdout ---\n{result.stdout}\n"
+        f"--- stderr ---\n{result.stderr}")
+
+    frdm_dir = tmp_path / "build-frdm"
+    result = _run_build("ard_datalogger/frdm", frdm_dir)
+    assert result.returncode == 0, (
+        f"ard_datalogger/frdm: expected `west build-rig --cmake-only` to "
+        f"configure clean\n--- stdout ---\n{result.stdout}\n"
+        f"--- stderr ---\n{result.stderr}")
+
+    def cs_pin(build_dir: Path):
+        with open(build_dir / "zephyr" / "edt.pickle", "rb") as f:
+            edt = pickle.load(f)
+        by_label = {label: node for node in edt.nodes for label in node.labels}
+        sd = by_label["logger_dl_sd"]
+        # cs-gpios is a property of the SPI CONTROLLER (indexed by the
+        # device's own reg, its chip-select slot), never of the device
+        # node itself -- ordinary SPI/DT convention, unrelated to rigs.
+        spi = sd.parent
+        spec = spi.props["cs-gpios"].val[0]
+        return spec.controller.labels, spec.data["pin"]
+
+    nucleo_labels, nucleo_pin = cs_pin(nucleo_dir)
+    frdm_labels, frdm_pin = cs_pin(frdm_dir)
+
+    assert "gpiob" in nucleo_labels, (
+        f"nucleo D10 resolved to controller {nucleo_labels!r}, expected gpiob")
+    assert nucleo_pin == 6, f"nucleo D10 resolved to pin {nucleo_pin!r}, expected 6"
+    assert "gpiod" in frdm_labels, (
+        f"frdm D10 resolved to controller {frdm_labels!r}, expected gpiod")
+    assert frdm_pin == 0, f"frdm D10 resolved to pin {frdm_pin!r}, expected 0"
+    assert (nucleo_labels, nucleo_pin) != (frdm_labels, frdm_pin), (
+        "D10 resolved to the SAME (controller, pin) on both hosts -- the "
+        "dual-host portability claim is not actually exercised")

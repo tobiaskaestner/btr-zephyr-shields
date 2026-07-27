@@ -1,0 +1,11 @@
+# Board-agnostic content: one Adafruit Data Logger on the ABSTRACT "ard"
+# socket, realized through whichever variant's own sockets: map is
+# selected (nucleo_ard or frdm_ard, declared in rig.yml) -- no board-
+# specific label appears here, which is what makes this one file reusable
+# across both hosts. The frdm variant carries no fragment file at all:
+# nothing here needs to change to build on the other host, only the
+# metadata (board + socket map) does.
+instances:
+  - name: logger
+    shield: adafruit_data_logger
+    socket: ard
