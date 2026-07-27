@@ -53,9 +53,20 @@ def src_of(obj: dtlib.Node | dtlib.Property) -> SrcRef:
     return SrcRef(obj.filename, obj.lineno, label)
 
 
-def run_cpp(dts_path: str, out_path: str) -> None:
-    cmd = [
-        "gcc", "-E", "-x", "assembler-with-cpp", "-nostdinc",
+def run_cpp(dts_path: str, out_path: str,
+           include_dirs: Optional[List[str]] = None) -> None:
+    """include_dirs is searched FIRST, in order, exactly as gcc searches a
+    -I list; ZEPHYR_INC/MODULE_INC are always appended last, so a caller
+    passing none sees exactly today's two-directory search path, unchanged.
+    The same shape as parse_header_indices's header_dirs, and deliberately
+    the same LIST a caller threads as --include-dir: a .shield template's
+    own #include <dt-bindings/connector/x.h> is resolved by this search,
+    not a second one, matching what a real connector header's
+    Convention-4 macro use already assumes."""
+    cmd = ["gcc", "-E", "-x", "assembler-with-cpp", "-nostdinc"]
+    for d in include_dirs or []:
+        cmd += ["-I", d]
+    cmd += [
         "-I", ZEPHYR_INC, "-I", MODULE_INC,
         "-undef", "-D__DTS__", dts_path, "-o", out_path,
     ]
@@ -67,20 +78,22 @@ def run_cpp(dts_path: str, out_path: str) -> None:
             [SrcRef(dts_path, 0)]))
 
 
-def parse_dts(dts_path: str, workdir: str) -> dtlib.DT:
+def parse_dts(dts_path: str, workdir: str,
+             include_dirs: Optional[List[str]] = None) -> dtlib.DT:
     """CPP + stock dtlib. dtlib reads the CPP linemarkers, so node/prop
     source references point at the ORIGINAL .shield files, not the
     generated translation unit — free provenance for diagnostics."""
     os.makedirs(workdir, exist_ok=True)
     pre = os.path.join(workdir, os.path.basename(dts_path) + ".pre")
-    run_cpp(dts_path, pre)
+    run_cpp(dts_path, pre, include_dirs)
     try:
         return dtlib.DT(pre)
     except dtlib.DTError as e:
         raise LoadError(Diagnostic("error", "lang-parse", str(e))) from e
 
 
-def parse_tu(includes: list[str], workdir: str, name: str) -> dtlib.DT:
+def parse_tu(includes: list[str], workdir: str, name: str,
+            include_dirs: Optional[List[str]] = None) -> dtlib.DT:
     """Build + parse a one-off translation unit that includes the given
     files — the shield-TU entry point (one .shield per call, per
     loader_yml)."""
@@ -90,7 +103,7 @@ def parse_tu(includes: list[str], workdir: str, name: str) -> dtlib.DT:
         f.write("/dts-v1/;\n")
         for inc in includes:
             f.write(f'#include "{inc}"\n')
-    return parse_dts(tu, workdir)
+    return parse_dts(tu, workdir, include_dirs)
 
 
 _DEFINE_RE = re.compile(r"^\s*#define\s+(\w+)\s+(\d+|0x[0-9a-fA-F]+)\s*$", re.M)
@@ -208,7 +221,8 @@ def is_int_literal(text: str) -> bool:
     return bool(_INT_LITERAL_RE.match(text))
 
 
-def check_include(header: str, workdir: str, tag: str) -> Optional[str]:
+def check_include(header: str, workdir: str, tag: str,
+                  include_dirs: Optional[List[str]] = None) -> Optional[str]:
     """Confirm one dt-includes: header is real and preprocesses cleanly on
     its own (rig-variants-revisions.md per-instance-parameters rule 6:
     "lang-dt-include", checked at expand time regardless of whether any
@@ -220,13 +234,14 @@ def check_include(header: str, workdir: str, tag: str) -> Optional[str]:
     with open(tu, "w") as f:
         f.write(f'/dts-v1/;\n#include "{header}"\n/ {{ }};\n')
     try:
-        parse_dts(tu, workdir)
+        parse_dts(tu, workdir, include_dirs)
         return None
     except LoadError as e:
         return e.diag.message
 
 
-def resolve_token(token: str, headers: List[str], workdir: str, tag: str) -> Optional[int]:
+def resolve_token(token: str, headers: List[str], workdir: str, tag: str,
+                  include_dirs: Optional[List[str]] = None) -> Optional[int]:
     """cpp+dtlib-resolve one assigned parameter TOKEN against a synthetic TU
     that includes exactly headers — a rig's declared dt-includes:
     vocabulary, in order. Serves validation (rules 4/5) and the config
@@ -243,7 +258,7 @@ def resolve_token(token: str, headers: List[str], workdir: str, tag: str) -> Opt
             f.write(f'#include "{header}"\n')
         f.write(f"/ {{ p {{ v = <{token}>; }}; }};\n")
     try:
-        dt = parse_dts(tu, workdir)
+        dt = parse_dts(tu, workdir, include_dirs)
     except LoadError:
         return None
     return dt.get_node("/p").props["v"].to_num()

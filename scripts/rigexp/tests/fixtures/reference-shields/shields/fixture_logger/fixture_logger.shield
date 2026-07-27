@@ -5,16 +5,9 @@
  * pattern -- see boards/shields/adafruit_data_logger (both patterns, on a
  * real connector type) and boards/shields/temp_click (the deferred,
  * strap-selected address counterpart to the fixed one below).
- *
- * shield,cs-position below is the literal FIXTURE_CS index (4) rather than
- * the macro: a .shield template's own cpp #include search is
- * ZEPHYR_INC/MODULE_INC only (dtsio.run_cpp), not --include-dir, so a
- * fixture-tree header (fixtures/connectors/include/dt-bindings/connector/
- * fixture-nexus.h) is reachable from a fixture BOARD .dts (board_edt's own
- * recipe does honor --include-dir) but not from a .shield file. A real
- * shield under boards/shields does not hit this: its connector header
- * already lives under this module's own include/ tree.
  */
+
+#include <dt-bindings/connector/fixture-nexus.h>
 
 / {
 	shield-templates {
@@ -40,7 +33,7 @@
 			spi {
 				fl_flash: flash {
 					compatible = "vnd,fixture-flash";
-					shield,cs-position = <4>;	/* FIXTURE_CS */
+					shield,cs-position = <FIXTURE_CS>;
 					spi-max-frequency = <8000000>;
 				};
 			};

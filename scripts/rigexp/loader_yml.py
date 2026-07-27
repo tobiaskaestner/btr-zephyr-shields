@@ -130,6 +130,7 @@ class ShieldLibrary:
     _workdir: str
     _diags: Diagnostics
     _deps: Depends | None
+    _include_dirs: list[str] | None = None
 
     def resolve(self, ref: str, ctx: str, src: SrcRef) -> Shield | None:
         """<name> or <name>@<rev> (rule 13's identical @rev grammar) -> the
@@ -227,7 +228,8 @@ class ShieldLibrary:
         includes = [base_file] + ([rev_file] if has_rev_file else [])
         if has_rev_file and self._deps is not None:
             self._deps.see(rev_file)
-        dt = parse_tu(includes, self._workdir, f"shield-{name}-{rev_norm}.dts")
+        dt = parse_tu(includes, self._workdir, f"shield-{name}-{rev_norm}.dts",
+                     self._include_dirs)
         if self._deps is not None:
             for real_src in source_files(dt, self._workdir):
                 self._deps.see(real_src)
@@ -315,7 +317,8 @@ def _load_shield_revisions(shield_dir: str, diags: Diagnostics) -> "AxisDecl | N
 def load_shield_library(workdir: str, diags: Diagnostics,
                         shield_dirs: list[str] | None = None,
                         deps: Depends | None = None,
-                        types: dict[str, ConnectorType] | None = None) -> ShieldLibrary:
+                        types: dict[str, ConnectorType] | None = None,
+                        include_dirs: list[str] | None = None) -> ShieldLibrary:
     """Load every shield template. Each .shield file (base + any resolved
     revision fragment) is its OWN translation unit (Ground rule 3), so
     labels are shield-scoped — two shields may reuse gl_plug etc. without
@@ -356,7 +359,15 @@ def load_shield_library(workdir: str, diags: Diagnostics,
     types is the connector-type registry every shield's plug is checked
     against (shields.py); None falls back to load_types(deps=deps) (today's
     single real directory) — direct API / test use only, since the CLI
-    always resolves the registry once itself and threads it down here."""
+    always resolves the registry once itself and threads it down here.
+
+    include_dirs is the cpp -I search list threaded into every .shield
+    template's own translation unit (dtsio.run_cpp), on top of the
+    hardcoded ZEPHYR_INC/MODULE_INC — the same list a caller threads as
+    --include-dir for the board .dts and for the connector-type registry's
+    own header lookup (ctypes_registry.load_types's header_dirs), so a
+    shield's #include <dt-bindings/connector/x.h> resolves by the identical
+    rule wherever the header actually lives."""
     if types is None:
         types = load_types(deps=deps)
     shields: dict[str, Shield] = {}
@@ -380,7 +391,8 @@ def load_shield_library(workdir: str, diags: Diagnostics,
             decl = _load_shield_revisions(shield_dir, diags)
             axes[name] = decl
             if decl is None:
-                dt = parse_tu([base_file], workdir, f"shield-{name}.dts")
+                dt = parse_tu([base_file], workdir, f"shield-{name}.dts",
+                             include_dirs)
                 if deps is not None:
                     for src in source_files(dt, workdir):
                         deps.see(src)
@@ -392,7 +404,7 @@ def load_shield_library(workdir: str, diags: Diagnostics,
                 pending[name] = (shield_dir, base_file, decl)
     return ShieldLibrary(shields=shields, axes=axes, _pending=pending,
                          _ymls=ymls, _types=types, _workdir=workdir,
-                         _diags=diags, _deps=deps)
+                         _diags=diags, _deps=deps, _include_dirs=include_dirs)
 
 
 # ---------------------------------------------------------------- mark-aware YAML
@@ -855,7 +867,8 @@ def _check_param_invariant(instances, diags) -> None:
 
 def _apply_params_block(params_v: _Val | None, inst: Instance, shield: Shield,
                         rig: Rig, workdir: str, diags,
-                        unknown_device_context: str | None = None) -> None:
+                        unknown_device_context: str | None = None,
+                        include_dirs: list[str] | None = None) -> None:
     """Parse ONE params: block -- the base assignment, OR a delta's
     wholesale replacement (Sec. 5) -- into inst.params/param_refs. Rules 1/3
     (undeclared property / unknown device) fire immediately against the
@@ -904,7 +917,7 @@ def _apply_params_block(params_v: _Val | None, inst: Instance, shield: Shield,
             inst.param_refs.setdefault(dev_label, {})[prop_name] = val_v.src
             if not is_int_literal(raw):
                 _check_param_token(inst, dev_label, prop_name, raw, rig,
-                                   workdir, val_v.src, diags)
+                                   workdir, val_v.src, diags, include_dirs)
 
 
 def _apply_pin_block(pin_v: _Val | None, inst: Instance, shield: Shield,
@@ -979,7 +992,8 @@ def _find_wire(wires: list[Wire], frm: str | None, to: str | None) -> Wire | Non
 
 def _apply_instance_patch(item: _Val, inst: Instance, lib: ShieldLibrary, rig: Rig,
                           workdir: str, diags, stage: str, stage_value: str,
-                          socket_map: dict[str, str]) -> None:
+                          socket_map: dict[str, str],
+                          include_dirs: list[str] | None = None) -> None:
     """Shallow-replace an EXISTING instance's top-level keys (Sec. 5): a
     GIVEN key REPLACES; an unspecified key INHERITS. shield/socket/invert/
     pin/params are each the deepest merge unit -- no key merges into what
@@ -1036,7 +1050,8 @@ def _apply_instance_patch(item: _Val, inst: Instance, lib: ShieldLibrary, rig: R
             context = (f"this instance's shield is '{inst.shield.name}' "
                        f"because of variant '{rig.variant}'")
         _apply_params_block(item.v["params"], inst, inst.shield, rig,
-                            workdir, diags, unknown_device_context=context)
+                            workdir, diags, unknown_device_context=context,
+                            include_dirs=include_dirs)
 
 
 def _reject_metadata_keys(doc_v: _Val, diags) -> None:
@@ -1059,7 +1074,8 @@ def _reject_metadata_keys(doc_v: _Val, diags) -> None:
 def _apply_delta(delta_v: _Val, stage: str, stage_value: str, rig: Rig,
                  lib: ShieldLibrary, effective: dict[str, Instance], order: list[str],
                  wires: list[Wire], removed_by: dict[str, str],
-                 workdir: str, socket_map: dict[str, str], diags) -> None:
+                 workdir: str, socket_map: dict[str, str], diags,
+                 include_dirs: list[str] | None = None) -> None:
     """Apply ONE delta stage (Sec. 5) onto the effective topology IN PLACE.
     `stage` is "variant" or "revision" (rules 6-9 differ only in the
     diagnostic code); `stage_value` is the selected axis value itself,
@@ -1090,14 +1106,15 @@ def _apply_delta(delta_v: _Val, stage: str, stage_value: str, rig: Rig,
                     [item.src])
                 continue
             _apply_instance_patch(item, inst, lib, rig, workdir, diags,
-                                  stage, stage_value, socket_map)
+                                  stage, stage_value, socket_map, include_dirs)
 
     # add-instances: -- full declarations; the name must NOT already exist
     # (rule 7).
     add_v = doc.get("add-instances")
     if add_v is not None:
         for item in add_v.v:
-            new_inst = _parse_instance(item, lib, rig, workdir, diags, socket_map)
+            new_inst = _parse_instance(item, lib, rig, workdir, diags, socket_map,
+                                      include_dirs)
             if new_inst is None:
                 continue
             if new_inst.name in effective:
@@ -1162,10 +1179,12 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
         deps: Depends | None = None,
         revision: str | None = None,
         variant: str | None = None,
-        types: dict[str, ConnectorType] | None = None) -> Rig | None:
+        types: dict[str, ConnectorType] | None = None,
+        include_dirs: list[str] | None = None) -> Rig | None:
     if deps is not None:
         deps.see(rig_path)
-    lib = load_shield_library(workdir, diags, shield_dirs, deps, types=types)
+    lib = load_shield_library(workdir, diags, shield_dirs, deps, types=types,
+                              include_dirs=include_dirs)
 
     with open(rig_path) as f:
         try:
@@ -1247,7 +1266,7 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     if revision_delta_v is not None:
         _union_dt_includes(rig, revision_delta_v.v.get("dt-includes"))
     if rig.dt_includes:
-        _check_dt_includes(rig, workdir, diags)
+        _check_dt_includes(rig, workdir, diags, include_dirs)
 
     # Stage 0: base topology, read from the content file. The per-stage
     # invariant (rule 2) is checked PER INSTANCE, immediately after each is
@@ -1258,7 +1277,7 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     order: list[str] = []
     insts_v = _require(content_v, "instances", "rig", diags)
     for item in (insts_v.v if insts_v else []):
-        inst = _parse_instance(item, lib, rig, workdir, diags, socket_map)
+        inst = _parse_instance(item, lib, rig, workdir, diags, socket_map, include_dirs)
         if inst:
             effective[inst.name] = inst
             order.append(inst.name)
@@ -1276,7 +1295,8 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     if variant_delta_v is not None:
         assert rig.variant is not None    # a delta only loads for a selected axis
         _apply_delta(variant_delta_v, "variant", rig.variant, rig, lib,
-                     effective, order, wires, removed_by, workdir, socket_map, diags)
+                     effective, order, wires, removed_by, workdir, socket_map, diags,
+                     include_dirs)
         _check_param_invariant(effective.values(), diags)
 
     # Stage 2: revision delta -- ONE family-wide stream, applied AFTER the
@@ -1284,7 +1304,8 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
     if revision_delta_v is not None:
         assert rig.revision is not None   # a delta only loads for a selected axis
         _apply_delta(revision_delta_v, "revision", rig.revision, rig, lib,
-                     effective, order, wires, removed_by, workdir, socket_map, diags)
+                     effective, order, wires, removed_by, workdir, socket_map, diags,
+                     include_dirs)
         _check_param_invariant(effective.values(), diags)
 
     rig.instances = [effective[n] for n in order if n in effective]
@@ -1293,7 +1314,8 @@ def load(rig_path: str, workdir: str, diags: Diagnostics,
 
 
 def _parse_instance(item: _Val, lib: ShieldLibrary, rig: Rig, workdir: str, diags,
-                    socket_map: dict[str, str]) -> Instance | None:
+                    socket_map: dict[str, str],
+                    include_dirs: list[str] | None = None) -> Instance | None:
     name_v = _require(item, "name", "instance", diags)
     shield_v = _require(item, "shield", "instance", diags)
     socket_v = _require(item, "socket", "instance", diags)
@@ -1311,16 +1333,18 @@ def _parse_instance(item: _Val, lib: ShieldLibrary, rig: Rig, workdir: str, diag
     inst.invert = bool(inv_v.v) if inv_v is not None else False
 
     _apply_pin_block(item.v.get("pin"), inst, shield, diags)
-    _apply_params_block(item.v.get("params"), inst, shield, rig, workdir, diags)
+    _apply_params_block(item.v.get("params"), inst, shield, rig, workdir, diags,
+                        include_dirs=include_dirs)
     return inst
 
 
 def _check_param_token(inst: Instance, dev_label: str, prop_name: str, raw: str,
-                       rig: Rig, workdir: str, ref: SrcRef, diags) -> None:
+                       rig: Rig, workdir: str, ref: SrcRef, diags,
+                       include_dirs: list[str] | None = None) -> None:
     """Rules 4/5: an assigned token that is not a bare integer literal must
     resolve against the rig's declared dt-includes list."""
     tag = f"{rig.name}_{inst.name}_{dev_label}_{prop_name}"
-    if resolve_token(raw, rig.dt_includes, workdir, tag) is not None:
+    if resolve_token(raw, rig.dt_includes, workdir, tag, include_dirs) is not None:
         return
     if not rig.dt_includes:
         diags.error(
@@ -1340,18 +1364,19 @@ def _check_param_token(inst: Instance, dev_label: str, prop_name: str, raw: str,
         [ref])
 
 
-def _check_dt_includes(rig: Rig, workdir: str, diags) -> None:
+def _check_dt_includes(rig: Rig, workdir: str, diags,
+                       include_dirs: list[str] | None = None) -> None:
     """Rule 6: every declared dt-includes: header must exist and
     preprocess cleanly on its own, checked once per rig regardless of
     whether any parameter ends up resolving against it."""
+    searched = ", ".join([*(include_dirs or []), ZEPHYR_INC, MODULE_INC])
     for i, (header, ref) in enumerate(zip(rig.dt_includes, rig.dt_includes_refs)):
-        detail = check_include(header, workdir, f"{rig.name}_{i}")
+        detail = check_include(header, workdir, f"{rig.name}_{i}", include_dirs)
         if detail is not None:
             diags.error(
                 "lang-dt-include",
                 f"rig '{rig.name}': dt-includes header '{header}' not "
-                f"found or fails to preprocess (searched {ZEPHYR_INC}, "
-                f"{MODULE_INC})\n{detail}",
+                f"found or fails to preprocess (searched {searched})\n{detail}",
                 [ref])
 
 

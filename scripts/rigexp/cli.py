@@ -109,12 +109,18 @@ def _expand(rig_path: str, shield_dirs: Optional[List[str]], out_dir: str,
     recipe = _resolve_recipe(include_dirs, bindings_dirs, build_info)
     resolved_connector_dirs = ([os.path.abspath(d) for d in connector_dirs]
                                if connector_dirs else None)
-    # header_dirs for the connector-type registry is the RAW --include-dir
-    # list (not recipe.include_dirs, which may instead come from
-    # --build-info's recovered board directories) — the ratified plumbing:
-    # a type's <type>.h resolves against exactly the -I list a caller
-    # threads explicitly, first match wins, MODULE_INC tried last, mirroring
-    # how cpp itself would resolve the same #include.
+    # header_dirs is the RAW --include-dir list (not recipe.include_dirs,
+    # which may instead come from --build-info's recovered board
+    # directories) — threaded to every cpp invocation this run makes
+    # OTHER than the board .dts preprocess (which already has its own
+    # recipe): the connector-type registry's <type>.h lookup
+    # (ctypes_registry.load_types), every .shield template's own
+    # translation unit (dtsio.run_cpp, via loader_yml), and the rig's
+    # dt-includes:/per-instance-parameter resolution (dtsio.check_include/
+    # resolve_token, via loader_yml and the emitter's config sheet). One
+    # list, one ratified plumbing shape (first match wins, ZEPHYR_INC/
+    # MODULE_INC tried last) — mirroring how cpp itself would resolve the
+    # same #include wherever it appears.
     header_dirs = ([os.path.abspath(d) for d in include_dirs]
                    if include_dirs else None)
 
@@ -141,7 +147,7 @@ def _expand(rig_path: str, shield_dirs: Optional[List[str]], out_dir: str,
     try:
         rig = loader_yml.load(rig_path, workdir, diags, shield_dirs=shield_dirs,
                               deps=deps, revision=revision, variant=variant,
-                              types=types)
+                              types=types, include_dirs=header_dirs)
     except LoadError as e:
         diags.append(e.diag)
         print(diags.render(), file=sys.stderr)
@@ -157,7 +163,8 @@ def _expand(rig_path: str, shield_dirs: Optional[List[str]], out_dir: str,
         print(diags.render(), file=sys.stderr)
         return 1
 
-    outputs = emitter.emit(solved, workdir)   # strong contract: cannot fail here
+    # strong contract: cannot fail here
+    outputs = emitter.emit(solved, workdir, include_dirs=header_dirs)
 
     os.makedirs(out_dir, exist_ok=True)
     for fname, content in outputs.items():

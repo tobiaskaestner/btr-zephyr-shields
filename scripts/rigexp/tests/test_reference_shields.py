@@ -15,14 +15,17 @@ registry-complete (plug,positions, plug,bus-proxies, socket facts) and
 mates a synthetic shield exactly as a real shield mates
 dts/bindings/connectors/arduino-r3.yaml — something T0's fixture connector
 type could not do (it was invisible to shields.py's plug-type check; see
-that module's own docstring history before this slice).
+that module's own docstring history before this slice). The reference
+shields also #include this fixture tree's own <dt-bindings/connector/
+fixture-nexus.h> and claim positions by macro (FIXTURE_D0, FIXTURE_CS),
+exactly the Convention-4 idiom a real shield uses — the same
+--include-dir list now reaches a .shield template's own cpp preprocess
+(dtsio.run_cpp), not only the board .dts and the registry's header lookup.
 
 Board + registry pieces are fixture-local (assert_fixture_local, below); the
 per-instance parameter values are plain integers rather than zephyr,code
 macros specifically so the WHOLE fixture tree stays free of any dependency
-outside itself — see fixture_button.shield's own comment for why a .shield
-template cannot reach this fixture tree's own connector header via
-#include, unlike the board .dts.
+outside itself (no rig dt-includes: needed at all).
 
 The honest limit, worth repeating here rather than only in the fixtures'
 own comments: this proves the SHAPE is right — that a shield authored

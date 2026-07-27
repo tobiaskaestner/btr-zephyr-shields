@@ -10,15 +10,9 @@
  * against a rig's dt-includes:; this fixture assigns a plain integer
  * instead, to keep the reference set free of any dependency outside its
  * own fixture tree.
- *
- * The gpio position below is the literal FIXTURE_D0 index (2) rather than
- * the macro: a .shield template's own cpp #include search is
- * ZEPHYR_INC/MODULE_INC only (dtsio.run_cpp), not --include-dir, so this
- * fixture tree's own header is not reachable from a .shield file -- see
- * fixture_logger.shield's own comment for the same limitation, and the
- * board.dts sibling for where the macro form IS reachable (a board's own
- * cpp preprocess honors --include-dir).
  */
+
+#include <dt-bindings/connector/fixture-nexus.h>
 
 / {
 	shield-templates {
@@ -30,7 +24,7 @@
 				fb_key: button {
 					shield,collect = "vnd,fixture-keys";
 					shield,params = "zephyr,code";
-					gpios = <&fb_plug 2 0>;	/* FIXTURE_D0 */
+					gpios = <&fb_plug FIXTURE_D0 0>;
 				};
 			};
 		};
