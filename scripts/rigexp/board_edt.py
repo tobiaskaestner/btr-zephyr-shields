@@ -19,11 +19,14 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple, cast
 
-# Import order matters: edt_build inserts zephyr's python-devicetree src
-# onto sys.path as an import-time side effect (from $ZEPHYR_BASE), so it
-# must be imported before devicetree.edtlib is reachable at all.
-from .edt_build import BuildRecipe, build_edt
-from devicetree import edtlib
+# edt_build's own $ZEPHYR_BASE requirement is deferred to first use (so a
+# caller needing only its build_info/recipe helpers can avoid it) -- this
+# module DOES need devicetree.edtlib itself, so it asks edt_build to put
+# it on sys.path explicitly, before importing it here.
+from .edt_build import BuildRecipe, build_edt, ensure_devicetree_on_path
+
+ensure_devicetree_on_path()
+from devicetree import edtlib  # noqa: E402
 
 from .diag import SrcRef
 from .model import Board, BoardSocket, BusRef

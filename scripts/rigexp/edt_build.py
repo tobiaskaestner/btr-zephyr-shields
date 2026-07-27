@@ -15,6 +15,13 @@ the board .dts with -nostdinc plus one -isystem per include dir and
 source references point at the ORIGINAL board files, not the preprocessed
 temp file), then hand the preprocessed file plus the bindings dirs to
 edtlib.EDT.
+
+$ZEPHYR_BASE is needed only to locate the devicetree package itself
+(scripts/dts/python-devicetree/src) -- this module carries no other tie to
+a Zephyr checkout. That lookup is deferred to ensure_devicetree_on_path(),
+called from build_edt() rather than at import time, so a caller that only
+needs BuildRecipe / recipe_from_build_info / preprocess (none of which
+touch devicetree.edtlib) can use this module with $ZEPHYR_BASE unset.
 """
 from __future__ import annotations
 
@@ -22,21 +29,28 @@ import os
 import subprocess
 import sys
 from dataclasses import dataclass
-from typing import List
+from typing import TYPE_CHECKING, List
 
 import yaml
 
-_ZEPHYR_BASE = os.environ.get("ZEPHYR_BASE")
-if not _ZEPHYR_BASE:
-    raise RuntimeError(
-        "edt_build: $ZEPHYR_BASE is not set -- it is required to locate "
-        "zephyr's devicetree library (scripts/dts/python-devicetree/src). "
-        "Export it (the zephyr-rigs tree) before importing this module.")
-_DT_SRC = os.path.join(_ZEPHYR_BASE, "scripts", "dts", "python-devicetree", "src")
-if _DT_SRC not in sys.path:
-    sys.path.insert(0, _DT_SRC)
+if TYPE_CHECKING:
+    from devicetree import edtlib
 
-from devicetree import edtlib  # noqa: E402
+
+def ensure_devicetree_on_path() -> None:
+    """Put zephyr's python-devicetree source on sys.path, locating it via
+    $ZEPHYR_BASE. Idempotent; safe to call from a caller (board_edt.py)
+    that needs devicetree.edtlib importable before build_edt() itself
+    ever runs."""
+    zephyr_base = os.environ.get("ZEPHYR_BASE")
+    if not zephyr_base:
+        raise RuntimeError(
+            "edt_build: $ZEPHYR_BASE is not set -- it is required to locate "
+            "zephyr's devicetree library (scripts/dts/python-devicetree/"
+            "src). Export it (the zephyr-rigs tree) before building an EDT.")
+    dt_src = os.path.join(zephyr_base, "scripts", "dts", "python-devicetree", "src")
+    if dt_src not in sys.path:
+        sys.path.insert(0, dt_src)
 
 
 @dataclass(frozen=True)
@@ -100,7 +114,7 @@ def preprocess(dts_path: str, include_dirs: List[str], out_path: str) -> None:
         raise RuntimeError(f"cpp failed on {dts_path}:\n{result.stderr}")
 
 
-def build_edt(dts_path: str, recipe: BuildRecipe, workdir: str) -> edtlib.EDT:
+def build_edt(dts_path: str, recipe: BuildRecipe, workdir: str) -> "edtlib.EDT":
     """Build a standalone edtlib.EDT over one .dts file -- no app, no
     overlay: this pass reads only the board's own devicetree, never app or
     overlay context.
@@ -109,6 +123,8 @@ def build_edt(dts_path: str, recipe: BuildRecipe, workdir: str) -> edtlib.EDT:
     carries without a dedicated binding (/zephyr,user, /cpus), matching
     what a normal Zephyr configure does for the same board.
     """
+    ensure_devicetree_on_path()
+    from devicetree import edtlib
     os.makedirs(workdir, exist_ok=True)
     pre = os.path.join(workdir, os.path.basename(dts_path) + ".pre")
     preprocess(dts_path, recipe.include_dirs, pre)

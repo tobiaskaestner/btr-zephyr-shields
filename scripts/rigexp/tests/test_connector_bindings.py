@@ -18,7 +18,10 @@ import os
 
 from conftest import REPO_ROOT, zephyr_base
 from rigexp.ctypes_registry import BINDINGS, load_types
-from rigexp.edt_build import edtlib
+from rigexp.edt_build import ensure_devicetree_on_path
+
+ensure_devicetree_on_path()
+from devicetree import edtlib  # noqa: E402
 
 
 def _fname2path() -> dict:

@@ -43,6 +43,7 @@ from conftest import (
     RigCase,
     SHIELD_DIR,
     assert_absent_or_refreeze,
+    assert_fixture_local,
     freeze_or_assert,
     normalize,
     plain_build_for,
@@ -1048,27 +1049,35 @@ def test_shield_uart_subset_accept_on_frdm_golden(
             assert_absent_or_refreeze(golden_file)
 
 
-@pytest.mark.build
-def test_unmapped_socket_golden(tmp_path: Path,
-                                tmp_path_factory: "pytest.TempPathFactory") -> None:
+def test_unmapped_socket_golden(tmp_path: Path) -> None:
     """Synthetic fixture: the DEGENERATE shape's own top-level sockets:
     map (rig-metadata-content-split-brief.md), with an instance naming a
     socket the map does not cover -- it passes through unresolved, and the
     board simply has no socket by that literal name (the pre-existing
     phys-socket diagnostic, exercised here through the metadata-sourced
-    resolution path rather than a raw board-socket label)."""
-    board = "nucleo_f401re/stm32f401xe/rig"
-    plain_build = plain_build_for(board, tmp_path_factory)
-    rig_yml = FIXTURES_DIR / "unmapped-socket" / "rig.yml"
+    resolution path rather than a raw board-socket label).
+
+    The board is incidental to this: any board with any socket set
+    demonstrates the same "unresolved name falls through to a real-socket
+    lookup" property. So this uses fixtures/unmapped-socket's own board
+    (fixtures/connectors' purpose-built connector type, never a real one)
+    instead of a real corpus board -- no plain build, hence unmarked like
+    fixtures/not-rig-enabled's sibling test."""
+    fixture = FIXTURES_DIR / "unmapped-socket"
+    connectors = FIXTURES_DIR / "connectors"
+    bindings_dirs = [connectors / "bindings"]
+    include_dirs = [connectors / "include"]
+    assert_fixture_local([fixture / "unmapped_socket_board.dts",
+                          *bindings_dirs, *include_dirs])
     out_dir = tmp_path / "out"
     result = run_expand(
-        rig_yml, out_dir,
-        board_dts=REPO_ROOT / BOARD_DTS[board],
-        build_info=plain_build.build_info)
+        fixture / "rig.yml", out_dir,
+        board_dts=fixture / "unmapped_socket_board.dts",
+        bindings_dirs=bindings_dirs, include_dirs=include_dirs)
 
     assert result.returncode != 0, (
         "an instance socket name absent from the declared map must be "
-        "rejected against the real board's own socket set")
+        "rejected against the board's own socket set")
     assert "[phys-socket]" in result.stderr, result.stderr
     assert "no socket 'other'" in result.stderr, result.stderr
 

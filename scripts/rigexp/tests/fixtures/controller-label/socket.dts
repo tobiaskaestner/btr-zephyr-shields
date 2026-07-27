@@ -1,6 +1,6 @@
 /dts-v1/;
 
-#include <dt-bindings/connector/grove.h>
+#include <dt-bindings/fixture/nexus.h>
 
 /* Synthetic fixture for the controller-label determinism invariant: a
  * shared controller node carries TWO labels, attached in this textual
@@ -9,7 +9,12 @@
  * bare label-ref (as a later-composed module attaching a legacy per-pin
  * alias would do; dtlib's label list is append-only and never reordered).
  * A pwm-map/gpio-map consumer resolving this node must always see the
- * FIRST-attached label, never whichever alias happened to attach last. */
+ * FIRST-attached label, never whichever alias happened to attach last.
+ *
+ * The socket node's compatible is this fixture's OWN purpose-built
+ * connector type (bindings/socket-fixture-nexus.yaml), not the real
+ * "socket,grove" -- the real connector types all include: Zephyr's own
+ * gpio-nexus.yaml/base.yaml, which this test must not depend on. */
 / {
 	model = "Controller-Label Fixture Board";
 	compatible = "vnd,controller-label-fixture";
@@ -19,17 +24,17 @@
 		#pwm-cells = <2>;
 	};
 
-	grove_x: connector_grove_x {
-		compatible = "socket,grove";
+	fixture_socket: connector_fixture_x {
+		compatible = "socket,fixture-nexus";
 		#gpio-cells = <2>;
 		gpio-map-mask = <0xffffffff 0xffffffc0>;
 		gpio-map-pass-thru = <0 0x3f>;
-		gpio-map = <GROVE_SIG0 0 &defining_ctrl 0 0>;
+		gpio-map = <FIXTURE_POS0 0 &defining_ctrl 0 0>;
 
 		#pwm-cells = <2>;
 		pwm-map-mask = <0xffffffff 0x00000000>;
 		pwm-map-pass-thru = <0x00000000 0xffffffff>;
-		pwm-map = <GROVE_SIG0 0 &defining_ctrl 0 0>;
+		pwm-map = <FIXTURE_POS0 0 &defining_ctrl 0 0>;
 	};
 };
 

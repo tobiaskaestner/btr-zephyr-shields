@@ -30,7 +30,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import pytest
 import yaml
@@ -41,6 +41,29 @@ GOLDENS_DIR = TESTS_DIR / "goldens"
 FIXTURES_DIR = TESTS_DIR / "fixtures"
 SHIELD_DIR = REPO_ROOT / "boards" / "shields"
 RIGS_DIR = REPO_ROOT / "boards" / "rigs"
+
+
+def assert_fixture_local(paths: List[Union[Path, str]]) -> None:
+    """Structural proof of hermeticity for a test that claims to need no
+    real Zephyr tree and no repo-production devicetree content: every
+    path it hands to board_edt/edtlib as a --board-dts/--bindings-dir/
+    --include-dir resolves under FIXTURES_DIR, never under $ZEPHYR_BASE
+    or REPO_ROOT/dts or REPO_ROOT/include.
+
+    $ZEPHYR_BASE may still be SET for such a test (it locates the
+    devicetree package itself, which this workspace's zephyr branch
+    patches -- edt_build.ensure_devicetree_on_path -- so it is not
+    something a test can or should route around); what this asserts is
+    that none of its DATA leaks in. Checking the caller's own recipe
+    inputs (rather than, say, the ABSENCE of $ZEPHYR_BASE) is what makes
+    "hermetic" a property of what the test actually reads, not an
+    accident of how it was invoked."""
+    for p in paths:
+        resolved = Path(p).resolve()
+        assert str(resolved) == str(FIXTURES_DIR) or str(resolved).startswith(
+            str(FIXTURES_DIR) + os.sep), (
+            f"{resolved} is outside {FIXTURES_DIR} -- a test asserting "
+            "hermeticity must reference only its own fixture-tree paths")
 DTS_EQUIV = REPO_ROOT / "scripts" / "dts_equiv.py"
 
 # board name -> its OWN .dts, relative to the repo root (Conv. 4: typed
@@ -154,15 +177,22 @@ def zephyr_base() -> str:
     return value
 
 
-def normalize(text: str, zb: str) -> str:
+def normalize(text: str, zb: Optional[str]) -> str:
     """Replace machine-/run-specific absolute paths with stable placeholders
     before freezing/comparing: the expander's own temp workdir,
     $ZEPHYR_BASE, and the repo root (in that order — repo root and zephyr
     base can each be a prefix of the other under a shared workspace topdir, so
     the more specific substitutions must land first). Everything else must
-    match byte-exact."""
+    match byte-exact.
+
+    zb is None for a golden-comparing test that needs no real Zephyr tree at
+    all (a hermetic fixture) -- that one substitution is skipped rather than
+    forcing every such caller through zephyr_base()'s hard failure just to
+    normalize output that never contained a $ZEPHYR_BASE path to begin
+    with. Every other substitution still applies unconditionally."""
     text = _WORKDIR_RE.sub("<RIGEXP_WORKDIR>", text)
-    text = text.replace(zb, "<ZEPHYR_BASE>")
+    if zb is not None:
+        text = text.replace(zb, "<ZEPHYR_BASE>")
     text = text.replace(str(REPO_ROOT), "<REPO_ROOT>")
     text = text.replace(str(WEST_TOPDIR), "<WEST_TOPDIR>")
     return text
@@ -328,6 +358,7 @@ def run_expand(rig_yml: Path, out_dir: Path,
                board_dts: Optional[Path] = None,
                build_info: Optional[Path] = None,
                bindings_dirs: Optional[List[Path]] = None,
+               include_dirs: Optional[List[Path]] = None,
                revision: Optional[str] = None,
                variant: Optional[str] = None,
                ) -> "subprocess.CompletedProcess[str]":
@@ -338,6 +369,13 @@ def run_expand(rig_yml: Path, out_dir: Path,
     cwd pinned to the repo root so any process-cwd-relative path a
     diagnostic renders (e.g. boarddt.py's unknown-board message, which uses a
     bare os.path.relpath) is reproducible regardless of the caller's cwd.
+
+    include_dirs is the cpp -I side of the explicit recipe (cli.py
+    --include-dir); a hermetic fixture board whose .dts #includes its own
+    fixture-local header needs this alongside bindings_dirs -- board_dts/
+    build_info were the only two forms the harness needed until a fixture
+    board required an #include of its own, so this was never plumbed
+    through until now.
 
     board_dts/build_info are both None for the unknown-board fixture —
     deliberately, so the CLI exercises boarddt's own name->dts DISCOVERY
@@ -363,6 +401,8 @@ def run_expand(rig_yml: Path, out_dir: Path,
         cmd += ["--build-info", str(build_info)]
     for b in bindings_dirs or []:
         cmd += ["--bindings-dir", str(b)]
+    for i in include_dirs or []:
+        cmd += ["--include-dir", str(i)]
     if revision is not None:
         cmd += ["--revision", revision]
     if variant is not None:

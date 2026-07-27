@@ -6,34 +6,46 @@ composition -- a socket file or an unrelated board extension attaching a
 further alias to a shared controller must never perturb what a pwm/adc
 consumer (emission, or an analyzer diagnostic) reports for it.
 
-Fast, no build: fixtures/controller-label/socket.dts is a standalone
-board-shaped fixture (like fixtures/not-rig-enabled/socketless_board.dts)
-carrying one real socket,grove node (the project's own binding) whose
-pwm-map/gpio-map both resolve to a controller node with two labels attached
-in a fixed textual order -- the primary one on the node itself, a second
-one appended via a bare label-ref afterward, mirroring how a later-included
-module attaches a legacy alias to a node it does not own.
+Fast, no build, and hermetic: fixtures/controller-label/socket.dts is a
+standalone board-shaped fixture (like
+fixtures/not-rig-enabled/socketless_board.dts) carrying one socket,* node
+of fixtures/connectors' purpose-built connector type
+(connectors/bindings/socket-fixture-nexus.yaml, compatible
+"socket,fixture-nexus" -- never a copy of the real
+dts/bindings/connectors/*.yaml types, and not reachable through
+ctypes_registry.py's registry, which always scans that real directory
+instead) whose pwm-map/gpio-map both resolve to a controller node with two
+labels attached in a fixed textual order -- the primary one on the node
+itself, a second one appended via a bare label-ref afterward, mirroring
+how a later-included module attaches a legacy alias to a node it does not
+own. The recipe below names only fixture-tree directories -- proven by
+assert_fixture_local, not merely asserted -- so this test needs no
+$ZEPHYR_BASE bindings dir, no REPO_ROOT/dts/bindings, no REPO_ROOT/include.
+$ZEPHYR_BASE itself may still be set (board_edt needs it to locate
+devicetree.edtlib -- see edt_build.ensure_devicetree_on_path); it is
+Zephyr's own board/binding DATA this test never touches.
 """
 from __future__ import annotations
 
 import sys
 from pathlib import Path
 
-from conftest import REPO_ROOT, zephyr_base
+from conftest import REPO_ROOT, assert_fixture_local
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigexp import board_edt  # noqa: E402
 from rigexp.edt_build import BuildRecipe  # noqa: E402
 
 _FIXTURE = REPO_ROOT / "scripts" / "rigexp" / "tests" / "fixtures" / "controller-label"
+_CONNECTORS = REPO_ROOT / "scripts" / "rigexp" / "tests" / "fixtures" / "connectors"
 
 
 def _recipe() -> BuildRecipe:
-    zb = zephyr_base()
-    return BuildRecipe(
-        include_dirs=[str(REPO_ROOT / "include")],
-        bindings_dirs=[str(Path(zb) / "dts" / "bindings"),
-                       str(REPO_ROOT / "dts" / "bindings")])
+    recipe = BuildRecipe(
+        include_dirs=[str(_CONNECTORS / "include")],
+        bindings_dirs=[str(_CONNECTORS / "bindings")])
+    assert_fixture_local(recipe.include_dirs + recipe.bindings_dirs)
+    return recipe
 
 
 def test_controller_label_is_the_defining_label(tmp_path: Path) -> None:
@@ -41,7 +53,7 @@ def test_controller_label_is_the_defining_label(tmp_path: Path) -> None:
         "controller-label-fixture", str(_FIXTURE / "socket.dts"), _recipe(),
         str(tmp_path))
 
-    socket = board.sockets["grove_x"]
+    socket = board.sockets["fixture_socket"]
     # The pwm-map's controller identity must be the node's FIRST-attached
     # label -- never the later-appended alias, regardless of which one a
     # future module composition attaches last.
@@ -61,6 +73,6 @@ def test_controller_label_ignores_a_later_attached_alias(tmp_path: Path) -> None
     board = board_edt.load_board(
         "controller-label-fixture", str(_FIXTURE / "socket.dts"), _recipe(),
         str(tmp_path))
-    label, _channel = board.sockets["grove_x"].pwm_map[0]
+    label, _channel = board.sockets["fixture_socket"].pwm_map[0]
     assert label == "defining_ctrl"
     assert label != "legacy_alias"

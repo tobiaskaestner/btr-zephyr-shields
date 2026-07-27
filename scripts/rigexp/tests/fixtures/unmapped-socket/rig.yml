@@ -1,9 +1,12 @@
 # Synthetic fixture: the DEGENERATE single-board shape's own top-level
 # sockets: map (rig-metadata-content-split-brief.md), exercised with a
 # socket name the map does not cover -- it passes through unresolved and
-# the board simply has no socket by that literal name.
+# the board simply has no socket by that literal name. board: names this
+# fixture's own unmapped_socket_board.dts (passed via --board-dts in the
+# test), not a real hwmv2 target -- the real board here is incidental to
+# what the test proves, so it carries none.
 rig:
   name: unmapped-socket
-  board: nucleo_f401re/stm32f401xe/rig
+  board: unmapped_socket_board
   sockets:
-    ard: nucleo_ard
+    ard: fixture_ard
