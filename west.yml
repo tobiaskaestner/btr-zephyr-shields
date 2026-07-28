@@ -23,5 +23,8 @@ manifest:
 
   projects:
     - name: zephyr
-      revision: tskr/zephyr-rigs
+      # Pinned to the tip of tskr/zephyr-rigs (2026-07-28 rebase) for the
+      # duration of the rigc differential build: any red golden is then ours
+      # by construction. Un-pin back to the branch name at rigc cutover.
+      revision: 8da5b3a0f60f7e8e06aa7b99bde818bb1affe2bd
       import: true
