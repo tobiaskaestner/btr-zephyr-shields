@@ -129,7 +129,7 @@ def test_unknown_board_golden(tmp_path: Path) -> None:
     devicetree. No corpus rig exercises this path (every corpus rig names a
     real, existing board)."""
     out_dir = tmp_path / "out"
-    rig_yml = FIXTURES_DIR / "unknown-board" / "rig.yml"
+    rig_yml = FIXTURES_DIR / "boards" / "rigs" / "unknown-board" / "rig.yml"
     result = run_expand(rig_yml, out_dir)
 
     assert result.returncode != 0, "an unknown board must be rejected"
@@ -149,10 +149,10 @@ def test_not_rig_enabled_golden(tmp_path: Path) -> None:
     it needs a real edtlib bindings dir (zephyr/dts/bindings) to build an
     EDT at all -- no configured board context needed beyond that."""
     out_dir = tmp_path / "out"
-    fixture = FIXTURES_DIR / "not-rig-enabled"
+    fixture = FIXTURES_DIR / "boards" / "rigs" / "not-rig-enabled"
     zb = zephyr_base()
     result = run_expand(fixture / "rig.yml", out_dir,
-                        board_dts=fixture / "socketless_board.dts",
+                        board_dts=FIXTURES_DIR / "boards" / "mainboards" / "socketless_board.dts",
                         bindings_dirs=[Path(zb) / "dts" / "bindings"])
 
     assert result.returncode != 0, "a socket-less board must be rejected"
@@ -180,7 +180,7 @@ def test_pwm_nonzero_flags_golden(tmp_path: Path,
     Needs a real board recipe (the seeeduino_lotus extension), like the
     corpus cases -- hence @pytest.mark.build, unlike the loader-level
     fixtures in test_emitted_rejects.py."""
-    fixture = FIXTURES_DIR / "pwm-nonzero-flags"
+    fixture = FIXTURES_DIR / "boards" / "rigs" / "pwm-nonzero-flags"
     board = "seeeduino_lotus/samd21g18a/rig"
     plain_build = plain_build_for(board, tmp_path_factory)
     out_dir = tmp_path / "out"
@@ -366,7 +366,7 @@ def test_shield_uart_subset_reject_on_nucleo_golden(
     fixture pair exists to freeze."""
     board = "nucleo_f401re/stm32f401xe/rig"
     plain_build = plain_build_for(board, tmp_path_factory)
-    fixture = FIXTURES_DIR / "shield-uart-subset"
+    fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-uart-subset"
     out_dir = tmp_path / "out"
     result = run_expand(
         fixture / "rig.yml", out_dir,
@@ -397,7 +397,7 @@ def test_shield_uart_subset_accept_on_frdm_golden(
     single fixed board mapping."""
     board = "frdm_k64f/mk64f12/rig"
     plain_build = plain_build_for(board, tmp_path_factory)
-    fixture = FIXTURES_DIR / "shield-uart-subset"
+    fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-uart-subset"
     out_dir = tmp_path / "out"
     result = run_expand(
         fixture / "rig.yml", out_dir,

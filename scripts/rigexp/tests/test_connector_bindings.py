@@ -73,10 +73,9 @@ def test_fixture_nexus_type_is_registry_visible() -> None:
     it was authored) because the second half asserts directly on
     repo-production connector-type names -- integration by that half's
     purpose, and no module may mix unit and integration tests."""
-    connectors = FIXTURES_DIR / "connectors"
     fixture_types = load_types(
-        connector_dirs=[str(connectors / "bindings")],
-        header_dirs=[str(connectors / "include")])
+        connector_dirs=[str(FIXTURES_DIR / "dts" / "bindings" / "connectors")],
+        header_dirs=[str(FIXTURES_DIR / "include")])
     assert set(fixture_types) == {"fixture-nexus"}
     ctype = fixture_types["fixture-nexus"]
     assert set(ctype.positions) == {"D0", "D1", "CS"}

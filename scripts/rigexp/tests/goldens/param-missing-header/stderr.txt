@@ -4,6 +4,6 @@ error[lang-dt-include]: rig 'param-missing-header': dt-includes header 'zephyr/d
         2 | #include "zephyr/dt-bindings/input/no-such-header.h"
           |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     compilation terminated.
-    at tests/fixtures/param-missing-header/param-missing-header.yml:5 (dt-includes[0])
+    at tests/fixtures/boards/rigs/param-missing-header/param-missing-header.yml:5 (dt-includes[0])
 error[lang-dt-include]: instance 'btn': device 'gb_key' property 'zephyr,code' assigns 'INPUT_KEY_0', which does not resolve against this rig's declared dt-includes (zephyr/dt-bindings/input/no-such-header.h) — add the header that defines it to param-missing-header.yml dt-includes:
-    at tests/fixtures/param-missing-header/param-missing-header.yml:12 (instances[0].params.gb_key.zephyr,code)
+    at tests/fixtures/boards/rigs/param-missing-header/param-missing-header.yml:12 (instances[0].params.gb_key.zephyr,code)

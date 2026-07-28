@@ -6,11 +6,11 @@ composition -- a socket file or an unrelated board extension attaching a
 further alias to a shared controller must never perturb what a pwm/adc
 consumer (emission, or an analyzer diagnostic) reports for it.
 
-Fast, no build, and hermetic: fixtures/controller-label/socket.dts is a
+Fast, no build, and hermetic: fixtures/boards/mainboards/socket.dts is a
 standalone board-shaped fixture (like
-fixtures/not-rig-enabled/socketless_board.dts) carrying one socket,* node
-of fixtures/connectors' purpose-built connector type
-(connectors/bindings/fixture-nexus.yaml, compatible
+fixtures/boards/mainboards/socketless_board.dts) carrying one socket,* node
+of the fixture tree's own purpose-built connector type
+(fixtures/dts/bindings/connectors/fixture-nexus.yaml, compatible
 "socket,fixture-nexus" -- never a copy of the real
 dts/bindings/connectors/*.yaml types) whose pwm-map/gpio-map both resolve
 to a controller node with two
@@ -31,7 +31,7 @@ from pathlib import Path
 
 import pytest
 
-from conftest import REPO_ROOT, assert_fixture_local
+from conftest import FIXTURES_DIR, REPO_ROOT, assert_fixture_local
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigexp import board_edt  # noqa: E402
@@ -39,21 +39,22 @@ from rigexp.edt_build import BuildRecipe  # noqa: E402
 
 pytestmark = pytest.mark.unit
 
-_FIXTURE = REPO_ROOT / "scripts" / "rigexp" / "tests" / "fixtures" / "controller-label"
-_CONNECTORS = REPO_ROOT / "scripts" / "rigexp" / "tests" / "fixtures" / "connectors"
+_MAINBOARDS = FIXTURES_DIR / "boards" / "mainboards"
+_CONNECTOR_BINDINGS = FIXTURES_DIR / "dts" / "bindings" / "connectors"
+_CONNECTOR_INCLUDE = FIXTURES_DIR / "include"
 
 
 def _recipe() -> BuildRecipe:
     recipe = BuildRecipe(
-        include_dirs=[str(_CONNECTORS / "include")],
-        bindings_dirs=[str(_CONNECTORS / "bindings")])
+        include_dirs=[str(_CONNECTOR_INCLUDE)],
+        bindings_dirs=[str(_CONNECTOR_BINDINGS)])
     assert_fixture_local(recipe.include_dirs + recipe.bindings_dirs)
     return recipe
 
 
 def test_controller_label_is_the_defining_label(tmp_path: Path) -> None:
     board = board_edt.load_board(
-        "controller-label-fixture", str(_FIXTURE / "socket.dts"), _recipe(),
+        "controller-label-fixture", str(_MAINBOARDS / "socket.dts"), _recipe(),
         str(tmp_path))
 
     socket = board.sockets["fixture_socket"]
@@ -74,7 +75,7 @@ def test_controller_label_ignores_a_later_attached_alias(tmp_path: Path) -> None
     legacy_alias so the fixture's second label is provably inert rather
     than merely absent."""
     board = board_edt.load_board(
-        "controller-label-fixture", str(_FIXTURE / "socket.dts"), _recipe(),
+        "controller-label-fixture", str(_MAINBOARDS / "socket.dts"), _recipe(),
         str(tmp_path))
     label, _channel = board.sockets["fixture_socket"].pwm_map[0]
     assert label == "defining_ctrl"

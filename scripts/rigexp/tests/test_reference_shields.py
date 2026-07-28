@@ -1,4 +1,4 @@
-"""The reference shield set (rigs test suite): fixtures/reference-shields
+"""The reference shield set (rigs test suite): fixtures/boards/shields/reference
 demonstrates the four main shield-authoring patterns as ACCEPTED material —
 the opposite of every other fixture in this suite, which is named for the
 defect it triggers. A reference implementation nobody exercises is
@@ -49,15 +49,16 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 pytestmark = pytest.mark.integration
 
-_FIXTURE = FIXTURES_DIR / "reference-shields"
-_CONNECTORS = FIXTURES_DIR / "connectors"
+_FIXTURE = FIXTURES_DIR / "boards" / "rigs" / "reference-shields"
+_CONNECTOR_BINDINGS = FIXTURES_DIR / "dts" / "bindings" / "connectors"
+_CONNECTOR_INCLUDE = FIXTURES_DIR / "include"
 
 
 def test_reference_shields_accept(tmp_path: Path) -> None:
-    board_dts = _FIXTURE / "board.dts"
-    bindings_dirs = [_CONNECTORS / "bindings"]
-    include_dirs = [_CONNECTORS / "include"]
-    connector_dirs = [_CONNECTORS / "bindings"]
+    board_dts = FIXTURES_DIR / "boards" / "mainboards" / "board.dts"
+    bindings_dirs = [_CONNECTOR_BINDINGS]
+    include_dirs = [_CONNECTOR_INCLUDE]
+    connector_dirs = [_CONNECTOR_BINDINGS]
     shield_dirs = [_FIXTURE / "shields"]
     assert_fixture_local(
         [board_dts, *bindings_dirs, *include_dirs, *connector_dirs, *shield_dirs])

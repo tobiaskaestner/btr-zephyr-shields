@@ -1,2 +1,2 @@
 error[lang-schema]: rig 'no-board-declared' declares no board: -- add a top-level board:, or give every declared variant its own
-    at tests/fixtures/no-board-declared/rig.yml:5 (rig)
+    at tests/fixtures/boards/rigs/no-board-declared/rig.yml:5 (rig)

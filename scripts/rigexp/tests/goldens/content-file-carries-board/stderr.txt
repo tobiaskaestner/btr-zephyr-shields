@@ -1,2 +1,2 @@
-error[lang-schema]: <REPO_ROOT>/scripts/rigexp/tests/fixtures/content-file-carries-board/content-file-carries-board.yml: 'board:' is rig.yml metadata -- move it to the variant that owns it (or the top-level rig: block, for a single-board rig), not a content file
-    at tests/fixtures/content-file-carries-board/content-file-carries-board.yml:1 (board)
+error[lang-schema]: <REPO_ROOT>/scripts/rigexp/tests/fixtures/boards/rigs/content-file-carries-board/content-file-carries-board.yml: 'board:' is rig.yml metadata -- move it to the variant that owns it (or the top-level rig: block, for a single-board rig), not a content file
+    at tests/fixtures/boards/rigs/content-file-carries-board/content-file-carries-board.yml:1 (board)

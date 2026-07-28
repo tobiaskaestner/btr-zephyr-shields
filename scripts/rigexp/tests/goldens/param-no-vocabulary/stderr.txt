@@ -1,2 +1,2 @@
 error[lang-dt-include]: instance 'btn': device 'gb_key' property 'zephyr,code' assigns 'INPUT_KEY_0', which does not resolve — this rig declares no dt-includes: at all; add the header that defines 'INPUT_KEY_0'
-    at tests/fixtures/param-no-vocabulary/param-no-vocabulary.yml:11 (instances[0].params.gb_key.zephyr,code)
+    at tests/fixtures/boards/rigs/param-no-vocabulary/param-no-vocabulary.yml:11 (instances[0].params.gb_key.zephyr,code)

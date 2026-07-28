@@ -1,2 +1,2 @@
 error[lang-schema]: rig 'variant-board-partial': variant(s) b declare no board:, but variant(s) a do -- every variant must declare a board, or none should
-    at tests/fixtures/variant-board-partial/rig.yml:6 (rig)
+    at tests/fixtures/boards/rigs/variant-board-partial/rig.yml:6 (rig)
