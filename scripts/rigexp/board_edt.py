@@ -17,16 +17,19 @@ below are no-ops for sockets without one.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple, cast
+from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, cast
 
-# edt_build's own $ZEPHYR_BASE requirement is deferred to first use (so a
-# caller needing only its build_info/recipe helpers can avoid it) -- this
-# module DOES need devicetree.edtlib itself, so it asks edt_build to put
-# it on sys.path explicitly, before importing it here.
+# $ZEPHYR_BASE is what locates the devicetree package, so requiring it at
+# IMPORT time would make merely importing this module -- which pytest does to
+# every test module, to discover its markers, before any -m selection can
+# deselect one -- fail without a Zephyr tree. Deferred to first use instead,
+# the same shape edt_build uses: annotations are lazy under
+# `from __future__ import annotations`, so only the single runtime reference
+# below (an isinstance check in _project_socket) needs the real module.
 from .edt_build import BuildRecipe, build_edt, ensure_devicetree_on_path
 
-ensure_devicetree_on_path()
-from devicetree import edtlib  # noqa: E402
+if TYPE_CHECKING:
+    from devicetree import edtlib
 
 from .diag import SrcRef
 from .model import Board, BoardSocket, BusRef
@@ -82,6 +85,11 @@ def _project_socket(node: edtlib.Node, compat: str) -> BoardSocket:
         if prop is None:
             continue
         bus_node = prop.val
+        # The one runtime reference to edtlib in this module; anything holding
+        # an EDT to project already has devicetree importable, since it could
+        # not have been built or unpickled otherwise.
+        ensure_devicetree_on_path()
+        from devicetree import edtlib
         assert isinstance(bus_node, edtlib.Node)
         if not bus_node.labels:
             raise ValueError(f"bus controller {bus_node.path} has no label")

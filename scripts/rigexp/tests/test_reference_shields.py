@@ -47,7 +47,7 @@ from conftest import FIXTURES_DIR, REPO_ROOT, assert_fixture_local, run_expand
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
-pytestmark = pytest.mark.unit
+pytestmark = pytest.mark.integration
 
 _FIXTURE = FIXTURES_DIR / "reference-shields"
 _CONNECTORS = FIXTURES_DIR / "connectors"

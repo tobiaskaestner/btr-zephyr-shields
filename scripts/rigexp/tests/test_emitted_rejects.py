@@ -1,17 +1,32 @@
-"""Emitted goldens: the fixture-only (unit) rejects.
+"""Emitted goldens: the fixture-only rejects. HERMETIC, and INTEGRATION.
 
 Every test here freezes python -m rigexp expand's verdict + rendered
 diagnostics against a SYNTHETIC fixture under tests/fixtures/, never a real
 corpus rig, and none reaches analyzer.analyze (boarddt/board_edt/edt_build,
 which needs a real board recipe) -- each one is rejected by loader_yml.load
 alone, on YAML/schema shape, before any board devicetree would even be
-read. That is what makes this file UNIT under the criterion T0 settled:
-no $ZEPHYR_BASE bindings/includes, no real board .dts, no cmake/west
-build, nothing from REPO_ROOT/dts or REPO_ROOT/include
+read.
+
+Both labels above are true at once, and the distinction is the point. These
+are HERMETIC: no $ZEPHYR_BASE bindings/includes, no real board .dts, no
+cmake/west build, nothing from REPO_ROOT/dts or REPO_ROOT/include
 (conftest.assert_fixture_local is the structural proof for the handful of
-tests that pass an explicit board/bindings/include recipe at all; most of
-these pass none, since the rejection fires before board resolution is ever
-attempted).
+tests that pass an explicit board/bindings/include recipe at all; most pass
+none, since the rejection fires before board resolution is attempted). They
+are nonetheless INTEGRATION, for two reasons that have nothing to do with
+hermeticity:
+
+  - they reach the code through the FRONT DOOR, as a subprocess running the
+    real CLI, and a unit reached through the CLI is being integration-tested
+    whatever the test is labelled;
+  - what each one pins is a REJECT -- an outcome against a scenario. A
+    scenario does not exist at unit level; it is consumed by the system
+    (rigexp, later rigc). There is no unit whose specification says "this
+    assembly is unrealizable".
+
+So hermetic-and-fast is a property of the COST axis, not of the unit
+boundary. These stay exactly as they are: what they uniquely protect is the
+user-facing WORDING of a system verdict, which no unit test asserts.
 
 Some of these fixtures name a real production shield (e.g.
 adafruit_data_logger, i2c_sensor, flash_click) as ordinary instance
@@ -58,7 +73,7 @@ from conftest import (
     zephyr_base,
 )
 
-pytestmark = pytest.mark.unit
+pytestmark = pytest.mark.integration
 
 
 def test_route_no_via_golden(tmp_path: Path) -> None:
