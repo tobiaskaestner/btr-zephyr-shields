@@ -33,8 +33,10 @@ from __future__ import annotations
 
 import dataclasses
 import difflib
+import logging
 import os
 import re
+import shlex
 import subprocess
 import sys
 from pathlib import Path
@@ -42,6 +44,8 @@ from typing import Dict, FrozenSet, List, Optional, Tuple, Union
 
 import pytest
 import yaml
+
+_LOGGER = logging.getLogger(__name__)
 
 TESTS_DIR = Path(__file__).resolve().parent
 REPO_ROOT = TESTS_DIR.parents[2]   # scripts/rigexp/tests -> btr-shields
@@ -208,6 +212,58 @@ def normalize(text: str, zb: Optional[str]) -> str:
     return text
 
 
+def render_argv(result: "subprocess.CompletedProcess[str]") -> str:
+    """Shell-quoted rendering of a completed subprocess's own argv, for a
+    failure assertion to interpolate alongside stdout/stderr -- .args is
+    exactly what subprocess.run was given, so this needs no extra plumbing
+    at any call site: -s cannot show a captured subprocess's command (only
+    the test process's own stdout), and no assertion in this suite named
+    the command that produced a failure until this existed."""
+    return shlex.join(str(part) for part in result.args)
+
+
+def write_rerun_script(script_dir: Path, cwd: Path, cmd: List[str],
+                       env: Dict[str, str]) -> Path:
+    """Write an executable rerun.sh into script_dir: a standalone re-run of
+    this exact subprocess invocation, mirroring cmake/dts.cmake's own
+    rerun-expand.sh (shebang, set -e, the env-then-argv shape) -- written
+    BEFORE the subprocess runs, so it survives even a failing invocation,
+    exactly like the cmake precedent keeps its script after a FAILED
+    configure. Composes with pytest's tmp_path_retention_policy (default
+    failed): a failing test's tmp dir, and therefore this script, is kept
+    without any extra flag; -o tmp_path_retention_policy=all keeps a
+    passing one's too.
+
+    cwd is recorded as an explicit cd line rather than left to whatever
+    directory the script happens to be run from: a diagnostic that renders
+    a process-cwd-relative path (e.g. boarddt.py's unknown-board message,
+    a bare os.path.relpath) would otherwise reproduce DIFFERENTLY than the
+    original failure, defeating the point of a reproduction script.
+
+    Only the env entries this invocation's caller added on top of the
+    inherited environment are exported -- recording every inherited
+    variable would bury the ones that actually distinguish this
+    invocation, and would embed values (e.g. a caller's current PATH) that
+    have nothing to do with reproducing it."""
+    lines = [
+        "#!/bin/sh",
+        "# regenerate: rewritten on every test run -- edits here do not persist.",
+        "# Standalone re-run of this test's own subprocess invocation, e.g. under",
+        "# a debugger: copy the env + argv below into 'python3 -m pdb -m rigexp ...'.",
+        "set -e",
+        f"cd {shlex.quote(str(cwd))}",
+    ]
+    for key, value in env.items():
+        if os.environ.get(key) != value:
+            lines.append(f"export {key}={shlex.quote(value)}")
+    lines.append("exec " + " ".join(shlex.quote(str(c)) for c in cmd) + ' "$@"')
+    script_dir.mkdir(parents=True, exist_ok=True)
+    script = script_dir / "rerun.sh"
+    script.write_text("\n".join(lines) + "\n")
+    script.chmod(0o755)
+    return script
+
+
 @dataclasses.dataclass(frozen=True)
 class RigCase:
     """One corpus rig, identified by its rig.yml rig.name — also its
@@ -348,6 +404,8 @@ def _run_plain_build(board: str, build_dir: Path) -> "subprocess.CompletedProces
     extra = board_extra_defines(board)
     if extra:
         cmd += ["--", *extra]
+    _LOGGER.info("plain build argv: %s", shlex.join(cmd))
+    write_rerun_script(build_dir, WEST_TOPDIR, cmd, env)
     return subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=env,
                            capture_output=True, text=True, timeout=600)
 
@@ -366,7 +424,8 @@ def plain_build_for(board: str, tmp_path_factory: "pytest.TempPathFactory") -> P
         result = _run_plain_build(board, build_dir)
         assert result.returncode == 0, (
             f"{board}: plain `west build --cmake-only` (no shield, no rig) "
-            f"must configure clean\n--- stdout ---\n"
+            f"must configure clean\n--- argv ---\n{render_argv(result)}\n"
+            f"--- stdout ---\n"
             f"{result.stdout}\n--- stderr ---\n{result.stderr}")
         _plain_build_cache[board] = PlainBuild(board=board, build_dir=build_dir)
     return _plain_build_cache[board]
@@ -436,6 +495,8 @@ def run_expand(rig_yml: Path, out_dir: Path,
     if variant is not None:
         cmd += ["--variant", variant]
     cmd += ["--out-dir", str(out_dir)]
+    _LOGGER.info("expand argv: %s", shlex.join(cmd))
+    write_rerun_script(out_dir, REPO_ROOT, cmd, env)
     return subprocess.run(cmd, env=env, cwd=str(REPO_ROOT),
                            capture_output=True, text=True, timeout=120)
 
@@ -500,18 +561,20 @@ def pytest_addoption(parser: "pytest.Parser") -> None:
 def pytest_collection_modifyitems(config: "pytest.Config",
                                   items: "List[pytest.Item]") -> None:
     """Stash the unit/integration markers of every COLLECTED test, before
-    any -m deselection can narrow items down -- tryfirst=True so this runs
-    ahead of pytest's own markexpr filter, which mutates items in place.
-    test_marker_discipline.py reads config's stashed census rather than
-    request.session.items, since a run invoked as `pytest -m unit` would
-    otherwise only see the unit-selected subset by the time a test body
-    executes, making both enforcement checks pass vacuously.
+    any -m/-k deselection can narrow items down -- tryfirst=True so this
+    runs ahead of pytest's own markexpr/keyword filters, which mutate items
+    in place. test_marker_discipline.py reads config's stashed census
+    rather than request.session.items, since a run invoked as
+    pytest -m unit would otherwise only see the unit-selected subset by
+    the time a test body executes, making both enforcement checks pass
+    vacuously.
 
-    Also implements --markers-report: same tryfirst=True timing gives the
-    report the FULL collected set too, so a test carrying neither unit nor
-    integration cannot be silently absent from it the way it would be from
-    three separate `pytest -m <expr> --collect-only` passes that each only
-    select what they positively match."""
+    This census is deliberately the ONLY consumer of the pre-deselection
+    item list. --markers-report is a SEPARATE consumer
+    (pytest_collection_finish, below) reading the post-deselection list --
+    filtering this stash instead would silently defeat
+    test_marker_discipline's own enforcement under pytest -m unit, which
+    is the one property most at risk from making the report filter-aware."""
     census: MarkerCensus = {}
     for item in items:
         markers = frozenset(m.name for m in item.iter_markers()
@@ -524,9 +587,26 @@ def pytest_collection_modifyitems(config: "pytest.Config",
         census[item.nodeid] = (module, markers)
     config._rigexp_marker_census = census  # type: ignore[attr-defined]
 
+
+def pytest_collection_finish(session: "pytest.Session") -> None:
+    """--markers-report (scripts/markers.sh): emitted here, AFTER collection
+    (and therefore after every pytest_collection_modifyitems hook,
+    including pytest's own -k/-m deselection, has already run) so
+    session.items is the POST-deselection list -- -k/-m must actually scope
+    this report, unlike the pre-deselection census above. Path scoping
+    (a file/directory/node id argument) already worked before this existed,
+    since a path narrows what pytest COLLECTS in the first place, upstream
+    of both modifyitems and this hook.
+
+    Still walks the item list directly rather than inferring "unmarked"
+    from separate -m <expr> passes -- classification (via the census
+    stashed above, keyed by nodeid, built before deselection) is orthogonal
+    to which items THIS run happens to select."""
+    config = session.config
     if not config.getoption("--markers-report"):
         return
-    for item in sorted(items, key=lambda i: i.nodeid):
+    census: MarkerCensus = config._rigexp_marker_census  # type: ignore[attr-defined]
+    for item in sorted(session.items, key=lambda i: i.nodeid):
         present = {m.name for m in item.iter_markers()}
         tags = [name for name in _REPORTED_MARKERS if name in present]
         _module, classified = census[item.nodeid]

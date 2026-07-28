@@ -44,6 +44,7 @@ from conftest import (
     WEST_EXE,
     WEST_TOPDIR,
     board_extra_defines,
+    render_argv,
     rig_board_name,
     zephyr_base,
 )
@@ -141,13 +142,13 @@ def test_cmake_alone_entry_equivalent_to_build_rig(tmp_path: Path) -> None:
     result_ref = _run_build_rig(_RIG, reference_dir)
     assert result_ref.returncode == 0, (
         f"west build-rig --rig {_RIG} --cmake-only failed\n"
-        f"--- stdout ---\n{result_ref.stdout}\n--- stderr ---\n{result_ref.stderr}")
+        f"--- argv ---\n{render_argv(result_ref)}\n--- stdout ---\n{result_ref.stdout}\n--- stderr ---\n{result_ref.stderr}")
 
     cmake_dir = tmp_path / "cmake-alone"
     result_cmake = _run_cmake_alone(cmake_dir, [f"-DRIG={_RIG}"])
     assert result_cmake.returncode == 0, (
         f"cmake -DRIG={_RIG} (no -DBOARD, west absent) failed to configure\n"
-        f"--- stdout ---\n{result_cmake.stdout}\n--- stderr ---\n{result_cmake.stderr}")
+        f"--- argv ---\n{render_argv(result_cmake)}\n--- stdout ---\n{result_cmake.stdout}\n--- stderr ---\n{result_cmake.stderr}")
 
     with open(reference_dir / "build_info.yml") as f:
         ref_info = yaml.safe_load(f)
@@ -182,7 +183,7 @@ def test_cmake_alone_entry_equivalent_to_build_rig(tmp_path: Path) -> None:
         capture_output=True, text=True)
     assert check.returncode == 0, (
         "cmake-alone entry's zephyr.dts is not structurally equivalent to "
-        f"the build-rig reference (dts_equiv.py):\n{check.stdout}\n{check.stderr}")
+        f"the build-rig reference (dts_equiv.py):\n--- argv ---\n{render_argv(check)}\n{check.stdout}\n{check.stderr}")
 
 
 def test_cmake_alone_board_rig_both_given_is_fatal(tmp_path: Path) -> None:
@@ -198,7 +199,7 @@ def test_cmake_alone_board_rig_both_given_is_fatal(tmp_path: Path) -> None:
     assert result.returncode != 0, (
         "expected -DBOARD + -DRIG on a fresh configure to FATAL (even a "
         "matching value), but configure succeeded")
-    combined = result.stdout + result.stderr
+    combined = f"{render_argv(result)}\n" + result.stdout + result.stderr
     assert "both given" in combined, combined
     assert _RIG in combined, combined
     assert "drop -dboard" in combined.lower(), combined
@@ -217,7 +218,7 @@ def test_cmake_alone_reconfigure_of_rig_build_dir_proceeds(tmp_path: Path) -> No
     first = _run_cmake_alone(build_dir, [f"-DRIG={_RIG}"])
     assert first.returncode == 0, (
         f"initial cmake -DRIG={_RIG} configure failed\n"
-        f"--- stdout ---\n{first.stdout}\n--- stderr ---\n{first.stderr}")
+        f"--- argv ---\n{render_argv(first)}\n--- stdout ---\n{first.stdout}\n--- stderr ---\n{first.stderr}")
 
     env = _cmake_alone_env()
     second = subprocess.run(
@@ -226,7 +227,7 @@ def test_cmake_alone_reconfigure_of_rig_build_dir_proceeds(tmp_path: Path) -> No
     assert second.returncode == 0, (
         "reconfigure of an existing rig build dir (no -D flags repeated) "
         "must proceed -- BOARD is legitimately cache-carried from our own "
-        f"earlier inference\n--- stdout ---\n{second.stdout}\n"
+        f"earlier inference\n--- argv ---\n{render_argv(second)}\n--- stdout ---\n{second.stdout}\n"
         f"--- stderr ---\n{second.stderr}")
 
 
@@ -243,13 +244,13 @@ def test_cmake_alone_qualified_target_resolves(tmp_path: Path) -> None:
     result_ref = _run_build_rig(target, reference_dir)
     assert result_ref.returncode == 0, (
         f"west build-rig --rig {target} --cmake-only failed\n"
-        f"--- stdout ---\n{result_ref.stdout}\n--- stderr ---\n{result_ref.stderr}")
+        f"--- argv ---\n{render_argv(result_ref)}\n--- stdout ---\n{result_ref.stdout}\n--- stderr ---\n{result_ref.stderr}")
 
     cmake_dir = tmp_path / "cmake-alone"
     result_cmake = _run_cmake_alone(cmake_dir, [f"-DRIG={target}"])
     assert result_cmake.returncode == 0, (
         f"cmake -DRIG={target} (no -DBOARD, west absent) failed to configure\n"
-        f"--- stdout ---\n{result_cmake.stdout}\n--- stderr ---\n{result_cmake.stderr}")
+        f"--- argv ---\n{render_argv(result_cmake)}\n--- stdout ---\n{result_cmake.stdout}\n--- stderr ---\n{result_cmake.stderr}")
 
     with open(reference_dir / "build_info.yml") as f:
         ref_info = yaml.safe_load(f)
@@ -279,13 +280,13 @@ def test_cmake_alone_qualified_rig_target_against_undeclared_axis_rejected(
     build_dir = tmp_path / "qualified-revision"
     result = _run_cmake_alone(build_dir, [f"-DRIG={_RIG}@1"])
     assert result.returncode != 0
-    combined = result.stdout + result.stderr
+    combined = f"{render_argv(result)}\n" + result.stdout + result.stderr
     assert "declares no revisions" in combined, combined
 
     build_dir = tmp_path / "qualified-variant"
     result = _run_cmake_alone(build_dir, [f"-DRIG={_RIG}/foo"])
     assert result.returncode != 0
-    combined = result.stdout + result.stderr
+    combined = f"{render_argv(result)}\n" + result.stdout + result.stderr
     assert "declares no variants" in combined, combined
 
 
@@ -304,7 +305,7 @@ def test_cmake_alone_shield_rig_both_given_is_fatal(tmp_path: Path) -> None:
     assert result.returncode != 0, (
         "expected -DSHIELD + -DRIG on a fresh configure to FATAL, but "
         "configure succeeded")
-    combined = result.stdout + result.stderr
+    combined = f"{render_argv(result)}\n" + result.stdout + result.stderr
     assert "adafruit_data_logger" in combined, combined
     assert _RIG in combined, combined
     assert "come from the rig" in combined, combined
@@ -329,7 +330,7 @@ def test_cmake_alone_plain_shield_build_untouched(tmp_path: Path) -> None:
                              capture_output=True, text=True, timeout=300)
     assert result.returncode == 0, (
         "a plain (no -DRIG) --shield-equivalent configure must remain "
-        f"untouched\n--- stdout ---\n{result.stdout}\n"
+        f"untouched\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}")
 
 
@@ -346,7 +347,7 @@ def test_cmake_alone_rig_swap_to_other_board_is_fatal(tmp_path: Path) -> None:
     first = _run_cmake_alone(build_dir, [f"-DRIG={_RIG}"])
     assert first.returncode == 0, (
         f"initial cmake -DRIG={_RIG} configure failed\n"
-        f"--- stdout ---\n{first.stdout}\n--- stderr ---\n{first.stderr}")
+        f"--- argv ---\n{render_argv(first)}\n--- stdout ---\n{first.stdout}\n--- stderr ---\n{first.stderr}")
 
     # lotus_buttons declares seeeduino_lotus/samd21g18a/rig -- a different
     # board than nucleo_datalogger's nucleo_f401re/stm32f401xe/rig. The guard
@@ -361,7 +362,7 @@ def test_cmake_alone_rig_swap_to_other_board_is_fatal(tmp_path: Path) -> None:
     assert second.returncode != 0, (
         "expected swapping -DRIG to a different-board rig in an existing "
         "build dir to FATAL, but configure succeeded")
-    combined = second.stdout + second.stderr
+    combined = f"{render_argv(second)}\n" + second.stdout + second.stderr
     assert "seeeduino_lotus/samd21g18a/rig" in combined, combined
     assert "pristine" in combined, combined
 
@@ -375,7 +376,7 @@ def test_cmake_alone_rig_swap_same_board_proceeds(tmp_path: Path) -> None:
     first = _run_cmake_alone(build_dir, [f"-DRIG={_RIG}"])
     assert first.returncode == 0, (
         f"initial cmake -DRIG={_RIG} configure failed\n"
-        f"--- stdout ---\n{first.stdout}\n--- stderr ---\n{first.stderr}")
+        f"--- argv ---\n{render_argv(first)}\n--- stdout ---\n{first.stdout}\n--- stderr ---\n{first.stderr}")
 
     env = _cmake_alone_env()
     second = subprocess.run(
@@ -384,7 +385,7 @@ def test_cmake_alone_rig_swap_same_board_proceeds(tmp_path: Path) -> None:
         capture_output=True, text=True, timeout=300)
     assert second.returncode == 0, (
         "swapping -DRIG to a SAME-board rig in an existing build dir must "
-        f"proceed\n--- stdout ---\n{second.stdout}\n"
+        f"proceed\n--- argv ---\n{render_argv(second)}\n--- stdout ---\n{second.stdout}\n"
         f"--- stderr ---\n{second.stderr}")
 
 
@@ -404,8 +405,8 @@ def test_cmake_alone_lotus_needs_bridle_module(tmp_path: Path) -> None:
     assert result.returncode != 0, (
         "expected cmake -DRIG=lotus_pwm WITHOUT -DEXTRA_ZEPHYR_MODULES to "
         "fail (seeeduino_lotus does not exist without bridle's board_root)\n"
-        f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
-    combined = result.stdout + result.stderr
+        f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+    combined = f"{render_argv(result)}\n" + result.stdout + result.stderr
     assert "seeeduino_lotus" in combined, combined
 
 
@@ -421,14 +422,14 @@ def test_cmake_alone_lotus_with_bridle_module_configures(tmp_path: Path) -> None
     result_ref = _run_build_rig("lotus_pwm", reference_dir, extra)
     assert result_ref.returncode == 0, (
         f"west build-rig --rig lotus_pwm --cmake-only (with bridle module) "
-        f"failed\n--- stdout ---\n{result_ref.stdout}\n"
+        f"failed\n--- argv ---\n{render_argv(result_ref)}\n--- stdout ---\n{result_ref.stdout}\n"
         f"--- stderr ---\n{result_ref.stderr}")
 
     cmake_dir = tmp_path / "cmake-alone"
     result_cmake = _run_cmake_alone(cmake_dir, ["-DRIG=lotus_pwm", *extra])
     assert result_cmake.returncode == 0, (
         f"cmake -DRIG=lotus_pwm {' '.join(extra)} (no -DBOARD, west absent) "
-        f"failed to configure\n--- stdout ---\n{result_cmake.stdout}\n"
+        f"failed to configure\n--- argv ---\n{render_argv(result_cmake)}\n--- stdout ---\n{result_cmake.stdout}\n"
         f"--- stderr ---\n{result_cmake.stderr}")
 
     with open(reference_dir / "build_info.yml") as f:
@@ -455,4 +456,4 @@ def test_cmake_alone_lotus_with_bridle_module_configures(tmp_path: Path) -> None
         capture_output=True, text=True)
     assert check.returncode == 0, (
         "cmake-alone lotus_pwm's zephyr.dts is not structurally equivalent "
-        f"to the build-rig reference (dts_equiv.py):\n{check.stdout}\n{check.stderr}")
+        f"to the build-rig reference (dts_equiv.py):\n--- argv ---\n{render_argv(check)}\n{check.stdout}\n{check.stderr}")

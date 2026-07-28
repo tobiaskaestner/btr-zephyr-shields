@@ -50,6 +50,7 @@ from conftest import (
     WEST_TOPDIR,
     board_extra_defines,
     normalize_dts_provenance,
+    render_argv,
     rig_board_name,
     zephyr_base,
 )
@@ -91,7 +92,7 @@ def test_resolved_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
     result = _run_build(case.name, build_dir, extra)
     assert result.returncode == 0, (
         f"{case.name}: expected `west build-rig --cmake-only` to configure "
-        f"clean (an ACCEPT rig)\n--- stdout ---\n{result.stdout}\n"
+        f"clean (an ACCEPT rig)\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}")
 
     candidate = build_dir / "zephyr" / "zephyr.dts"
@@ -114,7 +115,7 @@ def test_resolved_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
         capture_output=True, text=True)
     assert check.returncode == 0, (
         f"{case.name}: zephyr.dts not structurally equivalent to the golden "
-        f"(dts_equiv.py):\n{check.stdout}\n{check.stderr}")
+        f"(dts_equiv.py):\n--- argv ---\n{render_argv(check)}\n{check.stdout}\n{check.stderr}")
 
 
 # ---------------------------------------------------------------- V1a: qualified pilot builds
@@ -132,7 +133,7 @@ def _build_and_freeze_dts(rig_target: str, golden_name: str,
     result = _run_build(rig_target, build_dir)
     assert result.returncode == 0, (
         f"{rig_target}: expected `west build-rig --cmake-only` to configure "
-        f"clean\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+        f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
 
     candidate = build_dir / "zephyr" / "zephyr.dts"
     assert candidate.is_file(), f"{rig_target}: no zephyr.dts at {candidate}"
@@ -154,7 +155,7 @@ def _build_and_freeze_dts(rig_target: str, golden_name: str,
         capture_output=True, text=True)
     assert check.returncode == 0, (
         f"{rig_target}: zephyr.dts not structurally equivalent to the "
-        f"golden (dts_equiv.py):\n{check.stdout}\n{check.stderr}")
+        f"golden (dts_equiv.py):\n--- argv ---\n{render_argv(check)}\n{check.stdout}\n{check.stderr}")
     return build_dir
 
 
@@ -270,7 +271,7 @@ def test_resolved_pilot_build_info_provenance(tmp_path: Path) -> None:
     result = _run_build("pilot_variants@2/variant_b", build_dir)
     assert result.returncode == 0, (
         f"pilot_variants@2/variant_b: expected `west build-rig --cmake-only` "
-        f"to configure clean\n--- stdout ---\n{result.stdout}\n"
+        f"to configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}")
 
     with open(build_dir / "build_info.yml") as f:
@@ -300,7 +301,7 @@ def test_resolved_shield_revision_conf_collected(tmp_path: Path) -> None:
     result = _run_build("shield_rev_pilot", build_dir)
     assert result.returncode == 0, (
         f"shield_rev_pilot: expected `west build-rig --cmake-only` to "
-        f"configure clean\n--- stdout ---\n{result.stdout}\n"
+        f"configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}")
 
     dotconfig = (build_dir / "zephyr" / ".config").read_text()
@@ -326,7 +327,7 @@ def test_resolved_reject_configure_fails(case: RigCase, tmp_path: Path) -> None:
         f"{case.name}: expected `west build-rig --cmake-only` to FAIL (a "
         f"REJECT rig) but it exited 0")
 
-    combined = result.stdout + result.stderr
+    combined = f"{render_argv(result)}\n" + result.stdout + result.stderr
     assert case.category is not None   # every REJECT case declares one
     assert f"[{case.category}]" in combined, (
         f"{case.name}: expected diagnostic category [{case.category}] in "
@@ -386,7 +387,7 @@ def test_resolved_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
     result = _run_build("lotus_pwm", build_dir, extra)
     assert result.returncode == 0, (
         f"lotus_pwm: expected `west build-rig --cmake-only` to configure "
-        f"clean\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+        f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
 
     with open(build_dir / "zephyr" / "edt.pickle", "rb") as f:
         edt = pickle.load(f)
@@ -428,7 +429,7 @@ def test_resolved_build_info_rig_provenance(tmp_path: Path) -> None:
     result = _run_build("frdm_eth_nest", build_dir)
     assert result.returncode == 0, (
         f"frdm_eth_nest: expected `west build-rig --cmake-only` to configure "
-        f"clean\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+        f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
 
     with open(build_dir / "build_info.yml") as f:
         build_info = yaml.safe_load(f)
@@ -478,7 +479,7 @@ def test_resolved_build_info_shield_dir_collision(tmp_path: Path) -> None:
     result = _run_build("nucleo_datalogger", build_dir)
     assert result.returncode == 0, (
         f"nucleo_datalogger: expected `west build-rig --cmake-only` to "
-        f"configure clean\n--- stdout ---\n{result.stdout}\n"
+        f"configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}")
     assert "shield name 'adafruit_data_logger' is offered by" not in (
         result.stdout + result.stderr), (
@@ -525,7 +526,7 @@ def test_resolved_rig_depends_provenance(tmp_path: Path) -> None:
     result = _run_build("lotus_pwm", build_dir, extra)
     assert result.returncode == 0, (
         f"lotus_pwm: expected `west build-rig --cmake-only` to configure "
-        f"clean\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+        f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
 
     context_cmake = (build_dir / "rig" / "context.cmake").read_text()
     depends_line = next(
@@ -569,14 +570,14 @@ def test_resolved_ard_datalogger_dual_host_d10(tmp_path: Path) -> None:
     result = _run_build("ard_datalogger", nucleo_dir)
     assert result.returncode == 0, (
         f"ard_datalogger: expected `west build-rig --cmake-only` to "
-        f"configure clean\n--- stdout ---\n{result.stdout}\n"
+        f"configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}")
 
     frdm_dir = tmp_path / "build-frdm"
     result = _run_build("ard_datalogger/frdm", frdm_dir)
     assert result.returncode == 0, (
         f"ard_datalogger/frdm: expected `west build-rig --cmake-only` to "
-        f"configure clean\n--- stdout ---\n{result.stdout}\n"
+        f"configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}")
 
     def cs_pin(build_dir: Path):

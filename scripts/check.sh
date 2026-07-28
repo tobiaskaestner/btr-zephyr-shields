@@ -29,10 +29,18 @@ echo "== mypy: $targets =="
 
 if [ -d scripts/rigexp/tests ]; then
     echo "== pytest =="
+    # .reports/ is gitignored and repo-local -- never a build -d dir, since
+    # -p always wipes those on the next configure.
+    # --durations=25 is free and always on; --junitxml is per-SUITE (fast vs
+    # full are different invocations of this same gate, so different files)
+    # so scripts/timing_report.py has machine-readable per-test wall times to
+    # diff against a baseline -- see that script's own docstring.
+    mkdir -p .reports
     if [ -n "$CHECK_FAST" ]; then
-        "$PY" -m pytest -m "not build"
+        "$PY" -m pytest -m "not build" --durations=25 \
+            --junitxml=.reports/junit-fast.xml
     else
-        "$PY" -m pytest
+        "$PY" -m pytest --durations=25 --junitxml=.reports/junit-full.xml
     fi
 else
     echo "== pytest: SKIPPED — no scripts/rigexp/tests yet =="

@@ -1,2 +1,6 @@
 __pycache__/
 *.pyc
+
+# pytest --junitxml + scripts/timing_report.py output. Machine-dependent
+# (wall times) and per-run -- never something to commit.
+/.reports/

@@ -19,14 +19,14 @@
 #     scripts/markers.sh scripts/rigexp/tests/test_edt_build.py::test_recipe_from_build_info
 #   A path narrows what pytest COLLECTS, which is what the report walks.
 #
-#   -k and -m do NOT scope this report: they are accepted and then ignored,
-#   yielding the whole suite. Both deselect inside
-#   pytest_collection_modifyitems, and the report is emitted from a tryfirst
-#   hook that deliberately runs AHEAD of that deselection -- the same
-#   property test_marker_discipline.py depends on, so that `pytest -m unit`
-#   cannot hide a module mixing markers. Filtering the report by a marker
-#   expression would therefore defeat the reason it is trustworthy; scope by
-#   path, or pipe through grep.
+#   -k and -m DO scope this report, e.g.:
+#     scripts/markers.sh -k dual_host
+#     scripts/markers.sh -m unit
+#   The report is emitted from pytest_collection_finish, which runs AFTER
+#   collection (and therefore after -k/-m deselection); a separate,
+#   pre-deselection census feeds test_marker_discipline.py, so pytest -m
+#   unit still cannot hide a module mixing markers -- that enforcement
+#   reads the full collected set regardless of what this report shows.
 set -e
 cd "$(dirname "$0")/.."
 
