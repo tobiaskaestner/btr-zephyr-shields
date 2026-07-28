@@ -1364,6 +1364,11 @@
 				#size-cells = < 0x0 >;          /* in zephyr/dts/arm/st/f4/stm32f407.dtsi:27 */
 				status = "disabled";            /* in zephyr/dts/arm/st/f4/stm32f407.dtsi:28 */
 			};
+
+			/* node '/soc/ethernet@40028000/ptp-clock' defined in zephyr/dts/arm/st/f4/stm32f407.dtsi:31 */
+			ptp_clock: ptp-clock {
+				compatible = "snps,dwmac-ptp-clock"; /* in zephyr/dts/arm/st/f4/stm32f407.dtsi:32 */
+			};
 		};
 
 		/* node '/soc/serial@40007800' defined in zephyr/dts/arm/st/f4/stm32f427.dtsi:48 */
@@ -1404,26 +1409,26 @@
 
 		/* node '/soc/sai1@40015800' defined in zephyr/dts/arm/st/f4/stm32f427.dtsi:119 */
 		sai1: sai1@40015800 {
-			compatible = "st,stm32-sai";       /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:120 */
-			#address-cells = < 0x1 >;          /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:121 */
-			#size-cells = < 0x1 >;             /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:122 */
-			reg = < 0x40015800 0x400 >;        /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:123 */
-			ranges = < 0x0 0x40015800 0x400 >; /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:124 */
-			clocks = < &rcc 0x44 0x400000 >;   /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:125 */
-			status = "disabled";               /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:126 */
+			compatible = "st,stm32-sai";     /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:120 */
+			#address-cells = < 0x1 >;        /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:121 */
+			#size-cells = < 0x1 >;           /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:122 */
+			reg = < 0x40015800 0x400 >;      /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:123 */
+			ranges;                          /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:124 */
+			clocks = < &rcc 0x44 0x400000 >; /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:125 */
+			status = "disabled";             /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:126 */
 
-			/* node '/soc/sai1@40015800/sai1a@4' defined in zephyr/dts/arm/st/f4/stm32f427.dtsi:128 */
-			sai1_a: sai1a@4 {
-				reg = < 0x4 0x20 >;                   /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:129 */
+			/* node '/soc/sai1@40015800/sai1a@40015804' defined in zephyr/dts/arm/st/f4/stm32f427.dtsi:128 */
+			sai1_a: sai1a@40015804 {
+				reg = < 0x40015804 0x20 >;            /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:129 */
 				dmas = < &dma2 0x1 0x0 0x22800 0x0 >; /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:130 */
 				#address-cells = < 0x1 >;             /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:131 */
 				#size-cells = < 0x0 >;                /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:132 */
 				status = "disabled";                  /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:133 */
 			};
 
-			/* node '/soc/sai1@40015800/sai1b@24' defined in zephyr/dts/arm/st/f4/stm32f427.dtsi:136 */
-			sai1_b: sai1b@24 {
-				reg = < 0x24 0x20 >;                  /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:137 */
+			/* node '/soc/sai1@40015800/sai1b@40015824' defined in zephyr/dts/arm/st/f4/stm32f427.dtsi:136 */
+			sai1_b: sai1b@40015824 {
+				reg = < 0x40015824 0x20 >;            /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:137 */
 				dmas = < &dma2 0x5 0x0 0x22800 0x0 >; /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:138 */
 				#address-cells = < 0x1 >;             /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:139 */
 				#size-cells = < 0x0 >;                /* in zephyr/dts/arm/st/f4/stm32f427.dtsi:140 */
