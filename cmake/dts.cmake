@@ -121,16 +121,37 @@ endfunction()
 # python module included above, and already used for list_rigs.py below) so
 # the expander runs in the same venv as the rest of the build — no hardcoded
 # path. RIG_EXPAND_PYTHONPATH is module-relative (derived from _RIG_BTR_ROOT,
-# this module's own tree — that is the location of OUR mechanics, the rigexp
-# package, which is legitimately ours). The shield LIBRARY, by contrast, is
-# discoverable CONTENT, not mechanics: rig shield templates may live in any
-# board_root of any Zephyr module (btr-shields ships some as default content,
-# but must not be hardcoded as THE source). So it is derived from BOARD_ROOT
-# below, exactly as list_shields.py discovers shields — not a fixed knob.
+# this module's own tree — that is the location of OUR mechanics, the
+# expander package RIG_EXPAND_COMPILE names below (default rigexp), which is
+# legitimately ours). The shield LIBRARY, by contrast, is discoverable
+# CONTENT, not mechanics: rig shield templates may live in any board_root of
+# any Zephyr module (btr-shields ships some as default content, but must not
+# be hardcoded as THE source). So it is derived from BOARD_ROOT below,
+# exactly as list_shields.py discovers shields — not a fixed knob.
+#
+# RIG_EXPAND_COMPILE: the Python module name of the expander CLI (`python -m
+# <this> expand ...`) -- the differential-harness knob (rigc-mission-brief.md
+# Sec 3) that lets the frozen rigexp integration suite run unmodified against
+# a from-scratch rigc by flipping one value. Precedence: an explicit -D wins;
+# else $ENV{RIG_EXPAND_COMPILE} (same name as the test-side constant, so a
+# subprocess that merely inherits the invoking pytest process's environment —
+# as most of this suite's build-marked tests do — still reaches this cache
+# default without having to thread an explicit -D at every call site); else
+# the "rigexp" default. RIG_EXPAND_COMMAND (below) stays the whole-command
+# override and keeps its own, separate precedence over BOTH of these.
+if(DEFINED RIG_EXPAND_COMPILE)
+  set(_rig_expand_compile_default "${RIG_EXPAND_COMPILE}")
+elseif(DEFINED ENV{RIG_EXPAND_COMPILE})
+  set(_rig_expand_compile_default "$ENV{RIG_EXPAND_COMPILE}")
+else()
+  set(_rig_expand_compile_default "rigexp")
+endif()
+set(RIG_EXPAND_COMPILE "${_rig_expand_compile_default}"
+  CACHE STRING "Python module name of the expander CLI (python -m <this> expand ...); also names the source tree CMAKE_CONFIGURE_DEPENDS globs to retrigger configure on edit")
 set(RIG_EXPAND_PYTHONPATH "${_RIG_BTR_ROOT}/scripts"
-  CACHE PATH "PYTHONPATH so 'python -m rigexp' finds btr-shields/scripts/rigexp")
+  CACHE PATH "PYTHONPATH so 'python -m ${RIG_EXPAND_COMPILE}' finds btr-shields/scripts/${RIG_EXPAND_COMPILE}")
 set(RIG_EXPAND_COMMAND ""
-  CACHE STRING "Override: full command (semicolon list) to run instead of the rigexp CLI")
+  CACHE STRING "Override: full command (semicolon list) to run instead of the ${RIG_EXPAND_COMPILE} CLI")
 
 # ---------------------------------------------------------------------------
 # Step 1: pre_dt, first run. include(pre_dt) resolves to the real
@@ -333,8 +354,8 @@ endforeach()
 # BOTH the VERBOSE render below AND rerun-expand.sh can show the invocation
 # in native shell syntax (NAME=val NAME=val exe args...), not cmake's own
 # -E env spelling — that's what's actually copy-pasteable into zsh with a
-# debugger prepended (e.g. python3 -m pdb -m rigexp expand ...). _rig_cmd
-# (what execute_process actually runs) is composed FROM them.
+# debugger prepended (e.g. python3 -m pdb -m ${RIG_EXPAND_COMPILE} expand
+# ...). _rig_cmd (what execute_process actually runs) is composed FROM them.
 if(RIG_EXPAND_COMMAND)
   set(_rig_debug_env "")
   set(_rig_debug_argv ${RIG_EXPAND_COMMAND})
@@ -344,7 +365,7 @@ else()
     "PYTHONPATH=${RIG_EXPAND_PYTHONPATH}"
     "ZEPHYR_BASE=${ZEPHYR_BASE}")
   set(_rig_debug_argv
-    "${PYTHON_EXECUTABLE}" -m rigexp expand "${_rig_yml}"
+    "${PYTHON_EXECUTABLE}" -m ${RIG_EXPAND_COMPILE} expand "${_rig_yml}"
     ${_rig_shield_dir_args}
     --board-dts "${_rig_board_dts}"
     ${_rig_include_dir_args}
@@ -376,14 +397,19 @@ message(VERBOSE "Rig: expand command:\n${_rig_expand_render}")
 
 # rerun-expand.sh: always written, BEFORE execute_process — so even a FAILED
 # expand leaves behind a standalone, executable re-run of the exact pass-1
-# invocation (e.g. python3 -m pdb -m rigexp expand ..., copied from the
-# exec line below). Rewritten every configure; nothing here is durable.
+# invocation (e.g. python3 -m pdb -m ${RIG_EXPAND_COMPILE} expand ..., copied
+# from the exec line below). Rewritten every configure; nothing here is
+# durable. The debugger hint line below is interpolated with the module
+# actually run (RIG_EXPAND_COMPILE), not hardcoded, so it never names the
+# wrong module under a differential run (rigc-mission-brief.md Sec 3, "the
+# fourth row is cosmetic... a rerun.sh naming the wrong module is worse than
+# none").
 set(_rig_rerun_script "${_rig_out_dir}/rerun-expand.sh")
 set(_rig_rerun_lines
   "#!/bin/sh"
   "# regenerate: this file is rewritten on every configure -- edits here do not persist."
   "# Re-runs cmake/dts.cmake's pass-1 expander invocation standalone (e.g. under"
-  "# a debugger: copy the env + argv below into 'python3 -m pdb -m rigexp expand ...')."
+  "# a debugger: copy the env + argv below into 'python3 -m pdb -m ${RIG_EXPAND_COMPILE} expand ...')."
   "set -e")
 foreach(_rig_env_pair ${_rig_debug_env})
   string(FIND "${_rig_env_pair}" "=" _rig_eq_pos)
@@ -410,7 +436,7 @@ execute_process(
 
 if(NOT _rig_result EQUAL 0)
   message(FATAL_ERROR
-    "Rig: rigexp expand failed for -DRIG=${RIG} (exit ${_rig_result})\n"
+    "Rig: ${RIG_EXPAND_COMPILE} expand failed for -DRIG=${RIG} (exit ${_rig_result})\n"
     "--- command ---\n${_rig_cmd}\n"
     "--- stdout ---\n${_rig_stdout}\n--- stderr ---\n${_rig_stderr}")
 endif()
@@ -436,7 +462,7 @@ endif()
 if(EXISTS "${_rig_user_overlay}")
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_rig_user_overlay}")
 endif()
-file(GLOB _rig_expander_sources "${_RIG_BTR_ROOT}/scripts/rigexp/*.py")
+file(GLOB _rig_expander_sources "${_RIG_BTR_ROOT}/scripts/${RIG_EXPAND_COMPILE}/*.py")
 set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_rig_expander_sources})
 # The -DRIG=<name> resolver itself (list_rigs.py) — an obvious static miss:
 # renaming/adding a rig.yml rig.name changes what -DRIG resolves to.
