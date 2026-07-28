@@ -14,9 +14,19 @@
 # miss an unmarked test by construction.
 #
 # Usage:  ZEPHYR_BASE=<zephyr tree> scripts/markers.sh [pytest args...]
-#   Extra args are passed straight through to pytest, so this can be scoped
-#   to a file (scripts/markers.sh scripts/rigexp/tests/test_board_read.py)
-#   or a -k expression, same as scripts/check.sh's pytest invocation.
+#   Scope it by PATH -- a file, a directory, or a single node id:
+#     scripts/markers.sh scripts/rigexp/tests/test_board_read.py
+#     scripts/markers.sh scripts/rigexp/tests/test_edt_build.py::test_recipe_from_build_info
+#   A path narrows what pytest COLLECTS, which is what the report walks.
+#
+#   -k and -m do NOT scope this report: they are accepted and then ignored,
+#   yielding the whole suite. Both deselect inside
+#   pytest_collection_modifyitems, and the report is emitted from a tryfirst
+#   hook that deliberately runs AHEAD of that deselection -- the same
+#   property test_marker_discipline.py depends on, so that `pytest -m unit`
+#   cannot hide a module mixing markers. Filtering the report by a marker
+#   expression would therefore defeat the reason it is trustworthy; scope by
+#   path, or pipe through grep.
 set -e
 cd "$(dirname "$0")/.."
 
