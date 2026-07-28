@@ -22,10 +22,38 @@ if [ -z "$ZEPHYR_BASE" ]; then
 fi
 export MYPYPATH="$ZEPHYR_BASE/scripts/dts/python-devicetree/src"
 
-targets="scripts/rigexp"
+targets="scripts/rigexp scripts/rigc"
 
 echo "== mypy: $targets =="
 "$PY" -m mypy $targets
+
+# rigc's tests: a SEPARATE pytest invocation (rigc-r1-brief.md Sec 5), in
+# both the fast and full paths -- cheap by construction (subprocess-free
+# unit layer). Separate because the frozen suite's marker-discipline census
+# walks its own full collected item list; rigc's marker-less, directory-
+# classified tests must not join that invocation until cutover merges the
+# two enforcement regimes.
+mkdir -p .reports
+echo "== pytest: rigc (with unit coverage) =="
+# Coverage rides the unit suite because it is IN-PROCESS (rigc-mission-brief
+# Sec 5: no subprocess at unit level) -- `coverage run` sees every line the
+# tests exercise, no subprocess plumbing needed. That is the property rigexp
+# never had, and why ITS suite runs unmeasured below. Config (source, omit,
+# data file) lives in pyproject.toml [tool.coverage.*].
+# Failure is captured, not fatal (set -e), so the browsable reports below
+# still render for a RED run -- the run you most want a report for. The
+# status is re-raised right after them.
+rigc_status=0
+"$PY" -m coverage run -m pytest scripts/rigc/tests --durations=25 \
+    --junitxml=.reports/junit-rigc.xml || rigc_status=$?
+"$PY" -m coverage report
+# Browsable views, rewritten every run:
+#   $BROWSER .reports/coverage-rigc-html/index.html
+#   $BROWSER .reports/junit-rigc.html
+"$PY" -m coverage html -q -d .reports/coverage-rigc-html
+[ -f .reports/junit-rigc.xml ] && \
+    "$PY" scripts/junit_html.py .reports/junit-rigc.xml .reports/junit-rigc.html
+[ "$rigc_status" -eq 0 ] || exit "$rigc_status"
 
 if [ -d scripts/rigexp/tests ]; then
     echo "== pytest =="
@@ -35,13 +63,25 @@ if [ -d scripts/rigexp/tests ]; then
     # full are different invocations of this same gate, so different files)
     # so scripts/timing_report.py has machine-readable per-test wall times to
     # diff against a baseline -- see that script's own docstring.
-    mkdir -p .reports
+    if [ -n "$CHECK_FAST" ]; then
+        suite=fast
+    else
+        suite=full
+    fi
+    frozen_status=0
     if [ -n "$CHECK_FAST" ]; then
         "$PY" -m pytest -m "not build" --durations=25 \
-            --junitxml=.reports/junit-fast.xml
+            --junitxml=.reports/junit-fast.xml || frozen_status=$?
     else
-        "$PY" -m pytest --durations=25 --junitxml=.reports/junit-full.xml
+        "$PY" -m pytest --durations=25 \
+            --junitxml=.reports/junit-full.xml || frozen_status=$?
     fi
+    # Same render-then-re-raise shape as the rigc block above:
+    #   $BROWSER .reports/junit-fast.html   (or junit-full.html)
+    [ -f ".reports/junit-$suite.xml" ] && \
+        "$PY" scripts/junit_html.py ".reports/junit-$suite.xml" \
+            ".reports/junit-$suite.html"
+    [ "$frozen_status" -eq 0 ] || exit "$frozen_status"
 else
     echo "== pytest: SKIPPED — no scripts/rigexp/tests yet =="
 fi

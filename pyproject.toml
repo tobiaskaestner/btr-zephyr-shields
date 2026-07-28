@@ -1,5 +1,6 @@
-# Dev-tooling configuration only (mypy / pytest) — btr-shields is a Zephyr
-# module, not a Python distribution. The commit gate is scripts/check.sh.
+# Dev-tooling configuration only (mypy / pytest / coverage) — btr-shields is
+# a Zephyr module, not a Python distribution. The commit gate is
+# scripts/check.sh.
 
 [tool.mypy]
 check_untyped_defs = true
@@ -13,6 +14,21 @@ ignore_missing_imports = true
 [[tool.mypy.overrides]]
 module = ["devicetree.*"]
 ignore_errors = true
+
+# Coverage of rigc's UNIT suite only (check.sh drives `coverage run -m
+# pytest scripts/rigc/tests` directly — no pytest-cov dependency, the
+# recorded T3 decision). This is the coverage rigexp deliberately never
+# had: its suite reaches the expander as a SUBPROCESS, so naive coverage
+# would measure the harness and report near-zero on the modules under
+# test. rigc's unit layer is in-process by definition, which makes this
+# section sufficient. The frozen rigexp suite stays unmeasured.
+[tool.coverage.run]
+source_pkgs = ["rigc"]
+omit = ["*/rigc/tests/*"]
+data_file = ".reports/coverage-rigc"
+
+[tool.coverage.report]
+show_missing = true
 
 [tool.pytest.ini_options]
 # Top-level tests/ is reserved for twister test apps (Zephyr-module
