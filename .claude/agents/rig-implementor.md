@@ -43,9 +43,33 @@ criteria; do that task, nothing more.
   leaking into source; plain text reads fine in a `#` comment or a
   docstring. Double-quote only an actual literal VALUE (a compatible string
   like `"gpio-keys"`, a status value like `"okay"`).
+- **Docstrings state the interface** (Tobi's ratified convention,
+  2026-07-29): every PUBLIC (cross-module) function's docstring says, in
+  prose, (1) what it returns — tuple element meanings, None-semantics,
+  ordering guarantees — and (2) OWNERSHIP: whether inputs are read-only to
+  it and who owns the result. Parameters get a sentence only where
+  name+type don't already say it. Private helpers may stay narrative. No
+  reST/Google boilerplate blocks — a "Returns …" sentence in house prose,
+  never duplicating the type annotation. Ownership sentences are
+  first-class: this codebase's recurring failure mode is a pass mutating
+  another pass's returned value, and the docstring contract is where that
+  rule becomes visible.
+- **IO at the edges, compute on values** (Tobi's ratified principle,
+  2026-07-29): don't interleave filesystem reads/probes/writes with
+  decision logic. Hoist the read to the caller and pass the RESULT as a
+  value (a pure function over data beats a mocked filesystem — mocks only
+  where an interface is genuinely chatty). Designated edge modules
+  (documents.parse_marked, dtsio, edt_build, the library scan, the future
+  emitter's writer) do the IO; rules and passes take values. The emitter
+  side of this rule: artifacts are computed as values ({filename: bytes})
+  and written by one shell function.
 - **Tests** (saferail 18): follow the python-devicetree `test_edtlib.py`
   template style (pytest, module-level `test_*`, fixture `.dts` + binding
-  YAML dirs alongside the tests). Tests live in `scripts/rigexp/tests/` —
+  YAML dirs alongside the tests). Inline YAML/DTS content in tests is
+  written as `"""\`-opened triple-quoted blocks, indented with the test
+  body, dedented by the writing helper (`textwrap.dedent`) — never
+  `"a\n  b\n"` escape strings, which a human cannot read as structure
+  (Tobi's ratified convention, 2026-07-30). Tests live in `scripts/rigexp/tests/` —
   NEVER a top-level `tests/` folder (that is reserved for twister test apps
   in a Zephyr module). Mark any test that runs a west/cmake build with
   `@pytest.mark.build`.

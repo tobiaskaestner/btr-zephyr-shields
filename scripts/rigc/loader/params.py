@@ -29,7 +29,10 @@ def check_param_invariant(instances) -> List[Diagnostic]:
     sources of a parameter-set change (a base assignment, a shield swap,
     a shield REVISION introducing a new requirement) with no special
     casing, since it only ever looks at the CURRENT shield + CURRENT
-    params."""
+    params.
+
+    Returns one error per required-but-unassigned parameter; instances
+    are read-only."""
     diags: List[Diagnostic] = []
     for inst in instances:
         shield = inst.shield
@@ -59,7 +62,10 @@ def check_param_token(raw: str, dt_includes: List[str], rig_name: str,
                       include_dirs: Optional[List[str]] = None,
                       ) -> List[Diagnostic]:
     """Rules 4/5: an assigned token that is not a bare integer literal
-    must resolve against the rig's declared dt-includes list."""
+    must resolve against the rig's declared dt-includes list.
+
+    Returns the resolution findings -- empty when the token resolves;
+    inputs are read-only."""
     if resolve_token(raw, dt_includes, workdir, tag, include_dirs) is not None:
         return []
     if not dt_includes:
@@ -101,7 +107,10 @@ def apply_params_block(params_v: Optional[Val], inst_name: str, shield: Shield,
     `unknown_device_context`, if given, is folded into rule 3's message
     when it fires (rule 12): a family-wide revision's params naming a
     device the POST-VARIANT shield does not have is unavoidable by
-    construction whenever a variant already substituted the shield."""
+    construction whenever a variant already substituted the shield.
+
+    Returns (params, refs, diagnostics): fresh dicts the caller owns;
+    nothing handed in is touched."""
     if params_v is None:
         return {}, {}, []
     diags: List[Diagnostic] = []
@@ -149,7 +158,10 @@ def apply_pin_block(pin_v: Optional[Val], inst_name: str, shield: Shield,
     """pin: {config-element-name: value} -- shared by the base parse and
     a delta's instances: patch (which resets pins/jumpers first, so this
     always starts from empty when called from a patch). PURE: returns
-    fresh dicts, never mutates an Instance."""
+    fresh dicts, never mutates an Instance.
+
+    Returns (pins, pin_refs, jumpers, jumper_refs, diagnostics), all
+    fresh values the caller owns."""
     pins: Dict[str, int] = {}
     pin_refs: Dict[str, SourceRef] = {}
     jumpers: Dict[str, object] = {}
@@ -188,7 +200,10 @@ def check_restate(params_v: Val, prior_params: Dict[str, Dict[str, str]],
     topology had already assigned; omitting one is an error naming it --
     otherwise wholesale replace means a silent revert to the shield
     default. Called with the PRIOR params (before the wholesale replace
-    clears them)."""
+    clears them).
+
+    Returns one error per property omitted from the restatement;
+    prior_params is read-only."""
     restated = {
         (dev_label, prop_name)
         for dev_label, props_v in params_v.value.items()
@@ -216,7 +231,10 @@ def check_dt_includes(rig_name: str, dt_includes: List[str],
                       ) -> List[Diagnostic]:
     """Rule 6: every declared dt-includes: header must exist and
     preprocess cleanly on its own, checked once per rig regardless of
-    whether any parameter ends up resolving against it."""
+    whether any parameter ends up resolving against it.
+
+    Returns one error per header that is missing or fails to
+    preprocess; empty when all resolve."""
     diags: List[Diagnostic] = []
     searched = ", ".join([*(include_dirs or []), zephyr_inc(), MODULE_INC])
     for i, (header, ref) in enumerate(zip(dt_includes, dt_includes_refs)):

@@ -21,6 +21,13 @@ from ..model import BoardSocket, ConnectorType, Instance, Rig, Wire
 def check_wires(rig: Rig, sockets: Dict[str, BoardSocket],
                 types: Dict[str, ConnectorType],
                 ) -> Tuple[List[Wire], List[Diagnostic]]:
+    """The wire pass (R22): endpoints against resolved sockets, route
+    names resolved to positions.
+
+    Returns (wires, diagnostics): a NEW list of resolved Wire values --
+    rig.wires is never mutated, which is why the emitter must read
+    solved.wires, never rig.wires (they differ: resolved route vs raw
+    via name)."""
     diags: List[Diagnostic] = []
     by_name: Dict[str, Instance] = {i.name: i for i in rig.instances}
     resolved: List[Wire] = []

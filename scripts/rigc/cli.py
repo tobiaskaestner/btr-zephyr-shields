@@ -29,16 +29,51 @@ CMAKE_CONFIGURE_DEPENDS finding warned about."""
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import sys
 import tempfile
 from typing import List, Optional
 
 from . import analyzer, boarddt, loader
-from .diag import LoadError, has_errors, render
+from .diag import Diagnostic, LoadError, has_errors, render
 from .edt_build import BuildRecipe, recipe_from_build_info
 from .registry import load_types
 from .unimplemented import Unimplemented
+
+log = logging.getLogger(__name__)
+
+#: Marks a handler `_configure_logging` itself installed, so a repeated
+#: `main()` call (every in-process unit test makes one) never accumulates
+#: a second stderr handler -- each call starts from a clean slate and
+#: re-derives the CURRENT environment's answer.
+_OWN_HANDLER = "_rigc_cli_handler"
+
+
+def _configure_logging() -> None:
+    """Attach a real stderr handler to the `rigc` logger tree ONLY when
+    `RIGC_LOG=<level>` is set in the environment -- otherwise the package
+    root's `NullHandler` (rigc/__init__.py) is the only handler and
+    nothing reaches stderr, Python's own `lastResort` notwithstanding.
+
+    Enabling this during a golden-comparing run BREAKS the comparison BY
+    DESIGN: every enabled record lands on the exact same stderr stream the
+    renderer's own bytes are compared against (rigc-r45-brief.md Part B).
+    Read here, at the top of `main()`, rather than at import time, so an
+    in-process unit test can monkeypatch the environment and observe the
+    effect without a subprocess."""
+    root = logging.getLogger("rigc")
+    for h in list(root.handlers):
+        if getattr(h, _OWN_HANDLER, False):
+            root.removeHandler(h)
+    level_name = os.environ.get("RIGC_LOG")
+    if level_name is None:
+        return
+    handler = logging.StreamHandler(sys.stderr)
+    setattr(handler, _OWN_HANDLER, True)
+    handler.setFormatter(logging.Formatter("%(levelname)s %(name)s: %(message)s"))
+    root.addHandler(handler)
+    root.setLevel(level_name.upper())
 
 
 def _resolve_recipe(include_dirs: Optional[List[str]],
@@ -96,6 +131,15 @@ def build_parser() -> argparse.ArgumentParser:
     return ap
 
 
+def _reject(diags: List[Diagnostic]) -> int:
+    """Render diags to stderr and return the reject exit code -- the ONE
+    place every `_expand()` rejection funnels through, so the verdict log
+    line and the exit code can never drift apart."""
+    log.info("verdict: rejected, exit 1")
+    print(render(diags), file=sys.stderr)
+    return 1
+
+
 def _expand(args: argparse.Namespace) -> int:
     # Absolute up front, like the whole pipeline expects: the cmake seam
     # runs this CLI from the build dir, so inputs must be cwd-independent
@@ -128,12 +172,9 @@ def _expand(args: argparse.Namespace) -> int:
     except LoadError as e:
         # Backstop only (the registry load above): loader.load() converts
         # its own LoadErrors to the normal return shape, priors included.
-        diags = list(e.diags)
-        print(render(diags), file=sys.stderr)
-        return 1
+        return _reject(list(e.diags))
     if rig is None or has_errors(diags):
-        print(render(diags), file=sys.stderr)
-        return 1
+        return _reject(diags)
 
     # Pass 1: board reading (rigc-r4-brief.md Sec 1). The recipe is
     # resolved HERE, not up front alongside the other inputs: it opens a
@@ -156,16 +197,14 @@ def _expand(args: argparse.Namespace) -> int:
         rig.board, workdir, board_dts=board_dts, recipe=recipe)
     diags += board_diags
     if board is None:
-        print(render(diags), file=sys.stderr)
-        return 1
+        return _reject(diags)
 
     # Pass 2: the analyzer (rigc-r4-brief.md Sec 2) -- mating/socket
     # resolution, nets, addresses, CS, wires, labels.
     _solved, analyzer_diags = analyzer.analyze(rig, board, types)
     diags += analyzer_diags
     if has_errors(diags):
-        print(render(diags), file=sys.stderr)
-        return 1
+        return _reject(diags)
 
     # A clean analysis still ends in a loud exit-3 refusal: the emitter
     # (rig-gen.overlay/context.cmake/config-sheet.md) is R5's job.
@@ -173,13 +212,16 @@ def _expand(args: argparse.Namespace) -> int:
 
 
 def main(argv: list[str] | None = None) -> int:
+    _configure_logging()
     args = build_parser().parse_args(argv)
+    log.info("argv: %s", vars(args))
     try:
         if args.command == "expand":
             return _expand(args)
         raise Unimplemented(f"command '{args.command}'")   # unreachable:
         # add_subparsers(required=True) already usage-errors on anything else
     except Unimplemented as e:
+        log.info("verdict: refusal (%s), exit 3", e.what)
         print(f"rigc: not implemented: {e.what}", file=sys.stderr)
         return 3
 

@@ -16,16 +16,26 @@ starts on the first entry's line, one below its key).
 """
 from __future__ import annotations
 
+from textwrap import dedent
+
 from pathlib import Path
 
-from rigc.diag import Diagnostic
+from rigc.diag import Diagnostic, SourceRef
 from rigc.loader.documents import (Val, content_file_name, parse_marked,
                                    reject_metadata_keys, require)
 
 
+def _ref(d: Diagnostic, i: int = 0) -> SourceRef:
+    """First anchor of a diagnostic, mypy-narrowed (refs entries may be
+    None by type; these tests assert presence)."""
+    ref = d.refs[i]
+    assert ref is not None
+    return ref
+
+
 def _doc(tmp_path: Path, text: str, name: str = "content.yml") -> Val:
     path = tmp_path / name
-    path.write_text(text)
+    path.write_text(dedent(text))
     return parse_marked(str(path))
 
 
@@ -45,11 +55,16 @@ def test_construction_uses_the_name_value_alone() -> None:
 # ----------------------------------------------- metadata/content key split
 
 def test_clean_content_document_returns_no_diagnostics(tmp_path: Path) -> None:
-    assert reject_metadata_keys(_doc(tmp_path, "instances: []\n")) == []
+    assert reject_metadata_keys(_doc(tmp_path, """\
+        instances: []
+        """)) == []
 
 
 def test_board_key_is_rejected_anchored_at_its_value(tmp_path: Path) -> None:
-    doc = _doc(tmp_path, "board: some_board/soc/rig\ninstances: []\n")
+    doc = _doc(tmp_path, """\
+        board: some_board/soc/rig
+        instances: []
+        """)
     diags = reject_metadata_keys(doc)
     assert len(diags) == 1
     d = diags[0]
@@ -57,17 +72,21 @@ def test_board_key_is_rejected_anchored_at_its_value(tmp_path: Path) -> None:
     assert d.severity == "error"
     assert d.code == "lang-schema"
     assert len(d.refs) == 1
-    ref = d.refs[0]
+    ref = _ref(d)
     assert ref.file == str(tmp_path / "content.yml")
     assert ref.line == 1               # scalar value: the key's own line
     assert ref.key == "board"
 
 
 def test_sockets_key_anchors_at_the_value_node_line(tmp_path: Path) -> None:
-    doc = _doc(tmp_path, "sockets:\n  ard: nucleo_ard\ninstances: []\n")
+    doc = _doc(tmp_path, """\
+        sockets:
+          ard: nucleo_ard
+        instances: []
+        """)
     diags = reject_metadata_keys(doc)
     assert len(diags) == 1
-    ref = diags[0].refs[0]
+    ref = _ref(diags[0])
     assert ref.line == 2               # nested mapping: first entry's line
     assert ref.key == "sockets"
 
@@ -76,10 +95,14 @@ def test_both_keys_reject_in_declaration_order(tmp_path: Path) -> None:
     """Ordering contract: board: before sockets:, regardless of the
     document's own key order -- rigexp's own fixed scan order."""
     doc = _doc(tmp_path,
-               "sockets:\n  ard: x\nboard: some_board/soc/rig\n"
-               "instances: []\n")
+               """\
+        sockets:
+          ard: x
+        board: some_board/soc/rig
+        instances: []
+        """)
     diags = reject_metadata_keys(doc)
-    assert [d.refs[0].key for d in diags] == ["board", "sockets"]
+    assert [_ref(d).key for d in diags] == ["board", "sockets"]
     assert all(d.code == "lang-schema" for d in diags)
 
 

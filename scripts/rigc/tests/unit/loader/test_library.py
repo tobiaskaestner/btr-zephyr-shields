@@ -19,6 +19,8 @@ eagerly parsed), so scanning itself stays subprocess-free here.
 """
 from __future__ import annotations
 
+from textwrap import dedent
+
 from pathlib import Path
 
 from rigc.diag import SourceRef
@@ -68,7 +70,10 @@ def test_load_shield_revisions_absent_file_declares_no_axis(tmp_path: Path) -> N
 
 
 def test_load_shield_revisions_no_revisions_key_declares_no_axis(tmp_path: Path) -> None:
-    (tmp_path / "shield.yml").write_text("shield:\n  name: fx\n")
+    (tmp_path / "shield.yml").write_text(dedent("""\
+        shield:
+          name: fx
+        """))
     decl, diags = _load_shield_revisions(str(tmp_path))
     assert decl is None
     assert diags == []
@@ -76,8 +81,13 @@ def test_load_shield_revisions_no_revisions_key_declares_no_axis(tmp_path: Path)
 
 def test_load_shield_revisions_parses_the_declared_axis(tmp_path: Path) -> None:
     (tmp_path / "shield.yml").write_text(
-        "shield:\n  name: fx\n  revisions:\n    default: \"1\"\n"
-        "    list: [\"1\", \"2\"]\n")
+        dedent("""\
+        shield:
+          name: fx
+          revisions:
+            default: "1"
+            list: ["1", "2"]
+        """))
     decl, diags = _load_shield_revisions(str(tmp_path))
     assert diags == []
     assert decl == AxisDecl(values=["1", "2"], default="1")
@@ -87,8 +97,13 @@ def test_load_shield_revisions_bad_default_is_blamed_on_the_shield(tmp_path: Pat
     shield_dir = tmp_path / "fx"
     shield_dir.mkdir()
     (shield_dir / "shield.yml").write_text(
-        "shield:\n  name: fx\n  revisions:\n    default: \"3\"\n"
-        "    list: [\"1\", \"2\"]\n")
+        dedent("""\
+        shield:
+          name: fx
+          revisions:
+            default: "3"
+            list: ["1", "2"]
+        """))
     decl, diags = _load_shield_revisions(str(shield_dir))
     assert decl is None
     assert len(diags) == 1
@@ -104,8 +119,12 @@ def test_load_shield_revisions_mapping_entry_is_blamed_on_the_shield(tmp_path: P
     shield_dir = tmp_path / "fx"
     shield_dir.mkdir()
     (shield_dir / "shield.yml").write_text(
-        "shield:\n  name: fx\n  revisions:\n"
-        "    list: [\"1\", {name: \"2\", board: some/board}]\n")
+        dedent("""\
+        shield:
+          name: fx
+          revisions:
+            list: ["1", {name: "2", board: some/board}]
+        """))
     decl, diags = _load_shield_revisions(str(shield_dir))
     assert decl == AxisDecl(values=["1"])
     assert len(diags) == 1
@@ -234,7 +253,9 @@ def test_scan_discovers_exactly_basename_dot_shield(tmp_path: Path) -> None:
     _declared_shield_folder(root, "fx_b")
     # A legacy Kconfig.shield fragment -- must NOT be mis-globbed as a
     # shield template (it ends in the literal substring ".shield").
-    (root / "fx_a" / "Kconfig.shield").write_text("# not a shield template\n")
+    (root / "fx_a" / "Kconfig.shield").write_text(dedent("""\
+        # not a shield template
+        """))
     lib, diags, deps = load_shield_library(str(tmp_path / "work"),
                                           shield_dirs=[str(root)], types={})
     assert diags == []
@@ -247,7 +268,9 @@ def test_scan_skips_a_folder_with_no_matching_dot_shield_file(tmp_path: Path) ->
     root.mkdir()
     stray = root / "not_a_shield"
     stray.mkdir()
-    (stray / "Kconfig.shield").write_text("# no not_a_shield.shield beside it\n")
+    (stray / "Kconfig.shield").write_text(dedent("""\
+        # no not_a_shield.shield beside it
+        """))
     lib, diags, deps = load_shield_library(str(tmp_path / "work"),
                                           shield_dirs=[str(root)], types={})
     assert diags == []

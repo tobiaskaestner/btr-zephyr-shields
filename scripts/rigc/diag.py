@@ -27,12 +27,16 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from typing import Iterable, Sequence
+from typing import Iterable, Literal, Optional, Sequence
 
-#: Severity vocabulary. The taxonomy carries over from the goldens:
-#: "lang-*" codes come from the loader, "phys-*" codes from the analyzer.
-ERROR = "error"
-WARNING = "warning"
+#: Severity vocabulary, closed at the TYPE level (joint review
+#: 2026-07-29): this is the module where a severity typo becomes wrong
+#: frozen bytes, so mypy gets to veto one. The taxonomy carries over
+#: from the goldens: "lang-*" codes come from the loader, "phys-*"
+#: codes from the analyzer.
+Severity = Literal["error", "warning"]
+ERROR: Severity = "error"
+WARNING: Severity = "warning"
 
 
 @dataclass(frozen=True)
@@ -50,19 +54,26 @@ class Diagnostic:
     """One finding, as a value. message's first line is the claim;
     following lines are detail (rendered indented)."""
 
-    severity: str                       # ERROR | WARNING
+    severity: Severity
     code: str                           # "lang-*" | "phys-*"
     message: str
-    refs: tuple[SourceRef, ...] = ()
+    # None entries are LEGAL and skipped at render time (the blueprint's
+    # own guard): callers pass (dev.src, inst.src)-shaped tuples whose
+    # members may be absent without filtering at every site.
+    refs: tuple[Optional[SourceRef], ...] = ()
 
 
 def error(code: str, message: str,
-          refs: Sequence[SourceRef] = ()) -> Diagnostic:
+          refs: Sequence[Optional[SourceRef]] = ()) -> Diagnostic:
+    """Returns one ERROR-severity Diagnostic value; refs may contain
+    None entries (skipped at render time). The caller owns the value."""
     return Diagnostic(ERROR, code, message, tuple(refs))
 
 
 def warning(code: str, message: str,
-           refs: Sequence[SourceRef] = ()) -> Diagnostic:
+           refs: Sequence[Optional[SourceRef]] = ()) -> Diagnostic:
+    """Returns one WARNING-severity Diagnostic value; same refs contract
+    as error()."""
     return Diagnostic(WARNING, code, message, tuple(refs))
 
 
@@ -90,6 +101,8 @@ def _render_one(diag: Diagnostic) -> str:
     lines += [f"    {line}" for line in rest]
     seen: set[str] = set()
     for ref in diag.refs:
+        if ref is None:                 # legal absent anchor (see Diagnostic.refs)
+            continue
         anchor = f"{anchor_path(ref.file)}:{ref.line}"
         if ref.key:
             anchor = f"{anchor} ({ref.key})"
@@ -123,5 +136,8 @@ class LoadError(Exception):
     lang-parse/lang-cpp)."""
 
     def __init__(self, *diags: Diagnostic) -> None:
+        # A LoadError with nothing to render would exit 1 with EMPTY
+        # stderr -- a silent reject, the one outcome this design forbids.
+        assert diags, "LoadError requires at least one Diagnostic"
         self.diags = diags
-        super().__init__(diags[-1].message if diags else "")
+        super().__init__(diags[-1].message)

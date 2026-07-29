@@ -30,6 +30,7 @@ blueprint's `_allocate_cs(rig, solved, types, diags)` hides:
                             `check_nets`)."""
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Dict, FrozenSet, List, Optional, Sequence, Tuple
 
@@ -37,6 +38,8 @@ from ..diag import Diagnostic, error
 from ..model import BoardSocket, ConnectorType, Device, Instance, Rig
 from .gpio import NetClaim, NetKey, Nets, soc_net
 from .ordering import allocation_key
+
+log = logging.getLogger(__name__)
 
 
 def effective_cs_pool(socket_cs_pool: Optional[List[int]],
@@ -184,6 +187,9 @@ def allocate_cs(rig: Rig, sockets: Dict[str, BoardSocket],
             what = (f"{dev.name}: CS copper-fixed at {ctype.posname(placement.position)} "
                    "(shield,cs-position)" if placement.fixed else
                    f"{dev.name}: CS allocated at {ctype.posname(placement.position)}")
+            log.debug("instance '%s': device '%s' allocated CS position %s (%s)",
+                     inst.name, dev.name, placement.position,
+                     "fixed" if placement.fixed else "pool")
             key = soc_net(socket, placement.position)
             claim = NetClaim(instance=inst, device=dev, what=what, role="dedicated",
                             socket=socket, position=placement.position, src=dev.src)

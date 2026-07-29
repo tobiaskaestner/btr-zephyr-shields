@@ -27,12 +27,15 @@ observable contract) already skips a missing entry rather than aborting.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from ..diag import Diagnostic, SourceRef, error
 from ..model import (Board, BoardSocket, BusRef, ConnectorType, ExposedSocket,
                      Instance, Rig)
+
+log = logging.getLogger(__name__)
 
 #: One mux-channel scope this rig's composition created: scope PATH (the
 #: composing instance's own socket reference string) -> (mux root label,
@@ -68,7 +71,11 @@ def compose_socket(socket_label: str, carrier_name: str, exposed: ExposedSocket,
     SoC pins, exposed buses to the parent's controllers (ontology Sec 1).
     Pure over its arguments -- no Instance/Rig/Shield needed, only the
     exposure and the ALREADY-resolved parent socket -- so this is directly
-    unit-testable against synthetic ExposedSocket/BoardSocket values."""
+    unit-testable against synthetic ExposedSocket/BoardSocket values.
+
+    Returns (socket, diagnostics, scopes): a NEW synthesized
+    BoardSocket, the findings, and any scope entries the composition
+    created. Its inputs are read-only; the caller owns all three."""
     diags: List[Diagnostic] = []
     scope_entries: List[ScopeEntry] = []
     gpio_map: Dict[int, Tuple[str, int, int]] = {}
@@ -183,6 +190,8 @@ def resolve_sockets(rig: Rig, board: Board, types: Dict[str, ConnectorType],
         socket = resolve_one(inst, ())
         if socket is None:
             continue
+        log.debug("instance '%s': resolved socket '%s' (%s)",
+                 inst.name, socket.label, socket.type_name)
         if not mating_ok(inst.shield.plugs, socket.type_name):
             diags.append(error(
                 "phys-mating",

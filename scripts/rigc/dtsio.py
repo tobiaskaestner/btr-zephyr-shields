@@ -22,6 +22,7 @@ would break collection for selections that never run it.
 """
 from __future__ import annotations
 
+import logging
 import os
 import re
 import subprocess
@@ -30,6 +31,8 @@ from typing import List, Optional, Tuple
 
 from .deps import Deps, touch
 from .diag import LoadError, SourceRef, error
+
+log = logging.getLogger(__name__)
 
 #: This module's own file, two levels up from scripts/rigc/dtsio.py ->
 #: the repo root -- the same self-location rigexp's MODULE_ROOT uses,
@@ -85,7 +88,10 @@ def run_cpp(dts_path: str, out_path: str,
            include_dirs: Optional[List[str]] = None) -> None:
     """include_dirs is searched FIRST, in order, exactly as gcc searches a
     -I list; ZEPHYR_INC/MODULE_INC are always appended last, so a caller
-    passing none sees exactly the two-directory search path."""
+    passing none sees exactly the two-directory search path.
+
+    Writes the preprocessed output to out_path and returns None;
+    raises LoadError (lang-cpp) when the preprocessor fails."""
     cmd = ["gcc", "-E", "-x", "assembler-with-cpp", "-nostdinc"]
     for d in include_dirs or []:
         cmd += ["-I", d]
@@ -93,6 +99,7 @@ def run_cpp(dts_path: str, out_path: str,
         "-I", zephyr_inc(), "-I", MODULE_INC,
         "-undef", "-D__DTS__", dts_path, "-o", out_path,
     ]
+    log.debug("cpp argv: %s", cmd)
     res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode != 0:
         raise LoadError(error(
@@ -104,7 +111,10 @@ def parse_dts(dts_path: str, workdir: str,
              include_dirs: Optional[List[str]] = None):
     """CPP + stock dtlib. dtlib reads the CPP linemarkers, so node/prop
     source references point at the ORIGINAL .shield files, not the
-    generated translation unit -- free provenance for diagnostics."""
+    generated translation unit -- free provenance for diagnostics.
+
+    Returns the parsed dtlib.DT; raises LoadError (lang-parse) on a
+    dtlib error."""
     os.makedirs(workdir, exist_ok=True)
     pre = os.path.join(workdir, os.path.basename(dts_path) + ".pre")
     run_cpp(dts_path, pre, include_dirs)
@@ -120,13 +130,17 @@ def parse_tu(includes: List[str], workdir: str, name: str,
     """Build + parse a one-off translation unit that includes the given
     files -- the shield-TU entry point (one base `.shield` plus an
     optional resolved revision fragment, cpp-included into ONE unit,
-    V1c's no-YAML-merge design)."""
+    V1c's no-YAML-merge design).
+
+    Returns the parsed dtlib.DT of the synthesized unit (parse_dts's
+    failure shapes apply)."""
     os.makedirs(workdir, exist_ok=True)
     tu = os.path.join(workdir, name)
     with open(tu, "w") as f:
         f.write("/dts-v1/;\n")
         for inc in includes:
             f.write(f'#include "{inc}"\n')
+    log.debug("TU: %s (includes %s)", tu, includes)
     return parse_dts(tu, workdir, include_dirs)
 
 

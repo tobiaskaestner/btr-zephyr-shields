@@ -11,6 +11,8 @@ existing unit-tested contract -- the blueprint's own
 test_recipe_from_build_info is the model")."""
 from __future__ import annotations
 
+from textwrap import dedent
+
 from pathlib import Path
 
 from rigc import edt_build
@@ -22,14 +24,16 @@ def test_recipe_from_build_info(tmp_path: Path) -> None:
     build_info.yml carries, against a tiny hand-written fixture."""
     build_info = tmp_path / "build_info.yml"
     build_info.write_text(
-        "cmake:\n"
-        "  devicetree:\n"
-        "    include-dirs:\n"
-        "      - /a/include\n"
-        "      - /b/include\n"
-        "    bindings-dirs:\n"
-        "      - /a/dts/bindings\n"
-        "      - /b/dts/bindings\n")
+        dedent("""\
+        cmake:
+          devicetree:
+            include-dirs:
+              - /a/include
+              - /b/include
+            bindings-dirs:
+              - /a/dts/bindings
+              - /b/dts/bindings
+        """))
     recipe = edt_build.recipe_from_build_info(str(build_info))
     assert recipe.include_dirs == ["/a/include", "/b/include"]
     assert recipe.bindings_dirs == ["/a/dts/bindings", "/b/dts/bindings"]
@@ -42,12 +46,14 @@ def test_recipe_from_build_info_appends_board_path(tmp_path: Path) -> None:
     so that base directory must be on the cpp search path too."""
     build_info = tmp_path / "build_info.yml"
     build_info.write_text(
-        "cmake:\n"
-        "  devicetree:\n"
-        "    include-dirs: [/a/include]\n"
-        "    bindings-dirs: [/a/dts/bindings]\n"
-        "  board:\n"
-        "    path: [/boards/ext, /boards/base]\n")
+        dedent("""\
+        cmake:
+          devicetree:
+            include-dirs: [/a/include]
+            bindings-dirs: [/a/dts/bindings]
+          board:
+            path: [/boards/ext, /boards/base]
+        """))
     recipe = edt_build.recipe_from_build_info(str(build_info))
     assert recipe.include_dirs == ["/a/include", "/boards/ext", "/boards/base"]
 
@@ -58,12 +64,14 @@ def test_recipe_from_build_info_board_path_may_be_a_bare_string(tmp_path: Path) 
     single-element list -- both shapes normalize to a one-element list."""
     build_info = tmp_path / "build_info.yml"
     build_info.write_text(
-        "cmake:\n"
-        "  devicetree:\n"
-        "    include-dirs: []\n"
-        "    bindings-dirs: []\n"
-        "  board:\n"
-        "    path: /boards/plain\n")
+        dedent("""\
+        cmake:
+          devicetree:
+            include-dirs: []
+            bindings-dirs: []
+          board:
+            path: /boards/plain
+        """))
     recipe = edt_build.recipe_from_build_info(str(build_info))
     assert recipe.include_dirs == ["/boards/plain"]
 
@@ -73,9 +81,11 @@ def test_recipe_from_build_info_board_path_absent_is_fine(tmp_path: Path) -> Non
     build_info.yml) -- no board directory to append, not an error."""
     build_info = tmp_path / "build_info.yml"
     build_info.write_text(
-        "cmake:\n"
-        "  devicetree:\n"
-        "    include-dirs: [/a/include]\n"
-        "    bindings-dirs: [/a/dts/bindings]\n")
+        dedent("""\
+        cmake:
+          devicetree:
+            include-dirs: [/a/include]
+            bindings-dirs: [/a/dts/bindings]
+        """))
     recipe = edt_build.recipe_from_build_info(str(build_info))
     assert recipe.include_dirs == ["/a/include"]

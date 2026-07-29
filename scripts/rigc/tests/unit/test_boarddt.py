@@ -18,6 +18,8 @@ with no frozen golden (no-recipe, missing-file), recorded in the slice
 report."""
 from __future__ import annotations
 
+from textwrap import dedent
+
 import os
 from pathlib import Path
 
@@ -61,7 +63,10 @@ def test_no_recipe_is_phys_board_with_no_edtlib_call(
     monkeypatch.setattr("rigc.board_edt.load_board", _boom)
 
     real_dts = tmp_path / "board.dts"
-    real_dts.write_text("/dts-v1/;\n/ {};\n")
+    real_dts.write_text(dedent("""\
+        /dts-v1/;
+        / {};
+        """))
 
     board, diags, deps = boarddt.load_board(
         "some_board", str(tmp_path), board_dts=str(real_dts), recipe=None)
@@ -78,7 +83,10 @@ def test_a_board_with_no_socket_nodes_is_not_rig_enabled(
     clean but declares no socket,* node is the DISTINCT "exists, but is
     not rig-enabled" diagnostic -- never confused with "unknown board"."""
     real_dts = tmp_path / "board.dts"
-    real_dts.write_text("/dts-v1/;\n/ {};\n")
+    real_dts.write_text(dedent("""\
+        /dts-v1/;
+        / {};
+        """))
     monkeypatch.setattr(
         "rigc.board_edt.load_board",
         lambda name, dts_path, recipe, workdir: Board(name=name, sockets={}))
@@ -99,7 +107,10 @@ def test_a_board_with_no_socket_nodes_is_not_rig_enabled(
 def test_a_board_with_sockets_loads_clean(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     real_dts = tmp_path / "board.dts"
-    real_dts.write_text("/dts-v1/;\n/ {};\n")
+    real_dts.write_text(dedent("""\
+        /dts-v1/;
+        / {};
+        """))
     fake_board = Board(name="b", sockets={
         "ard": BoardSocket(label="ard", path="/ard", type_name="t",
                           gpio_map={}, buses={}, cs_pool=None)})

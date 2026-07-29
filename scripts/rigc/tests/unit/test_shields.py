@@ -8,6 +8,8 @@ hermeticity rule), never a real corpus one.
 """
 from __future__ import annotations
 
+from textwrap import dedent
+
 from rigc.dtsio import get_dtlib
 from rigc.model import ConnectorType, Jumper, Pad, Position, Strap
 from rigc.shields import parse_shields
@@ -48,7 +50,10 @@ def _one_shield(tmp_path, body: str):
 
 def test_no_shield_templates_root_yields_nothing(tmp_path) -> None:
     path = tmp_path / "empty.dts"
-    path.write_text("/dts-v1/;\n/ { };\n")
+    path.write_text(dedent("""\
+        /dts-v1/;
+        / { };
+        """))
     dt = get_dtlib().DT(str(path))
     shields, diags = parse_shields(dt, _TYPES)
     assert shields == {}

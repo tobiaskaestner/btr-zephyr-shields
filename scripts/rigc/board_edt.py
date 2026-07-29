@@ -42,7 +42,9 @@ def load_board(name: str, dts_path: str, recipe: BuildRecipe,
     """Build a standalone edtlib.EDT over the board's OWN .dts (dts_path,
     no rig overlay, no shield/app context) and project every socket,* node
     into a model.Board -- the edtlib-side counterpart of
-    boarddt.load_board."""
+    boarddt.load_board.
+
+    Returns the projected Board; the caller owns it."""
     edt = build_edt(dts_path, recipe, workdir)
     return project_edt(edt, name)
 
@@ -51,7 +53,10 @@ def project_edt(edt: "edtlib.EDT", name: str) -> Board:
     """Project an ALREADY-BUILT edtlib.EDT (fresh, or unpickled from a real
     build's edt.pickle) into a model.Board. Split out from load_board so
     both a fresh read and a real build's own edt.pickle can share this
-    exact projection."""
+    exact projection.
+
+    Returns a fresh Board holding one BoardSocket per
+    socket,*-compatible node; the EDT is read-only."""
     sockets: Dict[str, BoardSocket] = {}
     for node in edt.nodes:
         compat = node.matching_compat

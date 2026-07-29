@@ -11,6 +11,8 @@ which diagnostic code fires -- is what must survive a rewrite.
 """
 from __future__ import annotations
 
+from textwrap import dedent
+
 from pathlib import Path
 
 from rigc.diag import SourceRef
@@ -25,7 +27,7 @@ _SRC = SourceRef("synthetic", 1, "rig")
 
 def _rig(tmp_path: Path, text: str) -> Val:
     path = tmp_path / "rig.yml"
-    path.write_text(text)
+    path.write_text(dedent(text))
     doc = parse_marked(str(path))
     return doc.value["rig"]
 
@@ -62,22 +64,35 @@ def test_variant_fragment_stem_is_never_normalized() -> None:
 # ---------------------------------------------------------- declaration
 
 def test_absent_axis_key_declares_nothing(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, "rig:\n  name: r\n")
+    rig_v = _rig(tmp_path, """\
+        rig:
+          name: r
+        """)
     decl, diags = parse_axis_decl(rig_v, "revisions")
     assert decl is None
     assert diags == []
 
 
 def test_bare_scalar_list_declares_values_with_no_metadata(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, "rig:\n  name: r\n  revisions:\n"
-                          "    default: 1\n    list: [1, 2]\n")
+    rig_v = _rig(tmp_path, """\
+        rig:
+          name: r
+          revisions:
+            default: 1
+            list: [1, 2]
+        """)
     decl, diags = parse_axis_decl(rig_v, "revisions")
     assert diags == []
     assert decl == AxisDecl(values=["1", "2"], default="1")
 
 
 def test_no_default_leaves_default_none(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, "rig:\n  name: r\n  variants:\n    list: [a, b]\n")
+    rig_v = _rig(tmp_path, """\
+        rig:
+          name: r
+          variants:
+            list: [a, b]
+        """)
     decl, diags = parse_axis_decl(rig_v, "variants", allow_variant_metadata=True)
     assert diags == []
     assert decl is not None
@@ -86,8 +101,13 @@ def test_no_default_leaves_default_none(tmp_path: Path) -> None:
 
 
 def test_default_not_a_member_is_rejected(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, "rig:\n  name: r\n  revisions:\n"
-                          "    default: 3\n    list: [1, 2]\n")
+    rig_v = _rig(tmp_path, """\
+        rig:
+          name: r
+          revisions:
+            default: 3
+            list: [1, 2]
+        """)
     decl, diags = parse_axis_decl(rig_v, "revisions")
     assert decl is None
     assert len(diags) == 1
@@ -95,7 +115,12 @@ def test_default_not_a_member_is_rejected(tmp_path: Path) -> None:
 
 
 def test_empty_list_is_rejected(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, "rig:\n  name: r\n  revisions:\n    list: []\n")
+    rig_v = _rig(tmp_path, """\
+        rig:
+          name: r
+          revisions:
+            list: []
+        """)
     decl, diags = parse_axis_decl(rig_v, "revisions")
     assert decl is None
     assert len(diags) == 1
@@ -104,8 +129,12 @@ def test_empty_list_is_rejected(tmp_path: Path) -> None:
 
 def test_mapping_entry_gated_to_variants_only(tmp_path: Path) -> None:
     """The ONE shape only variants: may take: {name:, board:, sockets:}."""
-    rig_v = _rig(tmp_path, "rig:\n  name: r\n  revisions:\n"
-                          "    list: [1, {name: 2, board: b/s/rig}]\n")
+    rig_v = _rig(tmp_path, """\
+        rig:
+          name: r
+          revisions:
+            list: [1, {name: 2, board: b/s/rig}]
+        """)
     decl, diags = parse_axis_decl(rig_v, "revisions",
                                   allow_variant_metadata=False)
     assert len(diags) == 1
@@ -118,13 +147,17 @@ def test_mapping_entry_gated_to_variants_only(tmp_path: Path) -> None:
 def test_mapping_entry_collects_board_and_sockets_when_allowed(
         tmp_path: Path) -> None:
     rig_v = _rig(tmp_path,
-                "rig:\n  name: r\n  variants:\n"
-                "    default: a\n"
-                "    list:\n"
-                "      - name: a\n"
-                "        board: b1/s/rig\n"
-                "        sockets: {ard: nucleo_ard}\n"
-                "      - b\n")
+                """\
+        rig:
+          name: r
+          variants:
+            default: a
+            list:
+              - name: a
+                board: b1/s/rig
+                sockets: {ard: nucleo_ard}
+              - b
+        """)
     decl, diags = parse_axis_decl(rig_v, "variants", allow_variant_metadata=True)
     assert diags == []
     assert decl is not None

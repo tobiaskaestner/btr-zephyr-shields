@@ -18,6 +18,8 @@ that needs no shield data at all (removal/collision/ordering mechanics).
 """
 from __future__ import annotations
 
+from textwrap import dedent
+
 from rigc.diag import SourceRef
 from rigc.loader.binding import SocketBinding
 from rigc.loader.delta import (Topology, apply_delta, find_wire,
@@ -57,7 +59,7 @@ def _inst(name: str, shield: Shield, socket: str = "s") -> Instance:
 
 def _doc(tmp_path, text: str, name: str = "d.yml") -> Val:
     path = tmp_path / name
-    path.write_text(text)
+    path.write_text(dedent(text))
     return parse_marked(str(path))
 
 
@@ -65,7 +67,11 @@ def _doc(tmp_path, text: str, name: str = "d.yml") -> Val:
 
 def test_parse_instance_resolves_the_shield_against_the_library(tmp_path) -> None:
     lib = _library(_shield("sh"))
-    item = _doc(tmp_path, "name: a\nshield: sh\nsocket: nucleo_ard\n")
+    item = _doc(tmp_path, """\
+        name: a
+        shield: sh
+        socket: nucleo_ard
+        """)
     inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", [], str(tmp_path))
     assert diags == []
     assert inst is not None
@@ -76,7 +82,11 @@ def test_parse_instance_resolves_the_shield_against_the_library(tmp_path) -> Non
 
 def test_parse_instance_unknown_shield_is_rejected(tmp_path) -> None:
     lib = _library()
-    item = _doc(tmp_path, "name: a\nshield: ghost\nsocket: s\n")
+    item = _doc(tmp_path, """\
+        name: a
+        shield: ghost
+        socket: s
+        """)
     inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", [], str(tmp_path))
     assert inst is None
     assert len(diags) == 1
@@ -85,7 +95,11 @@ def test_parse_instance_unknown_shield_is_rejected(tmp_path) -> None:
 
 def test_parse_instance_applies_the_socket_binding(tmp_path) -> None:
     lib = _library(_shield("sh"))
-    item = _doc(tmp_path, "name: a\nshield: sh\nsocket: ard\n")
+    item = _doc(tmp_path, """\
+        name: a
+        shield: sh
+        socket: ard
+        """)
     inst, diags, deps = parse_instance(
         item, SocketBinding({"ard": "nucleo_ard"}), lib, "rig", [], str(tmp_path))
     assert inst is not None
@@ -93,7 +107,10 @@ def test_parse_instance_applies_the_socket_binding(tmp_path) -> None:
 
 
 def test_parse_instance_missing_required_key_returns_diagnostic(tmp_path) -> None:
-    item = _doc(tmp_path, "name: a\nsocket: s\n")   # no shield:
+    item = _doc(tmp_path, """\
+        name: a
+        socket: s
+        """)   # no shield:
     inst, diags, deps = parse_instance(item, _BINDING, _library(), "rig", [], str(tmp_path))
     assert inst is None
     assert len(diags) == 1
@@ -129,7 +146,9 @@ def test_resolve_dotted_rejects_unknown_node_in_the_shield(tmp_path) -> None:
     """R3 closes the R2 deferral: node existence is now validated via
     Shield.by_name (no frozen golden covers this wording -- hand-
     differential rule, recorded in the slice report)."""
-    doc = _doc(tmp_path, "x: a.no-such-node\n")
+    doc = _doc(tmp_path, """\
+        x: a.no-such-node
+        """)
     by_name = {"a": _inst("a", _shield("sh", pads=["sq"]))}
     end, diags = resolve_dotted(doc.value["x"], by_name, "from")
     assert end is None
@@ -168,7 +187,11 @@ def test_resolve_dotted_missing_key() -> None:
 # ------------------------------------------------------------------- parse_wire
 
 def test_parse_wire_bare_string_route(tmp_path) -> None:
-    item = _doc(tmp_path, "from: a.sq\nto: b.led\nroute: adhoc\n")
+    item = _doc(tmp_path, """\
+        from: a.sq
+        to: b.led
+        route: adhoc
+        """)
     by_name = {"a": _inst("a", _shield("sh_a", pads=["sq"])),
               "b": _inst("b", _shield("sh_b", pads=["led"]))}
     wire, diags = parse_wire(item, by_name)
@@ -178,7 +201,11 @@ def test_parse_wire_bare_string_route(tmp_path) -> None:
 
 
 def test_parse_wire_via_mapping_route(tmp_path) -> None:
-    item = _doc(tmp_path, "from: a.sq\nto: b.led\nroute: {via: D2}\n")
+    item = _doc(tmp_path, """\
+        from: a.sq
+        to: b.led
+        route: {via: D2}
+        """)
     by_name = {"a": _inst("a", _shield("sh_a", pads=["sq"])),
               "b": _inst("b", _shield("sh_b", pads=["led"]))}
     wire, diags = parse_wire(item, by_name)
@@ -188,7 +215,11 @@ def test_parse_wire_via_mapping_route(tmp_path) -> None:
 
 
 def test_parse_wire_mapping_route_without_via_is_rejected(tmp_path) -> None:
-    item = _doc(tmp_path, "from: a.sq\nto: b.led\nroute: {}\n")
+    item = _doc(tmp_path, """\
+        from: a.sq
+        to: b.led
+        route: {}
+        """)
     by_name = {"a": _inst("a", _shield("sh_a", pads=["sq"])),
               "b": _inst("b", _shield("sh_b", pads=["led"]))}
     wire, diags = parse_wire(item, by_name)
@@ -199,7 +230,10 @@ def test_parse_wire_mapping_route_without_via_is_rejected(tmp_path) -> None:
 
 
 def test_parse_wire_missing_route_key_is_rejected(tmp_path) -> None:
-    item = _doc(tmp_path, "from: a.sq\nto: b.led\n")
+    item = _doc(tmp_path, """\
+        from: a.sq
+        to: b.led
+        """)
     by_name = {"a": _inst("a", _shield("sh_a", pads=["sq"])),
               "b": _inst("b", _shield("sh_b", pads=["led"]))}
     wire, diags = parse_wire(item, by_name)
@@ -224,14 +258,18 @@ def test_find_wire_none_endpoint_never_matches() -> None:
 # ------------------------------------------------------------- union_dt_includes
 
 def test_union_dt_includes_appends_new_headers(tmp_path) -> None:
-    doc = _doc(tmp_path, "dt-includes: [a.h, b.h]\n")
+    doc = _doc(tmp_path, """\
+        dt-includes: [a.h, b.h]
+        """)
     headers, refs = union_dt_includes([], [], doc.value["dt-includes"])
     assert headers == ["a.h", "b.h"]
     assert len(refs) == 2
 
 
 def test_union_dt_includes_dedups_keeping_the_earlier_srcref(tmp_path) -> None:
-    doc = _doc(tmp_path, "dt-includes: [a.h]\n")
+    doc = _doc(tmp_path, """\
+        dt-includes: [a.h]
+        """)
     first_ref = SourceRef("earlier", 1, "dt-includes[0]")
     headers, refs = union_dt_includes(["a.h"], [first_ref], doc.value["dt-includes"])
     assert headers == ["a.h"]
@@ -244,7 +282,9 @@ def test_union_dt_includes_none_is_a_no_op() -> None:
 
 
 def test_union_dt_includes_does_not_mutate_its_inputs(tmp_path) -> None:
-    doc = _doc(tmp_path, "dt-includes: [b.h]\n")
+    doc = _doc(tmp_path, """\
+        dt-includes: [b.h]
+        """)
     original = ["a.h"]
     union_dt_includes(original, [], doc.value["dt-includes"])
     assert original == ["a.h"]
@@ -266,7 +306,9 @@ def _apply(delta, stage, stage_value, topology, lib=None, binding=_BINDING,
 
 
 def test_instances_patch_matching_by_name_replaces_socket(tmp_path) -> None:
-    delta = _doc(tmp_path, "instances: [{name: a, socket: new_ard}]\n")
+    delta = _doc(tmp_path, """\
+        instances: [{name: a, socket: new_ard}]
+        """)
     topology = _topology_with("a")
     new_topology, diags, deps = _apply(delta, "variant", "b", topology)
     assert diags == []
@@ -277,7 +319,9 @@ def test_instances_patch_matching_by_name_replaces_socket(tmp_path) -> None:
 
 
 def test_instances_patch_unknown_name_is_rejected(tmp_path) -> None:
-    delta = _doc(tmp_path, "instances: [{name: ghost, socket: x}]\n")
+    delta = _doc(tmp_path, """\
+        instances: [{name: ghost, socket: x}]
+        """)
     topology = _topology_with("a")
     _, diags, deps = _apply(delta, "variant", "b", topology)
     assert len(diags) == 1
@@ -286,7 +330,9 @@ def test_instances_patch_unknown_name_is_rejected(tmp_path) -> None:
 
 
 def test_instances_patch_can_swap_the_shield(tmp_path) -> None:
-    delta = _doc(tmp_path, "instances: [{name: a, shield: sh2}]\n")
+    delta = _doc(tmp_path, """\
+        instances: [{name: a, shield: sh2}]
+        """)
     topology = _topology_with("a")
     lib = _library(_shield("sh"), _shield("sh2"))
     new_topology, diags, deps = _apply(delta, "variant", "b", topology, lib=lib)
@@ -295,7 +341,9 @@ def test_instances_patch_can_swap_the_shield(tmp_path) -> None:
 
 
 def test_instances_patch_unknown_shield_is_rejected(tmp_path) -> None:
-    delta = _doc(tmp_path, "instances: [{name: a, shield: ghost}]\n")
+    delta = _doc(tmp_path, """\
+        instances: [{name: a, shield: ghost}]
+        """)
     topology = _topology_with("a")
     _, diags, deps = _apply(delta, "variant", "b", topology)
     assert len(diags) == 1
@@ -303,7 +351,9 @@ def test_instances_patch_unknown_shield_is_rejected(tmp_path) -> None:
 
 
 def test_add_instances_new_name_is_appended_to_order(tmp_path) -> None:
-    delta = _doc(tmp_path, "add-instances: [{name: c, shield: sh, socket: s}]\n")
+    delta = _doc(tmp_path, """\
+        add-instances: [{name: c, shield: sh, socket: s}]
+        """)
     topology = _topology_with("a")
     new_topology, diags, deps = _apply(delta, "variant", "b", topology)
     assert diags == []
@@ -312,7 +362,9 @@ def test_add_instances_new_name_is_appended_to_order(tmp_path) -> None:
 
 
 def test_add_instances_existing_name_is_rejected(tmp_path) -> None:
-    delta = _doc(tmp_path, "add-instances: [{name: a, shield: sh, socket: s}]\n")
+    delta = _doc(tmp_path, """\
+        add-instances: [{name: a, shield: sh, socket: s}]
+        """)
     topology = _topology_with("a")
     _, diags, deps = _apply(delta, "variant", "b", topology)
     assert len(diags) == 1
@@ -321,7 +373,9 @@ def test_add_instances_existing_name_is_rejected(tmp_path) -> None:
 
 
 def test_remove_instances_removes_and_records_removed_by(tmp_path) -> None:
-    delta = _doc(tmp_path, "remove-instances: [a]\n")
+    delta = _doc(tmp_path, """\
+        remove-instances: [a]
+        """)
     topology = _topology_with("a")
     new_topology, diags, deps = _apply(delta, "variant", "b", topology)
     assert diags == []
@@ -331,7 +385,9 @@ def test_remove_instances_removes_and_records_removed_by(tmp_path) -> None:
 
 def test_remove_instances_absent_name_is_rejected_and_names_prior_remover(
         tmp_path) -> None:
-    delta = _doc(tmp_path, "remove-instances: [a]\n")
+    delta = _doc(tmp_path, """\
+        remove-instances: [a]
+        """)
     topology = Topology(removed_by={"a": "b"})   # already removed by variant b
     _, diags, deps = _apply(delta, "revision", "2", topology)
     assert len(diags) == 1
@@ -342,7 +398,9 @@ def test_remove_instances_absent_name_is_rejected_and_names_prior_remover(
 
 
 def test_remove_wires_matches_endpoint_pair(tmp_path) -> None:
-    delta = _doc(tmp_path, "remove-wires: [{from: x.sq, to: y.led-1}]\n")
+    delta = _doc(tmp_path, """\
+        remove-wires: [{from: x.sq, to: y.led-1}]
+        """)
     end_a = WireEnd(instance_name="x", node="sq", src=SourceRef("s", 1))
     end_b = WireEnd(instance_name="y", node="led-1", src=SourceRef("s", 1))
     wire = Wire(frm=end_a, to=end_b, route="adhoc", src=SourceRef("s", 1))
@@ -353,7 +411,9 @@ def test_remove_wires_matches_endpoint_pair(tmp_path) -> None:
 
 
 def test_remove_wires_missing_pair_is_rejected(tmp_path) -> None:
-    delta = _doc(tmp_path, "remove-wires: [{from: x.sq, to: y.led-2}]\n")
+    delta = _doc(tmp_path, """\
+        remove-wires: [{from: x.sq, to: y.led-2}]
+        """)
     topology = Topology()
     _, diags, deps = _apply(delta, "variant", "b", topology)
     assert len(diags) == 1
@@ -362,7 +422,9 @@ def test_remove_wires_missing_pair_is_rejected(tmp_path) -> None:
 
 
 def test_add_wires_parses_like_base_wires(tmp_path) -> None:
-    delta = _doc(tmp_path, "add-wires: [{from: a.sq, to: b.led, route: adhoc}]\n")
+    delta = _doc(tmp_path, """\
+        add-wires: [{from: a.sq, to: b.led, route: adhoc}]
+        """)
     shield = _shield("sh", pads=["sq", "led"])
     topology = _topology_with("a", "b", shield=shield)
     new_topology, diags, deps = _apply(delta, "variant", "b", topology)
@@ -372,8 +434,10 @@ def test_add_wires_parses_like_base_wires(tmp_path) -> None:
 
 def test_metadata_keys_are_rejected_before_any_other_delta_operation(tmp_path) -> None:
     delta = _doc(tmp_path,
-               "board: some/other/board\n"
-               "remove-instances: [ghost]\n")
+               """\
+        board: some/other/board
+        remove-instances: [ghost]
+        """)
     topology = _topology_with("a")
     _, diags, deps = _apply(delta, "revision", "2", topology)
     assert [d.code for d in diags] == ["lang-schema", "lang-rev"]
@@ -385,8 +449,10 @@ def test_multiple_delta_errors_compose_in_document_order(tmp_path) -> None:
     and the composed order must equal document/traversal order -- never
     a mutable side channel's own append order."""
     delta = _doc(tmp_path,
-               "instances: [{name: ghost1, socket: s}]\n"
-               "remove-instances: [ghost2]\n")
+               """\
+        instances: [{name: ghost1, socket: s}]
+        remove-instances: [ghost2]
+        """)
     topology = _topology_with("a")
     _, diags, deps = _apply(delta, "variant", "b", topology)
     assert len(diags) == 2
@@ -395,7 +461,9 @@ def test_multiple_delta_errors_compose_in_document_order(tmp_path) -> None:
 
 
 def test_apply_delta_never_mutates_the_topology_it_was_given(tmp_path) -> None:
-    delta = _doc(tmp_path, "add-instances: [{name: c, shield: sh, socket: s}]\n")
+    delta = _doc(tmp_path, """\
+        add-instances: [{name: c, shield: sh, socket: s}]
+        """)
     topology = _topology_with("a")
     _apply(delta, "variant", "b", topology)
     assert topology.order == ["a"]
@@ -415,7 +483,9 @@ def test_instance_patch_shield_swap_drops_the_old_params(tmp_path) -> None:
     new_shield = _shield("sh2")
     topology = _topology_with("a", shield=old_shield)
     topology.effective["a"].params = {"dl": {"x": "1"}}
-    delta = _doc(tmp_path, "instances: [{name: a, shield: sh2}]\n")
+    delta = _doc(tmp_path, """\
+        instances: [{name: a, shield: sh2}]
+        """)
     lib = _library(old_shield, new_shield)
     new_topology, diags, deps = _apply(delta, "variant", "b", topology, lib=lib)
     assert diags == []
@@ -433,7 +503,9 @@ def test_instance_patch_params_without_shield_change_runs_the_restate_check(
     shield = _shield("sh", devices=[dev])
     topology = _topology_with("a", shield=shield)
     topology.effective["a"].params = {"dl": {"vnd,threshold": "10"}}
-    delta = _doc(tmp_path, "instances: [{name: a, params: {dl: {}}}]\n")
+    delta = _doc(tmp_path, """\
+        instances: [{name: a, params: {dl: {}}}]
+        """)
     lib = _library(shield)
     _, diags, deps = _apply(delta, "variant", "b", topology, lib=lib)
     assert len(diags) == 1

@@ -5,15 +5,125 @@ a NEW scope, R26), fixed (copper `reg`) wins outright, pinned (R18 `pin:`
 strap) resolves through the strap's own domain, and everything else is
 allocated free from that same domain -- each in R18's stable `_key` order
 (analyzer/ordering.py), never rig-file declaration order.
-"""
+
+**The value-shaped core** (rigc-r45-brief.md Part C, the CS treatment
+applied here): `allocate_scope_addresses` is the pure contract this
+module exists to make unit-testable on its own -- given one scope's
+members in R18 order (some copper-fixed, some rig-pinned, some free),
+each already carrying its OWN address domain where one applies, assign
+each an address (+ strap state), or report a same-address conflict or a
+free member's domain exhaustion. No Rig/Instance/Shield/BoardSocket
+needed to call it, mirroring `analyzer/cs.py`'s `allocate_cs_positions`/
+`CsMember` exactly. `_allocate_scope` is the WIRING: it builds one
+scope's `AddressMember` list from the rig model (in the three groups'
+allocation order), calls the core, and translates its placements/
+problems back into this pass's own `AddressAllocation` fields and
+diagnostics -- the only place strap names, device labels, and bus labels
+ever enter the picture.
+
+A rig-pinned member's domain membership (`phys-pin`) is checked INSIDE
+the core, in the same single ordered pass as everything else, rather
+than by the wrapper up front -- it must interleave with same-address
+conflicts and free-domain exhaustion in EXACTLY the blueprint's own
+discovery order, which only a single shared pass can guarantee."""
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Sequence, Tuple
 
-from ..diag import Diagnostic, SourceRef, error
+from ..diag import Diagnostic, error
 from ..model import BoardSocket, Device, Instance, Rig, Strap
 from .ordering import allocation_key
+
+log = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class AddressMember:
+    """One I2C-scope member's address-allocation input, already in R18
+    allocation order BY GROUP (fixed, then pinned, then free -- the
+    caller's own grouping and sort; this function trusts the given order
+    and never re-sorts). `fixed` is a copper `reg` address -- wins
+    outright, no domain to consult. `pin` is (the rig-authored wanted
+    address, the owning strap's own domain) when this member is pinned --
+    checked against the domain HERE, in this same pass, not by the
+    caller, so an out-of-domain pin interleaves with a same-address
+    conflict in the same relative order the blueprint's own single loop
+    produces. `free` is the strap's own ordered domain when this member
+    allocates freely; empty when the member is not free."""
+
+    identity: str
+    fixed: Optional[int] = None
+    pin: Optional[Tuple[int, Tuple[Tuple[int, int], ...]]] = None
+    free: Tuple[Tuple[int, int], ...] = ()
+
+
+@dataclass(frozen=True)
+class AddressPlacement:
+    identity: str
+    address: int
+    state: Optional[int]       # the strap state claimed (pinned/free); None for fixed
+    kind: str                  # "fixed" | "pinned" | "free"
+
+
+@dataclass(frozen=True)
+class AddressProblem:
+    """One allocation problem, in DISCOVERY order (interleaved across the
+    fixed/pinned/free groups exactly as the scope's members were
+    processed): `kind` is "out-of-domain" (a pinned member's wanted
+    address is not in its strap's own domain -- `address`/`first` unused),
+    "conflict" (two members both resolve to `address`; `first` is the
+    identity that claimed it earlier), or "exhausted" (a free member's
+    domain has nothing left; `occupied` is the domain's full occupancy
+    snapshot, address-sorted, AS OF this exact moment in the pass)."""
+
+    kind: str
+    identity: str
+    address: Optional[int] = None
+    first: Optional[str] = None
+    occupied: Tuple[Tuple[int, str], ...] = ()
+
+
+def allocate_scope_addresses(members: Sequence[AddressMember],
+                             ) -> Tuple[List[AddressPlacement], List[AddressProblem]]:
+    """THE address-allocation contract (rigc-r45-brief.md Part C): given a
+    scope's members in R18 order, each already carrying its own
+    address(es), assign every member an address -- or report why not.
+    Members are processed IN THE GIVEN ORDER, one shared `taken` map
+    growing as each is placed, so a conflict or an exhaustion always sees
+    exactly what every EARLIER member (of any kind) in this same call
+    already claimed -- matching the blueprint's single sequential pass."""
+    taken: Dict[int, str] = {}
+    placements: List[AddressPlacement] = []
+    problems: List[AddressProblem] = []
+
+    def claim(address: int, state: Optional[int], kind: str, identity: str) -> None:
+        if address in taken:
+            problems.append(AddressProblem(
+                "conflict", identity, address=address, first=taken[address]))
+            return
+        taken[address] = identity
+        placements.append(AddressPlacement(identity, address, state, kind))
+
+    for m in members:
+        if m.fixed is not None:
+            claim(m.fixed, None, "fixed", m.identity)
+        elif m.pin is not None:
+            want, domain = m.pin
+            match = next(((a, s) for a, s in domain if a == want), None)
+            if match is None:
+                problems.append(AddressProblem("out-of-domain", m.identity))
+                continue
+            claim(match[0], match[1], "pinned", m.identity)
+        else:
+            pick = next(((a, s) for a, s in m.free if a not in taken), None)
+            if pick is None:
+                problems.append(AddressProblem(
+                    "exhausted", m.identity, occupied=tuple(sorted(taken.items()))))
+                continue
+            claim(pick[0], pick[1], "free", m.identity)
+    return placements, problems
 
 
 @dataclass
@@ -46,52 +156,76 @@ def allocate_addresses(rig: Rig, sockets: Dict[str, BoardSocket],
 
 def _allocate_scope(bus_path: str, members: List[Tuple[Instance, Device, BoardSocket]],
                     result: AddressAllocation) -> List[Diagnostic]:
-    diags: List[Diagnostic] = []
+    """Build this scope's `AddressMember` list in R18 order (fixed, then
+    pinned, then free -- three separately-sorted groups, concatenated),
+    call the value-shaped core, and translate its placements/problems
+    into diagnostics plus this pass's own `AddressAllocation` fields."""
     bus_label = result.bus_label[bus_path]
-    taken: Dict[int, Tuple[Instance, Device, BoardSocket, str]] = {}
+    by_identity: Dict[str, Tuple[Instance, Device, BoardSocket]] = {}
+    kind_of: Dict[str, str] = {}
+    strap_of: Dict[str, Strap] = {}
 
-    def claim(addr: int, inst: Instance, dev: Device, socket: BoardSocket,
-             how: str, src: Optional[SourceRef]) -> bool:
-        if addr in taken:
-            o_inst, o_dev, o_socket, o_how = taken[addr]
-            diags.append(error(
-                "phys-addr",
-                f"I2C address {addr:#04x} is required twice on bus &{bus_label} "
-                "(one address space per scope):\n"
-                f"- {o_inst.name} (socket {o_socket.label}): {o_dev.name} — {o_how}\n"
-                f"- {inst.name} (socket {socket.label}): {dev.name} — {how}\n"
-                "two devices cannot share one address on one bus. This topology is "
-                "not realizable as assembled: use a second I2C bus, put one device "
-                "behind an I2C mux (scope creation, S8), or drop one instance.",
-                tuple(x for x in (o_dev.src, o_inst.src, dev.src, inst.src) if x)))
-            return False
-        taken[addr] = (inst, dev, socket, how)
-        result.addr[(inst.name, dev.name)] = addr
-        return True
-
-    fixed = []
-    pinned = []
-    free = []
+    fixed_scope: List[Tuple[Instance, Device, BoardSocket]] = []
+    pinned_scope: List[Tuple[Instance, Device, BoardSocket]] = []
+    free_scope: List[Tuple[Instance, Device, BoardSocket]] = []
     for inst, dev, socket in members:
         if dev.reg is not None:
-            fixed.append((inst, dev, socket))
+            fixed_scope.append((inst, dev, socket))
         elif dev.addr_from and dev.addr_from in inst.pins:
-            pinned.append((inst, dev, socket))
+            pinned_scope.append((inst, dev, socket))
         else:
-            free.append((inst, dev, socket))
+            free_scope.append((inst, dev, socket))
 
-    for inst, dev, socket in sorted(fixed, key=lambda m: allocation_key(m[0], m[1])):
+    address_members: List[AddressMember] = []
+
+    for inst, dev, socket in sorted(fixed_scope, key=lambda m: allocation_key(m[0], m[1])):
         assert dev.reg is not None
-        claim(dev.reg, inst, dev, socket,
-             f"address domain {{{dev.reg:#04x}}}, fixed by copper "
-             "(no address-select)", dev.src)
+        identity = f"{inst.name}/{dev.name}"
+        by_identity[identity] = (inst, dev, socket)
+        kind_of[identity] = "fixed"
+        address_members.append(AddressMember(identity=identity, fixed=dev.reg))
 
-    for inst, dev, socket in sorted(pinned, key=lambda m: allocation_key(m[0], m[1])):
+    for inst, dev, socket in sorted(pinned_scope, key=lambda m: allocation_key(m[0], m[1])):
         assert dev.addr_from is not None
         strap = inst.shield.straps[dev.addr_from]
         want = inst.pins[dev.addr_from]
-        match = [(a, s) for a, s in strap.domain if a == want]
-        if not match:
+        identity = f"{inst.name}/{dev.name}"
+        by_identity[identity] = (inst, dev, socket)
+        kind_of[identity] = "pinned"
+        strap_of[identity] = strap
+        address_members.append(AddressMember(
+            identity=identity, pin=(want, tuple(strap.domain))))
+
+    for inst, dev, socket in sorted(free_scope, key=lambda m: allocation_key(m[0], m[1])):
+        free_strap = inst.shield.straps.get(dev.addr_from) if dev.addr_from else None
+        if free_strap is None:
+            continue  # the loader already reported the addr-authority violation
+        identity = f"{inst.name}/{dev.name}"
+        by_identity[identity] = (inst, dev, socket)
+        kind_of[identity] = "free"
+        strap_of[identity] = free_strap
+        address_members.append(AddressMember(
+            identity=identity, free=tuple(free_strap.domain)))
+
+    placements, problems = allocate_scope_addresses(address_members)
+
+    def how(identity: str) -> str:
+        inst, dev, _socket = by_identity[identity]
+        kind = kind_of[identity]
+        if kind == "fixed":
+            return (f"address domain {{{dev.reg:#04x}}}, fixed by copper "
+                    "(no address-select)")
+        if kind == "pinned":
+            return f"pinned via rig (strap '{strap_of[identity].name}')"
+        return f"allocated (strap '{strap_of[identity].name}')"
+
+    diags: List[Diagnostic] = []
+    for problem in problems:
+        inst, dev, socket = by_identity[problem.identity]
+        if problem.kind == "out-of-domain":
+            assert dev.addr_from is not None   # only a pinned member reaches here
+            strap = strap_of[problem.identity]
+            want = inst.pins[dev.addr_from]
             diags.append(error(
                 "phys-pin",
                 f"instance '{inst.name}': pinned address {want:#04x} is not in the "
@@ -99,30 +233,44 @@ def _allocate_scope(bus_path: str, members: List[Tuple[Instance, Device, BoardSo
                 f"({{{', '.join(f'{a:#04x}' for a, _ in strap.domain)}}}) — "
                 "the copper cannot select it",
                 tuple(x for x in (inst.pin_refs.get(dev.addr_from), strap.src) if x)))
-            continue
-        if claim(want, inst, dev, socket,
-                f"pinned via rig (strap '{strap.name}')",
-                inst.pin_refs.get(dev.addr_from)):
-            result.straps.append((inst, strap, match[0][1], want))
-
-    for inst, dev, socket in sorted(free, key=lambda m: allocation_key(m[0], m[1])):
-        free_strap = inst.shield.straps.get(dev.addr_from) if dev.addr_from else None
-        if free_strap is None:
-            continue  # the loader already reported the addr-authority violation
-        strap = free_strap
-        pick = next(((a, s) for a, s in strap.domain if a not in taken), None)
-        if pick is None:
+        elif problem.kind == "conflict":
+            assert problem.first is not None   # the core always sets it for a conflict
+            o_inst, o_dev, o_socket = by_identity[problem.first]
+            diags.append(error(
+                "phys-addr",
+                f"I2C address {problem.address:#04x} is required twice on bus "
+                f"&{bus_label} (one address space per scope):\n"
+                f"- {o_inst.name} (socket {o_socket.label}): {o_dev.name} — "
+                f"{how(problem.first)}\n"
+                f"- {inst.name} (socket {socket.label}): {dev.name} — "
+                f"{how(problem.identity)}\n"
+                "two devices cannot share one address on one bus. This topology is "
+                "not realizable as assembled: use a second I2C bus, put one device "
+                "behind an I2C mux (scope creation, S8), or drop one instance.",
+                tuple(x for x in (o_dev.src, o_inst.src, dev.src, inst.src) if x)))
+        else:  # "exhausted"
+            strap = strap_of[problem.identity]
             diags.append(error(
                 "phys-addr",
                 f"address domain of '{inst.name}/{dev.name}' is exhausted on bus "
                 f"&{bus_label}: every selectable address "
                 f"{{{', '.join(f'{a:#04x}' for a, _ in strap.domain)}}} is already "
                 "taken by:\n"
-                + "\n".join(f"- {t[0].name}: {t[1].name} at {a:#04x}"
-                            for a, t in sorted(taken.items())),
+                + "\n".join(
+                    f"- {by_identity[occ_id][0].name}: {by_identity[occ_id][1].name} "
+                    f"at {a:#04x}"
+                    for a, occ_id in problem.occupied),
                 tuple(x for x in (dev.src, inst.src) if x)))
-            continue
-        if claim(pick[0], inst, dev, socket, f"allocated (strap '{strap.name}')",
-                dev.src):
-            result.straps.append((inst, strap, pick[1], pick[0]))
+
+    for placement in placements:
+        inst, dev, _socket = by_identity[placement.identity]
+        result.addr[(inst.name, dev.name)] = placement.address
+        log.debug("instance '%s': device '%s' allocated address %#04x (%s)",
+                 inst.name, dev.name, placement.address, placement.kind)
+        if placement.kind != "fixed":
+            assert placement.state is not None   # only a bare "fixed" claim omits it
+            strap = strap_of[placement.identity]
+            result.straps.append(
+                (inst, strap, placement.state, placement.address))
+
     return diags

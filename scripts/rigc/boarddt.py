@@ -26,6 +26,7 @@ reader in this package already does.
 from __future__ import annotations
 
 import argparse
+import logging
 import os
 import sys
 from pathlib import Path
@@ -37,6 +38,8 @@ from .diag import Diagnostic, error
 from .dtsio import MODULE_ROOT
 from .edt_build import BuildRecipe
 from .model import Board
+
+log = logging.getLogger(__name__)
 
 
 def load_board(name: str, workdir: str,
@@ -58,7 +61,11 @@ def load_board(name: str, workdir: str,
     The returned Deps records the board's own .dts (not its cpp-included
     files -- those are the board's own concern, covered elsewhere; a rig
     build's dependency tracking cares about the ONE file naming the board,
-    matching what --board-dts itself takes as a single path)."""
+    matching what --board-dts itself takes as a single path).
+
+    Returns (board, diagnostics, deps): board is None when the board
+    could not be read at all (a phys-board finding says why); deps
+    names the files this resolution touched. Inputs are read-only."""
     if board_dts is None:
         board_dts, d = _discover_board_dts(name)
         if board_dts is None:
@@ -85,6 +92,7 @@ def load_board(name: str, workdir: str,
             f"board '{name}' has a devicetree ({os.path.relpath(board_dts)}) "
             "but declares no socket,* nodes — it exists, but is not "
             "rig-enabled (Conv. 4: a board opts in with a typed socket node)")], deps
+    log.info("board '%s' resolved: %s", name, board_dts)
     return board, [], deps
 
 

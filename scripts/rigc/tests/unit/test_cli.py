@@ -19,12 +19,15 @@ supplies one (`glob.glob` on a directory that does not exist just returns
 """
 from __future__ import annotations
 
+from textwrap import dedent
+
 import argparse
+import logging
 from pathlib import Path
 
 import pytest
 
-from rigc.cli import build_parser, main
+from rigc.cli import _configure_logging, build_parser, main
 
 
 def _no_shields(tmp_path: Path) -> list[str]:
@@ -130,10 +133,14 @@ def test_board_reading_options_are_now_live(tmp_path: Path) -> None:
     regardless of these options: see test_recipe_resolved_lazily below,
     which is the case that used to make this look inert.)"""
     (tmp_path / "rig.yml").write_text(
-        "rig:\n"
-        "  name: r\n"
-        "  board: some_board/soc/rig\n")
-    (tmp_path / "r.yml").write_text("instances: []\n")
+        dedent("""\
+        rig:
+          name: r
+          board: some_board/soc/rig
+        """))
+    (tmp_path / "r.yml").write_text(dedent("""\
+        instances: []
+        """))
     ret = main(["expand", str(tmp_path / "rig.yml"),
                "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path),
                "--board-dts", str(tmp_path / "no-such-board.dts")])
@@ -181,7 +188,9 @@ def test_out_of_scope_feature_refuses(tmp_path: Path,
     failure is the capability that stays Unimplemented (rigc-r2-brief.md
     Sec 2: no frozen golden covers lang-parse wording, so Unimplemented
     remains the deliberate, always-acceptable choice, unrevisited by R3)."""
-    (tmp_path / "rig.yml").write_text("rig: [this is not, valid: yaml\n")
+    (tmp_path / "rig.yml").write_text(dedent("""\
+        rig: [this is not, valid: yaml
+        """))
     ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
                              "--out-dir", str(tmp_path / "out"),
                              *_no_shields(tmp_path)])
@@ -204,10 +213,14 @@ def test_accept_path_refuses_rather_than_accepting(
     from rigc.model import Board
 
     (tmp_path / "rig.yml").write_text(
-        "rig:\n"
-        "  name: r\n"
-        "  board: some_board/soc/rig\n")
-    (tmp_path / "r.yml").write_text("instances: []\n")
+        dedent("""\
+        rig:
+          name: r
+          board: some_board/soc/rig
+        """))
+    (tmp_path / "r.yml").write_text(dedent("""\
+        instances: []
+        """))
 
     def fake_load_board(name: str, workdir: str, board_dts=None, recipe=None):
         return Board(name=name, sockets={}), [], frozenset()
@@ -219,3 +232,63 @@ def test_accept_path_refuses_rather_than_accepting(
                              *_no_shields(tmp_path)])
     assert ret == 3
     assert err.startswith("rigc: not implemented: ")
+
+
+# --------------------------------------------------- logging (rigc-r45-brief.md Part B)
+
+def test_stderr_carries_only_renderer_bytes_when_rigc_log_is_unset(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str],
+        caplog: pytest.LogCaptureFixture,
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """The stderr-purity discipline test: with RIGC_LOG unset, the package
+    root's NullHandler (rigc/__init__.py) is the only handler on the
+    `rigc` tree, so a full main() run over a REJECTING input puts ONLY
+    the renderer's own bytes on stderr -- while caplog, which taps
+    Python's real root logger independently of our own (silent) handler,
+    still observes that the pipeline actually emitted records, proving
+    this is a "nothing configured" outcome rather than "nothing
+    happened"."""
+    monkeypatch.delenv("RIGC_LOG", raising=False)
+    caplog.set_level(logging.DEBUG, logger="rigc")
+
+    (tmp_path / "rig.yml").write_text("not-rig: {}\n")
+    ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
+                            "--out-dir", str(tmp_path / "out"),
+                            *_no_shields(tmp_path)])
+
+    assert ret == 1
+    assert "error[lang-schema]" in err
+    # ONLY renderer bytes -- none of our own log formatting leaked in.
+    assert "INFO" not in err
+    assert "DEBUG" not in err
+    assert "rigc.cli" not in err
+    assert "rigc.loader" not in err
+    # ...yet the pipeline really did log: caplog observed the records via
+    # propagation, entirely independent of the (silent) handler above.
+    assert any("argv" in m for m in caplog.messages)
+    assert any(r.name == "rigc.loader" for r in caplog.records)
+
+
+def test_rigc_log_env_attaches_a_real_stderr_handler(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """RIGC_LOG=<level> is the ONLY way a real handler ever reaches the
+    `rigc` logger tree -- read fresh at the top of every main() call (not
+    at import time), so this is observable without a subprocess."""
+    monkeypatch.setenv("RIGC_LOG", "debug")
+
+    main(["expand", str(tmp_path / "no-such-rig.yml"),
+         "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path)])
+
+    root = logging.getLogger("rigc")
+    real_handlers = [h for h in root.handlers
+                     if isinstance(h, logging.StreamHandler)
+                     and not isinstance(h, logging.NullHandler)]
+    assert len(real_handlers) == 1
+    assert root.getEffectiveLevel() == logging.DEBUG
+
+    # Deterministic cleanup -- a repeated main() call always re-derives
+    # its handler state from the CURRENT environment, so unsetting and
+    # calling _configure_logging() again leaves the logger tree exactly
+    # as every OTHER test in this module expects to find it.
+    monkeypatch.delenv("RIGC_LOG")
+    _configure_logging()

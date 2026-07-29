@@ -59,7 +59,11 @@ Nets = Dict[NetKey, List[NetClaim]]
 def merge_nets(*nets: Nets) -> Nets:
     """Compose several Nets values into one, preserving claim order within
     each key (earlier collections' claims first) -- the net-claim analogue
-    of `deps.union`/list-concatenating diagnostics."""
+    of `deps.union`/list-concatenating diagnostics.
+
+    Returns a FRESH map with fresh lists: neither the input maps nor
+    their claim lists are shared with the result (R4's D1 is the
+    cautionary tale for anyone tempted to alias here)."""
     result: Nets = {}
     for n in nets:
         for key, claims in n.items():
@@ -106,6 +110,12 @@ class GpioNets:
 def collect_gpio_nets(rig: Rig, sockets: Dict[str, BoardSocket],
                       types: Dict[str, ConnectorType],
                       ) -> Tuple[GpioNets, List[Diagnostic]]:
+    """The gpio/pwm/adc claim-collection pass (R22/R23): every device
+    ref and pad resolves through its socket's maps into net claims.
+
+    Returns (nets, diagnostics): a fresh claim map the caller owns --
+    later passes read it but must never append into its lists (R4
+    review, D1)."""
     diags: List[Diagnostic] = []
     result = GpioNets()
 

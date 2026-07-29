@@ -13,6 +13,7 @@ ambiguity check back too (`resolve_dotted`, via `Shield.by_name`).
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -23,6 +24,8 @@ from .binding import SocketBinding
 from .documents import Val, as_mapping, reject_metadata_keys, require
 from .library import ShieldLibrary
 from .params import apply_params_block, apply_pin_block, check_restate
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -52,7 +55,10 @@ def union_dt_includes(headers: List[str], refs: List[SourceRef],
     """dt-includes: UNIONS across delta stages -- a header already
     present (declared by an earlier stage) is skipped, keeping that
     stage's own SrcRef. Pure: returns NEW lists rather than mutating the
-    caller's."""
+    caller's.
+
+    Returns fresh (headers, refs) lists -- the inputs are copied,
+    never extended in place."""
     headers = list(headers)
     refs = list(refs)
     if dt_includes_v is not None:
@@ -71,7 +77,11 @@ def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
     -- the identical shape): name/shield/socket required. `shield:`
     resolves against the REAL library (`lib.resolve`) -- the R2 seam this
     slice closes. `socket:` applies through the binding, `pin:`/`params:`
-    apply fully against the resolved shield."""
+    apply fully against the resolved shield.
+
+    Returns (instance, diagnostics, deps); instance is None when a
+    required key is missing or the shield reference did not resolve.
+    The caller owns the new Instance."""
     name_v, diags = require(item, "name", "instance")
     shield_v, d = require(item, "shield", "instance")
     diags += d
@@ -100,6 +110,7 @@ def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
         invert=bool(inv_v.value) if inv_v is not None else False,
         pins=pins, pin_refs=pin_refs, jumpers=jumpers, jumper_refs=jumper_refs,
         params=params, param_refs=param_refs, src=item.src)
+    log.debug("instance '%s': shield=%r socket=%r", name, shield.name, inst.socket)
     return inst, diags, deps
 
 
@@ -179,6 +190,8 @@ def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
         name=inst.name, shield=shield, socket=socket, invert=invert,
         pins=pins, pin_refs=pin_refs, jumpers=jumpers, jumper_refs=jumper_refs,
         params=params, param_refs=param_refs, src=inst.src)
+    log.debug("instance '%s': shield=%r socket=%r (%s stage '%s')",
+             inst.name, shield.name, socket, stage, stage_value)
     return new_inst, diags, deps
 
 
@@ -187,7 +200,9 @@ def resolve_dotted(ref_v: Optional[Val], by_name: Dict[str, Instance],
     """`<instance>.<node>` -- now fully validated (rigc-r3-brief.md Sec
     5): dotted FORM, instance EXISTENCE in the effective topology, and
     (closing the R2 deferral) node existence/ambiguity WITHIN that
-    instance's own resolved shield, via `Shield.by_name`."""
+    instance's own resolved shield, via `Shield.by_name`.
+
+    Returns (end, diagnostics); end is None on every rejection shape."""
     if ref_v is None:
         return None, [error(
             "lang-schema", f"wire: required key '{key}' is missing", ())]
@@ -223,6 +238,11 @@ def resolve_dotted(ref_v: Optional[Val], by_name: Dict[str, Instance],
 
 def parse_wire(item: Val, by_name: Dict[str, Instance],
               ) -> Tuple[Optional[Wire], List[Diagnostic]]:
+    """One wires: entry -- both endpoints resolved (resolve_dotted),
+    route shape validated (a mapping route must name via:).
+
+    Returns (wire, diagnostics); wire is None when an endpoint or the
+    route was rejected. The caller owns the new Wire."""
     frm, diags = resolve_dotted(item.value.get("from"), by_name, "from")
     to, d = resolve_dotted(item.value.get("to"), by_name, "to")
     diags += d
@@ -252,7 +272,10 @@ def find_wire(wires: List[Wire], frm: Optional[str],
     """Match `remove-wires:` by RAW endpoint pair (`<instance>.<node>`
     strings on both sides) -- a wire carries no identity beyond its
     endpoints, so this is the only stable way to find one to remove.
-    Needs no shield data at all."""
+    Needs no shield data at all.
+
+    Returns the first wire whose raw endpoint pair matches, else None;
+    wires is read-only."""
     if frm is None or to is None:
         return None
     for w in wires:
@@ -273,7 +296,11 @@ def apply_delta(delta: Val, stage: str, stage_value: str,
     selected axis value itself, folded into the rule-8 drift-hint
     wording. Metadata-key rejection (board:/sockets:) fires first, exactly
     as rigexp's own `_apply_delta` does. `variant` is the RIG's selected
-    variant (rule 12's context, only meaningful when stage == "revision")."""
+    variant (rule 12's context, only meaningful when stage == "revision").
+
+    Returns (topology, diagnostics, deps): a NEW Topology -- the input
+    one is never mutated -- plus this stage's findings in document
+    order and the files its shield resolutions touched."""
     code = "lang-variant" if stage == "variant" else "lang-rev"
     diags: List[Diagnostic] = list(reject_metadata_keys(delta))
     deps: Deps = frozenset()

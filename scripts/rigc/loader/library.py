@@ -32,6 +32,7 @@ side channel written into by many unrelated callers.
 from __future__ import annotations
 
 import glob
+import logging
 import os
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
@@ -44,6 +45,8 @@ from ..registry import load_types
 from ..shields import parse_shields
 from .axes import normalize_revision, parse_axis_decl
 from .documents import parse_marked
+
+log = logging.getLogger(__name__)
 
 #: The vendored default shield library (direct API / test use only -- the
 #: CLI always resolves --shield-dir roots and threads them down instead).
@@ -87,7 +90,14 @@ class ShieldLibrary:
         shield-side analogue of a qualified rig target's own axis
         resolution -- plus lang-instance-shield for a name this library
         never discovered at all. `ctx` names the caller (e.g. "instance
-        'sensor_0'") for that diagnostic's message."""
+        'sensor_0'") for that diagnostic's message.
+
+        Returns (shield, diagnostics, deps); shield is None when
+        resolution failed (the diagnostics say why) or when the
+        scan already reported this template's defect. The library
+        memoizes resolved revisions in place -- its own cache, not
+        a shared accumulator; the caller owns diagnostics and
+        deps."""
         name, sep, rev = ref.partition("@")
         if name not in self.axes:
             return None, [error(
@@ -227,7 +237,12 @@ def load_shield_library(workdir: str, shield_dirs: Optional[List[str]] = None,
     `shield_dirs` is a LIST of shield-library roots, unioned into one
     library; None falls back to the vendored default (direct API / test
     use only). `types` is the connector-type registry every shield's plug
-    is checked against; None falls back to `registry.load_types()`."""
+    is checked against; None falls back to `registry.load_types()`.
+
+    Returns (library, diagnostics, deps): the library, with every
+    axis-less shield already parsed and every revisioned one pending
+    lazy resolution; every scan-time finding in discovery order; and
+    every file the scan read. The caller owns all three."""
     diags: List[Diagnostic] = []
     deps: Deps = frozenset()
     if types is None:
@@ -274,6 +289,7 @@ def load_shield_library(workdir: str, shield_dirs: Optional[List[str]] = None,
                     pending[name] = _Pending(shield_dir, base_file, decl)
     except LoadError as e:
         raise LoadError(*diags, *e.diags) from None
+    log.info("shield library: %d eager, %d pending", len(shields), len(pending))
     lib = ShieldLibrary(shields=shields, axes=axes, pending=pending,
                        ymls=ymls, types=types, workdir=workdir,
                        include_dirs=include_dirs)

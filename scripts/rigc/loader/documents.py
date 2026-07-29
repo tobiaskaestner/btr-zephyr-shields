@@ -66,7 +66,11 @@ def parse_marked(path: str) -> Val:
 
     YAML parse errors (lang-parse) have no frozen golden (rigc-r2-brief.md
     Sec 2) -- Unimplemented is the always-acceptable choice (Sec 6), taken
-    here rather than inventing unverified wording."""
+    here rather than inventing unverified wording.
+
+    Returns the file's Val tree; raises Unimplemented on an unreadable
+    file or malformed YAML (the recorded R2 choice -- no golden covers
+    lang-parse here)."""
     try:
         with open(path) as f:
             try:
@@ -94,7 +98,10 @@ def require(mapping: Val, key: str, ctx: str) -> tuple[Val | None, list[Diagnost
     missing -- rigexp's own `_require`, ported as a return-value
     function (diagnostics stay RETURN values, mission brief Sec 6). No
     frozen golden covers this exact wording; hand-differentialed against
-    rigexp per rigc-r2-brief.md Sec 6 (recorded in the slice report)."""
+    rigexp per rigc-r2-brief.md Sec 6 (recorded in the slice report).
+
+    Returns (value, diagnostics): the key's Val, or None beside the
+    single missing-key error."""
     m = as_mapping(mapping, ctx)
     if key not in m:
         return None, [error(

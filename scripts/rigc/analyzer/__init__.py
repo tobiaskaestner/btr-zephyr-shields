@@ -29,6 +29,7 @@ own for the emitter to read.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
@@ -43,6 +44,8 @@ from .sockets import resolve_sockets
 from .wires import check_wires
 
 __all__ = ["Solved", "analyze"]
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -75,24 +78,35 @@ def analyze(rig: Rig, board: Board, types: Dict[str, ConnectorType],
     always produces a Solved, even when passes along the way append
     errors (the caller decides whether to reject, exactly as the
     blueprint's own `analyze()` does -- `diags.errors` gates acceptance,
-    not the return value's presence)."""
+    not the return value's presence).
+
+    Returns (solved, diagnostics): the Solved model, assembled once
+    from the passes' returned pieces, plus every finding in pass
+    order. The caller owns both; rig/board/types are read-only here."""
     diags: List[Diagnostic] = []
 
+    log.info("analyze(): pass 'sockets'")
     resolution, d = resolve_sockets(rig, board, types)
     diags += d
     # instances whose mating failed are absent from resolution.sockets;
     # every later pass skips them individually rather than aborting the
     # whole rig.
+    log.info("analyze(): pass 'gpio nets'")
     gpio_result, d = collect_gpio_nets(rig, resolution.sockets, types)
     diags += d
+    log.info("analyze(): pass 'addresses'")
     addr_result, d = allocate_addresses(rig, resolution.sockets)
     diags += d
+    log.info("analyze(): pass 'cs'")
     cs_result, d = allocate_cs(rig, resolution.sockets, types, gpio_result.nets)
     diags += d
     all_nets = merge_nets(gpio_result.nets, cs_result.nets)
+    log.info("analyze(): pass 'wires'")
     wires, d = check_wires(rig, resolution.sockets, types)
     diags += d
+    log.info("analyze(): pass 'net conflicts'")
     diags += check_nets(all_nets, types)
+    log.info("analyze(): pass 'labels'")
     diags += check_labels(rig)
 
     solved = Solved(

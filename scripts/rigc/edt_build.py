@@ -30,6 +30,7 @@ with $ZEPHYR_BASE unset.
 """
 from __future__ import annotations
 
+import logging
 import os
 import subprocess
 import sys
@@ -40,6 +41,10 @@ import yaml
 
 if TYPE_CHECKING:
     from devicetree import edtlib
+
+#: stdlib logging only (no product import, SPDX header above) --
+#: rigc-r45-brief.md Part B's BSD-3 reader-module rule.
+log = logging.getLogger(__name__)
 
 
 def ensure_devicetree_on_path() -> None:
@@ -109,11 +114,14 @@ def recipe_from_build_info(build_info_path: str) -> BuildRecipe:
 def preprocess(dts_path: str, include_dirs: List[str], out_path: str) -> None:
     """cpp dts_path, exactly as a real board-DTS preprocess does: no
     standard include path, one -isystem per include_dirs entry, and
-    -D__DTS__ (the sole macro Zephyr's own board-DTS cpp step defines)."""
+    -D__DTS__ (the sole macro Zephyr's own board-DTS cpp step defines).
+
+    Writes the preprocessed text to out_path and returns None."""
     cmd = ["gcc", "-E", "-x", "assembler-with-cpp", "-nostdinc"]
     for include_dir in include_dirs:
         cmd += ["-isystem", include_dir]
     cmd += ["-D__DTS__", dts_path, "-o", out_path]
+    log.debug("cpp argv: %s", cmd)
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(f"cpp failed on {dts_path}:\n{result.stderr}")
@@ -127,11 +135,14 @@ def build_edt(dts_path: str, recipe: BuildRecipe, workdir: str) -> "edtlib.EDT":
     infer_binding_for_paths covers the two paths a real build always
     carries without a dedicated binding (/zephyr,user, /cpus), matching
     what a normal Zephyr configure does for the same board.
-    """
+
+    Returns a fresh edtlib.EDT over the preprocessed devicetree;
+    workdir receives the intermediate file."""
     ensure_devicetree_on_path()
     from devicetree import edtlib
     os.makedirs(workdir, exist_ok=True)
     pre = os.path.join(workdir, os.path.basename(dts_path) + ".pre")
+    log.debug("TU: %s (board dts %s)", pre, dts_path)
     preprocess(dts_path, recipe.include_dirs, pre)
     return edtlib.EDT(
         pre, recipe.bindings_dirs,

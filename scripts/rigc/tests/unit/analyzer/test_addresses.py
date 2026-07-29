@@ -1,176 +1,132 @@
-"""Address allocation, per I2C-bus SCOPE (rigc-r4-brief.md Sec 2):
-fixed (copper `reg`) wins outright, pinned (`pin:` strap) resolves
-through the strap's own domain, everything else free-allocates from that
-same domain -- in R18 allocation order. Exercised over minimal
-constructed Instance/Device/Shield/BoardSocket values; no rig.yml, no
-Board, no loader anywhere."""
+"""Where and how the final I2C address is calculated (mission brief Sec 6's
+acid test, applied to addresses rather than cs-gpios -- rigc-r45-brief.md
+Part C): `allocate_scope_addresses` is THE algorithm, extracted from
+`_allocate_scope` as a value-shaped contract -- given one scope's members
+in R18 allocation order (some copper-fixed, some rig-pinned, some free),
+each already carrying its own address(es), assign every member an address
+(+ strap state), or report why not (an out-of-domain pin, a same-address
+conflict, or a free member's domain exhausted).
+
+Every test here constructs plain AddressMember values directly -- no
+Rig, Instance, Shield, Device, or BoardSocket anywhere -- proving the
+contract needs no scenario to exercise (rigc-mission-brief.md Sec 5's
+"a reject is not a unit concern ... this layer is new coverage of a
+different subject", the same standard `test_cs.py` already meets for CS
+allocation)."""
 from __future__ import annotations
 
-from rigc.analyzer.addresses import allocate_addresses
-from rigc.model import (BoardSocket, BusRef, Device, Instance, Rig, Shield,
-                        Strap)
+from rigc.analyzer.addresses import (AddressMember, AddressPlacement,
+                                     AddressProblem, allocate_scope_addresses)
+
+# ---------------------------------------------------------------- fixed wins outright
 
 
-def _socket(path: str = "/i2c1") -> BoardSocket:
-    return BoardSocket(label="sock", path=path, type_name="t", gpio_map={},
-                      buses={"i2c": BusRef(label="i2c1", path=path)},
-                      cs_pool=None)
+def test_fixed_member_is_claimed_verbatim() -> None:
+    members = [AddressMember(identity="a", fixed=0x50)]
+    placements, problems = allocate_scope_addresses(members)
+    assert placements == [AddressPlacement("a", 0x50, None, "fixed")]
+    assert problems == []
 
 
-def _shield(straps=None) -> Shield:
-    return Shield(name="sh", label="sh", plugs="t", straps=straps or {})
+def test_two_fixed_members_at_the_same_address_conflict() -> None:
+    members = [AddressMember(identity="a", fixed=0x5f),
+              AddressMember(identity="b", fixed=0x5f)]
+    placements, problems = allocate_scope_addresses(members)
+    assert placements == [AddressPlacement("a", 0x5f, None, "fixed")]
+    assert problems == [AddressProblem("conflict", "b", address=0x5f, first="a")]
 
 
-def _dev(name: str, reg=None, addr_from=None) -> Device:
-    return Device(name=name, label=name, compatible=None, bus="i2c",
-                 group=None, reg=reg, addr_from=addr_from, cs_position=None)
+# ---------------------------------------------------------------- pinned resolves through its domain
 
 
-def _inst(name: str, shield: Shield, pins=None) -> Instance:
-    return Instance(name=name, shield=shield, socket="sock", pins=pins or {})
+def test_pinned_member_resolves_through_its_domain() -> None:
+    members = [AddressMember(identity="a", pin=(0x11, ((0x10, 0), (0x11, 1))))]
+    placements, problems = allocate_scope_addresses(members)
+    assert placements == [AddressPlacement("a", 0x11, 1, "pinned")]
+    assert problems == []
 
 
-def test_fixed_address_is_claimed_verbatim() -> None:
-    dev = _dev("sensor", reg=0x50)
-    inst = _inst("i1", _shield())
-    inst.shield.devices.append(dev)
-    rig = Rig(name="r", instances=[inst])
-
-    result, diags = allocate_addresses(rig, {"i1": _socket()})
-
-    assert diags == []
-    assert result.addr[("i1", "sensor")] == 0x50
+def test_pinned_member_outside_its_domain_is_out_of_domain() -> None:
+    members = [AddressMember(identity="a", pin=(0x99, ((0x10, 0),)))]
+    placements, problems = allocate_scope_addresses(members)
+    assert placements == []
+    assert problems == [AddressProblem("out-of-domain", "a")]
 
 
-def test_two_fixed_addresses_on_one_bus_collide() -> None:
-    a = _dev("a", reg=0x5f)
-    b = _dev("b", reg=0x5f)
-    inst_a = _inst("i1", _shield())
-    inst_a.shield.devices.append(a)
-    inst_b = _inst("i2", _shield())
-    inst_b.shield.devices.append(b)
-    rig = Rig(name="r", instances=[inst_a, inst_b])
-
-    _result, diags = allocate_addresses(
-        rig, {"i1": _socket(), "i2": _socket()})
-
-    assert len(diags) == 1
-    assert diags[0].code == "phys-addr"
+def test_a_fixed_claim_can_collide_with_a_later_pinned_member() -> None:
+    """Allocation order (fixed, then pinned) feeds members here already
+    grouped -- an earlier fixed claim narrows what a LATER pinned member
+    may still claim, exactly like CS's fixed-precedence-over-pool test."""
+    members = [
+        AddressMember(identity="fixed", fixed=0x50),
+        AddressMember(identity="pinned", pin=(0x50, ((0x50, 0),))),
+    ]
+    placements, problems = allocate_scope_addresses(members)
+    assert placements == [AddressPlacement("fixed", 0x50, None, "fixed")]
+    assert problems == [
+        AddressProblem("conflict", "pinned", address=0x50, first="fixed")]
 
 
-def test_pinned_address_resolves_through_the_strap_domain() -> None:
-    strap = Strap(name="addr", label="addr", domain=[(0x10, 0), (0x11, 1)],
-                 sheet_label="")
-    shield = _shield(straps={"addr": strap})
-    dev = _dev("sensor", addr_from="addr")
-    inst = _inst("i1", shield, pins={"addr": 0x11})
-    inst.shield.devices.append(dev)
-    rig = Rig(name="r", instances=[inst])
-
-    result, diags = allocate_addresses(rig, {"i1": _socket()})
-
-    assert diags == []
-    assert result.addr[("i1", "sensor")] == 0x11
-    assert result.straps == [(inst, strap, 1, 0x11)]
+# ---------------------------------------------------------------- free allocation
 
 
-def test_pinned_address_outside_the_strap_domain_is_phys_pin() -> None:
-    strap = Strap(name="addr", label="addr", domain=[(0x10, 0)], sheet_label="")
-    shield = _shield(straps={"addr": strap})
-    dev = _dev("sensor", addr_from="addr")
-    inst = _inst("i1", shield, pins={"addr": 0x99})
-    inst.shield.devices.append(dev)
-    rig = Rig(name="r", instances=[inst])
-
-    _result, diags = allocate_addresses(rig, {"i1": _socket()})
-
-    assert len(diags) == 1
-    assert diags[0].code == "phys-pin"
+def test_free_member_picks_the_first_unclaimed_domain_address() -> None:
+    members = [AddressMember(identity="a", free=((0x10, 0), (0x11, 1)))]
+    placements, problems = allocate_scope_addresses(members)
+    assert placements == [AddressPlacement("a", 0x10, 0, "free")]
+    assert problems == []
 
 
-def test_free_allocation_picks_first_unclaimed_domain_address() -> None:
-    strap = Strap(name="addr", label="addr", domain=[(0x10, 0), (0x11, 1)],
-                 sheet_label="")
-    shield = _shield(straps={"addr": strap})
-    dev = _dev("sensor", addr_from="addr")
-    inst = _inst("i1", shield)         # no pin: -- free allocation
-    inst.shield.devices.append(dev)
-    rig = Rig(name="r", instances=[inst])
-
-    result, diags = allocate_addresses(rig, {"i1": _socket()})
-
-    assert diags == []
-    assert result.addr[("i1", "sensor")] == 0x10
-    assert result.straps == [(inst, strap, 0, 0x10)]
+def test_free_member_skips_an_already_taken_candidate() -> None:
+    members = [
+        AddressMember(identity="taken", fixed=0x10),
+        AddressMember(identity="free", free=((0x10, 0), (0x11, 1))),
+    ]
+    placements, problems = allocate_scope_addresses(members)
+    assert placements == [
+        AddressPlacement("taken", 0x10, None, "fixed"),
+        AddressPlacement("free", 0x11, 1, "free"),
+    ]
+    assert problems == []
 
 
-def test_free_allocation_exhaustion_is_phys_addr() -> None:
-    strap = Strap(name="addr", label="addr", domain=[(0x10, 0)], sheet_label="")
-    taken = _dev("taken", reg=0x10)
-    free = _dev("free", addr_from="addr")
-    inst_a = _inst("i1", _shield(straps={"addr": strap}))
-    inst_a.shield.devices.append(taken)
-    inst_b = _inst("i2", _shield(straps={"addr": strap}))
-    inst_b.shield.devices.append(free)
-    rig = Rig(name="r", instances=[inst_a, inst_b])
-
-    _result, diags = allocate_addresses(
-        rig, {"i1": _socket(), "i2": _socket()})
-
-    assert len(diags) == 1
-    assert diags[0].code == "phys-addr"
-    assert "exhausted" in diags[0].message
+def test_free_domain_exhaustion_reports_the_full_occupancy_snapshot() -> None:
+    members = [
+        AddressMember(identity="taken", fixed=0x10),
+        AddressMember(identity="free", free=((0x10, 0),)),
+    ]
+    placements, problems = allocate_scope_addresses(members)
+    assert placements == [AddressPlacement("taken", 0x10, None, "fixed")]
+    assert problems == [
+        AddressProblem("exhausted", "free", occupied=((0x10, "taken"),))]
 
 
-def test_allocation_is_scoped_per_bus_not_shared_globally() -> None:
-    """Two DIFFERENT I2C buses (different socket paths) each get their
-    OWN address space -- the same fixed address on two separate buses is
-    not a conflict."""
-    a = _dev("a", reg=0x50)
-    b = _dev("b", reg=0x50)
-    inst_a = _inst("i1", _shield())
-    inst_a.shield.devices.append(a)
-    inst_b = _inst("i2", _shield())
-    inst_b.shield.devices.append(b)
-    rig = Rig(name="r", instances=[inst_a, inst_b])
-
-    result, diags = allocate_addresses(
-        rig, {"i1": _socket(path="/i2c1"), "i2": _socket(path="/i2c2")})
-
-    assert diags == []
-    assert result.addr[("i1", "a")] == 0x50
-    assert result.addr[("i2", "b")] == 0x50
+def test_exhaustion_is_per_member_not_all_or_nothing() -> None:
+    """One free member's domain exhausting does not stop a LATER free
+    member (of a different, still-open domain) from placing."""
+    members = [
+        AddressMember(identity="taken", fixed=0x10),
+        AddressMember(identity="a", free=((0x10, 0),)),
+        AddressMember(identity="b", free=((0x20, 0),)),
+    ]
+    placements, problems = allocate_scope_addresses(members)
+    assert [p.identity for p in placements] == ["taken", "b"]
+    assert problems == [
+        AddressProblem("exhausted", "a", occupied=((0x10, "taken"),))]
 
 
-def test_a_mux_channel_is_a_new_scope_r26() -> None:
-    """A composed (mux-channel) socket's own path IS its scope identity --
-    two fixed-same-address devices on the SAME channel still collide
-    (proven above by test_two_fixed_addresses_on_one_bus_collide re-used
-    at a channel path), but a device on a DIFFERENT channel path does
-    not, which is what this test pins."""
-    a = _dev("a", reg=0x48)
-    b = _dev("b", reg=0x48)
-    inst_a = _inst("sensor_a", _shield())
-    inst_a.shield.devices.append(a)
-    inst_b = _inst("sensor_b", _shield())
-    inst_b.shield.devices.append(b)
-    rig = Rig(name="r", instances=[inst_a, inst_b])
-
-    result, diags = allocate_addresses(
-        rig, {"sensor_a": _socket(path="/mux_1/ch0"),
-             "sensor_b": _socket(path="/mux_1/ch1")})
-
-    assert diags == []
-    assert result.addr == {("sensor_a", "a"): 0x48, ("sensor_b", "b"): 0x48}
-
-
-def test_instances_without_a_resolved_socket_are_skipped() -> None:
-    dev = _dev("sensor", reg=0x50)
-    inst = _inst("orphan", _shield())
-    inst.shield.devices.append(dev)
-    rig = Rig(name="r", instances=[inst])
-
-    result, diags = allocate_addresses(rig, {})
-
-    assert result.addr == {}
-    assert diags == []
+def test_two_free_members_of_one_call_do_not_collide_with_each_other() -> None:
+    """Each placement's address is added to the shared `taken` map before
+    the next member is considered -- matching the blueprint's single
+    sequential pass, where each registration is visible to every later
+    member of the scope."""
+    members = [
+        AddressMember(identity="a", free=((0x10, 0), (0x11, 1))),
+        AddressMember(identity="b", free=((0x10, 0), (0x11, 1))),
+    ]
+    placements, problems = allocate_scope_addresses(members)
+    assert placements == [
+        AddressPlacement("a", 0x10, 0, "free"),
+        AddressPlacement("b", 0x11, 1, "free"),
+    ]
+    assert problems == []

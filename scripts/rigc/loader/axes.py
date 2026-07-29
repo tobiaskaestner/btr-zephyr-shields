@@ -66,7 +66,11 @@ def parse_axis_decl(container_v: Val, key: str,
     `variants:` list may take that no other axis may: a list entry given
     as a mapping {name:, board:, sockets:} rather than a bare name. A
     rig's `revisions:` axis (and every shield.yml `revisions:`) passes
-    False and so takes scalars only."""
+    False and so takes scalars only.
+
+    Returns (decl, diagnostics): the parsed declaration, or None when
+    the key is absent or its shape was rejected -- the diagnostics
+    distinguish the two."""
     axis_v = container_v.value.get(key)
     if axis_v is None:
         return None, []
@@ -129,7 +133,10 @@ def check_axis_collision(rig_name: str, variants: Optional[AxisDecl],
     axis alone, plus every combined (variant, revision) pair -- and
     reports every collision. Subsumes the original (narrower) rule: a
     variant name equal to a revision id is the case where two
-    SINGLE-axis stems collide."""
+    SINGLE-axis stems collide.
+
+    Returns the collision findings, possibly empty; the declarations
+    are read-only."""
     variant_values = variants.values if variants is not None else []
     revision_values = revisions.values if revisions is not None else []
     origins: dict[str, list[str]] = {}
@@ -169,7 +176,12 @@ def resolve_axis(rig_name: str, axis_kind: str, decl_key: str,
     not-a-member wording -- it points the author at the right place. A
     selected value against a DECLARED axis must be one of its members. A
     bare (unselected) axis takes the declared default; if the axis is
-    declared but has none, that is an error."""
+    declared but has none, that is an error.
+
+    Returns (value, diagnostics): the selected axis value, or None
+    either legitimately (no axis declared and nothing selected) or
+    after a reported failure -- an error in the list is what
+    distinguishes them."""
     code = "lang-rev" if axis_kind == "revision" else "lang-variant"
     if selected is not None:
         if decl is None:

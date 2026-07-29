@@ -15,6 +15,10 @@ from ..model import Instance, Rig
 
 
 def check_labels(rig: Rig) -> List[Diagnostic]:
+    """Emission feasibility: composed output labels
+    (<instance>_<shield-local-label>) must be unique across the rig.
+
+    Returns the label findings (phys-label); rig is read-only."""
     diags: List[Diagnostic] = []
     seen: Dict[str, Instance] = {}
     for inst in rig.instances:
