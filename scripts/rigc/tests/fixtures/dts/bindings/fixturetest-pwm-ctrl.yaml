@@ -1,0 +1,16 @@
+description: Purpose-built fixture PWM controller binding (rigc's own
+  board_edt/boarddt unit-test data, never a copy of a real controller
+  binding).
+
+compatible: "fixturetest,pwm-ctrl"
+
+properties:
+  reg:
+    type: array
+  "#pwm-cells":
+    type: int
+    required: true
+
+pwm-cells:
+  - channel
+  - period

@@ -213,6 +213,44 @@ class Instance:
     src: Optional[SourceRef] = None
 
 
+# ---------------------------------------------------------------- board side
+# The board DT is analyzer input (Conv. 4: the analyzer reads the board DT
+# to find socket nodes by compatible); these are READ, never authored,
+# facts -- populated by board_edt.py, never redefined there.
+
+
+@dataclass
+class BusRef:
+    label: str          # "i2c1" -- emission target &i2c1
+    path: str           # dtlib path, scope identity
+
+
+@dataclass
+class BoardSocket:
+    label: str                                  # "nucleo_ard" -- what rig socket: names
+    path: str
+    type_name: str                               # from compatible "socket,<type>"
+    gpio_map: Dict[int, Tuple[str, int, int]]    # position -> (ctrl label, pin, flags)
+    buses: Dict[str, BusRef]                     # "i2c"/"spi"/"uart" present = offered subset
+    cs_pool: Optional[List[int]]                 # authored override, else type default
+    pwm_map: Dict[int, Tuple[str, int]] = field(default_factory=dict)  # position -> (ctrl label, channel)
+    adc_map: Dict[int, Tuple[str, int]] = field(default_factory=dict)  # position -> (ctrl label, channel)
+    # emission (R19): every socket is referenced through a nexus. Board
+    # sockets are real DT nodes (nexus_label=None -> use label, nothing to
+    # synthesize); a carrier's re-exported socket has no DT node of its own,
+    # so the analyzer/emitter SYNTHESIZE one that chains to its parent's.
+    nexus_label: Optional[str] = None
+    nexus_rows: Optional[List[Tuple[int, str, int]]] = None  # [(child_pos, parent_nexus_label, parent_pos)]
+    parent: Optional["BoardSocket"] = None       # parent BoardSocket (transitive synthesis)
+    src: Optional[SourceRef] = None
+
+
+@dataclass
+class Board:
+    name: str
+    sockets: Dict[str, BoardSocket] = field(default_factory=dict)   # by label
+
+
 @dataclass
 class AxisDecl:
     """One declared qualifier axis (rig.yml `revisions:` or `variants:`):

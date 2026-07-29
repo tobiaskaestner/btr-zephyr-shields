@@ -1,0 +1,59 @@
+description: |
+  Purpose-built fixture connector-type binding for rigc's own board_edt/
+  boarddt unit tests (tests/unit/test_board_edt.py, tests/unit/
+  test_boarddt.py) -- never a copy of a real dts/bindings/connectors/
+  *.yaml type (rigc-mission-brief.md Sec 7: hermetic means no Zephyr
+  DATA). Declares exactly the nexus shapes board_edt.py's projection
+  reads: gpio-map (required, every socket has one), pwm-map/
+  io-channel-map (optional, only PWM/ADC-capable sockets carry them),
+  socket,i2c (a bus proxy phandle), socket,cs-pool (the CS pool
+  default).
+
+compatible: "socket,fixture-nexus"
+
+properties:
+  socket,i2c:
+    type: phandle
+    description: the I2C controller this socket exposes, if any
+
+  socket,cs-pool:
+    type: array
+    description: ordered default CS candidate positions
+
+  "#gpio-cells":
+    type: int
+    required: true
+
+  gpio-map:
+    type: compound
+    required: true
+
+  gpio-map-mask:
+    type: array
+
+  gpio-map-pass-thru:
+    type: array
+
+  "#pwm-cells":
+    type: int
+
+  pwm-map:
+    type: compound
+
+  pwm-map-mask:
+    type: array
+
+  pwm-map-pass-thru:
+    type: array
+
+  "#io-channel-cells":
+    type: int
+
+  io-channel-map:
+    type: compound
+
+  io-channel-map-mask:
+    type: array
+
+  io-channel-map-pass-thru:
+    type: array

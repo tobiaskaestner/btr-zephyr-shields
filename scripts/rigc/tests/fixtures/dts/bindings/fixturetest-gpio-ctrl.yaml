@@ -1,0 +1,18 @@
+description: Purpose-built fixture GPIO controller binding (rigc's own
+  board_edt/boarddt unit-test data, never a copy of a real controller
+  binding).
+
+compatible: "fixturetest,gpio-ctrl"
+
+properties:
+  reg:
+    type: array
+  gpio-controller:
+    type: boolean
+  "#gpio-cells":
+    type: int
+    required: true
+
+gpio-cells:
+  - pin
+  - flags

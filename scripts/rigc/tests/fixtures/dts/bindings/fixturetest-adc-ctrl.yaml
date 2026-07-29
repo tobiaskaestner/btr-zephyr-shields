@@ -1,0 +1,15 @@
+description: Purpose-built fixture ADC controller binding (rigc's own
+  board_edt/boarddt unit-test data, never a copy of a real controller
+  binding).
+
+compatible: "fixturetest,adc-ctrl"
+
+properties:
+  reg:
+    type: array
+  "#io-channel-cells":
+    type: int
+    required: true
+
+io-channel-cells:
+  - input

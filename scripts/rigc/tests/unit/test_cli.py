@@ -119,22 +119,40 @@ def test_main_is_callable_in_process(tmp_path: Path) -> None:
     assert ret == 3
 
 
-def test_inert_options_are_accepted(tmp_path: Path) -> None:
-    """--board-dts/--build-info/--bindings-dir have no R3 subsystem yet:
-    parse and change nothing. Both calls below pass the SAME (empty)
-    --shield-dir/--connector-dir/--include-dir, since those three ARE
-    live as of R3 (the shield library + registry) -- this comparison
-    isolates the genuinely still-inert three."""
-    common = ["--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path),
-             "--connector-dir", str(tmp_path / "no_connectors_here"),
-             "--include-dir", str(tmp_path / "no_includes_here")]
-    rig = tmp_path / "no-such-rig.yml"
-    bare = main(["expand", str(rig), *common])
-    loaded = main(["expand", str(rig),
-                   "--board-dts", "b.dts", "--build-info", "bi.yml",
-                   "--bindings-dir", "bd",
-                   *common])
-    assert bare == loaded == 3
+def test_board_reading_options_are_now_live(tmp_path: Path) -> None:
+    """--board-dts/--build-info/--bindings-dir were inert through R3;
+    rigc-r4-brief.md Sec 1 wires them into the board reader. A rig with
+    no board-resolution problem of its own (loader accepts cleanly) but
+    naming a --board-dts that does not exist on disk must now be rejected
+    (exit 1, phys-board) -- proving the option actually reaches
+    boarddt.load_board rather than being parsed and discarded. (A rig the
+    LOADER itself rejects first -- e.g. unreadable -- still exits 3
+    regardless of these options: see test_recipe_resolved_lazily below,
+    which is the case that used to make this look inert.)"""
+    (tmp_path / "rig.yml").write_text(
+        "rig:\n"
+        "  name: r\n"
+        "  board: some_board/soc/rig\n")
+    (tmp_path / "r.yml").write_text("instances: []\n")
+    ret = main(["expand", str(tmp_path / "rig.yml"),
+               "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path),
+               "--board-dts", str(tmp_path / "no-such-board.dts")])
+    assert ret == 1
+
+
+def test_recipe_resolved_lazily(tmp_path: Path) -> None:
+    """A bogus --build-info path must never crash the run when the rig
+    itself is rejected first (here: unreadable) -- the recipe is a
+    board-reading concern, resolved only once the loader has already
+    accepted, never eagerly alongside the other inputs (cli.py's own
+    docstring at the _resolve_recipe call site). Before this was ordered
+    correctly, `open()`-ing a nonexistent --build-info path raised an
+    unhandled FileNotFoundError -- a traceback, which is never an
+    acceptable outcome (rigc-r1-brief.md Sec 1)."""
+    ret = main(["expand", str(tmp_path / "no-such-rig.yml"),
+               "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path),
+               "--build-info", str(tmp_path / "no-such-build-info.yml")])
+    assert ret == 3
 
 
 # ------------------------------------------------- loud, distinct refusals
@@ -172,14 +190,30 @@ def test_out_of_scope_feature_refuses(tmp_path: Path,
 
 
 def test_accept_path_refuses_rather_than_accepting(
-        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """Input the R1 sliver finds nothing wrong with must still exit 3:
-    with no analyzer/emitter, exit 0 would be a silent lie."""
+        tmp_path: Path, capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Input the loader/analyzer find nothing wrong with must still exit
+    3: with no emitter, exit 0 would be a silent lie. Board reading is
+    stubbed via monkeypatch rather than a real board .dts + cpp -- board
+    reading is integration-only by construction (rigc-r3-brief.md Sec 2's
+    cpp/unit-test seam applies here just the same as it does to the
+    shield side: reaching real cpp makes a test integration, never unit),
+    so THIS invariant (the accept path still refuses) is proven without
+    one, and the unit suite stays subprocess-free."""
+    import rigc.boarddt
+    from rigc.model import Board
+
     (tmp_path / "rig.yml").write_text(
         "rig:\n"
         "  name: r\n"
         "  board: some_board/soc/rig\n")
     (tmp_path / "r.yml").write_text("instances: []\n")
+
+    def fake_load_board(name: str, workdir: str, board_dts=None, recipe=None):
+        return Board(name=name, sockets={}), [], frozenset()
+
+    monkeypatch.setattr(rigc.boarddt, "load_board", fake_load_board)
+
     ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
                              "--out-dir", str(tmp_path / "out"),
                              *_no_shields(tmp_path)])
