@@ -5,6 +5,17 @@ Two contracts live here, both cli.py's own: the frozen argv surface
 build_parser()/main(), no subprocess) and the loud-refusal behaviour of
 unimplemented paths (exit 3, single-line `rigc: not implemented: <what>`
 on stderr, never a traceback, never exit 1, never a silent accept).
+
+Every `main([...])` call below passes an EXPLICIT `--shield-dir` pointing
+at an empty/nonexistent directory (`_no_shields`) -- R3 makes shield-dir
+scanning live (it runs unconditionally, before rig.yml even opens), and
+the CLI's own bare-invocation fallback is the vendored PRODUCTION shield
+library (`loader/library.py`'s `SHIELDS_DIR`, direct-API/test use only per
+its own docstring). Omitting `--shield-dir` here would make these unit
+tests silently scan and cpp-parse real repo shield content -- a
+subprocess call and a hermeticity violation both, so every call site
+supplies one (`glob.glob` on a directory that does not exist just returns
+`[]`, no error -- the directory need not exist, only be named).
 """
 from __future__ import annotations
 
@@ -14,6 +25,19 @@ from pathlib import Path
 import pytest
 
 from rigc.cli import build_parser, main
+
+
+def _no_shields(tmp_path: Path) -> list[str]:
+    """Point EVERY library root that has a production fallback at an
+    empty directory -- --shield-dir alone is not enough: --connector-dir
+    has the identical None-falls-back-to-the-real-tree shape
+    (cli._expand -> load_types -> registry.BINDINGS), so omitting it made
+    the unit suite read production connector bindings and headers (R3
+    review finding D2). A unit test touches NO production data."""
+    empty = tmp_path / "no_library_here"
+    return ["--shield-dir", str(empty),
+            "--connector-dir", str(empty),
+            "--include-dir", str(empty)]
 
 
 def _parse(extra: list[str]) -> argparse.Namespace:
@@ -90,23 +114,26 @@ def test_main_is_callable_in_process(tmp_path: Path) -> None:
     """main(argv) -> int -- returns rather than raises for every
     non-usage outcome (here: an unimplemented path, exit code 3)."""
     ret = main(["expand", str(tmp_path / "no-such-rig.yml"),
-                "--out-dir", str(tmp_path / "out")])
+                "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path)])
     assert isinstance(ret, int)
     assert ret == 3
 
 
 def test_inert_options_are_accepted(tmp_path: Path) -> None:
-    """Options without an R1 subsystem parse and change nothing: the
-    outcome with and without them is identical (inert-but-accepted,
-    rigc-r1-brief.md Sec 2)."""
-    argv_tail = ["--out-dir", str(tmp_path / "out")]
+    """--board-dts/--build-info/--bindings-dir have no R3 subsystem yet:
+    parse and change nothing. Both calls below pass the SAME (empty)
+    --shield-dir/--connector-dir/--include-dir, since those three ARE
+    live as of R3 (the shield library + registry) -- this comparison
+    isolates the genuinely still-inert three."""
+    common = ["--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path),
+             "--connector-dir", str(tmp_path / "no_connectors_here"),
+             "--include-dir", str(tmp_path / "no_includes_here")]
     rig = tmp_path / "no-such-rig.yml"
-    bare = main(["expand", str(rig), *argv_tail])
+    bare = main(["expand", str(rig), *common])
     loaded = main(["expand", str(rig),
-                   "--shield-dir", str(tmp_path), "--board-dts", "b.dts",
-                   "--build-info", "bi.yml", "--bindings-dir", "bd",
-                   "--include-dir", "inc", "--connector-dir", "cd",
-                   *argv_tail])
+                   "--board-dts", "b.dts", "--build-info", "bi.yml",
+                   "--bindings-dir", "bd",
+                   *common])
     assert bare == loaded == 3
 
 
@@ -122,7 +149,8 @@ def _run(capsys: pytest.CaptureFixture[str], argv: list[str]) -> tuple[int, str]
 def test_unreadable_rig_refuses(tmp_path: Path,
                                 capsys: pytest.CaptureFixture[str]) -> None:
     ret, err = _run(capsys, ["expand", str(tmp_path / "absent.yml"),
-                             "--out-dir", str(tmp_path / "out")])
+                             "--out-dir", str(tmp_path / "out"),
+                             *_no_shields(tmp_path)])
     assert ret == 3
     assert err.startswith("rigc: not implemented: ")
     assert len(err.splitlines()) == 1  # one line -- never a traceback
@@ -130,23 +158,15 @@ def test_unreadable_rig_refuses(tmp_path: Path,
 
 def test_out_of_scope_feature_refuses(tmp_path: Path,
                                       capsys: pytest.CaptureFixture[str]) -> None:
-    """R2 implements the full rig.yml/content/delta document surface, so
-    a bare qualifier axis (used to be the R1-era out-of-scope example) no
-    longer refuses -- params: is the still-deferred capability (the
-    ShieldRef seam, R2 slice brief Sec 1): applying it needs the shield
-    library, wholesale deferred to R3."""
-    (tmp_path / "rig.yml").write_text(
-        "rig:\n"
-        "  name: r\n"
-        "  board: some_board/soc/rig\n")
-    (tmp_path / "r.yml").write_text(
-        "instances:\n"
-        "  - name: a\n"
-        "    shield: some_shield\n"
-        "    socket: s\n"
-        "    params: {dev: {x: '1'}}\n")
+    """R3 closes the ShieldRef seam (params:/pin: are fully implemented
+    now, the R2-era example this test used to exercise) -- a YAML parse
+    failure is the capability that stays Unimplemented (rigc-r2-brief.md
+    Sec 2: no frozen golden covers lang-parse wording, so Unimplemented
+    remains the deliberate, always-acceptable choice, unrevisited by R3)."""
+    (tmp_path / "rig.yml").write_text("rig: [this is not, valid: yaml\n")
     ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
-                             "--out-dir", str(tmp_path / "out")])
+                             "--out-dir", str(tmp_path / "out"),
+                             *_no_shields(tmp_path)])
     assert ret == 3
     assert err.startswith("rigc: not implemented: ")
 
@@ -161,6 +181,7 @@ def test_accept_path_refuses_rather_than_accepting(
         "  board: some_board/soc/rig\n")
     (tmp_path / "r.yml").write_text("instances: []\n")
     ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
-                             "--out-dir", str(tmp_path / "out")])
+                             "--out-dir", str(tmp_path / "out"),
+                             *_no_shields(tmp_path)])
     assert ret == 3
     assert err.startswith("rigc: not implemented: ")

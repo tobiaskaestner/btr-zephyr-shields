@@ -100,3 +100,18 @@ def test_deepest_scripts_component_wins() -> None:
 
 def test_relative_input_with_scripts_component() -> None:
     assert anchor_path("scripts/mod/tests/f.yml") == "tests/f.yml"
+
+
+# ------------------------------------------------------------------ LoadError
+
+def test_load_error_carries_every_diagnostic_it_unwound_past() -> None:
+    """The fatal-path contract (R3 review, D1): a LoadError renders as if
+    every finding had been returned normally -- so boundaries prepend
+    their accumulated diagnostics and NOTHING is lost to the raise. The
+    exception's own message is the fatal (last) finding's."""
+    from rigc.diag import LoadError, error
+    prior = error("lang-shield-name", "scanned earlier, must survive")
+    fatal = error("lang-parse", "the fatal finding")
+    e = LoadError(prior, fatal)
+    assert e.diags == (prior, fatal)
+    assert str(e) == "the fatal finding"

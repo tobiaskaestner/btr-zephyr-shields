@@ -61,6 +61,11 @@ def error(code: str, message: str,
     return Diagnostic(ERROR, code, message, tuple(refs))
 
 
+def warning(code: str, message: str,
+           refs: Sequence[SourceRef] = ()) -> Diagnostic:
+    return Diagnostic(WARNING, code, message, tuple(refs))
+
+
 def has_errors(diags: Iterable[Diagnostic]) -> bool:
     return any(d.severity == ERROR for d in diags)
 
@@ -99,3 +104,24 @@ def render(diags: Iterable[Diagnostic]) -> str:
     block per diagnostic, joined by newlines (no trailing newline; the
     caller's print() supplies it)."""
     return "\n".join(_render_one(d) for d in diags)
+
+
+class LoadError(Exception):
+    """A fatal loader failure (a YAML/DTS parse error, cpp preprocessing
+    that failed outright) -- loading cannot continue past this point at
+    all, unlike an ordinary Diagnostic finding, which composes upward as
+    data and lets the caller keep going (rigc-r2-brief.md Sec 6's
+    continuation shape). Carries the DIAGNOSTICS to render: the fatal
+    finding itself, plus -- prepended at each accumulation boundary that
+    the raise unwinds through (library scan, loader orchestration) --
+    everything that boundary had already gathered. rigexp's shared
+    accumulator survives the raise by OWNERSHIP; with diagnostics as
+    return values, carrying them in the exception is what keeps a raise
+    invisible in the rendered output (R3 review finding D1: the earlier
+    single-diag shape silently dropped every prior finding on the fatal
+    path -- a loss no frozen golden can catch, since none carries
+    lang-parse/lang-cpp)."""
+
+    def __init__(self, *diags: Diagnostic) -> None:
+        self.diags = diags
+        super().__init__(diags[-1].message if diags else "")
