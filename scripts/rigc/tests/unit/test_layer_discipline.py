@@ -52,10 +52,23 @@ def test_every_test_module_is_layer_classified() -> None:
         f"(the directory IS the layer classification): {offenders}")
 
 
+def _top_level_units() -> set[str]:
+    """Every valid unit NAME directly under the rigc package: a bare
+    module (cli.py -> "cli") or a SUB-PACKAGE (loader/ -> "loader",
+    R2's package-shaped loader) -- either way, a name a test module or a
+    tests/unit/<name>/ sub-folder may claim as its subject."""
+    units = {p.stem for p in RIGC_DIR.glob("*.py")}
+    units |= {p.name for p in RIGC_DIR.iterdir()
+             if p.is_dir() and (p / "__init__.py").is_file()
+             and p.name != "tests"}
+    return units | {"conftest"}
+
+
 def test_unit_test_modules_name_their_unit() -> None:
     """test_<name>.py names a rigc module (or conftest); a sub-folder
-    under tests/unit/ names the unit its modules share."""
-    units = {p.stem for p in RIGC_DIR.glob("*.py")} | {"conftest"}
+    under tests/unit/ names the unit its modules share -- a PACKAGE
+    (e.g. loader/) is as valid a unit name here as a bare module."""
+    units = _top_level_units()
     offenders = []
     for path in _python_files(TESTS_DIR / "unit"):
         if not path.name.startswith("test_"):

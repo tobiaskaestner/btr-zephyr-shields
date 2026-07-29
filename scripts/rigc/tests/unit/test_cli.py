@@ -130,13 +130,21 @@ def test_unreadable_rig_refuses(tmp_path: Path,
 
 def test_out_of_scope_feature_refuses(tmp_path: Path,
                                       capsys: pytest.CaptureFixture[str]) -> None:
+    """R2 implements the full rig.yml/content/delta document surface, so
+    a bare qualifier axis (used to be the R1-era out-of-scope example) no
+    longer refuses -- params: is the still-deferred capability (the
+    ShieldRef seam, R2 slice brief Sec 1): applying it needs the shield
+    library, wholesale deferred to R3."""
     (tmp_path / "rig.yml").write_text(
         "rig:\n"
         "  name: r\n"
-        "  board: some_board/soc/rig\n"
-        "  variants:\n"
-        "    default: a\n"
-        "    list: [a, b]\n")
+        "  board: some_board/soc/rig\n")
+    (tmp_path / "r.yml").write_text(
+        "instances:\n"
+        "  - name: a\n"
+        "    shield: some_shield\n"
+        "    socket: s\n"
+        "    params: {dev: {x: '1'}}\n")
     ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
                              "--out-dir", str(tmp_path / "out")])
     assert ret == 3

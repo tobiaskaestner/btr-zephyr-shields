@@ -4,10 +4,14 @@ The argv surface is fixed by the frozen suite itself (rigc-mission-brief.md
 Sec 2): `expand <rig_yml>` with --shield-dir* --board-dts --build-info
 --bindings-dir* --include-dir* --connector-dir* --revision --variant
 --out-dir (* = repeatable). Every option is PARSED here from day one;
-an option whose subsystem R1 has not built is accepted and inert
+an option whose subsystem rigc has not built yet is accepted and inert
 (conformance is observable bytes, and the covered rejects' bytes do not
-depend on it). main(argv) -> int is callable in-process, so the argv
-contract has subprocess-free unit tests.
+depend on it) -- as of R2, that is still every option but --revision/
+--variant: the loader builds no shield library at all (the ShieldRef
+seam, rigc-r2-brief.md Sec 1), so --shield-dir/--board-dts/--build-info/
+--bindings-dir/--include-dir/--connector-dir remain inert. main(argv) ->
+int is callable in-process, so the argv contract has subprocess-free
+unit tests.
 
 Exit vocabulary (rigc-r1-brief.md Sec 1): 0 accept, 1 rejected input,
 2 usage error (argparse's own), 3 not implemented (see unimplemented.py).
@@ -65,8 +69,8 @@ def _expand(args: argparse.Namespace) -> int:
     # runs this CLI from the build dir, so inputs must be cwd-independent
     # -- and the diagnostics' message paths are spec'd absolute.
     rig_path = os.path.abspath(args.rig)
-    diags = loader.load(rig_path, revision=args.revision,
-                        variant=args.variant)
+    _rig, diags = loader.load(rig_path, revision=args.revision,
+                              variant=args.variant)
     if has_errors(diags):
         print(render(diags), file=sys.stderr)
         return 1

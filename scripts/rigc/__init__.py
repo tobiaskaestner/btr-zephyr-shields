@@ -2,10 +2,12 @@
 golden corpus (claude/rigs/rigc-mission-brief.md; rigexp is the FROZEN
 blueprint, the goldens are the specification).
 
-R1 state: the CLI front door (cli.py, the frozen argv surface), the
-diagnostics core (diag.py, diagnostics as return values + the one
-renderer), and a thin loader sliver (loader.py) covering the first
-proof-of-life rejects. Everything beyond that fails loudly and
-distinctly -- `rigc: not implemented: <what>`, exit 3 (unimplemented.py)
--- so a differential run under RIG_EXPAND_COMPILE=rigc is never
-mistakable for a wrong diagnostic or a silent fallback to rigexp."""
+R2 state: the CLI front door (cli.py), the diagnostics core (diag.py),
+the rig model (model.py), and the loader PROPER (loader/ -- rig.yml
+metadata, qualifier axes with the hwmv2 seam, board/SocketBinding
+resolution, the required content file, fragment discovery, and the V1b
+delta engine). Everything needing the shield library, board devicetree,
+or headers stays a loud, distinct refusal -- `rigc: not implemented:
+<what>`, exit 3 (unimplemented.py) -- so a differential run under
+RIG_EXPAND_COMPILE=rigc is never mistakable for a wrong diagnostic or a
+silent fallback to rigexp."""
