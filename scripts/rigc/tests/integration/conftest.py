@@ -47,8 +47,14 @@ import yaml
 
 _LOGGER = logging.getLogger(__name__)
 
-TESTS_DIR = Path(__file__).resolve().parent
-REPO_ROOT = TESTS_DIR.parents[2]   # scripts/rigexp/tests -> btr-shields
+# This file lives in tests/integration/ (moved here at cutover, alongside
+# the frozen suite's other own modules); TESTS_DIR is tests/ itself, one
+# level up, where fixtures/ and goldens/ actually sit (siblings of
+# integration/, not children of it -- fixtures/ in particular must land at
+# exactly this depth for diag.anchor_path()'s "scripts/<module>/"-relative
+# rendering to reproduce every frozen anchor line byte-for-byte).
+TESTS_DIR = Path(__file__).resolve().parent.parent
+REPO_ROOT = TESTS_DIR.parents[2]   # scripts/rigc/tests -> btr-shields
 GOLDENS_DIR = TESTS_DIR / "goldens"
 FIXTURES_DIR = TESTS_DIR / "fixtures"
 SHIELD_DIR = REPO_ROOT / "boards" / "shields"
@@ -170,18 +176,21 @@ WEST_EXE = str(_VENV_WEST) if _VENV_WEST.is_file() else "west"
 # never silent drift.
 REFREEZE = bool(os.environ.get("RIGEXP_REFREEZE"))
 
-# RIG_EXPAND_COMPILE: the differential-harness module knob
-# (rigc-mission-brief.md Sec 3) -- the Python module name of the expander
-# CLI under test, read ONCE here from the environment (same name as
-# cmake/dts.cmake's own cache variable of the same name, deliberately: most
-# subprocesses this suite launches inherit this process's environment
-# wholesale, e.g. via env=dict(os.environ), so that cache variable's own
-# environment fallback picks up the SAME value without every call site
-# needing to thread an explicit -D). Unset (or "rigexp") reproduces every
-# existing byte-frozen golden unchanged; running the differential against a
-# from-scratch rigc is then RIG_EXPAND_COMPILE=rigc pytest ... — no other
-# flag.
-RIG_EXPAND_COMPILE = os.environ.get("RIG_EXPAND_COMPILE", "rigexp")
+# RIG_EXPAND_COMPILE: the module knob (rigc-mission-brief.md Sec 3) -- the
+# Python module name of the expander CLI under test, read ONCE here from the
+# environment (same name as cmake/dts.cmake's own cache variable of the same
+# name, deliberately: most subprocesses this suite launches inherit this
+# process's environment wholesale, e.g. via env=dict(os.environ), so that
+# cache variable's own environment fallback picks up the SAME value without
+# every call site needing to thread an explicit -D). rigc is now the tool
+# (cutover C1), so unset (or "rigc") is the default path and reproduces
+# every existing byte-frozen golden unchanged; RIG_EXPAND_COMPILE=rigexp
+# instead runs the ORIGINAL tool this suite was frozen against, from its own
+# now-moved fixtures — expected-red (rigexp's own anchor rule is package-
+# dir-relative, not module-agnostic like rigc's, so it never learned to
+# tolerate fixtures living outside scripts/rigexp/), kept only so the
+# original tool remains reproducible on demand, not as a green path.
+RIG_EXPAND_COMPILE = os.environ.get("RIG_EXPAND_COMPILE", "rigc")
 
 _WORKDIR_RE = re.compile(r"/tmp/rigexp-[^/\s]+")
 

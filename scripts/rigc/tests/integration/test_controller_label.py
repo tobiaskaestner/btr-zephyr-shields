@@ -10,7 +10,7 @@ Fast, no build, and hermetic: fixtures/boards/mainboards/socket.dts is a
 standalone board-shaped fixture (like
 fixtures/boards/mainboards/socketless_board.dts) carrying one socket,* node
 of the fixture tree's own purpose-built connector type
-(fixtures/dts/bindings/connectors/fixture-nexus.yaml, compatible
+(fixtures/dts/connectors/fixture-nexus.yaml, compatible
 "socket,fixture-nexus" -- never a copy of the real
 dts/bindings/connectors/*.yaml types) whose pwm-map/gpio-map both resolve
 to a controller node with two
@@ -40,7 +40,7 @@ from rigexp.edt_build import BuildRecipe  # noqa: E402
 pytestmark = pytest.mark.unit
 
 _MAINBOARDS = FIXTURES_DIR / "boards" / "mainboards"
-_CONNECTOR_BINDINGS = FIXTURES_DIR / "dts" / "bindings" / "connectors"
+_CONNECTOR_BINDINGS = FIXTURES_DIR / "dts" / "connectors"
 _CONNECTOR_INCLUDE = FIXTURES_DIR / "include"
 
 

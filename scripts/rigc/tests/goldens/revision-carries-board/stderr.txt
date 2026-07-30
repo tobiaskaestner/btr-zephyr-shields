@@ -1,0 +1,2 @@
+error[lang-schema]: tests/fixtures/boards/rigs/revision-carries-board/revision-carries-board_2.yml: 'board:' is rig.yml metadata -- move it to the variant that owns it (or the top-level rig: block, for a single-board rig), not a content file
+    at tests/fixtures/boards/rigs/revision-carries-board/revision-carries-board_2.yml:2 (board)

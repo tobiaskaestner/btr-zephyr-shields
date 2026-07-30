@@ -724,13 +724,13 @@ def test_unmapped_socket_golden(tmp_path: Path) -> None:
     The board is incidental to this: any board with any socket set
     demonstrates the same "unresolved name falls through to a real-socket
     lookup" property. So this uses a mainboards/ fixture board (built
-    against the fixture connector type under dts/bindings/connectors/,
+    against the fixture connector type under fixtures/dts/connectors/,
     never a real one) instead of a real corpus board -- no plain build,
     hence unmarked like fixtures/boards/rigs/not-rig-enabled's sibling
     test."""
     fixture = FIXTURES_DIR / "boards" / "rigs" / "unmapped-socket"
     board_dts = FIXTURES_DIR / "boards" / "mainboards" / "unmapped_socket_board.dts"
-    bindings_dirs = [FIXTURES_DIR / "dts" / "bindings" / "connectors"]
+    bindings_dirs = [FIXTURES_DIR / "dts" / "connectors"]
     include_dirs = [FIXTURES_DIR / "include"]
     assert_fixture_local([board_dts, *bindings_dirs, *include_dirs])
     out_dir = tmp_path / "out"

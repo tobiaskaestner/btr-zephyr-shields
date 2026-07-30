@@ -50,7 +50,12 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 pytestmark = pytest.mark.integration
 
 _FIXTURE = FIXTURES_DIR / "boards" / "rigs" / "reference-shields"
-_CONNECTOR_BINDINGS = FIXTURES_DIR / "dts" / "bindings" / "connectors"
+# Deliberately OUTSIDE fixtures/dts/bindings/: this directory serves as both
+# an edtlib bindings dir and the connector-type root (its YAML is a unified
+# socket+plug binding). Nested under bindings/, edtlib's recursive scan would
+# also load it while reading the unit tree's own bindings, and the two would
+# collide on the shared socket,fixture-nexus compatible.
+_CONNECTOR_BINDINGS = FIXTURES_DIR / "dts" / "connectors"
 _CONNECTOR_INCLUDE = FIXTURES_DIR / "include"
 
 

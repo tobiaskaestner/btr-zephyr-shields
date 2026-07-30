@@ -107,9 +107,15 @@ def test_unit_modules_import_no_subprocess() -> None:
         f"the CLI front door is integration by definition): {offenders}")
 
 
-def test_no_pytest_markers_in_the_tree() -> None:
+def test_no_pytest_markers_under_tests_unit() -> None:
+    """Markers are banned in the UNIT tree, where the directory is the
+    classification. The integration tree keeps exactly one marker, `build`,
+    because the fast gate selects on it (`pytest -m "not build"`) -- a
+    layer marker there would be the second mechanism for a fact the
+    directory already states, which is what made the two enforcement
+    regimes contradict each other before they were split this way."""
     offenders = []
-    for path in _python_files(RIGC_DIR):
+    for path in _python_files(TESTS_DIR / "unit"):
         tree = ast.parse(path.read_text(), filename=str(path))
         for node in ast.walk(tree):
             if (isinstance(node, ast.Attribute) and node.attr == "mark"
@@ -117,8 +123,8 @@ def test_no_pytest_markers_in_the_tree() -> None:
                     and node.value.id == "pytest"):
                 offenders.append(f"{path.relative_to(RIGC_DIR)}:{node.lineno}")
     assert not offenders, (
-        "pytest markers found -- in rigc the directory is the "
-        f"classification, markers are banned: {offenders}")
+        "pytest markers found under tests/unit/ -- there the directory is "
+        f"the classification, markers are banned: {offenders}")
 
 
 def _import_time_constants(tree: ast.Module) -> Iterator[ast.Constant]:

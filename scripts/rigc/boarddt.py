@@ -34,7 +34,7 @@ from typing import List, Optional, Tuple
 
 from . import board_edt
 from .deps import Deps, touch
-from .diag import Diagnostic, error
+from .diag import Diagnostic, anchor_path, error
 from .dtsio import MODULE_ROOT
 from .edt_build import BuildRecipe
 from .model import Board
@@ -89,7 +89,11 @@ def load_board(name: str, workdir: str,
     if not board.sockets:
         return None, [error(
             "phys-board",
-            f"board '{name}' has a devicetree ({os.path.relpath(board_dts)}) "
+            # anchor_path, not relpath: a cwd-relative path renders
+            # differently depending on where the tool was invoked from, so a
+            # reproduction of the same failure would not reproduce the same
+            # text (see the rerun-script note in the integration conftest).
+            f"board '{name}' has a devicetree ({anchor_path(board_dts)}) "
             "but declares no socket,* nodes — it exists, but is not "
             "rig-enabled (Conv. 4: a board opts in with a typed socket node)")], deps
     log.info("board '%s' resolved: %s", name, board_dts)

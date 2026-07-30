@@ -18,7 +18,7 @@ from typing import Any
 
 import yaml
 
-from ..diag import Diagnostic, SourceRef, error
+from ..diag import Diagnostic, SourceRef, anchor_path, error
 from ..unimplemented import Unimplemented
 
 #: Top-level keys that are rig.yml METADATA and therefore never legal in
@@ -125,14 +125,14 @@ def reject_metadata_keys(doc: Val) -> list[Diagnostic]:
     alike. Returns one error per offending key, anchored at the key's
     value node, in DECLARATION order (dict iteration order, matching
     rigexp's own fixed METADATA_ONLY_KEYS scan order)."""
-    mapping = as_mapping(doc, f"content document {doc.src.file}")
+    mapping = as_mapping(doc, f"content document {anchor_path(doc.src.file)}")
     diags: list[Diagnostic] = []
     for key in METADATA_ONLY_KEYS:
         key_v = mapping.get(key)
         if key_v is not None:
             diags.append(error(
                 "lang-schema",
-                f"{doc.src.file}: '{key}:' is rig.yml metadata -- move "
+                f"{anchor_path(doc.src.file)}: '{key}:' is rig.yml metadata -- move "
                 "it to the variant that owns it (or the top-level rig: "
                 "block, for a single-board rig), not a content file",
                 (key_v.src,)))

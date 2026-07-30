@@ -44,7 +44,7 @@ echo "== pytest: rigc (with unit coverage) =="
 # still render for a RED run -- the run you most want a report for. The
 # status is re-raised right after them.
 rigc_status=0
-"$PY" -m coverage run -m pytest scripts/rigc/tests --durations=25 \
+"$PY" -m coverage run -m pytest scripts/rigc/tests/unit --durations=25 \
     --junitxml=.reports/junit-rigc.xml || rigc_status=$?
 "$PY" -m coverage report
 # Browsable views, rewritten every run:
@@ -55,7 +55,7 @@ rigc_status=0
     "$PY" scripts/junit_html.py .reports/junit-rigc.xml .reports/junit-rigc.html
 [ "$rigc_status" -eq 0 ] || exit "$rigc_status"
 
-if [ -d scripts/rigexp/tests ]; then
+if [ -d scripts/rigc/tests/integration ]; then
     echo "== pytest =="
     # .reports/ is gitignored and repo-local -- never a build -d dir, since
     # -p always wipes those on the next configure.
@@ -70,10 +70,10 @@ if [ -d scripts/rigexp/tests ]; then
     fi
     frozen_status=0
     if [ -n "$CHECK_FAST" ]; then
-        "$PY" -m pytest -m "not build" --durations=25 \
+        "$PY" -m pytest -m "not build" scripts/rigc/tests/integration --durations=25 \
             --junitxml=.reports/junit-fast.xml || frozen_status=$?
     else
-        "$PY" -m pytest --durations=25 \
+        "$PY" -m pytest scripts/rigc/tests/integration --durations=25 \
             --junitxml=.reports/junit-full.xml || frozen_status=$?
     fi
     # Same render-then-re-raise shape as the rigc block above:
@@ -83,7 +83,7 @@ if [ -d scripts/rigexp/tests ]; then
             ".reports/junit-$suite.html"
     [ "$frozen_status" -eq 0 ] || exit "$frozen_status"
 else
-    echo "== pytest: SKIPPED — no scripts/rigexp/tests yet =="
+    echo "== pytest: SKIPPED — no scripts/rigc/tests/integration yet =="
 fi
 
 echo "check.sh: ALL GREEN"

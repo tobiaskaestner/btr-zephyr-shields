@@ -54,7 +54,7 @@ from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
 from ..deps import Deps, touch, union
-from ..diag import Diagnostic, LoadError, SourceRef, error
+from ..diag import Diagnostic, LoadError, SourceRef, anchor_path, error
 from ..model import Rig
 from ..unimplemented import Unimplemented
 from . import axes, binding, fragments
@@ -73,9 +73,13 @@ log = logging.getLogger(__name__)
 
 
 def _missing_content_diag(rig_name: str, path: str, src: SourceRef) -> Diagnostic:
+    # anchor_path so the expected location renders the same way every other
+    # path in a diagnostic does. A real rig lives outside scripts/<module>/,
+    # so its path stays absolute here -- which is what an author needs in
+    # order to create the file.
     return error(
         "lang-content",
-        f"rig '{rig_name}': no content file found -- expected {path}",
+        f"rig '{rig_name}': no content file found -- expected {anchor_path(path)}",
         (src,))
 
 
