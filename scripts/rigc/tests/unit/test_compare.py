@@ -27,6 +27,8 @@ from rigc.tests.compare import (
     ContextCmakeParseError,
     compare_config_sheet,
     compare_context_cmake,
+    compare_overlay,
+    overlay_is_byte_compared,
     parse_config_sheet,
     parse_context_cmake,
     split_dependency_set,
@@ -622,3 +624,260 @@ def test_the_emitters_own_chip_select_shapes_parse_mapped_and_unmapped() -> None
 def test_the_generated_sheet_self_compares_equal() -> None:
     generated = _generated_sheet()
     assert compare_config_sheet(generated, generated) is None
+
+
+# --- rig-gen.overlay: the split contract (cutover-brief.md Sec 8.2) --------
+# compare_overlay does not parse the overlay into a devicetree at all --
+# semantics ride the zephyr.dts + dts_equiv.py comparison instead. What
+# follows targets only the three facts that comparison structurally
+# cannot see: a verbatim param token, the quoted #include's position, and
+# the human-facing position/pinctrl comments.
+
+
+def _generated_overlay() -> str:
+    """rig-gen.overlay as the REAL emitter renders it, over a synthetic
+    Solved exercising every shape compare_overlay's targeted assertions
+    care about, in one document: a declared dt-includes: (the quoted
+    #include that must open the file), a rig-assigned param token
+    (zephyr,code = <TOKEN>;, verbatim, never resolved here), an inverted
+    gpio position annotation, and a resolved PWM/ADC controller (the
+    pinctrl note). Driving render_overlay directly means this fixture
+    cannot drift away from what the emitter actually produces, the same
+    discipline _generated_sheet() above applies to config-sheet.md."""
+    from rigc.analyzer import Solved
+    from rigc.diag import SourceRef
+    from rigc.emitter.overlay import render_overlay
+    from rigc.model import (BoardSocket, ConnectorType, Device, GpioRef,
+                            Instance, Rig, Shield)
+
+    src = SourceRef("f.yml", 1, "k")
+    # TWO gpio refs, so a test can swap their trailing comments and prove
+    # each annotation is tied to the position it describes rather than
+    # merely present somewhere in the file.
+    ref = GpioRef(prop="int-gpios", position=5, flags=0x1, src=src, function="gpio")
+    ref2 = GpioRef(prop="extra-gpios", position=6, flags=0x1, src=src,
+                  function="gpio")
+    dev = Device(name="d", label="d", compatible=None, bus=None, group=None,
+                reg=None, addr_from=None, cs_position=None,
+                gpio_refs=[ref, ref2],
+                extra_props=[("zephyr,code", "zephyr,code = <INPUT_KEY_0>;")])
+    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
+    inst = Instance(name="i1", shield=shield, socket="sock", invert=True,
+                   params={"d": {"zephyr,code": "INPUT_KEY_9"}})
+    rig = Rig(name="r", instances=[inst], dt_includes=["rig-params.h"])
+    ctype = ConnectorType(name="t", positions={}, index2name={5: "D2", 6: "D3"},
+                         bus_proxies=[], stackable=False, cs_pool=[])
+    socket = BoardSocket(label="sock", path="/s", type_name="t", gpio_map={},
+                        buses={}, cs_pool=None)
+    solved = Solved(sockets={"i1": socket}, controllers={"tcc0": "pwm"})
+    return render_overlay(rig, solved, {"t": ctype})
+
+
+@pytest.fixture(scope="module")
+def OVERLAY_GOLDEN() -> str:
+    """Generated per module rather than at import time: an emitter
+    change then fails these tests instead of erroring collection for
+    every unrelated test in the file."""
+    return _generated_overlay()
+
+
+def test_the_generated_overlay_self_compares_equal(OVERLAY_GOLDEN: str) -> None:
+    assert compare_overlay(OVERLAY_GOLDEN, OVERLAY_GOLDEN) is None
+
+
+# --- negative controls: each pins one of compare_overlay's four guards ----
+# (cutover-decisions.md D4: every guard needs its own negative control,
+# proven to actually fail, not merely asserted correct by a green suite).
+
+
+def test_param_token_resolved_to_a_bare_number_is_rejected(OVERLAY_GOLDEN: str) -> None:
+    """The guard: _param_tokens. Resolving <INPUT_KEY_9> to its numeric
+    value is exactly the regression emitter/overlay.py's own docstring
+    says must never happen -- zephyr.dts shows only the resolved number,
+    so only this guard can catch it."""
+    resolved = OVERLAY_GOLDEN.replace(
+        "zephyr,code = <INPUT_KEY_9>;", "zephyr,code = <11>;")
+    mismatch = compare_overlay(OVERLAY_GOLDEN, resolved)
+    assert mismatch is not None
+    assert "INPUT_KEY_9" in mismatch
+
+
+def test_dt_includes_line_removed_is_rejected(OVERLAY_GOLDEN: str) -> None:
+    """The guard: the include-first-line check, missing-line branch."""
+    without_include = OVERLAY_GOLDEN.replace(
+        '#include "rig-gen-includes.dtsi"\n', "")
+    mismatch = compare_overlay(OVERLAY_GOLDEN, without_include)
+    assert mismatch is not None
+    assert "first line" in mismatch
+
+
+def test_dt_includes_line_present_but_not_first_is_rejected(OVERLAY_GOLDEN: str) -> None:
+    """The guard: the include-first-line check, displaced-line branch --
+    quoted-include resolution is against the FILE'S OWN directory, so the
+    line must open the file, not merely appear somewhere in it."""
+    displaced = OVERLAY_GOLDEN.replace(
+        '#include "rig-gen-includes.dtsi"\n', "", 1) + \
+        '#include "rig-gen-includes.dtsi"\n'
+    mismatch = compare_overlay(OVERLAY_GOLDEN, displaced)
+    assert mismatch is not None
+    assert "first line" in mismatch
+
+
+def test_gpio_inverted_annotation_dropped_is_rejected(OVERLAY_GOLDEN: str) -> None:
+    """The guard: _annotation_comments. The position/inverted comment is
+    the artifact's only human-facing record of which physical pin (and
+    active level) a gpio ref resolved to -- it disappears entirely once
+    dtc has resolved the reference, so only this guard can catch it."""
+    without_annotation = OVERLAY_GOLDEN.replace(
+        "int-gpios = <&sock 5 0x0>;\t/* D2 inverted */",
+        "int-gpios = <&sock 5 0x0>;")
+    mismatch = compare_overlay(OVERLAY_GOLDEN, without_annotation)
+    assert mismatch is not None
+    assert "D2 inverted" in mismatch
+
+
+def test_pwm_adc_pinctrl_note_dropped_is_rejected(OVERLAY_GOLDEN: str) -> None:
+    """The guard: the literal _PINCTRL_NOTE membership check."""
+    without_note = OVERLAY_GOLDEN.replace(
+        "/* PWM/ADC: enable the resolved controllers; the pin-mux (pinctrl)\n"
+        " * for each muxed pin is board-provided and must be applied —\n"
+        " * stubbed here, see the config sheet. */\n", "")
+    mismatch = compare_overlay(OVERLAY_GOLDEN, without_note)
+    assert mismatch is not None
+    assert "pinctrl note" in mismatch
+
+
+# --- positive controls: what must stay free to change ----------------------
+
+
+def test_property_reordering_that_drops_no_fact_is_accepted(OVERLAY_GOLDEN: str) -> None:
+    """The freedom the split contract creates (cutover-brief.md's parked
+    R10 label scheme is exactly why it matters): swapping two property
+    lines removes no token, no include position, and no annotation."""
+    reordered = OVERLAY_GOLDEN.replace(
+        "\t\t\tzephyr,code = <INPUT_KEY_9>;\n"
+        "\t\t\tint-gpios = <&sock 5 0x0>;\t/* D2 inverted */\n",
+        "\t\t\tint-gpios = <&sock 5 0x0>;\t/* D2 inverted */\n"
+        "\t\t\tzephyr,code = <INPUT_KEY_9>;\n")
+    assert reordered != OVERLAY_GOLDEN
+    assert compare_overlay(OVERLAY_GOLDEN, reordered) is None
+
+
+def test_whitespace_change_that_alters_no_fact_is_accepted(OVERLAY_GOLDEN: str) -> None:
+    whitespace_changed = OVERLAY_GOLDEN.replace(
+        "\t};\n};\n", "\t};\n\n};\n")
+    assert whitespace_changed != OVERLAY_GOLDEN
+    assert compare_overlay(OVERLAY_GOLDEN, whitespace_changed) is None
+
+
+def test_overlay_a_differing_provenance_banner_is_accepted(OVERLAY_GOLDEN: str) -> None:
+    reworded = OVERLAY_GOLDEN.replace(
+        "generated by rigc — do not edit; the rig file is the source of "
+        "truth (R3)",
+        "generated by something else, worded completely differently")
+    assert reworded != OVERLAY_GOLDEN
+    assert compare_overlay(OVERLAY_GOLDEN, reworded) is None
+
+
+# --- the shield-uart-subset-frdm interim exception (cutover-decisions.md D8) -
+
+
+def test_shield_uart_subset_frdm_overlay_stays_byte_compared() -> None:
+    """The only accept rig with a rig-gen.overlay golden but no
+    zephyr.dts -- under the split contract it would otherwise lose
+    semantic checking entirely, so it keeps the byte comparison as an
+    explicit interim exception until it gains a tier-2 build."""
+    assert overlay_is_byte_compared("shield-uart-subset-frdm") is True
+
+
+def test_other_rigs_overlay_routes_through_compare_overlay() -> None:
+    """Every other golden directory takes the split-contract path -- this
+    guard failing open (returning True for everything) would silently
+    byte-freeze every overlay again, exactly the burden the split
+    contract exists to remove."""
+    assert overlay_is_byte_compared("lotus_buttons") is False
+    assert overlay_is_byte_compared("lotus_pwm") is False
+
+
+def test_an_annotation_naming_the_wrong_position_is_rejected(
+        OVERLAY_GOLDEN: str) -> None:
+    """The pairing, not just the presence. Swapping two refs' trailing
+    comments leaves the SET of comment strings identical, so a check over
+    bare comment text accepts it -- and a resolved zephyr.dts cannot see
+    comments at all, so nothing else in the suite would notice an artifact
+    telling a human the wrong pin."""
+    first = "int-gpios = <&sock 5 0x0>;\t/* D2 inverted */"
+    second = "extra-gpios = <&sock 6 0x0>;\t/* D3 inverted */"
+    assert first in OVERLAY_GOLDEN and second in OVERLAY_GOLDEN
+    swapped = OVERLAY_GOLDEN.replace(
+        first, "int-gpios = <&sock 5 0x0>;\t/* D3 inverted */").replace(
+        second, "extra-gpios = <&sock 6 0x0>;\t/* D2 inverted */")
+    mismatch = compare_overlay(OVERLAY_GOLDEN, swapped)
+    assert mismatch is not None
+    assert "annotation" in mismatch
+
+
+def test_a_spuriously_added_annotation_is_rejected(OVERLAY_GOLDEN: str) -> None:
+    """Compared for equality, not containment: a comment the artifact
+    GAINED misinforms a reader exactly like one it lost."""
+    anchor = "extra-gpios = <&sock 6 0x0>;\t/* D3 inverted */"
+    assert anchor in OVERLAY_GOLDEN
+    embellished = OVERLAY_GOLDEN.replace(
+        anchor, anchor + "\n\t\t\tspare-gpios = <&sock 7 0x0>;\t/* D4 */", 1)
+    mismatch = compare_overlay(OVERLAY_GOLDEN, embellished)
+    assert mismatch is not None
+    assert "added" in mismatch
+
+
+def test_a_dropped_cs_active_low_annotation_is_rejected() -> None:
+    """The cs-gpios cell carries its own inline ACTIVE_LOW annotation --
+    inside the cell rather than after a ">;", so the trailing-comment
+    idiom cannot see it. The numeric flag survives into zephyr.dts and is
+    compared there; this human-readable annotation exists only in the
+    overlay, and 11 of the 19 overlay goldens carry it."""
+    with_flag = textwrap.dedent("""\
+        /* generated by rigc */
+        &spi1 {
+        \tcs-gpios = <&sock 0 1 /* ACTIVE_LOW */>;
+        };
+        """)
+    without = with_flag.replace(" /* ACTIVE_LOW */", "")
+    mismatch = compare_overlay(with_flag, without)
+    assert mismatch is not None
+    assert "annotation" in mismatch
+
+
+def test_reordering_cs_entries_keeps_their_annotations_paired() -> None:
+    """Two cs-gpios entries reordered is a rendering change; each keeps its
+    own position, so the paired set is unchanged and the comparison
+    accepts it."""
+    forward = textwrap.dedent("""\
+        /* generated by rigc */
+        &spi1 {
+        \tcs-gpios = <&sock 0 1 /* ACTIVE_LOW */>, <&sock 9 1 /* ACTIVE_LOW */>;
+        };
+        """)
+    reversed_cells = textwrap.dedent("""\
+        /* generated by rigc */
+        &spi1 {
+        \tcs-gpios = <&sock 9 1 /* ACTIVE_LOW */>, <&sock 0 1 /* ACTIVE_LOW */>;
+        };
+        """)
+    assert compare_overlay(forward, reversed_cells) is None
+
+
+def test_an_annotation_kept_while_its_position_moves_is_rejected(
+        OVERLAY_GOLDEN: str) -> None:
+    """The position component of the annotation triple, pinned on its own.
+    Here the property and its comment stay paired -- only the position cell
+    moves -- so a (property, comment) pair would accept it. The resolved
+    zephyr.dts would independently notice the moved position, but this
+    keeps the overlay's own annotation honest without relying on that, and
+    catches the case where a comment is left behind by an edit."""
+    moved = OVERLAY_GOLDEN.replace(
+        "int-gpios = <&sock 5 0x0>;\t/* D2 inverted */",
+        "int-gpios = <&sock 9 0x0>;\t/* D2 inverted */", 1)
+    assert moved != OVERLAY_GOLDEN
+    mismatch = compare_overlay(OVERLAY_GOLDEN, moved)
+    assert mismatch is not None
+    assert "annotation" in mismatch

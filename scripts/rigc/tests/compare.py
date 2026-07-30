@@ -21,6 +21,22 @@ presence is compared as a SET while each section's rows are compared as
 an ORDERED list (the emitter sorts them deterministically, so a
 reordering is a real regression, not noise).
 
+rig-gen.overlay is not compared here at all in the structural sense the
+two artifacts above are: it is a cpp fragment (an unresolved #include,
+unresolved <MACRO> tokens, &label references that only the board's own
+devicetree can resolve), not a parseable devicetree, so its SEMANTICS
+ride the existing zephyr.dts + dts_equiv.py comparison instead -- already
+post-resolution, and strictly stronger than any overlay-only comparator
+could be. compare_overlay targets only the three facts that VANISH on
+resolution and that dts_equiv.py therefore cannot see: a rig-assigned
+param's verbatim macro token (zephyr.dts shows only the resolved
+number), the quoted #include that must open the file for dt-includes:
+to resolve with no -I plumbing, and the human-facing comments (gpio
+position/inverted annotations, the PWM/ADC pinctrl note) dtlib discards
+entirely when parsing. One golden directory (shield-uart-subset-frdm)
+has no zephyr.dts at all and stays byte-compared instead --
+overlay_is_byte_compared names that exception.
+
 Every function in this module is pure over the text values it is given;
 IO (reading the golden, running the tool under test) stays at the
 conftest seam that calls compare_context_cmake / compare_config_sheet,
@@ -547,6 +563,187 @@ def compare_config_sheet(expected: str, actual: str) -> Optional[str]:
         if expected_rows != actual_rows:
             problems.append(
                 _describe_section_mismatch(kind, expected_rows, actual_rows))
+
+    if not problems:
+        return None
+    return "\n".join(problems)
+
+
+# --------------------------------------------------------------------------
+# rig-gen.overlay: the split contract (cutover-brief.md Sec 8.2). This
+# module deliberately does NOT parse the overlay into a devicetree -- it
+# cannot: cpp has not run, so #include/<MACRO> are still unresolved, and
+# &label references only the board's own devicetree can chase. Semantics
+# ride the zephyr.dts + dts_equiv.py comparison instead; what follows
+# targets only the facts that comparison structurally cannot see, because
+# they no longer exist once cpp and dtc have resolved everything.
+
+# emitter/overlay.py's own docstring: "rig-gen.overlay stays readable
+# (zephyr,code = <INPUT_KEY_1>;, not a bare number)" -- _instance_extra_
+# props renders a rig-assigned param as "<name> = <TOKEN>;" with TOKEN the
+# raw, unresolved identifier. Deliberately excludes a bare numeric literal
+# (reg = <0x48>;, an int authored directly) and a phandle reference
+# (gpios = <&label ...>;, has a "&"), neither of which is this contract.
+_PARAM_TOKEN_RE = re.compile(
+    r"^\s*(?P<name>[\w,.\-]+) = <(?P<token>[A-Za-z_]\w*)>;\s*$", re.MULTILINE)
+
+# The quoted include that must open the file (emitter/overlay.py:
+# render_overlay, emitted iff rig.dt_includes) -- quoted-include
+# resolution against the file's OWN directory is what lets rig-gen.overlay
+# and rig-gen-includes.dtsi simply sit side by side in <build>/rig/ with
+# no -I plumbing; a displaced or missing include line breaks exactly that.
+_INCLUDES_LINE = '#include "rig-gen-includes.dtsi"'
+
+# _device_node/_collection_entry's shared trailing-comment idiom (emitter/
+# overlay.py): a property assignment ending "...>;", a literal tab, then
+# "/* <posname>[ inverted] */" on the SAME physical line -- the gpio/pwm/
+# adc position annotation. Distinct in shape from the multi-line
+# provenance banner (never follows a ">;") and from _synth_nexus_nodes'
+# standalone comment (not a property-assignment line), so neither is
+# mistaken for one of these.
+#
+# The POSITION CELL is captured alongside the comment so the two are
+# compared as a pair. A comment naming a pin the ref did not resolve to is
+# the one way this artifact can lie to the human reading it, and a
+# resolved zephyr.dts cannot see comments at all, so nothing else in the
+# suite could notice. The node LABEL stays uncaptured (&\w+ matches it
+# without binding it), which is what keeps the parked label scheme free.
+_ANNOTATION_RE = re.compile(
+    r"^\s*(?P<prop>[\w,.\-]+) = <&\w+ (?P<pos>\d+)[^>]*>;\t(?P<comment>/\*[^*]*\*/)\s*$",
+    re.MULTILINE)
+
+# emitter/overlay.py's cs-gpios cell list carries its own inline
+# "/* ACTIVE_LOW */" per entry -- inside the cell, not after a ">;", so the
+# annotation idiom above cannot see it. Present in 11 of the 19 overlay
+# goldens: the numeric flag survives into zephyr.dts and is compared
+# there, but the human-readable annotation exists only here.
+_CS_FLAG_RE = re.compile(r"<&(?:\w+) \d+ 1 (/\* ACTIVE_LOW \*/)>")
+
+# emitter/overlay.py's _controllers(): fixed, non-templated text (only the
+# controller names rendered below it vary per rig) -- present whenever the
+# rig resolved any PWM/ADC claim at all. Character-for-character, matching
+# tests/unit/emitter/test_overlay.py's own frozen assertion of the same
+# string, em dash included.
+_PINCTRL_NOTE = (
+    "/* PWM/ADC: enable the resolved controllers; the pin-mux (pinctrl)\n"
+    " * for each muxed pin is board-provided and must be applied —\n"
+    " * stubbed here, see the config sheet. */")
+
+# The one accept rig with a rig-gen.overlay golden but no zephyr.dts (no
+# tier-2 build), so under the split contract it would otherwise lose
+# semantic checking entirely (cutover-decisions.md D8) -- kept
+# byte-compared as an explicit, interim exception. Retire this constant
+# together with the slice that adds shield-uart-subset-frdm's tier-2
+# build.
+_BYTE_COMPARED_OVERLAY_RIGS = frozenset({"shield-uart-subset-frdm"})
+
+
+def overlay_is_byte_compared(rig_name: str) -> bool:
+    """True for the one golden directory (named by its boards/rigs/ or
+    synthetic-fixture folder) whose rig-gen.overlay stays byte-compared
+    rather than routed through compare_overlay: it has no zephyr.dts
+    golden, so no resolved devicetree stands behind it.
+
+    That overlay carries no devicetree content today -- it is the
+    provenance banner and nothing else, since the rig exists to exercise
+    subset-exposure acceptance -- so the exception costs nothing and buys
+    nothing measurable either way. It keeps the artifact byte-frozen
+    against the day it gains content, and retires when a tier-2 build for
+    that rig can protect real content instead. Every other rig's overlay
+    compares through compare_overlay."""
+    return rig_name in _BYTE_COMPARED_OVERLAY_RIGS
+
+
+def _param_tokens(text: str) -> FrozenSet[Tuple[str, str]]:
+    """Every (property name, verbatim macro token) pair rig-gen.overlay
+    carries -- a token that has been resolved to a bare number, or
+    dropped outright, is simply absent from the returned set; there is
+    nothing to parse-fail on, since this artifact is not otherwise parsed
+    at all."""
+    return frozenset(
+        (m.group("name"), m.group("token"))
+        for m in _PARAM_TOKEN_RE.finditer(text))
+
+
+def _annotation_comments(text: str) -> FrozenSet[Tuple[str, str, str]]:
+    """Every gpio/pwm/adc trailing annotation rig-gen.overlay carries, as
+    (property name, position cell, literal "/* ... */" comment) triples,
+    plus each cs-gpios entry's inline ACTIVE_LOW annotation as a
+    ("cs-gpios", position, comment) triple.
+
+    Returned as a set, so node/property REORDERING never affects it, while
+    the property-and-position binding still ties each comment to the pin
+    it claims to describe. Compared for EQUALITY by the caller, not
+    containment: an annotation the artifact gained is as much a defect as
+    one it lost, since a spurious comment misinforms a reader exactly like
+    a wrong one."""
+    triples = {
+        (m.group("prop"), m.group("pos"), m.group("comment"))
+        for m in _ANNOTATION_RE.finditer(text)}
+    triples |= {
+        ("cs-gpios", m.group(0).split()[1], m.group(1))
+        for m in _CS_FLAG_RE.finditer(text)}
+    return frozenset(triples)
+
+
+def compare_overlay(expected: str, actual: str) -> Optional[str]:
+    """Compare two rig-gen.overlay texts against only the facts this
+    artifact carries that a post-resolution zephyr.dts comparison
+    structurally cannot see -- everything else (node/property presence,
+    ordering, whitespace, the provenance banner) is free to differ, since
+    the SEMANTICS this artifact denotes are asserted elsewhere (the
+    zephyr.dts + dts_equiv.py comparison for the same rig, strictly
+    stronger than any comparison of the overlay in isolation could be).
+
+    Checks: (1) every rig-assigned param token expected carries verbatim
+    is still present verbatim in actual, never resolved to a bare number
+    nor dropped; (2) if expected opens with the quoted
+    #include "rig-gen-includes.dtsi" line, actual opens with the
+    identical line too -- catching both a dropped include and one merely
+    displaced elsewhere in the file; (3) every gpio/pwm/adc position
+    annotation and the PWM/ADC pinctrl note expected carries is still
+    present in actual.
+
+    Returns None when actual preserves every one of expected's targeted
+    facts; otherwise a human-readable report of every mismatch found (not
+    just the first). Unlike compare_context_cmake/compare_config_sheet
+    this never reports a parse failure -- rig-gen.overlay is not parsed
+    into a full fact set here at all, only scanned for these three
+    specific shapes."""
+    problems: List[str] = []
+
+    lost_tokens = _param_tokens(expected) - _param_tokens(actual)
+    if lost_tokens:
+        problems.append(
+            "verbatim param token(s) no longer emitted unresolved: " +
+            ", ".join(f"{name} = <{token}>"
+                     for name, token in sorted(lost_tokens)))
+
+    expected_lines = expected.splitlines()
+    actual_lines = actual.splitlines()
+    if expected_lines and expected_lines[0] == _INCLUDES_LINE:
+        if not actual_lines or actual_lines[0] != _INCLUDES_LINE:
+            problems.append(
+                f"{_INCLUDES_LINE!r} must be the first line (quoted-include "
+                "resolution depends on it) but is missing or displaced")
+
+    expected_annotations = _annotation_comments(expected)
+    actual_annotations = _annotation_comments(actual)
+    if expected_annotations != actual_annotations:
+        lost = sorted(expected_annotations - actual_annotations)
+        gained = sorted(actual_annotations - expected_annotations)
+        parts = []
+        if lost:
+            parts.append("dropped: " + ", ".join(
+                f"{prop}@{pos} {comment}" for prop, pos, comment in lost))
+        if gained:
+            parts.append("added: " + ", ".join(
+                f"{prop}@{pos} {comment}" for prop, pos, comment in gained))
+        problems.append(
+            "gpio/pwm/adc position annotation(s) differ -- " + "; ".join(parts))
+
+    if _PINCTRL_NOTE in expected and _PINCTRL_NOTE not in actual:
+        problems.append("the PWM/ADC pinctrl note was dropped")
 
     if not problems:
         return None

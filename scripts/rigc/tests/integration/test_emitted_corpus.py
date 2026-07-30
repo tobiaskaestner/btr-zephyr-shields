@@ -57,6 +57,7 @@ from conftest import (
     assert_absent_or_refreeze,
     freeze_or_assert,
     normalize,
+    overlay_is_byte_compared,
     plain_build_for,
     rig_board_name,
     run_expand,
@@ -82,6 +83,31 @@ def test_corpus_complete() -> None:
     newly added rig must be frozen into the goldens, never silently skipped."""
     live = {d.name for d in RIGS_DIR.iterdir() if (d / "rig.yml").is_file()}
     assert live == {c.name for c in ALL_CASES}
+
+
+def test_every_overlay_golden_has_semantic_coverage() -> None:
+    """The split contract's own invariant, enforced instead of assumed.
+
+    rig-gen.overlay is no longer byte-compared: the devicetree it denotes
+    is asserted through that rig's resolved zephyr.dts instead, and only
+    the handful of facts resolution destroys are checked on the overlay
+    itself. That holds only while every overlay golden HAS a zephyr.dts
+    golden — or is one of the deliberate byte-compared exceptions. A rig
+    with neither would have its emitted devicetree checked by nothing at
+    all, and the suite would stay green while saying nothing about it.
+
+    True of today's corpus, but true by coincidence of its shape rather
+    than by construction, so a future golden directory (a synthetic accept
+    fixture with no tier-2 build is the obvious way in) needs this to fail
+    rather than to pass quietly."""
+    unchecked = [
+        d.name for d in sorted(GOLDENS_DIR.iterdir())
+        if (d / "rig-gen.overlay").is_file()
+        and not (d / "zephyr.dts").is_file()
+        and not overlay_is_byte_compared(d.name)]
+    assert not unchecked, (
+        f"rig-gen.overlay neither byte-compared nor backed by a zephyr.dts "
+        f"golden, so its devicetree is unchecked: {unchecked}")
 
 
 @pytest.mark.build

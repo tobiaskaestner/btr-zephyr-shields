@@ -69,7 +69,9 @@ RIGS_DIR = REPO_ROOT / "boards" / "rigs"
 # comparators context.cmake and config-sheet.md need structurally rather
 # than byte-for-byte.
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-from rigc.tests.compare import compare_config_sheet, compare_context_cmake  # noqa: E402
+from rigc.tests.compare import (  # noqa: E402
+    compare_config_sheet, compare_context_cmake, compare_overlay,
+    overlay_is_byte_compared)
 
 
 def assert_fixture_local(paths: List[Union[Path, str]]) -> None:
@@ -593,9 +595,14 @@ def freeze_or_assert(golden_path: Path, content: str) -> None:
     through) compare STRUCTURALLY: context.cmake as a key -> value
     mapping, with RIG_DEPENDS as a set; config-sheet.md as the facts it
     carries (instance/socket/address/index/... -- see compare.py), never
-    its prose rendering. Every other artifact keeps the byte comparison
-    unchanged -- each has its own contract still to gain a comparator in
-    a later slice."""
+    its prose rendering. rig-gen.overlay compares through compare_overlay
+    (targeted assertions only -- its semantics ride the zephyr.dts +
+    dts_equiv.py comparison instead) EXCEPT for golden_path.parent.name
+    (the rig's own golden directory) satisfying
+    overlay_is_byte_compared -- the one rig with no zephyr.dts, which
+    stays byte-compared so it keeps SOME check on this artifact. Every
+    other artifact keeps the byte comparison unchanged -- each has its
+    own contract still to gain a comparator in a later slice."""
     if REFREEZE:
         golden_path.parent.mkdir(parents=True, exist_ok=True)
         golden_path.write_text(content)
@@ -613,6 +620,12 @@ def freeze_or_assert(golden_path: Path, content: str) -> None:
         return
     if golden_path.name == "config-sheet.md":
         mismatch = compare_config_sheet(expected, content)
+        if mismatch is not None:
+            pytest.fail(f"golden mismatch: {golden_path}\n{mismatch}")
+        return
+    if (golden_path.name == "rig-gen.overlay"
+            and not overlay_is_byte_compared(golden_path.parent.name)):
+        mismatch = compare_overlay(expected, content)
         if mismatch is not None:
             pytest.fail(f"golden mismatch: {golden_path}\n{mismatch}")
         return
