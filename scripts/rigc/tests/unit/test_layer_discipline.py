@@ -61,13 +61,17 @@ def _top_level_units() -> set[str]:
     units |= {p.name for p in RIGC_DIR.iterdir()
              if p.is_dir() and (p / "__init__.py").is_file()
              and p.name != "tests"}
-    return units | {"conftest"}
+    # conftest.py and compare.py are the tests package's own modules, not
+    # production units -- both still get a named test module (test_conftest.py,
+    # test_compare.py) under the same "test modules name their unit" rule.
+    return units | {"conftest", "compare"}
 
 
 def test_unit_test_modules_name_their_unit() -> None:
-    """test_<name>.py names a rigc module (or conftest); a sub-folder
-    under tests/unit/ names the unit its modules share -- a PACKAGE
-    (e.g. loader/) is as valid a unit name here as a bare module."""
+    """test_<name>.py names a rigc module (or the tests package's own
+    conftest/compare); a sub-folder under tests/unit/ names the unit its
+    modules share -- a PACKAGE (e.g. loader/) is as valid a unit name
+    here as a bare module."""
     units = _top_level_units()
     offenders = []
     for path in _python_files(TESTS_DIR / "unit"):

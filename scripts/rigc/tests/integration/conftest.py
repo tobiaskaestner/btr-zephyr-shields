@@ -60,6 +60,16 @@ FIXTURES_DIR = TESTS_DIR / "fixtures"
 SHIELD_DIR = REPO_ROOT / "boards" / "shields"
 RIGS_DIR = REPO_ROOT / "boards" / "rigs"
 
+# This directory carries no __init__.py (the frozen suite's own modules
+# import each other as plain top-level names, e.g. "from conftest import
+# ..."), so it is never part of the rigc package chain pytest walks to put
+# scripts/ on sys.path by itself -- every integration module that needs an
+# in-process rigc import inserts scripts/ explicitly (test_edt_build.py,
+# test_reference_shields.py, etc.); this is that same idiom, for the one
+# comparator context.cmake needs structurally rather than byte-for-byte.
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from rigc.tests.compare import compare_context_cmake  # noqa: E402
+
 
 def assert_fixture_local(paths: List[Union[Path, str]]) -> None:
     """Structural proof of hermeticity for a test that claims to need no
@@ -575,7 +585,15 @@ def run_expand(rig_yml: Path, out_dir: Path,
 
 def freeze_or_assert(golden_path: Path, content: str) -> None:
     """Write content as the golden (RIGEXP_REFREEZE=1) or assert it matches
-    the committed fixture exactly, with a readable unified diff on mismatch."""
+    the committed fixture, with a readable failure message on mismatch.
+
+    context.cmake (golden_path.name, not a directory check -- this is the
+    single seam every EMITTED_FILES artifact passes through) compares
+    STRUCTURALLY via compare_context_cmake: a key -> value mapping, with
+    RIG_DEPENDS as a set, is its actual contract, not the bytes cmake/
+    dts.cmake happens to read. Every other artifact keeps the byte
+    comparison unchanged -- each has its own contract still to gain a
+    comparator in a later slice."""
     if REFREEZE:
         golden_path.parent.mkdir(parents=True, exist_ok=True)
         golden_path.write_text(content)
@@ -586,6 +604,11 @@ def freeze_or_assert(golden_path: Path, content: str) -> None:
             f"(run with RIGEXP_REFREEZE=1 to create it, then inspect + "
             f"commit deliberately)")
     expected = golden_path.read_text()
+    if golden_path.name == "context.cmake":
+        mismatch = compare_context_cmake(expected, content)
+        if mismatch is not None:
+            pytest.fail(f"golden mismatch: {golden_path}\n{mismatch}")
+        return
     if expected != content:
         diff = "\n".join(difflib.unified_diff(
             expected.splitlines(), content.splitlines(),
