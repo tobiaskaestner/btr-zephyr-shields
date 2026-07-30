@@ -25,6 +25,29 @@ def test_rig_gen_includes_dtsi_present_iff_dt_includes_declared() -> None:
     assert "rig-gen-includes.dtsi" not in out_without
 
 
+def test_rig_gen_includes_dtsi_keeps_declaration_order() -> None:
+    """The PRODUCER side of the ordered-header contract. dt-includes: order
+    is the rig author's, and cpp include order can matter, so the emitter
+    must not sort or otherwise reorder. Asserted on the exact decoded text,
+    which pins the order, the angle-bracket form and the banner together --
+    the comparator's own ordering guard is on the consuming side and cannot
+    notice the emitter losing this."""
+    # Three headers whose declared order differs from BOTH ascending and
+    # descending sort order, so any reordering the emitter might introduce
+    # changes the rendered text. Two names alone are not enough: a pair can
+    # coincide with one sort direction and make the assertion vacuous.
+    rig = Rig(name="r", board="b", instances=[],
+              dt_includes=["mmm/mid.h", "aaa/first.h", "zzz/last.h"])
+
+    out = emit(rig, Solved(), {}, workdir="/does-not-matter")
+    text = out["rig-gen-includes.dtsi"].decode("utf-8")
+
+    assert text.splitlines()[2:5] == [
+        "#include <mmm/mid.h>",
+        "#include <aaa/first.h>",
+        "#include <zzz/last.h>"], text
+
+
 def test_rig_gen_conf_is_never_emitted() -> None:
     rig = Rig(name="r", board="b", instances=[])
     out = emit(rig, Solved(), {}, workdir="/does-not-matter")

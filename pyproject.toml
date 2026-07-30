@@ -29,6 +29,13 @@ data_file = ".reports/coverage-rigc"
 
 [tool.coverage.report]
 show_missing = true
+# A floor, not a target: it exists because the emitted goldens no longer
+# compare byte-for-byte, which makes the in-process unit layer the primary
+# evidence that the tool is correct rather than a supplement to the golden
+# suite. Set just below the measured figure so an unrelated one-point dip
+# does not red the gate, and RATCHET it upward -- never down to accommodate
+# new uncovered code.
+fail_under = 88
 
 [tool.pytest.ini_options]
 # Top-level tests/ is reserved for twister test apps (Zephyr-module

@@ -122,7 +122,7 @@ endfunction()
 # the expander runs in the same venv as the rest of the build — no hardcoded
 # path. RIG_EXPAND_PYTHONPATH is module-relative (derived from _RIG_BTR_ROOT,
 # this module's own tree — that is the location of OUR mechanics, the
-# expander package RIG_EXPAND_COMPILE names below (default rigexp), which is
+# expander package RIG_EXPAND_COMPILE names below, which is
 # legitimately ours). The shield LIBRARY, by contrast, is discoverable
 # CONTENT, not mechanics: rig shield templates may live in any board_root of
 # any Zephyr module (btr-shields ships some as default content, but must not

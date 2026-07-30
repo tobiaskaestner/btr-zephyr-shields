@@ -37,6 +37,12 @@ entirely when parsing. One golden directory (shield-uart-subset-frdm)
 has no zephyr.dts at all and stays byte-compared instead --
 overlay_is_byte_compared names that exception.
 
+rig-gen-includes.dtsi's contract is the ORDERED list of headers a rig's
+dt-includes: declared -- cpp include order can matter (a later header may
+depend on macros an earlier one defines), so this is a list, never a
+set, unlike RIG_DEPENDS above. The provenance banner is its only comment
+and carries no contract, same as the other two artifacts.
+
 Every function in this module is pure over the text values it is given;
 IO (reading the golden, running the tool under test) stays at the
 conftest seam that calls compare_context_cmake / compare_config_sheet,
@@ -748,3 +754,91 @@ def compare_overlay(expected: str, actual: str) -> Optional[str]:
     if not problems:
         return None
     return "\n".join(problems)
+
+
+# --------------------------------------------------------------------------
+# rig-gen-includes.dtsi: nothing but the rig's declared dt-includes:,
+# emitted iff that key is non-empty (today, only lotus_buttons). Unlike
+# RIG_DEPENDS, this is compared as an ORDERED list -- it is the rig
+# author's own dt-includes: order, and cpp include order can matter (a
+# later header may rely on a macro an earlier one defines), so a
+# comparator that tolerated reordering could hide a real regression.
+
+_INCLUDES_BANNER_RE = re.compile(r"^/\*.*\*/$")
+_INCLUDE_LINE_RE = re.compile(r"^#include <(?P<header>[^>]+)>$")
+
+
+class IncludesDtsiParseError(ValueError):
+    """Raised by parse_includes_dtsi when a non-blank line is neither the
+    provenance banner nor an angle-bracket #include <header> line. An unrecognised
+    line must never be silently skipped (D1): dropping it would let a
+    truncated or malformed artifact compare equal to whatever header list
+    the rest of the text happens to carry."""
+
+
+def parse_includes_dtsi(text: str) -> Tuple[str, ...]:
+    """Parse rig-gen-includes.dtsi into the ORDERED tuple of headers its
+    dt-includes: declared, in the order the rig author wrote them (and
+    emitter/__init__.py._render_includes_dtsi preserves).
+
+    The provenance banner comment (one line, /* ... */) is recognised
+    structurally as the artifact's first non-blank line but its own text
+    is never read -- the same tool-identity leak compare_context_cmake and
+    compare_config_sheet already treat as free to differ. Every remaining
+    non-blank line must be an angle-bracket #include <header> line; blank lines
+    carry no contract and are skipped freely.
+
+    Returns a fresh tuple the caller owns; text is read-only."""
+    lines = text.splitlines()
+    n = len(lines)
+    i = 0
+    while i < n and lines[i].strip() == "":
+        i += 1
+    if i >= n or _INCLUDES_BANNER_RE.match(lines[i].strip()) is None:
+        raise IncludesDtsiParseError(
+            "expected the provenance banner comment (/* ... */) as the "
+            "first non-blank line")
+    i += 1
+    headers: List[str] = []
+    while i < n:
+        line = lines[i].strip()
+        if line == "":
+            i += 1
+            continue
+        m = _INCLUDE_LINE_RE.match(line)
+        if m is None:
+            raise IncludesDtsiParseError(
+                f"line {i + 1}: not an angle-bracket #include <header> line: "
+                f"{lines[i]!r}")
+        headers.append(m.group("header"))
+        i += 1
+    return tuple(headers)
+
+
+def compare_includes_dtsi(expected: str, actual: str) -> Optional[str]:
+    """Compare two rig-gen-includes.dtsi texts against the artifact's real
+    contract -- the ordered header list -- instead of byte-for-byte.
+
+    A missing, extra, or reordered header is a mismatch: declaration order
+    is the rig author's, and cpp include order can matter, so this is
+    compared as a LIST, never a set (unlike context.cmake's RIG_DEPENDS).
+    The provenance banner is recognised as present but never read.
+
+    Returns None when the two texts declare the identical header list in
+    the identical order; otherwise a human-readable mismatch report. Text
+    that fails to parse at all is reported as a mismatch too, never raised
+    past this function, matching compare_context_cmake/compare_config_sheet."""
+    try:
+        expected_headers = parse_includes_dtsi(expected)
+    except IncludesDtsiParseError as exc:
+        return f"golden rig-gen-includes.dtsi failed to parse: {exc}"
+    try:
+        actual_headers = parse_includes_dtsi(actual)
+    except IncludesDtsiParseError as exc:
+        return f"actual rig-gen-includes.dtsi failed to parse: {exc}"
+
+    if expected_headers == actual_headers:
+        return None
+    return (
+        "header list differs (declaration order is contract): golden "
+        f"{list(expected_headers)!r} != actual {list(actual_headers)!r}")

@@ -46,7 +46,13 @@ echo "== pytest: rigc (with unit coverage) =="
 rigc_status=0
 "$PY" -m coverage run -m pytest scripts/rigc/tests/unit --durations=25 \
     --junitxml=.reports/junit-rigc.xml || rigc_status=$?
-"$PY" -m coverage report
+# `coverage report` carries fail_under (pyproject [tool.coverage.report]), so
+# it EXITS NON-ZERO on a coverage regression. Capture it the same way the test
+# run above is captured: under set -e an unguarded call would abort here and
+# skip the browsable reports below, which is precisely the run you want them
+# for. Both statuses are re-raised after the reports render.
+coverage_status=0
+"$PY" -m coverage report || coverage_status=$?
 # Browsable views, rewritten every run:
 #   $BROWSER .reports/coverage-rigc-html/index.html
 #   $BROWSER .reports/junit-rigc.html
@@ -54,6 +60,10 @@ rigc_status=0
 [ -f .reports/junit-rigc.xml ] && \
     "$PY" scripts/junit_html.py .reports/junit-rigc.xml .reports/junit-rigc.html
 [ "$rigc_status" -eq 0 ] || exit "$rigc_status"
+[ "$coverage_status" -eq 0 ] || {
+    echo "check.sh: rigc unit coverage below the fail_under floor" >&2
+    exit "$coverage_status"
+}
 
 if [ -d scripts/rigc/tests/integration ]; then
     echo "== pytest =="
