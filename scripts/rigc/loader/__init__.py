@@ -53,6 +53,7 @@ import os
 from dataclasses import dataclass, field
 from typing import List, Optional, Tuple
 
+from ..deps import Deps, touch, union
 from ..diag import Diagnostic, LoadError, SourceRef, error
 from ..model import Rig
 from ..unimplemented import Unimplemented
@@ -174,7 +175,7 @@ class ContentResult:
 
 def _gather_content(rig: Rig, rig_dir: str, workdir: str,
                     include_dirs: Optional[List[str]],
-                    ) -> Tuple[Optional[ContentResult], List[Diagnostic]]:
+                    ) -> Tuple[Optional[ContentResult], List[Diagnostic], Deps]:
     """Steps 6-9: the rig's REQUIRED content file, its two qualifier delta
     fragments (looked up by the constructed stems `loader.axes` builds,
     never `${RIG}` literally), rule 10 (a selected non-default axis value
@@ -186,13 +187,22 @@ def _gather_content(rig: Rig, rig_dir: str, workdir: str,
     Never raises LoadError itself: the one cpp-reaching call here
     (`check_dt_includes`) catches it internally per header
     (`dtsio.check_include`), so this phase needs no D1-style inner
-    boundary of its own (unlike phase 3, see `_build_topology`)."""
+    boundary of its own (unlike phase 3, see `_build_topology`).
+
+    Returns (result, diagnostics, deps): deps names the content file
+    itself plus whichever of the two qualifier delta fragments actually
+    exist -- the closure this phase owns of rigc-r5-brief.md Sec 2's
+    RIG_DEPENDS handoff (the fragments' own #include chains are not
+    opened here at all, since a delta fragment is parsed the same
+    mark-aware-YAML way the base content is, never cpp)."""
     assert rig.src is not None   # phase 1 always sets it before returning a Rig
     diags: List[Diagnostic] = []
+    deps: Deps = frozenset()
     content_path = os.path.join(rig_dir, content_file_name(rig.name))
     if not os.path.isfile(content_path):
         diags.append(_missing_content_diag(rig.name, content_path, rig.src))
-        return None, diags
+        return None, diags, deps
+    deps = union(deps, touch(content_path))
     content_v = parse_marked(content_path)
     diags += reject_metadata_keys(content_v)
 
@@ -200,12 +210,14 @@ def _gather_content(rig: Rig, rig_dir: str, workdir: str,
     if rig.variant is not None:
         p = os.path.join(rig_dir, variant_fragment_name(rig.name, rig.variant))
         if os.path.isfile(p):
+            deps = union(deps, touch(p))
             variant_delta_v = parse_marked(p)
 
     revision_delta_v: Optional[Val] = None
     if rig.revision is not None:
         p = os.path.join(rig_dir, revision_fragment_name(rig.name, rig.revision))
         if os.path.isfile(p):
+            deps = union(deps, touch(p))
             revision_delta_v = parse_marked(p)
 
     if rig.revision is not None or rig.variant is not None:
@@ -249,7 +261,7 @@ def _gather_content(rig: Rig, rig_dir: str, workdir: str,
     return ContentResult(
         content_v=content_v,
         deltas=Deltas(variant_v=variant_delta_v, revision_v=revision_delta_v),
-        dt_includes=dt_includes, dt_includes_refs=dt_includes_refs), diags
+        dt_includes=dt_includes, dt_includes_refs=dt_includes_refs), diags, deps
 
 
 # ---------------------------------------------------------------- phase 3
@@ -258,7 +270,7 @@ def _gather_content(rig: Rig, rig_dir: str, workdir: str,
 def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
                     content: ContentResult, workdir: str,
                     include_dirs: Optional[List[str]],
-                    ) -> Tuple[Topology, List[Diagnostic]]:
+                    ) -> Tuple[Topology, List[Diagnostic], Deps]:
     """Steps 10-11: stage 0 (the base content's instances:/wires:, order
     preserved, the per-stage invariant checked per instance as it is
     parsed), then the variant delta stage, then the revision delta stage
@@ -270,8 +282,18 @@ def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
     diagnostics-so-far into the exception (the same D1 shape
     `load_shield_library` already applies to its own scan loop), so the
     outer boundary in `load()` renders every finding gathered before the
-    raise, never just the fatal one."""
+    raise, never just the fatal one.
+
+    Returns (topology, diagnostics, deps): deps is the UNION of every
+    shield resolution this phase made -- stage 0's own `parse_instance`
+    calls AND both delta stages' `apply_delta` -- never derived from the
+    final topology alone (rigc-r5-brief.md Sec 2, fact 2): a variant
+    stage that SUBSTITUTES one instance's shield for another still
+    leaves the base stage's own resolution (of the shield the variant
+    replaced) in this union, because that resolution genuinely happened
+    -- RIG_DEPENDS records resolution HISTORY, not final topology."""
     diags: List[Diagnostic] = []
+    deps: Deps = frozenset()
     try:
         content_map = as_mapping(
             content.content_v, f"content document {content.content_v.src.file}")
@@ -280,9 +302,10 @@ def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
         insts_v, d = require(content.content_v, "instances", "rig")
         diags += d
         for item in (insts_v.value if insts_v is not None else []):
-            inst, d, _idep = parse_instance(item, sock_binding, lib, rig.name,
-                                            content.dt_includes, workdir, include_dirs)
+            inst, d, idep = parse_instance(item, sock_binding, lib, rig.name,
+                                           content.dt_includes, workdir, include_dirs)
             diags += d
+            deps = union(deps, idep)
             if inst is not None:
                 topology.effective[inst.name] = inst
                 topology.order.append(inst.name)
@@ -298,25 +321,27 @@ def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
         # Stage 1: variant delta.
         if content.deltas.variant_v is not None:
             assert rig.variant is not None    # a delta only loads for a selected axis
-            topology, d, _idep = apply_delta(
+            topology, d, idep = apply_delta(
                 content.deltas.variant_v, "variant", rig.variant, topology,
                 sock_binding, lib, rig.variant, rig.name, content.dt_includes,
                 workdir, include_dirs)
             diags += d
+            deps = union(deps, idep)
             diags += check_param_invariant(topology.instances())
 
         # Stage 2: revision delta -- ONE family-wide stream, applied AFTER
         # the variant.
         if content.deltas.revision_v is not None:
             assert rig.revision is not None   # a delta only loads for a selected axis
-            topology, d, _idep = apply_delta(
+            topology, d, idep = apply_delta(
                 content.deltas.revision_v, "revision", rig.revision, topology,
                 sock_binding, lib, rig.variant, rig.name, content.dt_includes,
                 workdir, include_dirs)
             diags += d
+            deps = union(deps, idep)
             diags += check_param_invariant(topology.instances())
 
-        return topology, diags
+        return topology, diags, deps
     except LoadError as e:
         raise LoadError(*diags, *e.diags) from None
 
@@ -330,7 +355,7 @@ def load(rig_path: str, workdir: str,
         variant: Optional[str] = None,
         types: Optional[dict] = None,
         include_dirs: Optional[List[str]] = None,
-        ) -> Tuple[Optional[Rig], List[Diagnostic]]:
+        ) -> Tuple[Optional[Rig], List[Diagnostic], Deps]:
     """Load rig_path (absolute) as far as rigc's loader reaches, returning
     the built Rig (best-effort; None only when nothing further could be
     attempted at all) alongside every diagnostic found. rigexp CONTINUES
@@ -339,10 +364,18 @@ def load(rig_path: str, workdir: str,
 
     `workdir` is where every `.shield` translation unit and dt-includes
     probe gets synthesized (cli.py's responsibility to create/clean up).
-    Dependency data (every real file this load touched) is computed
-    internally as a value but not yet returned -- nothing asserts it until
-    the emitter slice wires RIG_DEPENDS (rigc-r3-brief.md Sec 4); the
-    shape lives in library.py/registry.py's own return values already."""
+
+    Returns (rig, diagnostics, deps): deps is the UNION of every real
+    source-tree file this load touched -- rig_path itself, the shield
+    library scan (library.py's own eager-breadth deps, unchanged whether
+    a rig ends up naming the shield or not: rigc-r5-brief.md Sec 2, fact
+    1), the content file plus whichever qualifier delta fragments exist
+    (`_gather_content`), and every shield resolution the topology stages
+    made (`_build_topology`, unioned rather than derived from the final
+    instance list -- fact 2). This is the RIG_DEPENDS handoff's own
+    value; cli.py composes it with the connector-registry and board
+    deps and hands the result to `context.render`. The caller owns the
+    Rig and the Deps alike."""
     # LoadError (a fatal parse/cpp failure, dtsio.py) can surface from
     # the library scan below or a lazy shield resolve mid-topology.
     # rigexp's shared accumulator survives that raise by OWNERSHIP; with
@@ -350,35 +383,40 @@ def load(rig_path: str, workdir: str,
     # returns everything gathered so far plus what the exception carries
     # -- one shape, no finding lost (R3 review, D1).
     diags: List[Diagnostic] = []
+    deps: Deps = frozenset()
     try:
-        lib, diags, _deps = load_shield_library(
+        lib, diags, lib_deps = load_shield_library(
             workdir, shield_dirs, types=types, include_dirs=include_dirs)
+        deps = union(deps, lib_deps)
 
+        deps = union(deps, touch(rig_path))
         doc = parse_marked(rig_path)
 
         log.info("load(): resolving metadata")
         meta, d = _resolve_metadata(doc, revision, variant)
         diags += d
         if meta.rig is None:
-            return None, diags
+            return None, diags, deps
         rig, sock_binding = meta.rig, meta.binding
 
         log.info("load(): gathering content")
         rig_dir = os.path.dirname(rig_path)
-        content, d = _gather_content(rig, rig_dir, workdir, include_dirs)
+        content, d, cdeps = _gather_content(rig, rig_dir, workdir, include_dirs)
         diags += d
+        deps = union(deps, cdeps)
         if content is None:
-            return None, diags
+            return None, diags, deps
 
         log.info("load(): building topology")
-        topology, d = _build_topology(
+        topology, d, tdeps = _build_topology(
             rig, sock_binding, lib, content, workdir, include_dirs)
         diags += d
+        deps = union(deps, tdeps)
 
         rig.dt_includes = content.dt_includes
         rig.dt_includes_refs = content.dt_includes_refs
         rig.instances = topology.instances()
         rig.wires = topology.wires
-        return rig, diags
+        return rig, diags, deps
     except LoadError as e:
-        return None, diags + list(e.diags)
+        return None, diags + list(e.diags), deps

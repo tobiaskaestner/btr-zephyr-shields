@@ -5,11 +5,14 @@ Sec 2): `expand <rig_yml>` with --shield-dir* --board-dts --build-info
 --bindings-dir* --include-dir* --connector-dir* --revision --variant
 --out-dir (* = repeatable). Every option is PARSED here from day one; as
 of R4 (rigc-r4-brief.md) every one of them is LIVE -- --board-dts/
---build-info/--bindings-dir now feed the board reader (boarddt/board_edt/
+--build-info/--bindings-dir feed the board reader (boarddt/board_edt/
 edt_build), the same way --shield-dir/--include-dir/--connector-dir/
---revision/--variant already feed the loader (R2/R3). Only the emitter's
-own artifacts (rig-gen.overlay, context.cmake, config-sheet.md) remain
-unbuilt -- a clean analysis still ends in a loud exit-3 refusal.
+--revision/--variant feed the loader (R2/R3). As of R5
+(rigc-r5-brief.md) the accept path is complete: a clean analysis emits
+the rig artifacts (`emitter.emit`) plus the build-glue handoff
+(`emitter.context.render`) through the one writer (`emitter.write_
+artifacts`) and returns 0 -- `unimplemented.py`'s Unimplemented no
+longer fires on any input the frozen corpus contains.
 main(argv) -> int is callable in-process, so the argv contract has
 subprocess-free unit tests.
 
@@ -36,8 +39,10 @@ import tempfile
 from typing import List, Optional
 
 from . import analyzer, boarddt, loader
+from .deps import union as deps_union
 from .diag import Diagnostic, LoadError, has_errors, render
 from .edt_build import BuildRecipe, recipe_from_build_info
+from .emitter import context, emit, write_artifacts
 from .registry import load_types
 from .unimplemented import Unimplemented
 
@@ -159,13 +164,15 @@ def _expand(args: argparse.Namespace) -> int:
     board_dts = os.path.abspath(args.board_dts) if args.board_dts else None
 
     # Resolved ONCE here and threaded down (T0b's shape) -- replaces what
-    # would otherwise be a re-glob/re-parse per caller.
-    types, _deps = load_types(connector_dirs=connector_dirs,
-                              header_dirs=header_dirs)
+    # would otherwise be a re-glob/re-parse per caller. types_deps rides
+    # RIG_DEPENDS below (every connector-type YAML and index header this
+    # run's registry actually read).
+    types, types_deps = load_types(connector_dirs=connector_dirs,
+                                   header_dirs=header_dirs)
 
     workdir = tempfile.mkdtemp(prefix="rigexp-")
     try:
-        rig, diags = loader.load(
+        rig, diags, rig_deps = loader.load(
             rig_path, workdir, shield_dirs=shield_dirs,
             revision=args.revision, variant=args.variant,
             types=types, include_dirs=header_dirs)
@@ -193,7 +200,7 @@ def _expand(args: argparse.Namespace) -> int:
     # since has_errors already returned above) findings.
     recipe = _resolve_recipe(args.include_dirs, args.bindings_dirs,
                              args.build_info)
-    board, board_diags, _bdeps = boarddt.load_board(
+    board, board_diags, board_deps = boarddt.load_board(
         rig.board, workdir, board_dts=board_dts, recipe=recipe)
     diags += board_diags
     if board is None:
@@ -201,14 +208,31 @@ def _expand(args: argparse.Namespace) -> int:
 
     # Pass 2: the analyzer (rigc-r4-brief.md Sec 2) -- mating/socket
     # resolution, nets, addresses, CS, wires, labels.
-    _solved, analyzer_diags = analyzer.analyze(rig, board, types)
+    solved, analyzer_diags = analyzer.analyze(rig, board, types)
     diags += analyzer_diags
     if has_errors(diags):
         return _reject(diags)
 
-    # A clean analysis still ends in a loud exit-3 refusal: the emitter
-    # (rig-gen.overlay/context.cmake/config-sheet.md) is R5's job.
-    raise Unimplemented("expand: the accept path (emitter)")
+    # Accept: emit the rig artifacts (emitter.emit -- strong contract,
+    # cannot fail here) plus the build-glue handoff (context.render,
+    # rigc-r5-brief.md Sec 2 -- kept a SEPARATE value function so cli.py
+    # never builds context.cmake's text itself), then ONE writer for
+    # everything. RIG_DEPENDS is every real source-tree file this run
+    # actually touched: the connector-type registry, the loader's own
+    # closure (rig.yml, its content file, qualifier delta fragments,
+    # every shield resolution across all three topology stages -- eager
+    # scan breadth and resolution history alike, see loader.load's own
+    # docstring), and the board's .dts.
+    all_deps = deps_union(types_deps, rig_deps, board_deps)
+    out_dir = os.path.abspath(args.out_dir)
+    artifacts = emit(rig, solved, types, workdir, include_dirs=header_dirs)
+    artifacts["context.cmake"] = context.render(rig, all_deps)
+    write_artifacts(out_dir, artifacts)
+
+    log.info("verdict: accepted, exit 0")
+    if diags:   # warnings only -- errors would have exited above
+        print(render(diags), file=sys.stderr)
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:

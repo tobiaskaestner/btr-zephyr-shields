@@ -1,0 +1,274 @@
+"""Unit: emitter/overlay -- the device-node renderer (rigc-r5-brief.md
+Sec 4). Stable contracts pinned here: gpio/pwm/adc idioms, the
+`inst.invert` flag flip, per-instance params substitution (replace vs
+add), the sdmmc child node, the PWM-flags AssertionError, and
+determinism under a shuffled instance order (R7/R18) -- the frozen
+suite's own goldens already cover this end to end; this module aims at
+contracts that would survive a rewrite, not coverage.
+"""
+from __future__ import annotations
+
+from typing import Dict, Tuple
+
+import pytest
+
+from rigc.analyzer import Solved
+from rigc.diag import SourceRef
+from rigc.emitter.overlay import render_overlay
+from rigc.model import (BoardSocket, BusRef, ConnectorType, Device, GpioRef,
+                        Instance, Rig, Shield)
+
+_SRC = SourceRef("f.yml", 1, "k")
+
+
+def _ctype() -> ConnectorType:
+    return ConnectorType(name="t", positions={}, index2name={}, bus_proxies=[],
+                        stackable=False, cs_pool=[])
+
+
+def _socket() -> BoardSocket:
+    return BoardSocket(label="sock", path="/s", type_name="t", gpio_map={},
+                       buses={}, cs_pool=None)
+
+
+def _plain_dev(**kwargs: object) -> Device:
+    """A plain (non-bus, non-collected) device -- the shortest path to
+    `_device_node` via render_overlay's per-instance container section."""
+    defaults: dict = dict(name="d", label="d", compatible=None, bus=None,
+                          group=None, reg=None, addr_from=None, cs_position=None)
+    defaults.update(kwargs)
+    return Device(**defaults)   # type: ignore[arg-type]
+
+
+def test_gpio_ref_flips_the_active_level_when_the_instance_inverts() -> None:
+    ref = GpioRef(prop="int-gpios", position=5, flags=0x1, src=_SRC, function="gpio")
+    dev = _plain_dev(gpio_refs=[ref])
+    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
+    inst = Instance(name="i1", shield=shield, socket="sock", invert=True)
+    rig = Rig(name="r", instances=[inst])
+    s = Solved(sockets={"i1": _socket()})
+
+    text = render_overlay(rig, s, {"t": _ctype()})
+
+    assert "int-gpios = <&sock 5 0x0>;" in text   # 0x1 ^ 0x1 (invert) = 0x0
+
+
+def test_gpio_ref_keeps_flags_unchanged_when_not_inverted() -> None:
+    ref = GpioRef(prop="int-gpios", position=5, flags=0x1, src=_SRC, function="gpio")
+    dev = _plain_dev(gpio_refs=[ref])
+    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
+    inst = Instance(name="i1", shield=shield, socket="sock")
+    rig = Rig(name="r", instances=[inst])
+    s = Solved(sockets={"i1": _socket()})
+
+    text = render_overlay(rig, s, {"t": _ctype()})
+
+    assert "int-gpios = <&sock 5 0x1>;" in text
+
+
+def test_pwm_ref_omits_flags_and_renders_position_and_period() -> None:
+    ref = GpioRef(prop="pwms", position=2, flags=0, src=_SRC, function="pwm",
+                 period=1000)
+    dev = _plain_dev(name="dev", label="dev", gpio_refs=[ref])
+    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
+    inst = Instance(name="i1", shield=shield, socket="sock")
+    rig = Rig(name="r", instances=[inst])
+    s = Solved(sockets={"i1": _socket()},
+              channels={("i1", "dev", "pwms"): ("pwm", "pwm0", 0, 1000, 0, 2)})
+
+    text = render_overlay(rig, s, {"t": _ctype()})
+
+    assert "pwms = <&sock 2 1000>;" in text
+
+
+def test_nonzero_pwm_flags_raise_assertionerror_never_silently_emitted() -> None:
+    """The analyzer's phys-function rejection is what makes this
+    unreachable on an accepted rig (analyzer/gpio.py); this documents the
+    invariant rather than re-deriving the diagnostic -- a RAISE, not a
+    bare `assert`, so it survives `python -O` (rigc-r5-brief.md Sec 1)."""
+    ref = GpioRef(prop="pwms", position=2, flags=0, src=_SRC, function="pwm",
+                 period=1000)
+    dev = _plain_dev(name="dev", label="dev", gpio_refs=[ref])
+    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
+    inst = Instance(name="i1", shield=shield, socket="sock")
+    rig = Rig(name="r", instances=[inst])
+    s = Solved(sockets={"i1": _socket()},
+              channels={("i1", "dev", "pwms"): ("pwm", "pwm0", 0, 1000, 0x1, 2)})
+
+    with pytest.raises(AssertionError, match="nonzero PWM flags"):
+        render_overlay(rig, s, {"t": _ctype()})
+
+
+def test_adc_ref_renders_position_only_no_flags_no_period() -> None:
+    ref = GpioRef(prop="io-channels", position=3, flags=0, src=_SRC, function="adc")
+    dev = _plain_dev(name="dev", label="dev", gpio_refs=[ref])
+    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
+    inst = Instance(name="i1", shield=shield, socket="sock")
+    rig = Rig(name="r", instances=[inst])
+    s = Solved(sockets={"i1": _socket()},
+              channels={("i1", "dev", "io-channels"): ("adc", "adc0", 0, None, 0, 3)})
+
+    text = render_overlay(rig, s, {"t": _ctype()})
+
+    assert "io-channels = <&sock 3>;" in text
+
+
+def test_instance_params_replace_an_existing_prop_and_add_a_new_one() -> None:
+    dev = _plain_dev(
+        label="dev",
+        extra_props=[("zephyr,code", "zephyr,code = <INPUT_KEY_0>;"),
+                    ("label", 'label = "btn";')])
+    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
+    inst = Instance(name="i1", shield=shield, socket="sock",
+                   params={"dev": {"zephyr,code": "INPUT_KEY_9",
+                                  "debounce-interval-ms": "30"}})
+    rig = Rig(name="r", instances=[inst])
+    s = Solved(sockets={"i1": _socket()})
+
+    text = render_overlay(rig, s, {"t": _ctype()})
+
+    assert "zephyr,code = <INPUT_KEY_9>;" in text      # REPLACED
+    assert "zephyr,code = <INPUT_KEY_0>;" not in text  # the old rendering is gone
+    assert 'label = "btn";' in text                    # untouched (not assigned)
+    assert "debounce-interval-ms = <30>;" in text       # ADDED (no prior default)
+
+
+def test_sdhc_spi_slot_device_gets_a_sdmmc_child_node() -> None:
+    dev = _plain_dev(name="sd", label="sd", compatible="zephyr,sdhc-spi-slot")
+    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
+    inst = Instance(name="i1", shield=shield, socket="sock")
+    rig = Rig(name="r", instances=[inst])
+    s = Solved(sockets={"i1": _socket()})
+
+    text = render_overlay(rig, s, {"t": _ctype()})
+
+    assert 'compatible = "zephyr,sdmmc-disk";' in text
+    assert 'disk-name = "SD";' in text
+
+
+def test_devices_without_the_sdmmc_compatible_get_no_extra_child() -> None:
+    dev = _plain_dev(name="sd", label="sd", compatible="something-else")
+    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
+    inst = Instance(name="i1", shield=shield, socket="sock")
+    rig = Rig(name="r", instances=[inst])
+    s = Solved(sockets={"i1": _socket()})
+
+    text = render_overlay(rig, s, {"t": _ctype()})
+
+    assert "sdmmc" not in text
+
+
+def test_render_overlay_is_deterministic_under_a_shuffled_instance_order() -> None:
+    """R7/R18: output is sorted by stable keys, never rig-file declaration
+    order -- two instance lists differing only in ORDER must render
+    byte-identical text."""
+    def make(order: list[str]) -> str:
+        insts = []
+        sockets = {}
+        for name in order:
+            dev = _plain_dev(name="d", label="d")
+            shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
+            insts.append(Instance(name=name, shield=shield, socket="sock"))
+            sockets[name] = _socket()
+        rig = Rig(name="r", instances=insts)
+        s = Solved(sockets=sockets)
+        return render_overlay(rig, s, {"t": _ctype()})
+
+    assert make(["alpha", "bravo"]) == make(["bravo", "alpha"])
+
+
+def _mux_rig_and_solved(channel_order: list[int]) -> Tuple[Rig, Solved]:
+    """One I2C mux instance whose scopes: entries are inserted in
+    channel_order -- the mux-channel counterpart of the shuffled instance
+    list above (R26: each channel is a NEW address scope)."""
+    dev = _plain_dev(name="mux", label="mux", bus="i2c",
+                     extra_props=[("compatible", 'compatible = "ti,tca9548a";')])
+    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
+    inst = Instance(name="i1", shield=shield, socket="sock")
+    socket = BoardSocket(label="sock", path="/s", type_name="t", gpio_map={},
+                         buses={"i2c": BusRef(label="i2c1", path="/i2c1")},
+                         cs_pool=None)
+    scopes: Dict[str, Tuple[str, object]] = {
+        f"/i2c1/ch{channel}": ("i1_mux", channel) for channel in channel_order}
+    return (Rig(name="r", instances=[inst]),
+            Solved(sockets={"i1": socket}, addr={("i1", "mux"): 0x70},
+                   bus_label={"/i2c1": "i2c1"}, scopes=scopes))
+
+
+def test_render_overlay_is_deterministic_under_a_shuffled_scope_order() -> None:
+    """The same R7/R18 guarantee for `Solved.scopes`, whose iteration
+    builds the mux-channel lists: two dicts differing only in INSERTION
+    order must render byte-identical channel nodes."""
+    forward_rig, forward = _mux_rig_and_solved([0, 1, 2])
+    reverse_rig, reverse = _mux_rig_and_solved([2, 1, 0])
+
+    text = render_overlay(forward_rig, forward, {"t": _ctype()})
+
+    assert text == render_overlay(reverse_rig, reverse, {"t": _ctype()})
+    assert text.index("channel@0") < text.index("channel@1") < text.index("channel@2")
+
+
+def test_resolved_controllers_are_enabled_under_the_pinctrl_note() -> None:
+    """The PWM/ADC controller section, verbatim. Its three comment lines are
+    frozen output text, not prose: the em dash in the second one is a
+    literal byte of every overlay a PWM/ADC rig emits, and writing it as
+    `--` renders a golden mismatch that only one corpus rig (lotus_pwm)
+    can catch. Asserted character-for-character here so a fast unit run
+    catches it instead of a 200-second differential."""
+    rig = Rig(name="r", instances=[])
+    s = Solved(controllers={"tcc0": "pwm", "adc0": "adc"})
+
+    text = render_overlay(rig, s, {"t": _ctype()})
+
+    assert ("/* PWM/ADC: enable the resolved controllers; the pin-mux (pinctrl)\n"
+            " * for each muxed pin is board-provided and must be applied —\n"
+            " * stubbed here, see the config sheet. */\n"
+            '&adc0 { status = "okay"; };\n'          # sorted, not insertion order
+            '&tcc0 { status = "okay"; };') in text
+
+
+def test_no_controllers_means_no_controller_section_at_all() -> None:
+    rig = Rig(name="r", instances=[])
+
+    text = render_overlay(rig, Solved(), {"t": _ctype()})
+
+    assert "PWM/ADC" not in text
+
+
+def test_carrier_exported_socket_synthesizes_a_chained_gpio_nexus() -> None:
+    """R19 Option C: a socket with no DT node of its own gets a synthesized
+    gpio-nexus chaining to its parent's, and a carrier stacked on a carrier
+    synthesizes BOTH (the recursive parent visit). The four fixed property
+    lines and the multi-row gpio-map join are frozen output text."""
+    parent = BoardSocket(label="carrier", path="/c", type_name="t", gpio_map={},
+                         buses={}, cs_pool=None, nexus_label="carrier_nexus",
+                         nexus_rows=[(0, "nucleo_ard", 7)])
+    child = BoardSocket(label="click", path="/c/k", type_name="t", gpio_map={},
+                        buses={}, cs_pool=None, nexus_label="click_nexus",
+                        nexus_rows=[(0, "carrier_nexus", 3), (1, "carrier_nexus", 4)],
+                        parent=parent)
+    rig = Rig(name="r", instances=[])
+    s = Solved(sockets={"i1": child})
+
+    text = render_overlay(rig, s, {"t": _ctype()})
+
+    assert "/* carrier-exported sockets, synthesized as gpio-nexus nodes */" in text
+    assert ("\tclick_nexus: click_nexus {\n"
+            "\t\t#gpio-cells = <2>;\n"
+            "\t\tgpio-map-mask = <0xffffffff 0xffffffc0>;\n"
+            "\t\tgpio-map-pass-thru = <0 0x3f>;\n"
+            "\t\tgpio-map = <0 0 &carrier_nexus 3 0>,\n"
+            "\t\t\t   <1 0 &carrier_nexus 4 0>;\n"
+            "\t};") in text
+    # the parent is reached through child.parent, never through s.sockets
+    assert "\tcarrier_nexus: carrier_nexus {" in text
+
+
+def test_board_sockets_synthesize_no_nexus_node() -> None:
+    """nexus_rows is None for a real board socket -- there is nothing to
+    route, and emitting one would shadow the board's own node."""
+    rig = Rig(name="r", instances=[])
+
+    text = render_overlay(rig, Solved(sockets={"i1": _socket()}), {"t": _ctype()})
+
+    assert "gpio-map" not in text

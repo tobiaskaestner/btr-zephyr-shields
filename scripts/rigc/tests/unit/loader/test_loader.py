@@ -161,22 +161,24 @@ def test_resolve_metadata_per_variant_board_resolves_the_selected_ones(
 
 def test_gather_content_rejects_a_missing_content_file(tmp_path: Path) -> None:
     rig = _rig()
-    content, diags = _gather_content(rig, str(tmp_path), str(tmp_path), None)
+    content, diags, deps = _gather_content(rig, str(tmp_path), str(tmp_path), None)
     assert content is None
     assert len(diags) == 1
     assert diags[0].code == "lang-content"
+    assert deps == frozenset()
 
 
 def test_gather_content_reads_an_empty_content_file(tmp_path: Path) -> None:
-    _write(tmp_path, "r.yml", """\
+    content_path = _write(tmp_path, "r.yml", """\
         instances: []
         """)
     rig = _rig()
-    content, diags = _gather_content(rig, str(tmp_path), str(tmp_path), None)
+    content, diags, deps = _gather_content(rig, str(tmp_path), str(tmp_path), None)
     assert diags == []
     assert content is not None
     assert content.dt_includes == []
     assert content.deltas == Deltas(variant_v=None, revision_v=None)
+    assert deps == frozenset((str(content_path),))
 
 
 def test_gather_content_rejects_metadata_keys_in_the_content_document(
@@ -186,7 +188,7 @@ def test_gather_content_rejects_metadata_keys_in_the_content_document(
         instances: []
         """)
     rig = _rig()
-    _content, diags = _gather_content(rig, str(tmp_path), str(tmp_path), None)
+    _content, diags, _deps = _gather_content(rig, str(tmp_path), str(tmp_path), None)
     assert len(diags) == 1
     assert diags[0].code == "lang-schema"
 
@@ -197,7 +199,7 @@ def test_gather_content_rule_10_a_nondefault_variant_contributing_nothing(
         instances: []
         """)
     rig = _rig(variant="b", variants=AxisDecl(values=["a", "b"], default="a"))
-    _content, diags = _gather_content(rig, str(tmp_path), str(tmp_path), None)
+    _content, diags, _deps = _gather_content(rig, str(tmp_path), str(tmp_path), None)
     assert len(diags) == 1
     assert diags[0].code == "lang-variant"
     assert "contributes nothing" in diags[0].message
@@ -205,34 +207,36 @@ def test_gather_content_rule_10_a_nondefault_variant_contributing_nothing(
 
 def test_gather_content_finds_and_carries_the_variant_delta_fragment(
         tmp_path: Path) -> None:
-    _write(tmp_path, "r.yml", """\
+    content_path = _write(tmp_path, "r.yml", """\
         instances: []
         """)
-    _write(tmp_path, "r_b.yml", """\
+    fragment_path = _write(tmp_path, "r_b.yml", """\
         instances: []
         """)
     rig = _rig(variant="b", variants=AxisDecl(values=["a", "b"], default="a"))
-    content, diags = _gather_content(rig, str(tmp_path), str(tmp_path), None)
+    content, diags, deps = _gather_content(rig, str(tmp_path), str(tmp_path), None)
     assert diags == []
     assert content is not None
     assert content.deltas.variant_v is not None
     assert content.deltas.revision_v is None
+    assert deps == frozenset((str(content_path), str(fragment_path)))
 
 
 def test_gather_content_finds_and_carries_the_revision_delta_fragment(
         tmp_path: Path) -> None:
-    _write(tmp_path, "r.yml", """\
+    content_path = _write(tmp_path, "r.yml", """\
         instances: []
         """)
-    _write(tmp_path, "r_2.yml", """\
+    fragment_path = _write(tmp_path, "r_2.yml", """\
         instances: []
         """)
     rig = _rig(revision="2", revisions=AxisDecl(values=["1", "2"], default="1"))
-    content, diags = _gather_content(rig, str(tmp_path), str(tmp_path), None)
+    content, diags, deps = _gather_content(rig, str(tmp_path), str(tmp_path), None)
     assert diags == []
     assert content is not None
     assert content.deltas.variant_v is None
     assert content.deltas.revision_v is not None
+    assert deps == frozenset((str(content_path), str(fragment_path)))
 
 
 # ---------------------------------------------------------------- _build_topology
@@ -259,23 +263,63 @@ def test_build_topology_resolves_an_instance_from_an_already_cached_shield(
         "  - {from: i1.a, to: i1.b, route: adhoc}\n")
     content = ContentResult(content_v=content_v, deltas=Deltas())
     rig = _rig()
-    topology, diags = _build_topology(
+    topology, diags, _deps = _build_topology(
         rig, SocketBinding(), lib, content, str(tmp_path), None)
     assert diags == []
     assert [i.name for i in topology.instances()] == ["i1"]
     assert len(topology.wires) == 1
 
 
+def test_build_topology_unions_deps_across_variant_substitution(
+        tmp_path: Path) -> None:
+    """rigc-r5-brief.md Sec 2, fact 2: RIG_DEPENDS records RESOLUTION
+    HISTORY, not final topology -- a variant stage that substitutes one
+    instance's shield away must still leave the base stage's own
+    resolution (of the shield the variant replaced) in the union, never
+    derived from the final instance list alone (which would silently
+    drop it). Mirrors pilot_variants_variant_c, whose accept golden's
+    RIG_DEPENDS still names adafruit_data_logger/shield.yml although
+    RIG_SHIELDS lists only pilot_alt_button."""
+    from rigc.model import Shield
+
+    sh_a = Shield(name="sh_a", label="sh_a", plugs="fixture-type")
+    sh_b = Shield(name="sh_b", label="sh_b", plugs="fixture-type")
+    lib = ShieldLibrary(
+        shields={"sh_a": sh_a, "sh_b": sh_b}, axes={"sh_a": None, "sh_b": None},
+        pending={}, ymls={"sh_a": "/fake/sh_a/shield.yml",
+                          "sh_b": "/fake/sh_b/shield.yml"},
+        types={}, workdir=str(tmp_path))
+    content_v = _parsed(
+        tmp_path, "content.yml",
+        "instances:\n"
+        "  - {name: i1, shield: sh_a, socket: s1}\n")
+    variant_v = _parsed(
+        tmp_path, "variant.yml",
+        "instances:\n"
+        "  - {name: i1, shield: sh_b}\n")
+    content = ContentResult(content_v=content_v,
+                            deltas=Deltas(variant_v=variant_v))
+    rig = _rig(variant="v", variants=AxisDecl(values=["v"], default="v"))
+
+    topology, diags, deps = _build_topology(
+        rig, SocketBinding(), lib, content, str(tmp_path), None)
+
+    assert diags == []
+    assert [i.shield.name for i in topology.instances()] == ["sh_b"]
+    assert deps == frozenset(("/fake/sh_a/shield.yml", "/fake/sh_b/shield.yml"))
+
+
 def test_build_topology_of_an_empty_content_document(tmp_path: Path) -> None:
     content_v = _parsed(tmp_path, "content.yml", "instances: []\n")
     content = ContentResult(content_v=content_v, deltas=Deltas())
     rig = _rig()
-    topology, diags = _build_topology(
+    topology, diags, deps = _build_topology(
         rig, SocketBinding(), _empty_lib(str(tmp_path)), content,
         str(tmp_path), None)
     assert diags == []
     assert topology.instances() == []
     assert topology.wires == []
+    assert deps == frozenset()
 
 
 def test_build_topology_a_wire_naming_an_unknown_instance_is_rejected(
@@ -287,7 +331,7 @@ def test_build_topology_a_wire_naming_an_unknown_instance_is_rejected(
         "  - {from: a.x, to: b.y, route: adhoc}\n")
     content = ContentResult(content_v=content_v, deltas=Deltas())
     rig = _rig()
-    topology, diags = _build_topology(
+    topology, diags, _deps = _build_topology(
         rig, SocketBinding(), _empty_lib(str(tmp_path)), content,
         str(tmp_path), None)
     assert topology.wires == []

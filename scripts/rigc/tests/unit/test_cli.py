@@ -198,17 +198,19 @@ def test_out_of_scope_feature_refuses(tmp_path: Path,
     assert err.startswith("rigc: not implemented: ")
 
 
-def test_accept_path_refuses_rather_than_accepting(
+def test_accept_path_now_accepts_and_writes_artifacts(
         tmp_path: Path, capsys: pytest.CaptureFixture[str],
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """Input the loader/analyzer find nothing wrong with must still exit
-    3: with no emitter, exit 0 would be a silent lie. Board reading is
-    stubbed via monkeypatch rather than a real board .dts + cpp -- board
-    reading is integration-only by construction (rigc-r3-brief.md Sec 2's
-    cpp/unit-test seam applies here just the same as it does to the
-    shield side: reaching real cpp makes a test integration, never unit),
-    so THIS invariant (the accept path still refuses) is proven without
-    one, and the unit suite stays subprocess-free."""
+    """R5 closes the emitter: input the loader/analyzer find nothing wrong
+    with now exits 0 and writes the rig artifacts + context.cmake, rather
+    than the pre-R5 loud exit-3 refusal this test used to pin. Board
+    reading is stubbed via monkeypatch rather than a real board .dts +
+    cpp -- board reading is integration-only by construction
+    (rigc-r3-brief.md Sec 2's cpp/unit-test seam applies here just the
+    same as it does to the shield side), and a rig with zero instances
+    needs no cpp from the emitter either (no params to resolve, no
+    dt-includes to probe), so this proves the full accept path -- emit,
+    context.render, the one writer -- without a subprocess."""
     import rigc.boarddt
     from rigc.model import Board
 
@@ -227,11 +229,22 @@ def test_accept_path_refuses_rather_than_accepting(
 
     monkeypatch.setattr(rigc.boarddt, "load_board", fake_load_board)
 
+    out_dir = tmp_path / "out"
     ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
-                             "--out-dir", str(tmp_path / "out"),
+                             "--out-dir", str(out_dir),
                              *_no_shields(tmp_path)])
-    assert ret == 3
-    assert err.startswith("rigc: not implemented: ")
+    assert ret == 0
+    assert err == ""     # no diagnostics at all -- not even a warning
+    for fname in ("rig-gen.overlay", "config-sheet.md", "expectations.yml",
+                 "context.cmake"):
+        assert (out_dir / fname).is_file(), fname
+    assert not (out_dir / "rig-gen-includes.dtsi").exists()  # no dt-includes:
+    assert not (out_dir / "rig-gen.conf").exists()           # never emitted
+
+    context_text = (out_dir / "context.cmake").read_text()
+    assert 'set(RIG_NAME "r")' in context_text
+    assert 'set(RIG_BOARD "some_board/soc/rig")' in context_text
+    assert 'set(RIG_SHIELDS "")' in context_text
 
 
 # --------------------------------------------------- logging (rigc-r45-brief.md Part B)

@@ -17,8 +17,8 @@ resolved (analyzer/sockets.py's `resolve_sockets`) is simply absent from
 (`sockets.get(inst.name)`) -- there is no separate "abort" path to avoid
 taking.
 
-**Solved is R5's input contract** (Sec 2): a frozen-ish value (today's
-blueprint `Solved` minus `rig`/`board`/`types`/mutability -- those are
+**Solved is the emitter's input contract** (Sec 2): a frozen value
+(the blueprint's `Solved` minus `rig`/`board`/`types` -- those are
 already in the emitter's own hands as inputs, not something the analyzer
 need re-expose) the emitter slice consumes unchanged. One deliberate
 addition beyond the blueprint's own field list: `wires`, holding the
@@ -48,9 +48,15 @@ __all__ = ["Solved", "analyze"]
 log = logging.getLogger(__name__)
 
 
-@dataclass
+@dataclass(frozen=True)
 class Solved:
-    """The solved model -- R5's (the emitter slice's) input contract."""
+    """The solved model -- the emitter's input contract.
+
+    Frozen: it is assembled exactly once, from the passes' returned
+    pieces, and every consumer downstream is read-only. The freeze states
+    that ownership in the type rather than in prose alone -- a pass
+    rebinding a field on a model another pass already produced is this
+    codebase's recurring failure mode, and here it is now a TypeError."""
 
     sockets: Dict[str, BoardSocket] = field(default_factory=dict)          # instance -> socket
     addr: Dict[Tuple[str, str], int] = field(default_factory=dict)         # (inst, dev) -> address

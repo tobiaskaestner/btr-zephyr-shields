@@ -1,8 +1,9 @@
 """Dependency data: the real source-tree files one load actually touched
 (rig.yml, its content file, `.shield` templates + their cpp-included
-files, connector bindings, index headers) -- eventually the RIG_DEPENDS
-handoff, but that serialization is an emitter-slice concern (rigc-r3-
-brief.md Sec 4, out of scope here).
+files, connector bindings, index headers) -- the input side of the
+RIG_DEPENDS handoff. `emitter.context.render` serializes a value of this
+type into the sorted, escaped RIG_DEPENDS list cmake/dts.cmake appends to
+CMAKE_CONFIGURE_DEPENDS.
 
 Ratified ruling 3: dependency data is a RETURNED/threaded VALUE, never a
 mutable accumulator (rigexp's own `Depends` is a mutable `set` passed down
