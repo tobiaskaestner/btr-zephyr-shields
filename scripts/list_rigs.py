@@ -13,7 +13,7 @@
 # hardware description. The assembled topology (instances/wires/dt-includes)
 # lives in a separate, required content file, `<rigname>.yml`, which this
 # module never opens: everything past the four keys read below is the
-# rigexp loader's job, the canonical content parser.
+# rigc loader's job, the canonical content parser.
 #
 # This is shared code between the build system's rig resolution
 # (cmake/boards.cmake's fork, `-DRIG=<target>` -> board; cmake/dts.cmake's
@@ -141,7 +141,7 @@ def find_rigs_in(root):
         # carries only metadata, and this is enough to resolve a bare
         # target's default for filename construction, per
         # resolve_rig_target below; shape validation, and the separate
-        # content file's own existence, are the rigexp loader's job).
+        # content file's own existence, are the rigc loader's job).
         ret.append(Rig(name=name, dir=maybe_rig,
                        board=rig_data.get('board'),
                        revisions=rig_data.get('revisions'),
@@ -170,10 +170,10 @@ def _resolve_axis(rig_name, axis_kind, decl_key, declared, selected):
     """Resolve one qualifier axis (revision or variant) against its rig.yml
     declaration: an explicitly selected value must be a declared member; a
     bare (unselected) axis takes the declared default, erroring if there is
-    none. Mirrors rigexp.loader_yml._resolve_axis (rules 1-3) -- this
+    none. Mirrors rigc.loader.axes's own axis-resolution rules -- this
     lightweight copy exists so cmake can construct fragment filenames
     BEFORE ever invoking the expander; the loader is still the canonical
-    validator once `rigexp expand` itself runs (every real build reaches
+    validator once `rigc expand` itself runs (every real build reaches
     it). Returns the resolved value, or None if the axis is undeclared and
     nothing was selected.
 
@@ -209,7 +209,7 @@ def _resolve_board(rig, resolved_variant):
     """The board a resolved rig target actually builds: the per-variant
     board declared beside the SELECTED variant, or the rig's own
     top-level board: in the degenerate single-board shape. Mirrors
-    rigexp.loader_yml._resolve_board's two-shape mixing rule closely
+    rigc.loader.binding's own two-shape mixing rule closely
     enough that cmake never constructs a fragment filename from a board
     that rule would have rejected -- the loader stays the canonical
     validator with the fuller diagnostic (naming every offending variant,
@@ -250,7 +250,7 @@ def resolve_rig_target(target, args):
     revisions:/variants: (or defaulted, for a bare target) and returned
     alongside NAME/DIR/BOARD, so cmake can construct the per-axis fragment
     filenames (`<name>_<variant>.overlay` etc.) without parsing rig.yml
-    itself. `rigexp expand`, invoked later in the SAME configure, is the
+    itself. `rigc expand`, invoked later in the SAME configure, is the
     canonical validator (lang-rev/lang-variant diagnostics) -- this
     resolution exists so cmake has concrete axis strings to build filenames
     from, not to duplicate that diagnostic quality.

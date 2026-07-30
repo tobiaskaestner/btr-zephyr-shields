@@ -1,6 +1,6 @@
 """Emitted goldens: the fixture-only rejects. HERMETIC, and INTEGRATION.
 
-Every test here freezes python -m rigexp expand's verdict + rendered
+Every test here freezes python -m rigc expand's verdict + rendered
 diagnostics against a SYNTHETIC fixture under tests/fixtures/, never a real
 corpus rig, and none reaches analyzer.analyze (boarddt/board_edt/edt_build,
 which needs a real board recipe) -- each one is rejected by loader_yml.load
@@ -51,7 +51,7 @@ production board-tree content, which is why it lives in
 test_emitted_corpus.py instead, marked integration despite never running a
 build.
 
-Refreeze: set RIGEXP_REFREEZE=1 in the environment to rewrite the fixtures
+Refreeze: set RIGC_REFREEZE=1 in the environment to rewrite the fixtures
 under tests/goldens/<rig-name>/ instead of asserting against them. Always
 inspect git diff tests/goldens before committing a refreeze -- it must
 reflect an INTENTIONAL, understood behavior change, never silent drift.

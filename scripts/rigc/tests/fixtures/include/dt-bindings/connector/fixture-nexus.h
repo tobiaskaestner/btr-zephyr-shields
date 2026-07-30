@@ -5,7 +5,7 @@
  * with beyond this fixture tree itself.
  *
  * FIXTURE_POS0/FIXTURE_POS1 are consumed directly by
- * fixtures/controller-label/socket.dts, which claims raw gpio-map/pwm-map
+ * fixtures/boards/fixture_board.dts, which claims raw gpio-map/pwm-map
  * indices and never goes through the connector-type registry at all.
  * FIXTURE_D0/FIXTURE_D1/FIXTURE_CS are the registry-complete type's own
  * claimable positions (fixture-nexus.yaml's plug,positions), consumed by

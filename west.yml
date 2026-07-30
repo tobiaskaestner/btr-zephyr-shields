@@ -23,8 +23,12 @@ manifest:
 
   projects:
     - name: zephyr
-      # Pinned to the tip of tskr/zephyr-rigs (2026-07-28 rebase) for the
-      # duration of the rigc differential build: any red golden is then ours
-      # by construction. Un-pin back to the branch name at rigc cutover.
+      # Pinned to a commit on tskr/zephyr-rigs, kept pinned at cutover
+      # (claude/rigs/cutover-brief.md Sec 5, ratified): the branch carries five
+      # commits not yet upstream and has already rebased once silently, so
+      # tracking the branch name again would re-admit upstream drift as an
+      # unrecorded cause of a future red golden. Move the pin forward to
+      # the branch's current tip when re-syncing zephyr; never revert to
+      # tracking the branch name.
       revision: 8da5b3a0f60f7e8e06aa7b99bde818bb1affe2bd
       import: true

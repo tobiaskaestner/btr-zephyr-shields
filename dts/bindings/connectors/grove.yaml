@@ -21,7 +21,7 @@ description: |
   `pwm-map` / `io-channel-map` nexus properties (Bridge-A rewrite phase 2a),
   parallel to `gpio-map` above — real socket nodes on
   boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi instantiate them for
-  the PWM/ADC-capable positions, and `scripts/rigexp/board_edt.py` reads them
+  the PWM/ADC-capable positions, and `scripts/rigc/board_edt.py` reads them
   the standard way, via `edtlib.Node.maps()`. They are declared OPTIONAL here
   (not via `include: [pwm-nexus.yaml, io-channel-nexus.yaml]`, the upstream
   gpio-nexus analogues for this role — their maps are `required: true` and

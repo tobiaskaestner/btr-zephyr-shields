@@ -131,14 +131,13 @@ endfunction()
 #
 # RIG_EXPAND_COMPILE: the Python module name of the expander CLI (`python -m
 # <this> expand ...`) -- the differential-harness knob (rigc-mission-brief.md
-# Sec 3) that let the frozen rigexp integration suite run unmodified against
-# a from-scratch rigc by flipping one value. rigc is now the tool (cutover
-# C1): the default names it, and the knob survives so RIG_EXPAND_COMPILE=
-# rigexp can still reproduce the frozen suite's ORIGINAL byte-for-byte
-# behavior on demand (its own package-dir-relative anchor rule, distinct
-# from rigc's module-agnostic one, only reproduces correctly with fixtures
-# back under scripts/rigexp/ -- expected-red from this tree, recorded, not
-# fixed). Precedence: an explicit -D wins; else $ENV{RIG_EXPAND_COMPILE}
+# Sec 3) that let the frozen integration suite run unmodified against a
+# from-scratch rigc by flipping one value. rigc is now the ONLY tool
+# (cutover C3: scripts/rigexp/ is gone from disk): the default names it,
+# and the knob survives cutover as cheap insurance for any future
+# re-implementation (cutover-brief.md Sec 8.4) -- RIG_EXPAND_COMPILE=rigexp
+# no longer has a package to run at all. Precedence: an explicit -D wins;
+# else $ENV{RIG_EXPAND_COMPILE}
 # (same name as the test-side constant, so a subprocess that merely inherits
 # the invoking pytest process's environment — as most of this suite's
 # build-marked tests do — still reaches this cache default without having to

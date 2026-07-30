@@ -2,7 +2,7 @@
 Sec 6): board_edt.project_edt is called directly against an edtlib.EDT
 built from `tests/fixtures/boards/fixture_board.dts` -- purpose-built
 fixture data in rigc's own tree, never a copy of the frozen suite's own
-`fixtures/boards/mainboards/socket.dts` (the blueprint's own
+`fixtures/boards/fixture_board.dts` (the blueprint's own
 test_controller_label.py/test_edt_build.py are the PRECEDENT for the
 approach, not the data). No cpp at all: the fixture .dts has no
 `#include`/macros, so `edtlib.EDT()` is built straight off it here --
@@ -131,3 +131,14 @@ def test_controller_label_is_the_defining_label() -> None:
 def test_controller_label_ignores_a_later_attached_alias() -> None:
     label, _channel = _socket().pwm_map[0]
     assert label != "legacy_alias"
+
+
+def test_gpio_map_controller_label_is_the_defining_label() -> None:
+    """The gpio side of the same invariant. board_edt resolves the
+    controller label INLINE for gpio-map and through _controller_label for
+    pwm/adc -- two separate implementations, so pinning only the pwm side
+    leaves a label regression on the gpio path undetectable. Position 2
+    targets the dual-labelled node for exactly this."""
+    ctrl_label, _pin, _flags = _socket().gpio_map[2]
+    assert ctrl_label == "defining_ctrl"
+    assert ctrl_label != "legacy_alias"

@@ -10,7 +10,8 @@
  * synthetic connector type, dts/bindings/socket-fixture-nexus.yaml)
  * carrying: a gpio-map (two positions), a pwm-map (one position, whose
  * target controller carries a SECOND, later-attached label --
- * legacy_alias -- to pin the controller-label determinism invariant:
+ * legacy_alias, targeted by BOTH a pwm-map and a gpio-map entry -- to
+ * pin the controller-label determinism invariant on both paths:
  * board_edt._controller_label must always report the DEFINING label,
  * defining_ctrl, never legacy_alias), an io-channel-map, an i2c bus
  * phandle, and an authored socket,cs-pool.
@@ -32,6 +33,11 @@
 		compatible = "fixturetest,pwm-ctrl";
 		reg = <0x10 0x4>;
 		#pwm-cells = <2>;
+		/* Also a gpio controller, so a gpio-map entry can target the
+		 * SAME dual-labelled node the pwm-map does. The label rule is
+		 * implemented separately for the two map kinds, so pinning it
+		 * on pwm alone leaves the gpio path unguarded. */
+		#gpio-cells = <2>;
 	};
 
 	adc_ctrl0: adc_ctrl@20 {
@@ -56,7 +62,8 @@
 		gpio-map-mask = <0xffffffff 0xffffffff>;
 		gpio-map-pass-thru = <0 0>;
 		gpio-map = <0 0 &gpio_ctrl0 5 0>,
-		          <1 0 &gpio_ctrl0 6 1>;
+		          <1 0 &gpio_ctrl0 6 1>,
+		          <2 0 &defining_ctrl 1 0>;
 
 		#pwm-cells = <2>;
 		pwm-map-mask = <0xffffffff 0x00000000>;

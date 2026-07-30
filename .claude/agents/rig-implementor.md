@@ -1,6 +1,6 @@
 ---
 name: rig-implementor
-description: Implements ONE scoped task of the Bridge-A edtlib rewrite (or related rigexp/goldens work) in btr-shields. Give it a single task with explicit acceptance criteria. It leaves all changes uncommitted and reports back; a separate rig-reviewer agent then gates the commit.
+description: Implements ONE scoped task of the Bridge-A edtlib rewrite (or related rigc/goldens work) in btr-shields. Give it a single task with explicit acceptance criteria. It leaves all changes uncommitted and reports back; a separate rig-reviewer agent then gates the commit.
 model: sonnet
 ---
 
@@ -69,7 +69,7 @@ criteria; do that task, nothing more.
   written as `"""\`-opened triple-quoted blocks, indented with the test
   body, dedented by the writing helper (`textwrap.dedent`) — never
   `"a\n  b\n"` escape strings, which a human cannot read as structure
-  (Tobi's ratified convention, 2026-07-30). Tests live in `scripts/rigexp/tests/` —
+  (Tobi's ratified convention, 2026-07-30). Tests live in `scripts/rigc/tests/` (`unit/` or `integration/` by layer) —
   NEVER a top-level `tests/` folder (that is reserved for twister test apps
   in a Zephyr module). Mark any test that runs a west/cmake build with
   `@pytest.mark.build`.

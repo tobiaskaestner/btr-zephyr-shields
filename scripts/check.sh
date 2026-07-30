@@ -22,7 +22,7 @@ if [ -z "$ZEPHYR_BASE" ]; then
 fi
 export MYPYPATH="$ZEPHYR_BASE/scripts/dts/python-devicetree/src"
 
-targets="scripts/rigexp scripts/rigc"
+targets="scripts/rigc"
 
 echo "== mypy: $targets =="
 "$PY" -m mypy $targets
@@ -37,8 +37,9 @@ mkdir -p .reports
 echo "== pytest: rigc (with unit coverage) =="
 # Coverage rides the unit suite because it is IN-PROCESS (rigc-mission-brief
 # Sec 5: no subprocess at unit level) -- `coverage run` sees every line the
-# tests exercise, no subprocess plumbing needed. That is the property rigexp
-# never had, and why ITS suite runs unmeasured below. Config (source, omit,
+# tests exercise, no subprocess plumbing needed. That property the golden
+# suite below cannot have: it drives the CLI as a subprocess, so it runs
+# unmeasured. Config (source, omit,
 # data file) lives in pyproject.toml [tool.coverage.*].
 # Failure is captured, not fatal (set -e), so the browsable reports below
 # still render for a RED run -- the run you most want a report for. The

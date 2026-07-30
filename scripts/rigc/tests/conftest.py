@@ -1,10 +1,11 @@
 """Shared helpers for rigc's own tests.
 
-Only the hermeticity enforcement lives here for now (R1): the boundary
-decays if the enforcement arrives late (rigc-r1-brief.md Sec 4), so
+Only the hermeticity enforcement lives here (R1): the boundary decays if
+the enforcement arrives late (rigc-r1-brief.md Sec 4), so
 assert_fixture_local exists from day one even though R1's tests barely
-need it. Golden/corpus plumbing stays in the frozen rigexp conftest until
-cutover -- this file must never grow a second copy of it.
+needed it. Golden/corpus plumbing lives in tests/integration/conftest.py
+instead (the frozen suite's own conftest, moved here at cutover) -- this
+file must never grow a second copy of it.
 """
 from __future__ import annotations
 

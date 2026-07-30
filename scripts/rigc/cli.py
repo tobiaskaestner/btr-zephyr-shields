@@ -20,14 +20,14 @@ Exit vocabulary (rigc-r1-brief.md Sec 1): 0 accept, 1 rejected input,
 2 usage error (argparse's own), 3 not implemented (see unimplemented.py).
 
 **The workdir prefix is NOT cosmetic**: the frozen `conftest.py`'s own
-`normalize()` strips exactly `/tmp/rigexp-<...>` (`_WORKDIR_RE`, hardcoded
+`normalize()` strips exactly `/tmp/rigc-<...>` (`_WORKDIR_RE`, hardcoded
 -- never parameterized on `RIG_EXPAND_COMPILE`) to a stable placeholder
 before comparing rendered stderr against a golden. A cpp-preprocess-
 failure detail (e.g. `param-missing-header`) embeds this path verbatim
 inside gcc's own stderr text, so rigc's workdir MUST share that literal
-prefix or the differential comparison sees an un-normalized path and
-byte-mismatches a golden that has nothing else wrong with it. Recorded
-here because it is exactly the kind of "confusing session" trap R0's own
+prefix or the comparison sees an un-normalized path and byte-mismatches a
+golden that has nothing else wrong with it. Recorded here because it is
+exactly the kind of "confusing session" trap R0's own
 CMAKE_CONFIGURE_DEPENDS finding warned about."""
 from __future__ import annotations
 
@@ -170,7 +170,7 @@ def _expand(args: argparse.Namespace) -> int:
     types, types_deps = load_types(connector_dirs=connector_dirs,
                                    header_dirs=header_dirs)
 
-    workdir = tempfile.mkdtemp(prefix="rigexp-")
+    workdir = tempfile.mkdtemp(prefix="rigc-")
     try:
         rig, diags, rig_deps = loader.load(
             rig_path, workdir, shield_dirs=shield_dirs,

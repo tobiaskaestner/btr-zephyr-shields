@@ -28,10 +28,10 @@ content, unlike every fixture in test_emitted_rejects.py, none of which
 ever reaches board resolution at all); the latter explicitly passes
 --bindings-dir under $ZEPHYR_BASE, a real Zephyr bindings directory.
 
-Refreeze: set RIGEXP_REFREEZE=1 in the environment to rewrite the fixtures
+Refreeze: set RIGC_REFREEZE=1 in the environment to rewrite the fixtures
 under tests/goldens/<rig-name>/ instead of asserting against them, e.g.:
 
-    RIGEXP_REFREEZE=1 ZEPHYR_BASE=<zephyr-rigs tree> \\
+    RIGC_REFREEZE=1 ZEPHYR_BASE=<zephyr-rigs tree> \\
         <venv>/bin/python3 -m pytest tests/test_emitted_corpus.py
 
 Always inspect git diff tests/goldens before committing a refreeze — it

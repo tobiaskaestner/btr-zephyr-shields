@@ -17,11 +17,11 @@ ignore_errors = true
 
 # Coverage of rigc's UNIT suite only (check.sh drives `coverage run -m
 # pytest scripts/rigc/tests` directly — no pytest-cov dependency, the
-# recorded T3 decision). This is the coverage rigexp deliberately never
-# had: its suite reaches the expander as a SUBPROCESS, so naive coverage
-# would measure the harness and report near-zero on the modules under
-# test. rigc's unit layer is in-process by definition, which makes this
-# section sufficient. The frozen rigexp suite stays unmeasured.
+# recorded T3 decision). This is the coverage the frozen suite's own
+# lineage never had: it reaches the expander as a SUBPROCESS, so naive
+# coverage would measure the harness and report near-zero on the modules
+# under test. rigc's unit layer is in-process by definition, which makes
+# this section sufficient. The frozen integration suite stays unmeasured.
 [tool.coverage.run]
 source_pkgs = ["rigc"]
 omit = ["*/rigc/tests/*"]

@@ -16,9 +16,10 @@ ONE renderer produces the frozen stderr format the goldens specify:
 Anchor-path rule (rigc-r1-brief.md Sec 3, RATIFIED): module-agnostic --
 if the path lies under a `scripts/<module>/` component, it renders
 relative to that component; otherwise it renders absolute. On the frozen
-corpus this is byte-identical to rigexp's own-package-dir rule (all
-reject fixtures live under scripts/rigexp/), and at cutover fixture
-anchors survive the move to scripts/rigc/ unchanged. anchor_path() is a
+corpus this was byte-identical to the retired tool's own-package-dir
+rule (its reject fixtures lived under scripts/rigexp/), which is why the
+fixture move to scripts/rigc/ at cutover left every anchor line
+unchanged. anchor_path() is a
 pure function of the path value alone -- deliberately no module-scope
 dirname(__file__) constant -- so unit tests exercise it with synthetic
 roots.

@@ -832,7 +832,7 @@
 		pwm-map-pass-thru = < 0x0 0xffffffff >;    /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:68 */
 		pwm-map = < 0x0 0x0 &tcc0 0x0 0x0 >,
 		          < 0x1 0x0 &tcc0 0x1 0x0 >;       /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:69 */
-		phandle = < 0x1f >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:12 */
+		phandle = < 0x1f >;                        /* in <RIGC_BUILD>/rig/rig-gen.overlay:12 */
 	};
 
 	/* node '/connector_grove_d3' defined in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:71 */
@@ -883,7 +883,7 @@
 		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:107 */
 		gpio-map = < 0x0 0x0 &porta 0x14 0x0 >,
 		           < 0x1 0x0 &porta 0x15 0x0 >;    /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:108 */
-		phandle = < 0x20 >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:17 */
+		phandle = < 0x20 >;                        /* in <RIGC_BUILD>/rig/rig-gen.overlay:17 */
 	};
 
 	/* node '/connector_grove_d7' defined in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:110 */
@@ -909,7 +909,7 @@
 		io-channel-map-pass-thru = < 0x0 >;        /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:132 */
 		io-channel-map = < 0x0 &adc0 0x0 >,
 		                 < 0x1 &adc0 0x1 >;        /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:133 */
-		phandle = < 0x21 >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:24 */
+		phandle = < 0x21 >;                        /* in <RIGC_BUILD>/rig/rig-gen.overlay:24 */
 	};
 
 	/* node '/connector_grove_a1' defined in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:135 */
@@ -937,33 +937,33 @@
 		           < 0x1 0x0 &porta 0x4 0x0 >;     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:152 */
 	};
 
-	/* node '/gpio_keys' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:7 */
+	/* node '/gpio_keys' defined in <RIGC_BUILD>/rig/rig-gen.overlay:7 */
 	gpio_keys: gpio_keys {
-		compatible = "gpio-keys"; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:8 */
+		compatible = "gpio-keys"; /* in <RIGC_BUILD>/rig/rig-gen.overlay:8 */
 
-		/* node '/gpio_keys/btn_start_gb_key' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:9 */
+		/* node '/gpio_keys/btn_start_gb_key' defined in <RIGC_BUILD>/rig/rig-gen.overlay:9 */
 		btn_start_gb_key: btn_start_gb_key {
-			label = "btn_start_gb_key";     /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:10 */
-			zephyr,code = < 0xb >;          /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:11 */
-			gpios = < &grove_d2 0x0 0x20 >; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:12 */
+			label = "btn_start_gb_key";     /* in <RIGC_BUILD>/rig/rig-gen.overlay:10 */
+			zephyr,code = < 0xb >;          /* in <RIGC_BUILD>/rig/rig-gen.overlay:11 */
+			gpios = < &grove_d2 0x0 0x20 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:12 */
 		};
 
-		/* node '/gpio_keys/btn_stop_gb_key' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:14 */
+		/* node '/gpio_keys/btn_stop_gb_key' defined in <RIGC_BUILD>/rig/rig-gen.overlay:14 */
 		btn_stop_gb_key: btn_stop_gb_key {
-			label = "btn_stop_gb_key";      /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:15 */
-			zephyr,code = < 0x2 >;          /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:16 */
-			gpios = < &grove_d6 0x0 0x21 >; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:17 */
+			label = "btn_stop_gb_key";      /* in <RIGC_BUILD>/rig/rig-gen.overlay:15 */
+			zephyr,code = < 0x2 >;          /* in <RIGC_BUILD>/rig/rig-gen.overlay:16 */
+			gpios = < &grove_d6 0x0 0x21 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:17 */
 		};
 	};
 
-	/* node '/gpio_leds' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:20 */
+	/* node '/gpio_leds' defined in <RIGC_BUILD>/rig/rig-gen.overlay:20 */
 	gpio_leds: gpio_leds {
-		compatible = "gpio-leds"; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:21 */
+		compatible = "gpio-leds"; /* in <RIGC_BUILD>/rig/rig-gen.overlay:21 */
 
-		/* node '/gpio_leds/led_status_gl_led' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:22 */
+		/* node '/gpio_leds/led_status_gl_led' defined in <RIGC_BUILD>/rig/rig-gen.overlay:22 */
 		led_status_gl_led: led_status_gl_led {
-			label = "led_status_gl_led";   /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:23 */
-			gpios = < &grove_a0 0x0 0x0 >; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:24 */
+			label = "led_status_gl_led";   /* in <RIGC_BUILD>/rig/rig-gen.overlay:23 */
+			gpios = < &grove_a0 0x0 0x0 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:24 */
 		};
 	};
 };

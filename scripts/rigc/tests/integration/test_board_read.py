@@ -24,9 +24,9 @@ layer that projects a real board's own devicetree onto model.Board.
     introduces no divergence.
 
 A pure-function unit test of edt_build.recipe_from_build_info itself lives
-in test_edt_build.py instead -- it has no rigexp product dependency at all,
-so it travels with the BSD-3 reader layer rather than this file's
-product-layer guards.
+in tests/unit/test_edt_build.py instead -- it has no rigc product
+dependency at all, so it travels with the BSD-3 reader layer rather than
+this file's product-layer guards.
 """
 from __future__ import annotations
 
@@ -39,8 +39,8 @@ import pytest
 from conftest import BOARD_DTS, BOARDS, REPO_ROOT, PlainBuild, plain_build_for
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-from rigexp import board_edt, boarddt, edt_build  # noqa: E402
-from rigexp.diag import Diagnostics  # noqa: E402
+from rigc import board_edt, boarddt, edt_build  # noqa: E402
+from rigc.diag import render  # noqa: E402
 
 pytestmark = pytest.mark.integration
 
@@ -88,12 +88,11 @@ def test_edt_pickle_cross_check(plain_build: PlainBuild, tmp_path: Path) -> None
 
     recipe = edt_build.recipe_from_build_info(str(plain_build.build_info))
     dts_path = str(REPO_ROOT / BOARD_DTS[plain_build.board])
-    diags = Diagnostics()
-    standalone_board = boarddt.load_board(
-        plain_build.board, str(tmp_path / "boarddt"), diags,
+    standalone_board, diags, _deps = boarddt.load_board(
+        plain_build.board, str(tmp_path / "boarddt"),
         board_dts=dts_path, recipe=recipe)
     assert standalone_board is not None, (
-        f"boarddt.load_board({plain_build.board!r}) failed:\n{diags.render()}")
+        f"boarddt.load_board({plain_build.board!r}) failed:\n{render(diags)}")
 
     assert standalone_board.sockets.keys() == pass2_board.sockets.keys()
     for label, standalone_socket in standalone_board.sockets.items():
@@ -127,12 +126,11 @@ def test_production_matches_direct_read(plain_build: PlainBuild,
     recipe = edt_build.recipe_from_build_info(str(plain_build.build_info))
     dts_path = str(REPO_ROOT / BOARD_DTS[plain_build.board])
 
-    diags = Diagnostics()
-    production = boarddt.load_board(
-        plain_build.board, str(tmp_path / "production"), diags,
+    production, diags, _deps = boarddt.load_board(
+        plain_build.board, str(tmp_path / "production"),
         board_dts=dts_path, recipe=recipe)
     assert production is not None, (
-        f"boarddt.load_board({plain_build.board!r}) failed:\n{diags.render()}")
+        f"boarddt.load_board({plain_build.board!r}) failed:\n{render(diags)}")
 
     direct = board_edt.load_board(
         plain_build.board, dts_path, recipe, str(tmp_path / "direct"))

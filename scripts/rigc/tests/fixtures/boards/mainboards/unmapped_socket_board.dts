@@ -9,7 +9,7 @@
  * a property independent of which board that is. So this board carries
  * fixtures/connectors' purpose-built connector type (compatible
  * "socket,fixture-nexus") instead of a real one, exactly like
- * fixtures/controller-label/socket.dts -- never the real "socket,arduino-r3"
+ * fixtures/boards/fixture_board.dts -- never the real "socket,arduino-r3"
  * this fixture stood in for before, which would drag in Zephyr's
  * gpio-nexus.yaml/base.yaml through arduino-r3.yaml's own include:.
  */

@@ -22,7 +22,7 @@ These tests run a real CMake configure per rig (several minutes for the full
 13-rig corpus) — marked @pytest.mark.build and @pytest.mark.integration;
 CHECK_FAST=1 (scripts/check.sh) deselects them via pytest -m "not build".
 
-Refreeze: RIGEXP_REFREEZE=1 rewrites tests/goldens/<rig-name>/zephyr.dts
+Refreeze: RIGC_REFREEZE=1 rewrites tests/goldens/<rig-name>/zephyr.dts
 (ACCEPT rigs only) instead of comparing — inspect the diff before committing,
 same rule as an emitted golden.
 """
@@ -55,11 +55,14 @@ from conftest import (
     zephyr_base,
 )
 
-# Triggers python-devicetree onto sys.path (from $ZEPHYR_BASE) as an
-# import-time side effect, exactly like test_board_read.py -- needed to
-# unpickle a real edt.pickle below (its classes live in devicetree.edtlib).
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-from rigexp import edt_build  # noqa: E402,F401
+from rigc.edt_build import ensure_devicetree_on_path  # noqa: E402
+
+# pickle.load below unpickles a real build's edt.pickle, which needs
+# devicetree.edtlib importable. Done here rather than relying on another
+# module in this directory having done it during collection -- that
+# coupling made this module unrunnable on its own.
+ensure_devicetree_on_path()
 
 pytestmark = [pytest.mark.build, pytest.mark.integration]
 
@@ -106,7 +109,7 @@ def test_resolved_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
 
     if not golden.is_file():
         pytest.fail(
-            f"golden missing: {golden} (run with RIGEXP_REFREEZE=1 to create it)")
+            f"golden missing: {golden} (run with RIGC_REFREEZE=1 to create it)")
 
     zb = zephyr_base()
     check = subprocess.run(
@@ -146,7 +149,7 @@ def _build_and_freeze_dts(rig_target: str, golden_name: str,
 
     if not golden.is_file():
         pytest.fail(
-            f"golden missing: {golden} (run with RIGEXP_REFREEZE=1 to create it)")
+            f"golden missing: {golden} (run with RIGC_REFREEZE=1 to create it)")
 
     zb = zephyr_base()
     check = subprocess.run(

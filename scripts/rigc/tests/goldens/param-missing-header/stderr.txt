@@ -1,6 +1,6 @@
 error[lang-dt-include]: rig 'param-missing-header': dt-includes header 'zephyr/dt-bindings/input/no-such-header.h' not found or fails to preprocess (searched <ZEPHYR_BASE>/include, <REPO_ROOT>/include)
     preprocessing failed
-    <RIGEXP_WORKDIR>/rig-dt-include-param-missing-header_0.dts:2:10: fatal error: zephyr/dt-bindings/input/no-such-header.h: No such file or directory
+    <RIGC_WORKDIR>/rig-dt-include-param-missing-header_0.dts:2:10: fatal error: zephyr/dt-bindings/input/no-such-header.h: No such file or directory
         2 | #include "zephyr/dt-bindings/input/no-such-header.h"
           |          ^~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     compilation terminated.

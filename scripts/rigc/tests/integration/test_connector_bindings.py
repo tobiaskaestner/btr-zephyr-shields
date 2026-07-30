@@ -22,8 +22,8 @@ import pytest
 from conftest import FIXTURES_DIR, REPO_ROOT, zephyr_base
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-from rigexp.ctypes_registry import BINDINGS, load_types  # noqa: E402
-from rigexp.edt_build import ensure_devicetree_on_path  # noqa: E402
+from rigc.registry import BINDINGS, load_types  # noqa: E402
+from rigc.edt_build import ensure_devicetree_on_path  # noqa: E402
 
 ensure_devicetree_on_path()
 from devicetree import edtlib  # noqa: E402
@@ -48,7 +48,7 @@ def test_unified_connector_bindings_are_valid_edtlib_bindings() -> None:
     assert files, f"no connector-type bindings found under {BINDINGS}"
 
     fname2path = _fname2path()
-    types = load_types()
+    types, _deps = load_types()
 
     for path in files:
         name = os.path.splitext(os.path.basename(path))[0]
@@ -65,7 +65,7 @@ def test_unified_connector_bindings_are_valid_edtlib_bindings() -> None:
 
 
 def test_fixture_nexus_type_is_registry_visible() -> None:
-    """The ceiling T0 hit, lifted: ctypes_registry.load_types can see the
+    """The ceiling T0 hit, lifted: registry.load_types can see the
     fixture connector type when pointed at its directory explicitly, and
     still sees the four real types when it is not — the same function, two
     different roots, proving the default-preserving fallback rather than
@@ -73,7 +73,7 @@ def test_fixture_nexus_type_is_registry_visible() -> None:
     it was authored) because the second half asserts directly on
     repo-production connector-type names -- integration by that half's
     purpose, and no module may mix unit and integration tests."""
-    fixture_types = load_types(
+    fixture_types, _deps = load_types(
         connector_dirs=[str(FIXTURES_DIR / "dts" / "connectors")],
         header_dirs=[str(FIXTURES_DIR / "include")])
     assert set(fixture_types) == {"fixture-nexus"}
@@ -82,6 +82,6 @@ def test_fixture_nexus_type_is_registry_visible() -> None:
     assert ctype.bus_proxies == ["i2c", "spi"]
     assert ctype.cs_pool == [4]
 
-    real_types = load_types()
+    real_types, _deps = load_types()
     assert set(real_types) == {"arduino-r3", "grove", "i2c-port", "mikrobus"}
     assert BINDINGS == str(REPO_ROOT / "dts" / "bindings" / "connectors")

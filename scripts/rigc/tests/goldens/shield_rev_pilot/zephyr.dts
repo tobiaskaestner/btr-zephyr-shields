@@ -499,24 +499,24 @@
 			clock-frequency = < 0x61a80 >;               /* in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:113 */
 			phandle = < 0x21 >;                          /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:708 */
 
-			/* node '/soc/i2c@40005400/mux@70' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:6 */
+			/* node '/soc/i2c@40005400/mux@70' defined in <RIGC_BUILD>/rig/rig-gen.overlay:6 */
 			mux_1_mux: mux@70 {
-				compatible = "ti,tca9548a"; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:7 */
-				reg = < 0x70 >;             /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:8 */
-				#address-cells = < 0x1 >;   /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:9 */
-				#size-cells = < 0x0 >;      /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:10 */
+				compatible = "ti,tca9548a"; /* in <RIGC_BUILD>/rig/rig-gen.overlay:7 */
+				reg = < 0x70 >;             /* in <RIGC_BUILD>/rig/rig-gen.overlay:8 */
+				#address-cells = < 0x1 >;   /* in <RIGC_BUILD>/rig/rig-gen.overlay:9 */
+				#size-cells = < 0x0 >;      /* in <RIGC_BUILD>/rig/rig-gen.overlay:10 */
 
-				/* node '/soc/i2c@40005400/mux@70/channel@0' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:11 */
+				/* node '/soc/i2c@40005400/mux@70/channel@0' defined in <RIGC_BUILD>/rig/rig-gen.overlay:11 */
 				channel@0 {
-					reg = < 0x0 >;            /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:12 */
-					#address-cells = < 0x1 >; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:13 */
-					#size-cells = < 0x0 >;    /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:14 */
+					reg = < 0x0 >;            /* in <RIGC_BUILD>/rig/rig-gen.overlay:12 */
+					#address-cells = < 0x1 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:13 */
+					#size-cells = < 0x0 >;    /* in <RIGC_BUILD>/rig/rig-gen.overlay:14 */
 
-					/* node '/soc/i2c@40005400/mux@70/channel@0/sensor@48' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:15 */
+					/* node '/soc/i2c@40005400/mux@70/channel@0/sensor@48' defined in <RIGC_BUILD>/rig/rig-gen.overlay:15 */
 					sensor_0_sensor: sensor@48 {
-						compatible = "vnd,temp0x48v2"; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:16 */
-						reg = < 0x48 >;                /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:17 */
-						status = "okay";               /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:18 */
+						compatible = "vnd,temp0x48v2"; /* in <RIGC_BUILD>/rig/rig-gen.overlay:16 */
+						reg = < 0x48 >;                /* in <RIGC_BUILD>/rig/rig-gen.overlay:17 */
+						status = "okay";               /* in <RIGC_BUILD>/rig/rig-gen.overlay:18 */
 					};
 				};
 			};

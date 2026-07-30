@@ -70,7 +70,7 @@ RIGS_DIR = REPO_ROOT / "boards" / "rigs"
 # import each other as plain top-level names, e.g. "from conftest import
 # ..."), so it is never part of the rigc package chain pytest walks to put
 # scripts/ on sys.path by itself -- every integration module that needs an
-# in-process rigc import inserts scripts/ explicitly (test_edt_build.py,
+# in-process rigc import inserts scripts/ explicitly (test_board_read.py,
 # test_reference_shields.py, etc.); this is that same idiom, for the
 # comparators context.cmake and config-sheet.md need structurally rather
 # than byte-for-byte.
@@ -189,11 +189,11 @@ WEST_TOPDIR = _find_west_topdir(REPO_ROOT)
 _VENV_WEST = WEST_TOPDIR / ".venv" / "bin" / "west"
 WEST_EXE = str(_VENV_WEST) if _VENV_WEST.is_file() else "west"
 
-# RIGEXP_REFREEZE=1 rewrites goldens instead of asserting against them (both
+# RIGC_REFREEZE=1 rewrites goldens instead of asserting against them (both
 # emitted and resolved). Always inspect git diff tests/goldens after a
 # refreeze — it must reflect an INTENTIONAL, understood behavior change,
 # never silent drift.
-REFREEZE = bool(os.environ.get("RIGEXP_REFREEZE"))
+REFREEZE = bool(os.environ.get("RIGC_REFREEZE"))
 
 # RIG_EXPAND_COMPILE: the module knob (rigc-mission-brief.md Sec 3) -- the
 # Python module name of the expander CLI under test, read ONCE here from the
@@ -201,17 +201,15 @@ REFREEZE = bool(os.environ.get("RIGEXP_REFREEZE"))
 # name, deliberately: most subprocesses this suite launches inherit this
 # process's environment wholesale, e.g. via env=dict(os.environ), so that
 # cache variable's own environment fallback picks up the SAME value without
-# every call site needing to thread an explicit -D). rigc is now the tool
-# (cutover C1), so unset (or "rigc") is the default path and reproduces
-# every existing byte-frozen golden unchanged; RIG_EXPAND_COMPILE=rigexp
-# instead runs the ORIGINAL tool this suite was frozen against, from its own
-# now-moved fixtures — expected-red (rigexp's own anchor rule is package-
-# dir-relative, not module-agnostic like rigc's, so it never learned to
-# tolerate fixtures living outside scripts/rigexp/), kept only so the
-# original tool remains reproducible on demand, not as a green path.
+# every call site needing to thread an explicit -D). rigc is the tool
+# (cutover C1/C3); the knob survives cutover as cheap insurance for any
+# future re-implementation (cutover-brief.md Sec 8.4), but scripts/rigexp/
+# is gone from disk (C3) -- RIG_EXPAND_COMPILE=rigexp no longer runs an
+# original tool to differential against; it fails outright (no such
+# module), not merely expected-red.
 RIG_EXPAND_COMPILE = os.environ.get("RIG_EXPAND_COMPILE", "rigc")
 
-_WORKDIR_RE = re.compile(r"/tmp/rigexp-[^/\s]+")
+_WORKDIR_RE = re.compile(r"/tmp/rigc-[^/\s]+")
 
 # A resolved zephyr.dts's own DT provenance comments (/* in PATH:LINE */,
 # /* node 'X' defined in PATH:LINE */) render PATH relative to the build's
@@ -234,7 +232,7 @@ def normalize_dts_provenance(text: str) -> str:
     only, so dts_equiv.py's structural comparison (which ignores comments)
     is unaffected either way; this exists purely so a refreeze's diff shows
     real content changes, not tmp-path churn."""
-    return _DTS_BUILD_PROVENANCE_RE.sub(r"<RIGEXP_BUILD>/\1:\2", text)
+    return _DTS_BUILD_PROVENANCE_RE.sub(r"<RIGC_BUILD>/\1:\2", text)
 
 
 def zephyr_base() -> str:
@@ -261,7 +259,7 @@ def normalize(text: str, zb: Optional[str]) -> str:
     forcing every such caller through zephyr_base()'s hard failure just to
     normalize output that never contained a $ZEPHYR_BASE path to begin
     with. Every other substitution still applies unconditionally."""
-    text = _WORKDIR_RE.sub("<RIGEXP_WORKDIR>", text)
+    text = _WORKDIR_RE.sub("<RIGC_WORKDIR>", text)
     if zb is not None:
         text = text.replace(zb, "<ZEPHYR_BASE>")
     text = text.replace(str(REPO_ROOT), "<REPO_ROOT>")
@@ -564,7 +562,7 @@ def run_expand(rig_yml: Path, out_dir: Path,
 
 
 def freeze_or_assert(golden_path: Path, content: str) -> None:
-    """Write content as the golden (RIGEXP_REFREEZE=1) or assert it matches
+    """Write content as the golden (RIGC_REFREEZE=1) or assert it matches
     the committed fixture, with a readable failure message on mismatch.
 
     context.cmake, config-sheet.md, and rig-gen-includes.dtsi
@@ -594,7 +592,7 @@ def freeze_or_assert(golden_path: Path, content: str) -> None:
     if not golden_path.is_file():
         pytest.fail(
             f"golden missing: {golden_path}\n"
-            f"(run with RIGEXP_REFREEZE=1 to create it, then inspect + "
+            f"(run with RIGC_REFREEZE=1 to create it, then inspect + "
             f"commit deliberately)")
     expected = golden_path.read_text()
     if golden_path.name == "context.cmake":
@@ -689,7 +687,7 @@ def pytest_collection_modifyitems(config: "pytest.Config",
         # the base pytest.Item type every collected item is typed as here.
         module = item.nodeid.split("::", 1)[0]
         census[item.nodeid] = (module, markers)
-    config._rigexp_marker_census = census  # type: ignore[attr-defined]
+    config._rigc_marker_census = census  # type: ignore[attr-defined]
 
 
 def pytest_collection_finish(session: "pytest.Session") -> None:
@@ -709,7 +707,7 @@ def pytest_collection_finish(session: "pytest.Session") -> None:
     config = session.config
     if not config.getoption("--markers-report"):
         return
-    census: MarkerCensus = config._rigexp_marker_census  # type: ignore[attr-defined]
+    census: MarkerCensus = config._rigc_marker_census  # type: ignore[attr-defined]
     for item in sorted(session.items, key=lambda i: i.nodeid):
         present = {m.name for m in item.iter_markers()}
         tags = [name for name in _REPORTED_MARKERS if name in present]

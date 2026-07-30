@@ -1267,7 +1267,7 @@
 
 	/* node '/gpio_keys' defined in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:44 */
 	gpio_keys: gpio_keys {
-		compatible = "gpio-keys"; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:7 */
+		compatible = "gpio-keys"; /* in <RIGC_BUILD>/rig/rig-gen.overlay:7 */
 
 		/* node '/gpio_keys/button' defined in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:47 */
 		user_button: button {
@@ -1276,11 +1276,11 @@
 			zephyr,code = < 0xb >;      /* in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:50 */
 		};
 
-		/* node '/gpio_keys/logger_pab_key' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:8 */
+		/* node '/gpio_keys/logger_pab_key' defined in <RIGC_BUILD>/rig/rig-gen.overlay:8 */
 		logger_pab_key: logger_pab_key {
-			label = "logger_pab_key";         /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:9 */
-			zephyr,code = < 0x5 >;            /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:10 */
-			gpios = < &nucleo_ard 0x8 0x20 >; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:11 */
+			label = "logger_pab_key";         /* in <RIGC_BUILD>/rig/rig-gen.overlay:9 */
+			zephyr,code = < 0x5 >;            /* in <RIGC_BUILD>/rig/rig-gen.overlay:10 */
+			gpios = < &nucleo_ard 0x8 0x20 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:11 */
 		};
 	};
 
@@ -1315,6 +1315,6 @@
 		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:54 */
 		socket,spi = < &spi1 >;                    /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:55 */
 		socket,stackable;                          /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:56 */
-		phandle = < 0x27 >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:11 */
+		phandle = < 0x27 >;                        /* in <RIGC_BUILD>/rig/rig-gen.overlay:11 */
 	};
 };

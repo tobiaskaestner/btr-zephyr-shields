@@ -8,7 +8,7 @@ silently escape classification, the same reasoning as the enforcement test
 Part A of the tests refactor plan calls for once the module split lands).
 
 Reads conftest.pytest_collection_modifyitems's stashed census
-(config._rigexp_marker_census), built from the FULL collected item list
+(config._rigc_marker_census), built from the FULL collected item list
 before any -m deselection narrows it -- request.session.items would
 instead only reflect the currently-selected subset, which would make both
 checks below pass vacuously under `pytest -m unit` (nothing INTEGRATION-
@@ -25,7 +25,7 @@ pytestmark = pytest.mark.unit
 
 
 def test_marker_discipline(request: "pytest.FixtureRequest") -> None:
-    census = request.config._rigexp_marker_census  # type: ignore[attr-defined]
+    census = request.config._rigc_marker_census  # type: ignore[attr-defined]
 
     unclassified = {nodeid: sorted(markers) for nodeid, (_module, markers)
                     in census.items() if len(markers) != 1}

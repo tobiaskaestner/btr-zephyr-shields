@@ -10,7 +10,7 @@ description: |
   authored inside a `.shield`'s own DT, e.g.
   boards/shields/i2c_mux/i2c_mux.shield's ch0..ch3) — the emitter lowers
   them to plain `channel@N` mux children (no `compatible` of their own,
-  see scripts/rigexp/emitter.py `_mux_node`) before anything reaches pass
+  see scripts/rigc/emitter/overlay.py `_mux_node`) before anything reaches pass
   2, so this binding's own properties are schema decoration no real node
   ever exercises. It still needs to be compatible-bearing (edtlib's binding
   scan is content-sniffing — a compatible-less file under dts/bindings/

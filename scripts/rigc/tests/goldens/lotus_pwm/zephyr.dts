@@ -457,7 +457,7 @@
 			atmel,assigned-clock-names = "GCLK";   /* in zephyr/dts/arm/atmel/samd21.dtsi:175 */
 			pinctrl-0 = < &adc_default >;          /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:153 */
 			pinctrl-names = "default";             /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:154 */
-			status = "okay";                       /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:25 */
+			status = "okay";                       /* in <RIGC_BUILD>/rig/rig-gen.overlay:25 */
 			phandle = < 0x1e >;                    /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:133 */
 		};
 
@@ -529,7 +529,7 @@
 			#pwm-cells = < 0x2 >;                  /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:116 */
 			pinctrl-0 = < &tcc0_pwm_default >;     /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:118 */
 			pinctrl-names = "default";             /* in bridle/boards/seeed/seeeduino_lotus/seeeduino_lotus.dts:119 */
-			status = "okay";                       /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:26 */
+			status = "okay";                       /* in <RIGC_BUILD>/rig/rig-gen.overlay:26 */
 			phandle = < 0x1b >;                    /* in bridle/boards/seeed/seeeduino_lotus/grove_connectors.dtsi:54 */
 		};
 
@@ -837,7 +837,7 @@
 		pwm-map-pass-thru = < 0x0 0xffffffff >;    /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:68 */
 		pwm-map = < 0x0 0x0 &tcc0 0x0 0x0 >,
 		          < 0x1 0x0 &tcc0 0x1 0x0 >;       /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:69 */
-		phandle = < 0x20 >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:16 */
+		phandle = < 0x20 >;                        /* in <RIGC_BUILD>/rig/rig-gen.overlay:16 */
 	};
 
 	/* node '/connector_grove_d3' defined in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:71 */
@@ -913,7 +913,7 @@
 		io-channel-map-pass-thru = < 0x0 >;        /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:132 */
 		io-channel-map = < 0x0 &adc0 0x0 >,
 		                 < 0x1 &adc0 0x1 >;        /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:133 */
-		phandle = < 0x1f >;                        /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:9 */
+		phandle = < 0x1f >;                        /* in <RIGC_BUILD>/rig/rig-gen.overlay:9 */
 	};
 
 	/* node '/connector_grove_a1' defined in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:135 */
@@ -941,25 +941,25 @@
 		           < 0x1 0x0 &porta 0x4 0x0 >;     /* in btr-shields/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:152 */
 	};
 
-	/* node '/light_1' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:6 */
+	/* node '/light_1' defined in <RIGC_BUILD>/rig/rig-gen.overlay:6 */
 	light_1 {
 
-		/* node '/light_1/light' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:7 */
+		/* node '/light_1/light' defined in <RIGC_BUILD>/rig/rig-gen.overlay:7 */
 		light_1_light: light {
-			compatible = "vnd,light-sensor"; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:8 */
-			io-channels = < &grove_a0 0x0 >; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:9 */
-			status = "okay";                 /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:10 */
+			compatible = "vnd,light-sensor"; /* in <RIGC_BUILD>/rig/rig-gen.overlay:8 */
+			io-channels = < &grove_a0 0x0 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:9 */
+			status = "okay";                 /* in <RIGC_BUILD>/rig/rig-gen.overlay:10 */
 		};
 	};
 
-	/* node '/servo_1' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:13 */
+	/* node '/servo_1' defined in <RIGC_BUILD>/rig/rig-gen.overlay:13 */
 	servo_1 {
 
-		/* node '/servo_1/servo' defined in <RIGEXP_BUILD>/rig/rig-gen.overlay:14 */
+		/* node '/servo_1/servo' defined in <RIGC_BUILD>/rig/rig-gen.overlay:14 */
 		servo_1_servo: servo {
-			compatible = "vnd,pwm-servo";       /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:15 */
-			pwms = < &grove_d2 0x0 0x1312d00 >; /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:16 */
-			status = "okay";                    /* in <RIGEXP_BUILD>/rig/rig-gen.overlay:17 */
+			compatible = "vnd,pwm-servo";       /* in <RIGC_BUILD>/rig/rig-gen.overlay:15 */
+			pwms = < &grove_d2 0x0 0x1312d00 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:16 */
+			status = "okay";                    /* in <RIGC_BUILD>/rig/rig-gen.overlay:17 */
 		};
 	};
 };

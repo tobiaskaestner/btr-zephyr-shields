@@ -15,8 +15,8 @@
 #
 # Usage:  ZEPHYR_BASE=<zephyr tree> scripts/markers.sh [pytest args...]
 #   Scope it by PATH -- a file, a directory, or a single node id:
-#     scripts/markers.sh scripts/rigexp/tests/test_board_read.py
-#     scripts/markers.sh scripts/rigexp/tests/test_edt_build.py::test_recipe_from_build_info
+#     scripts/markers.sh scripts/rigc/tests/integration/test_board_read.py
+#     scripts/markers.sh scripts/rigc/tests/integration/test_board_read.py::test_plain_build_configures_clean
 #   A path narrows what pytest COLLECTS, which is what the report walks.
 #
 #   -k and -m DO scope this report, e.g.:
