@@ -64,8 +64,6 @@ from conftest import (
     zephyr_base,
 )
 
-pytestmark = pytest.mark.integration
-
 
 @pytest.mark.parametrize("case", ALL_CASES, ids=lambda c: c.name)
 def test_corpus_rig_identity(case: RigCase) -> None:

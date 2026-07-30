@@ -17,8 +17,9 @@ integration-only by construction; `is_int_literal`, `words`, `render_prop`,
 **No module-scope $ZEPHYR_BASE lookup** (mission brief Sec 7, the
 dtsio.py:27 trap rigexp has and rigc designs out): `devicetree.dtlib` is
 located via `get_dtlib()`, called only from inside a function -- pytest
-imports every module before `-m unit` deselects, so a module-scope lookup
-would break collection for selections that never run it.
+imports every module in a directory before a marker expression (e.g.
+`-m "not build"`) deselects any one item, so a module-scope lookup would
+break collection for selections that never run it.
 """
 from __future__ import annotations
 

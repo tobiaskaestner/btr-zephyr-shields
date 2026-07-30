@@ -46,7 +46,7 @@ import shlex
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, FrozenSet, List, Optional, Tuple, Union
+from typing import Dict, List, Optional, Union
 
 import pytest
 import yaml
@@ -636,83 +636,7 @@ def assert_absent_or_refreeze(golden_path: Path) -> None:
         f"golden {golden_path} exists but this run produced no such file")
 
 
-# node id -> (module name, the unit/integration markers it carries).
-MarkerCensus = Dict[str, Tuple[str, FrozenSet[str]]]
-
-# The markers scripts/markers.sh reports on, in display order -- the same
-# three pyproject.toml declares. Deliberately NOT every marker on an item
-# (iter_markers() also yields pytest's own parametrize marker, which is
-# noise for this report).
-_REPORTED_MARKERS = ("unit", "integration", "build")
-
-
-def pytest_addoption(parser: "pytest.Parser") -> None:
-    """--markers-report (scripts/markers.sh): one collection, not three/four
-    separate `-m <expr>` collections, and it cannot miss an unmarked test by
-    construction -- it walks the FULL collected item list itself rather than
-    inferring "unmarked" from what three positive -m passes failed to
-    select."""
-    parser.addoption(
-        "--markers-report", action="store_true", default=False,
-        help="print every collected test's node id and its "
-             "unit/integration/build markers, then exit without running "
-             "anything -- see scripts/markers.sh")
-
-
-@pytest.hookimpl(tryfirst=True)
-def pytest_collection_modifyitems(config: "pytest.Config",
-                                  items: "List[pytest.Item]") -> None:
-    """Stash the unit/integration markers of every COLLECTED test, before
-    any -m/-k deselection can narrow items down -- tryfirst=True so this
-    runs ahead of pytest's own markexpr/keyword filters, which mutate items
-    in place. test_marker_discipline.py reads config's stashed census
-    rather than request.session.items, since a run invoked as
-    pytest -m unit would otherwise only see the unit-selected subset by
-    the time a test body executes, making both enforcement checks pass
-    vacuously.
-
-    This census is deliberately the ONLY consumer of the pre-deselection
-    item list. --markers-report is a SEPARATE consumer
-    (pytest_collection_finish, below) reading the post-deselection list --
-    filtering this stash instead would silently defeat
-    test_marker_discipline's own enforcement under pytest -m unit, which
-    is the one property most at risk from making the report filter-aware."""
-    census: MarkerCensus = {}
-    for item in items:
-        markers = frozenset(m.name for m in item.iter_markers()
-                            if m.name in ("unit", "integration"))
-        # The file portion of the node id (before "::") IS the module --
-        # simpler and just as precise as item.module.__name__, and it
-        # sidesteps that attribute existing only on pytest.Function, not
-        # the base pytest.Item type every collected item is typed as here.
-        module = item.nodeid.split("::", 1)[0]
-        census[item.nodeid] = (module, markers)
-    config._rigc_marker_census = census  # type: ignore[attr-defined]
-
-
-def pytest_collection_finish(session: "pytest.Session") -> None:
-    """--markers-report (scripts/markers.sh): emitted here, AFTER collection
-    (and therefore after every pytest_collection_modifyitems hook,
-    including pytest's own -k/-m deselection, has already run) so
-    session.items is the POST-deselection list -- -k/-m must actually scope
-    this report, unlike the pre-deselection census above. Path scoping
-    (a file/directory/node id argument) already worked before this existed,
-    since a path narrows what pytest COLLECTS in the first place, upstream
-    of both modifyitems and this hook.
-
-    Still walks the item list directly rather than inferring "unmarked"
-    from separate -m <expr> passes -- classification (via the census
-    stashed above, keyed by nodeid, built before deselection) is orthogonal
-    to which items THIS run happens to select."""
-    config = session.config
-    if not config.getoption("--markers-report"):
-        return
-    census: MarkerCensus = config._rigc_marker_census  # type: ignore[attr-defined]
-    for item in sorted(session.items, key=lambda i: i.nodeid):
-        present = {m.name for m in item.iter_markers()}
-        tags = [name for name in _REPORTED_MARKERS if name in present]
-        _module, classified = census[item.nodeid]
-        if not classified:
-            tags.insert(0, "UNMARKED")
-        print(f"{item.nodeid}\t{' '.join(tags)}")
-    pytest.exit("--markers-report: printed, nothing was run", returncode=0)
+# `build` is the only marker on this tree, so no marker-census hook is
+# needed: `pytest --collect-only -m build` answers which tests carry it,
+# and tests/unit/test_layer_discipline.py asserts statically that every
+# test reaching a west/cmake launch carries it.

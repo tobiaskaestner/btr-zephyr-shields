@@ -43,6 +43,4 @@ fail_under = 88
 testpaths = ["scripts/rigc/tests/integration"]
 markers = [
     "build: runs west/cmake builds (slow resolved-corpus goldens); deselect with -m 'not build'",
-    "unit: exercises one unit IN-PROCESS against its own contract -- NO subprocess, since reaching code through the CLI front door makes a test integration by definition; and no Zephyr DATA (no real board .dts, no REPO_ROOT/dts or REPO_ROOT/include content, no build), for which conftest.assert_fixture_local() is the structural proof",
-    "integration: exercises the system through its front door and/or against real repo content -- SCENARIOS and their outcomes (accepts and rejects alike) belong here, because a scenario does not exist at unit level; orthogonal to build, which only means a real west/cmake configure runs, so a hermetic fast test can still be integration",
 ]

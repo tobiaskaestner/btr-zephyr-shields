@@ -19,8 +19,8 @@ same diagnostic category must surface through the full west/CMake path, not
 just the standalone expander.
 
 These tests run a real CMake configure per rig (several minutes for the full
-13-rig corpus) — marked @pytest.mark.build and @pytest.mark.integration;
-CHECK_FAST=1 (scripts/check.sh) deselects them via pytest -m "not build".
+13-rig corpus) — marked @pytest.mark.build; CHECK_FAST=1 (scripts/check.sh)
+deselects them via pytest -m "not build".
 
 Refreeze: RIGC_REFREEZE=1 rewrites tests/goldens/<rig-name>/zephyr.dts
 (ACCEPT rigs only) instead of comparing — inspect the diff before committing,
@@ -64,7 +64,7 @@ from rigc.edt_build import ensure_devicetree_on_path  # noqa: E402
 # coupling made this module unrunnable on its own.
 ensure_devicetree_on_path()
 
-pytestmark = [pytest.mark.build, pytest.mark.integration]
+pytestmark = pytest.mark.build
 
 # Relative to WEST_TOPDIR — any app works for a cmake-only configure;
 # hello_world is the reference app this suite standardizes on.

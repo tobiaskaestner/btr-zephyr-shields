@@ -41,13 +41,9 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-import pytest
-
 from conftest import FIXTURES_DIR, REPO_ROOT, assert_fixture_local, run_expand
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-
-pytestmark = pytest.mark.integration
 
 _FIXTURE = FIXTURES_DIR / "boards" / "rigs" / "reference-shields"
 # Deliberately OUTSIDE fixtures/dts/bindings/: this directory serves as both

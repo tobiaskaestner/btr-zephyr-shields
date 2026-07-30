@@ -23,9 +23,8 @@ invocations (no west subprocess at all):
     a fresh configure is a FATAL_ERROR (never a silent no-op); a plain
     --shield build (no RIG) is untouched.
 
-All run a real CMake configure -- marked @pytest.mark.build and
-@pytest.mark.integration; CHECK_FAST=1 (scripts/check.sh) deselects them
-via pytest -m "not build".
+All run a real CMake configure -- marked @pytest.mark.build;
+CHECK_FAST=1 (scripts/check.sh) deselects them via pytest -m "not build".
 """
 from __future__ import annotations
 
@@ -49,7 +48,7 @@ from conftest import (
     zephyr_base,
 )
 
-pytestmark = [pytest.mark.build, pytest.mark.integration]
+pytestmark = pytest.mark.build
 
 # Relative to WEST_TOPDIR — any app works for a cmake-only configure;
 # hello_world is the corpus's own reference app (see test_resolved_corpus.py).

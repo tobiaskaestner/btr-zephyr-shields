@@ -60,8 +60,6 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import pytest
-
 from conftest import (
     FIXTURES_DIR,
     GOLDENS_DIR,
@@ -72,8 +70,6 @@ from conftest import (
     run_expand,
     zephyr_base,
 )
-
-pytestmark = pytest.mark.integration
 
 
 def test_route_no_via_golden(tmp_path: Path) -> None:

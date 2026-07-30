@@ -42,9 +42,6 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigc import board_edt, boarddt, edt_build  # noqa: E402
 from rigc.diag import render  # noqa: E402
 
-pytestmark = pytest.mark.integration
-
-
 # ---------------------------------------------------------------- plain-build fixture
 
 

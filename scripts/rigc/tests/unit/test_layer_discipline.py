@@ -13,8 +13,15 @@ tree itself (recorded exemption in _META_MODULES below). It enforces:
     unit is the subject;
   - no module under tests/unit/ imports subprocess (the structural proxy
     for "a unit test uses NO subprocess");
-  - no pytest markers anywhere in rigc's tree -- the directory IS the
-    classification;
+  - no pytest markers under tests/unit/ -- the directory IS the
+    classification there; tests/integration/ keeps exactly one marker,
+    `build`, because check.sh's fast gate selects on it
+    (`pytest -m "not build"`), and every integration test that reaches a
+    real west/cmake configure must carry it (cutover C4: this replaces
+    the old rigexp-side test_marker_discipline.py, whose two checks --
+    "every test carries a layer marker" and "no module mixes layers" --
+    respectively died with the layer markers and are already covered by
+    test_every_test_module_is_layer_classified below);
   - no module-scope environment lookup of the Zephyr tree variable
     anywhere in the package or its tests (the dtsio.py:27 collection
     trap, designed out: pytest imports every module before deselection).
@@ -22,8 +29,9 @@ tree itself (recorded exemption in _META_MODULES below). It enforces:
 from __future__ import annotations
 
 import ast
+import textwrap
 from pathlib import Path
-from typing import Iterator, List
+from typing import Dict, Iterator, List, Union
 
 import rigc
 
@@ -129,6 +137,322 @@ def test_no_pytest_markers_under_tests_unit() -> None:
     assert not offenders, (
         "pytest markers found under tests/unit/ -- there the directory is "
         f"the classification, markers are banned: {offenders}")
+
+
+# ---------------------------------------------------------------- build-marker guard
+
+# Functions whose OWN body launches a real west/cmake configure, read out of
+# tests/integration/conftest.py, test_resolved_corpus.py and
+# test_cmake_alone_entry.py rather than guessed: a blanket "calls
+# subprocess" heuristic would misclassify every fixture that calls
+# conftest.run_expand, which is a subprocess too but only the plain
+# expander -- never a build.
+_BUILD_HELPERS = frozenset({
+    "plain_build_for",        # conftest.py: session-cached `west build --cmake-only` per board
+    "_run_plain_build",       # conftest.py: the plain `west build --cmake-only` itself
+    "_run_build",             # test_resolved_corpus.py: `west build-rig --cmake-only`
+    "_run_build_rig",         # test_cmake_alone_entry.py: the west build-rig reference path
+    "_build_and_freeze_dts",  # test_resolved_corpus.py: wraps _run_build
+    "_run_cmake_alone",       # test_cmake_alone_entry.py: a bare `cmake -S -B` configure
+})
+
+#: argv[0] values that ARE a build, however they are launched. A curated
+#: helper set can only ever list the launchers that exist when it is
+#: written; several tests run `subprocess.run(["cmake", ...])` inline with
+#: no helper at all, and those must not be invisible just because nobody
+#: named them. Recognising the command itself closes the class rather than
+#: the instance.
+_BUILD_COMMANDS = frozenset({"cmake", "WEST_EXE", "west"})
+
+#: ast.parse never yields an AsyncFunctionDef for a `def`, but the isinstance
+#: check in _defs_by_name asks for both, so the dict value type must too.
+_FuncDef = Union[ast.FunctionDef, ast.AsyncFunctionDef]
+
+
+def _call_targets(node: ast.AST) -> Iterator[str]:
+    """Every Call inside node, by its callee's bare identifier -- a build
+    helper in this tree is always invoked unqualified or as
+    `conftest.<name>`, never reassigned to another name, so the trailing
+    identifier (Name.id, or Attribute.attr for a dotted call) is enough to
+    recognize it."""
+    for child in ast.walk(node):
+        if isinstance(child, ast.Call):
+            func = child.func
+            if isinstance(func, ast.Name):
+                yield func.id
+            elif isinstance(func, ast.Attribute):
+                yield func.attr
+
+
+def _launches_build_inline(node: ast.AST) -> bool:
+    """Whether node's own body launches a build WITHOUT going through a
+    named helper -- a subprocess call whose argv list opens with a build
+    command (a "cmake" literal, or the WEST_EXE constant). Without this a
+    test can run the slowest configure in the tree and stay invisible to
+    the guard simply by not naming a function."""
+    # Any argv-shaped literal whose first element is a build command, not
+    # just one passed directly as a call argument: the prevailing idiom here
+    # binds it first (cmd = ["cmake", ...]) and calls subprocess.run(cmd),
+    # so matching only call arguments misses exactly the tests that do that.
+    for child in ast.walk(node):
+        if not isinstance(child, (ast.List, ast.Tuple)) or not child.elts:
+            continue
+        head = child.elts[0]
+        if isinstance(head, ast.Constant) and head.value in _BUILD_COMMANDS:
+            return True
+        if isinstance(head, ast.Name) and head.id in _BUILD_COMMANDS:
+            return True
+    return False
+
+
+def _defs_by_name(tree: ast.Module) -> Dict[str, _FuncDef]:
+    return {n.name: n for n in tree.body
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
+
+
+def _reaches_build_helper(name: str, defs: Dict[str, _FuncDef],
+                          memo: Dict[str, bool]) -> bool:
+    """Whether the module-local def `name` -- a test, a fixture, or a
+    plain helper -- transitively reaches a _BUILD_HELPERS entry: by
+    calling one directly, by calling another module-local def that does,
+    or by declaring a PARAMETER named after a module-local fixture that
+    does (a fixture parameter is pytest's own implicit call). memo also
+    doubles as cycle protection: a name is provisionally False while its
+    own body is still being walked, so a (currently nonexistent) fixture
+    cycle can only under- not over-report."""
+    if name in memo:
+        return memo[name]
+    fn = defs.get(name)
+    if fn is None:
+        return False
+    memo[name] = False
+    reached = _launches_build_inline(fn) or any(
+        called in _BUILD_HELPERS or _reaches_build_helper(called, defs, memo)
+        for called in _call_targets(fn))
+    if not reached:
+        # `p.arg in _BUILD_HELPERS` matters even though every helper is a
+        # plain function today: turning one into a real pytest fixture is
+        # the natural refactor, and it would otherwise blind every consumer
+        # at once.
+        params = fn.args.args + fn.args.kwonlyargs
+        reached = any(p.arg in _BUILD_HELPERS
+                      or _reaches_build_helper(p.arg, defs, memo)
+                      for p in params)
+    memo[name] = reached
+    return reached
+
+
+def _mark_names(nodes: List[ast.expr]) -> Iterator[str]:
+    """The mark name(s) a list of attribute-chain expressions resolve to
+    -- shared by a module-level `pytestmark = pytest.mark.x` (or a list of
+    those) and a function's `@pytest.mark.x` decorators, both plain
+    attribute-access expressions of the same shape."""
+    for node in nodes:
+        if (isinstance(node, ast.Attribute)
+                and isinstance(node.value, ast.Attribute)
+                and isinstance(node.value.value, ast.Name)
+                and node.value.value.id == "pytest"
+                and node.value.attr == "mark"):
+            yield node.attr
+
+
+def _module_build_mark(tree: ast.Module) -> bool:
+    """True if the module-level `pytestmark = ...` assignment carries
+    pytest.mark.build -- applies to every test in the module regardless of
+    its own decorators."""
+    for stmt in tree.body:
+        if (isinstance(stmt, ast.Assign)
+                and any(isinstance(t, ast.Name) and t.id == "pytestmark"
+                       for t in stmt.targets)):
+            value = stmt.value
+            elts = (value.elts if isinstance(value, (ast.List, ast.Tuple))
+                   else [value])
+            if "build" in _mark_names(elts):
+                return True
+    return False
+
+
+def _is_build_marked(fn: _FuncDef, module_marked: bool) -> bool:
+    return module_marked or "build" in _mark_names(fn.decorator_list)
+
+
+def test_every_build_reaching_integration_test_is_marked_build() -> None:
+    """The other half of the merged discipline (cutover C4): the layer
+    marker is gone (directory decides unit vs integration), but `build`
+    survives because check.sh's fast gate selects on it
+    (`pytest -m "not build"`). An integration test that runs a real
+    west/cmake configure and carries no @pytest.mark.build silently runs
+    inside that fast gate -- or, symmetrically, hides from `-m "not
+    build"` when someone means to select only builds.
+
+    See test_build_reaching_guard_detects_an_unmarked_build_test below for
+    this guard's own negative control."""
+    offenders = []
+    for path in _python_files(TESTS_DIR / "integration"):
+        if not path.name.startswith("test_"):
+            continue
+        tree = ast.parse(path.read_text(), filename=str(path))
+        defs = _defs_by_name(tree)
+        module_marked = _module_build_mark(tree)
+        memo: Dict[str, bool] = {}
+        for fn_name, fn in defs.items():
+            if not fn_name.startswith("test_"):
+                continue
+            if (_reaches_build_helper(fn_name, defs, memo)
+                    and not _is_build_marked(fn, module_marked)):
+                offenders.append(f"{path.relative_to(RIGC_DIR)}::{fn_name}")
+    assert not offenders, (
+        "integration tests that reach a west/cmake build but carry no "
+        f"@pytest.mark.build: {offenders}")
+
+
+def test_the_build_helper_set_is_exactly_the_known_launchers() -> None:
+    """An INDEPENDENT list, deliberately not derived from _BUILD_HELPERS.
+
+    A control that iterates the set under test is vacuous: dropping a
+    helper just shrinks the loop, so the guard silently enforces less and
+    every case still passes. Spelling the names out here means removing one
+    from the production set fails this test, and ADDING one fails it too --
+    which forces whoever adds a launcher to also give it a control below."""
+    expected = {
+        "plain_build_for",
+        "_run_plain_build",
+        "_run_build",
+        "_run_build_rig",
+        "_build_and_freeze_dts",
+        "_run_cmake_alone",
+    }
+    assert _BUILD_HELPERS == expected, (
+        "the build-launcher set changed; add or remove its control here and "
+        "in the reachability cases below, deliberately")
+
+
+def test_each_known_launcher_is_acted_on_by_the_reachability_walk() -> None:
+    """One synthetic module per launcher, names spelled out rather than
+    read from _BUILD_HELPERS for the same reason as above."""
+    for helper in ("plain_build_for", "_run_plain_build", "_run_build",
+                   "_run_build_rig", "_build_and_freeze_dts",
+                   "_run_cmake_alone"):
+        tree = ast.parse(textwrap.dedent(f"""
+            def {helper}(*args, **kwargs):
+                return None
+
+            def test_configures_clean():
+                {helper}("x", None)
+            """))
+        defs = _defs_by_name(tree)
+        assert _reaches_build_helper("test_configures_clean", defs, {}), helper
+
+
+def test_a_fixture_parameter_naming_a_launcher_reaches_a_build() -> None:
+    """The `p.arg in _BUILD_HELPERS` branch: a test can reach a build by
+    DECLARING a parameter named after a launcher, with no local definition
+    of it at all -- pytest's own implicit call. Inert while every launcher
+    is a plain function, but converting one into a real fixture is the
+    natural refactor and would blind every consumer at once."""
+    tree = ast.parse(textwrap.dedent("""
+        def test_configures_clean(plain_build_for):
+            return plain_build_for
+        """))
+    defs = _defs_by_name(tree)
+    assert _reaches_build_helper("test_configures_clean", defs, {})
+
+
+def test_an_indirect_two_hop_chain_still_reaches_a_build() -> None:
+    """The recursive half of the walk, which the docstring claims and
+    nothing else exercises: every real chain in the tree happens to have a
+    _BUILD_HELPERS entry at BOTH ends, so depth-1 alone would satisfy it
+    and a broken recursion would go unnoticed."""
+    tree = ast.parse(textwrap.dedent("""
+        def _run_build(rig, out):
+            return None
+
+        def _inner(rig):
+            return _run_build(rig, None)
+
+        def _wrapper(rig):
+            return _inner(rig)
+
+        def test_configures_clean():
+            _wrapper("x")
+        """))
+    defs = _defs_by_name(tree)
+    assert _reaches_build_helper("test_configures_clean", defs, {})
+
+
+def test_an_inline_cmake_launch_counts_as_a_build() -> None:
+    """A test that runs cmake with no named helper at all -- the shape that
+    made eight real cmake-alone tests invisible to a purely helper-based
+    guard, protected only by a module-level marker they did not have to
+    carry."""
+    inline = ast.parse(textwrap.dedent("""
+        def test_configures_clean():
+            cmd = ["cmake", "-S", "app", "-B", "out"]
+            subprocess.run(cmd, capture_output=True)
+        """))
+    defs = _defs_by_name(inline)
+    assert _reaches_build_helper("test_configures_clean", defs, {})
+
+    free = ast.parse(textwrap.dedent("""
+        def test_rejects_cleanly():
+            cmd = ["python3", "-m", "rigc", "expand", "rig.yml"]
+            subprocess.run(cmd, capture_output=True)
+        """))
+    defs2 = _defs_by_name(free)
+    assert not _reaches_build_helper("test_rejects_cleanly", defs2, {})
+
+
+def test_build_reaching_guard_detects_an_unmarked_build_test() -> None:
+    """Negative control for the guard above (cutover-decisions.md D4: a
+    guard nobody proved can fail is worthless). A synthetic module
+    reaching _run_build with no @pytest.mark.build must be flagged by the
+    same primitives the real guard uses; the identical module WITH the
+    marker must not."""
+    unmarked = ast.parse(textwrap.dedent("""
+        def _run_build(rig_name, build_dir):
+            return None
+
+        def test_configures_clean():
+            _run_build("x", None)
+        """))
+    defs = _defs_by_name(unmarked)
+    fn = defs["test_configures_clean"]
+    assert _reaches_build_helper("test_configures_clean", defs, {})
+    assert not _is_build_marked(fn, _module_build_mark(unmarked))
+
+    marked = ast.parse(textwrap.dedent("""
+        import pytest
+
+        def _run_build(rig_name, build_dir):
+            return None
+
+        @pytest.mark.build
+        def test_configures_clean():
+            _run_build("x", None)
+        """))
+    defs2 = _defs_by_name(marked)
+    fn2 = defs2["test_configures_clean"]
+    assert _reaches_build_helper("test_configures_clean", defs2, {})
+    assert _is_build_marked(fn2, _module_build_mark(marked))
+
+    # The fixture-parameter path: a test names a fixture, never calling
+    # the build helper itself.
+    via_fixture = ast.parse(textwrap.dedent("""
+        import pytest
+
+        def _run_build(rig_name, build_dir):
+            return None
+
+        def plain_build():
+            return _run_build("x", None)
+
+        def test_uses_plain_build(plain_build):
+            assert plain_build is not None
+        """))
+    defs3 = _defs_by_name(via_fixture)
+    fn3 = defs3["test_uses_plain_build"]
+    assert _reaches_build_helper("test_uses_plain_build", defs3, {})
+    assert not _is_build_marked(fn3, _module_build_mark(via_fixture))
 
 
 def _import_time_constants(tree: ast.Module) -> Iterator[ast.Constant]:

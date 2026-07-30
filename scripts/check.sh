@@ -27,12 +27,14 @@ targets="scripts/rigc"
 echo "== mypy: $targets =="
 "$PY" -m mypy $targets
 
-# rigc's tests: a SEPARATE pytest invocation (rigc-r1-brief.md Sec 5), in
-# both the fast and full paths -- cheap by construction (subprocess-free
-# unit layer). Separate because the frozen suite's marker-discipline census
-# walks its own full collected item list; rigc's marker-less, directory-
-# classified tests must not join that invocation until cutover merges the
-# two enforcement regimes.
+# rigc's tests: a SEPARATE pytest invocation from the frozen suite below,
+# in both the fast and full paths, for ONE reason that survives cutover:
+# coverage is measured over the in-process tests/unit/ layer only (next
+# block). The tests/integration/ suite drives rigc as a SUBPROCESS, which
+# `coverage` cannot see inside -- folding the two invocations into one
+# would dilute the coverage figure with subprocess work it never measures,
+# not raise it. Do not "simplify" this into one pytest call without first
+# re-deriving fail_under against whatever the combined run would report.
 mkdir -p .reports
 echo "== pytest: rigc (with unit coverage) =="
 # Coverage rides the unit suite because it is IN-PROCESS (rigc-mission-brief
