@@ -65,10 +65,11 @@ RIGS_DIR = REPO_ROOT / "boards" / "rigs"
 # ..."), so it is never part of the rigc package chain pytest walks to put
 # scripts/ on sys.path by itself -- every integration module that needs an
 # in-process rigc import inserts scripts/ explicitly (test_edt_build.py,
-# test_reference_shields.py, etc.); this is that same idiom, for the one
-# comparator context.cmake needs structurally rather than byte-for-byte.
+# test_reference_shields.py, etc.); this is that same idiom, for the
+# comparators context.cmake and config-sheet.md need structurally rather
+# than byte-for-byte.
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-from rigc.tests.compare import compare_context_cmake  # noqa: E402
+from rigc.tests.compare import compare_config_sheet, compare_context_cmake  # noqa: E402
 
 
 def assert_fixture_local(paths: List[Union[Path, str]]) -> None:
@@ -587,13 +588,14 @@ def freeze_or_assert(golden_path: Path, content: str) -> None:
     """Write content as the golden (RIGEXP_REFREEZE=1) or assert it matches
     the committed fixture, with a readable failure message on mismatch.
 
-    context.cmake (golden_path.name, not a directory check -- this is the
-    single seam every EMITTED_FILES artifact passes through) compares
-    STRUCTURALLY via compare_context_cmake: a key -> value mapping, with
-    RIG_DEPENDS as a set, is its actual contract, not the bytes cmake/
-    dts.cmake happens to read. Every other artifact keeps the byte
-    comparison unchanged -- each has its own contract still to gain a
-    comparator in a later slice."""
+    context.cmake and config-sheet.md (golden_path.name, not a directory
+    check -- this is the single seam every EMITTED_FILES artifact passes
+    through) compare STRUCTURALLY: context.cmake as a key -> value
+    mapping, with RIG_DEPENDS as a set; config-sheet.md as the facts it
+    carries (instance/socket/address/index/... -- see compare.py), never
+    its prose rendering. Every other artifact keeps the byte comparison
+    unchanged -- each has its own contract still to gain a comparator in
+    a later slice."""
     if REFREEZE:
         golden_path.parent.mkdir(parents=True, exist_ok=True)
         golden_path.write_text(content)
@@ -606,6 +608,11 @@ def freeze_or_assert(golden_path: Path, content: str) -> None:
     expected = golden_path.read_text()
     if golden_path.name == "context.cmake":
         mismatch = compare_context_cmake(expected, content)
+        if mismatch is not None:
+            pytest.fail(f"golden mismatch: {golden_path}\n{mismatch}")
+        return
+    if golden_path.name == "config-sheet.md":
+        mismatch = compare_config_sheet(expected, content)
         if mismatch is not None:
             pytest.fail(f"golden mismatch: {golden_path}\n{mismatch}")
         return
