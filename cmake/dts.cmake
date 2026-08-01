@@ -83,24 +83,40 @@ get_filename_component(_RIG_BTR_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 # output with west build-rig ... -- -DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE
 # (reuses CMake's own log-level machinery — no new flag of our own).
 #
-# _rig_shell_quote_argv: wraps every argument in single quotes (POSIX
-# '...'-quoting — safe for ANY content, including spaces/globs/embedded
-# quotes; an embedded ' becomes '\''), for plain positional arguments.
+# _rig_shell_quote_token: one argument, quoted ONLY if it actually needs
+# it -- a bareword (letters/digits/`_@%+=:,./-`) renders as-is; anything
+# else gets POSIX '...'-quoting (safe for ANY content, including spaces/
+# globs/embedded quotes; an embedded ' becomes '\''). The safe set mirrors
+# Python's own shlex.quote, so a rendered line reads the way a human would
+# type it -- quotes only around the one argument that actually needs them,
+# not wrapped around every argument on the line.
+function(_rig_shell_quote_token out_var token)
+  if("${token}" STREQUAL "" OR "${token}" MATCHES "[^A-Za-z0-9_@%+=:,./-]")
+    string(REPLACE "'" "'\\''" _rig_tok_esc "${token}")
+    set(${out_var} "'${_rig_tok_esc}'" PARENT_SCOPE)
+  else()
+    set(${out_var} "${token}" PARENT_SCOPE)
+  endif()
+endfunction()
+
+# _rig_shell_quote_argv: renders a whole argv, each token quoted only as
+# needed (see _rig_shell_quote_token) -- for plain positional arguments.
 function(_rig_shell_quote_argv out_var)
   set(_rig_rendered "")
   foreach(_rig_tok ${ARGN})
-    string(REPLACE "'" "'\\''" _rig_tok_esc "${_rig_tok}")
-    string(APPEND _rig_rendered "'${_rig_tok_esc}' ")
+    _rig_shell_quote_token(_rig_tok_render "${_rig_tok}")
+    string(APPEND _rig_rendered "${_rig_tok_render} ")
   endforeach()
   string(STRIP "${_rig_rendered}" _rig_rendered)
   set(${out_var} "${_rig_rendered}" PARENT_SCOPE)
 endfunction()
 
 # _rig_shell_quote_env: renders a list of "NAME=value" strings as
-# NAME='value' (value single-quoted, NAME left bare) — a shell only
-# recognizes NAME=value as an env-assignment prefix when NAME itself is
-# UNQUOTED (verified: quoting the whole token, e.g. 'NAME=value', makes
-# both bash and zsh treat it as the command to run, not an assignment).
+# NAME=value, the value quoted only as needed (see _rig_shell_quote_token)
+# and NAME always left bare — a shell only recognizes NAME=value as an
+# env-assignment prefix when NAME itself is UNQUOTED (verified: quoting
+# the whole token, e.g. 'NAME=value', makes both bash and zsh treat it as
+# the command to run, not an assignment).
 function(_rig_shell_quote_env out_var)
   set(_rig_rendered "")
   foreach(_rig_pair ${ARGN})
@@ -108,8 +124,8 @@ function(_rig_shell_quote_env out_var)
     string(SUBSTRING "${_rig_pair}" 0 ${_rig_eq_pos} _rig_name)
     math(EXPR _rig_val_start "${_rig_eq_pos} + 1")
     string(SUBSTRING "${_rig_pair}" ${_rig_val_start} -1 _rig_value)
-    string(REPLACE "'" "'\\''" _rig_value_esc "${_rig_value}")
-    string(APPEND _rig_rendered "${_rig_name}='${_rig_value_esc}' ")
+    _rig_shell_quote_token(_rig_value_render "${_rig_value}")
+    string(APPEND _rig_rendered "${_rig_name}=${_rig_value_render} ")
   endforeach()
   string(STRIP "${_rig_rendered}" _rig_rendered)
   set(${out_var} "${_rig_rendered}" PARENT_SCOPE)
@@ -421,8 +437,8 @@ foreach(_rig_env_pair ${_rig_debug_env})
   string(SUBSTRING "${_rig_env_pair}" 0 ${_rig_eq_pos} _rig_env_name)
   math(EXPR _rig_val_start "${_rig_eq_pos} + 1")
   string(SUBSTRING "${_rig_env_pair}" ${_rig_val_start} -1 _rig_env_value)
-  string(REPLACE "'" "'\\''" _rig_env_value_esc "${_rig_env_value}")
-  list(APPEND _rig_rerun_lines "export ${_rig_env_name}='${_rig_env_value_esc}'")
+  _rig_shell_quote_token(_rig_env_value_render "${_rig_env_value}")
+  list(APPEND _rig_rerun_lines "export ${_rig_env_name}=${_rig_env_value_render}")
 endforeach()
 list(APPEND _rig_rerun_lines "exec ${_rig_expand_argv_render} \"$@\"")
 list(JOIN _rig_rerun_lines "\n" _rig_rerun_content)

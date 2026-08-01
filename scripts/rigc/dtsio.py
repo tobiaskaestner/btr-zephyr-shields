@@ -26,6 +26,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import shlex
 import subprocess
 import sys
 from typing import List, Optional, Tuple
@@ -100,7 +101,7 @@ def run_cpp(dts_path: str, out_path: str,
         "-I", zephyr_inc(), "-I", MODULE_INC,
         "-undef", "-D__DTS__", dts_path, "-o", out_path,
     ]
-    log.debug("cpp argv: %s", cmd)
+    log.debug("cpp argv: %s", shlex.join(cmd))
     res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode != 0:
         raise LoadError(error(
@@ -141,6 +142,8 @@ def parse_tu(includes: List[str], workdir: str, name: str,
         f.write("/dts-v1/;\n")
         for inc in includes:
             f.write(f'#include "{inc}"\n')
+    log.info("wrote %s", tu)
+    log.info("shield TU: %s", name)
     log.debug("TU: %s (includes %s)", tu, includes)
     return parse_dts(tu, workdir, include_dirs)
 
@@ -241,6 +244,7 @@ def check_include(header: str, workdir: str, tag: str,
     tu = os.path.join(workdir, f"rig-dt-include-{tag}.dts")
     with open(tu, "w") as f:
         f.write(f'/dts-v1/;\n#include "{header}"\n/ {{ }};\n')
+    log.info("wrote %s", tu)
     try:
         parse_dts(tu, workdir, include_dirs)
         return None
@@ -263,6 +267,7 @@ def resolve_token(token: str, headers: List[str], workdir: str, tag: str,
         for header in headers:
             f.write(f'#include "{header}"\n')
         f.write(f"/ {{ p {{ v = <{token}>; }}; }};\n")
+    log.info("wrote %s", tu)
     try:
         dt = parse_dts(tu, workdir, include_dirs)
     except LoadError:

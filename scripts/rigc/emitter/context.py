@@ -17,10 +17,13 @@ CMAKE_CONFIGURE_DEPENDS on top of its own static registrations.
 """
 from __future__ import annotations
 
+import logging
 from typing import List
 
 from ..deps import Deps
 from ..model import Rig
+
+log = logging.getLogger(__name__)
 
 
 def _cmake_list_escape(value: str) -> str:
@@ -49,6 +52,7 @@ def render(rig: Rig, deps: Deps) -> bytes:
     byte-identical to one from before the axis existed. RIG_DEPENDS is
     always present, sorted, each element escaped for a CMake list
     literal (`_cmake_list_escape`)."""
+    log.info("context.render(): rig '%s'", rig.name)
     shields: List[str] = []
     shield_revisions: List[str] = []
     for inst in rig.instances:
@@ -87,4 +91,5 @@ def render(rig: Rig, deps: Deps) -> bytes:
         lines.append(f'set(RIG_VARIANT "{rig.variant}")')
     deps_list = ";".join(_cmake_list_escape(p) for p in sorted(deps))
     lines.append(f'set(RIG_DEPENDS "{deps_list}")')
+    log.debug("context.render(): %d shield(s), %d dep(s)", len(shields), len(deps))
     return ("\n".join(lines) + "\n").encode("utf-8")

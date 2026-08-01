@@ -23,10 +23,13 @@ from textwrap import dedent
 
 import argparse
 import logging
+import re
 from pathlib import Path
+from typing import List
 
 import pytest
 
+from rigc import cli
 from rigc.cli import _configure_logging, build_parser, main
 
 
@@ -67,6 +70,7 @@ def test_defaults_are_none() -> None:
     assert args.connector_dirs is None
     assert args.revision is None
     assert args.variant is None
+    assert args.verbose == 0
 
 
 def test_repeatable_options_accumulate_in_order() -> None:
@@ -87,6 +91,14 @@ def test_single_valued_options() -> None:
     assert args.build_info == "bi.yml"
     assert args.revision == "2"
     assert args.variant == "b"
+
+
+def test_verbose_counts_repeats() -> None:
+    assert _parse([]).verbose == 0
+    assert _parse(["-v"]).verbose == 1
+    assert _parse(["-vv"]).verbose == 2
+    assert _parse(["-v", "-v"]).verbose == 2
+    assert _parse(["--verbose", "--verbose", "--verbose"]).verbose == 3
 
 
 def test_out_dir_is_required() -> None:
@@ -198,22 +210,10 @@ def test_out_of_scope_feature_refuses(tmp_path: Path,
     assert err.startswith("rigc: not implemented: ")
 
 
-def test_accept_path_now_accepts_and_writes_artifacts(
-        tmp_path: Path, capsys: pytest.CaptureFixture[str],
-        monkeypatch: pytest.MonkeyPatch) -> None:
-    """R5 closes the emitter: input the loader/analyzer find nothing wrong
-    with now exits 0 and writes the rig artifacts + context.cmake, rather
-    than the pre-R5 loud exit-3 refusal this test used to pin. Board
-    reading is stubbed via monkeypatch rather than a real board .dts +
-    cpp -- board reading is integration-only by construction
-    (rigc-r3-brief.md Sec 2's cpp/unit-test seam applies here just the
-    same as it does to the shield side), and a rig with zero instances
-    needs no cpp from the emitter either (no params to resolve, no
-    dt-includes to probe), so this proves the full accept path -- emit,
-    context.render, the one writer -- without a subprocess."""
-    import rigc.boarddt
-    from rigc.model import Board
-
+def _write_zero_instance_rig(tmp_path: Path) -> None:
+    """A rig with zero instances needs no cpp from the emitter (no params
+    to resolve, no dt-includes to probe) -- the shape every accept-path
+    test below reuses so board reading is the only thing left to stub."""
     (tmp_path / "rig.yml").write_text(
         dedent("""\
         rig:
@@ -224,10 +224,31 @@ def test_accept_path_now_accepts_and_writes_artifacts(
         instances: []
         """))
 
+
+def _stub_board_reading(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Board reading is integration-only by construction (rigc-r3-brief.md
+    Sec 2's cpp/unit-test seam applies here just the same as it does to
+    the shield side) -- stubbed rather than exercised via a real board
+    .dts + cpp."""
+    import rigc.boarddt
+    from rigc.model import Board
+
     def fake_load_board(name: str, workdir: str, board_dts=None, recipe=None):
         return Board(name=name, sockets={}), [], frozenset()
 
     monkeypatch.setattr(rigc.boarddt, "load_board", fake_load_board)
+
+
+def test_accept_path_now_accepts_and_writes_artifacts(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """R5 closes the emitter: input the loader/analyzer find nothing wrong
+    with now exits 0 and writes the rig artifacts + context.cmake, rather
+    than the pre-R5 loud exit-3 refusal this test used to pin -- proving
+    the full accept path (emit, context.render, the one writer) without a
+    subprocess."""
+    _write_zero_instance_rig(tmp_path)
+    _stub_board_reading(monkeypatch)
 
     out_dir = tmp_path / "out"
     ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
@@ -245,6 +266,90 @@ def test_accept_path_now_accepts_and_writes_artifacts(
     assert 'set(RIG_NAME "r")' in context_text
     assert 'set(RIG_BOARD "some_board/soc/rig")' in context_text
     assert 'set(RIG_SHIELDS "")' in context_text
+
+
+# --------------------------------------------- the workdir (cutover-decisions.md D10)
+
+def _spy_mkdtemp(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> List[str]:
+    """Captures every workdir cli.py creates, forcing each one to land
+    under tmp_path -- so a directory this test's own scenario leaves
+    behind (the whole point of the reject case) is still cleaned up by
+    pytest's own tmp_path retention rather than leaking into real /tmp."""
+    created: List[str] = []
+    real_mkdtemp = cli.tempfile.mkdtemp
+
+    def spy(prefix: str) -> str:   # cli.py's own call shape: mkdtemp(prefix=...)
+        d = real_mkdtemp(prefix=prefix, dir=str(tmp_path))
+        created.append(d)
+        return d
+
+    monkeypatch.setattr(cli.tempfile, "mkdtemp", spy)
+    return created
+
+
+def test_accept_path_removes_the_workdir(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """D10: a clean accept must not leak cli.py's own workdir -- 7001
+    directories / 787MB measured accumulating in one session before this
+    fix. The control against "cleanup fired too early and broke the run":
+    the accept path's own artifacts must still have landed."""
+    _write_zero_instance_rig(tmp_path)
+    _stub_board_reading(monkeypatch)
+    created = _spy_mkdtemp(monkeypatch, tmp_path)
+
+    out_dir = tmp_path / "out"
+    ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
+                             "--out-dir", str(out_dir),
+                             *_no_shields(tmp_path)])
+
+    assert ret == 0
+    assert len(created) == 1
+    assert not Path(created[0]).exists()
+    assert (out_dir / "context.cmake").is_file()   # cleanup didn't race the writer
+
+
+def test_reject_path_keeps_the_workdir(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """D10's other half, and the negative control for the accept-path
+    test above: a naive "always delete" fix would pass THAT test but fail
+    this one, just as a naive "never delete" (today's bug) would pass
+    this one but fail that one -- only a real accept/reject distinction
+    satisfies both. A rejected board-dts is real evidence a cpp failure's
+    own rendered diagnostic points at (e.g. param-missing-header), so the
+    directory must survive exactly this exit."""
+    _write_zero_instance_rig(tmp_path)
+    created = _spy_mkdtemp(monkeypatch, tmp_path)
+
+    ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
+                             "--out-dir", str(tmp_path / "out"),
+                             *_no_shields(tmp_path),
+                             "--board-dts", str(tmp_path / "no-such-board.dts")])
+
+    assert ret == 1
+    assert len(created) == 1
+    assert Path(created[0]).is_dir()
+
+
+def test_rigc_keep_workdir_env_overrides_the_accept_path_deletion(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """RIGC_KEEP_WORKDIR is the escape hatch for inspecting a run that
+    succeeded -- the one case the reject-path test above cannot cover,
+    since a reject already keeps its directory regardless of this knob."""
+    _write_zero_instance_rig(tmp_path)
+    _stub_board_reading(monkeypatch)
+    created = _spy_mkdtemp(monkeypatch, tmp_path)
+    monkeypatch.setenv("RIGC_KEEP_WORKDIR", "1")
+
+    ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
+                             "--out-dir", str(tmp_path / "out"),
+                             *_no_shields(tmp_path)])
+
+    assert ret == 0
+    assert len(created) == 1
+    assert Path(created[0]).is_dir()
 
 
 # --------------------------------------------------- logging (rigc-r45-brief.md Part B)
@@ -284,9 +389,10 @@ def test_stderr_carries_only_renderer_bytes_when_rigc_log_is_unset(
 
 def test_rigc_log_env_attaches_a_real_stderr_handler(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """RIGC_LOG=<level> is the ONLY way a real handler ever reaches the
-    `rigc` logger tree -- read fresh at the top of every main() call (not
-    at import time), so this is observable without a subprocess."""
+    """RIGC_LOG=<level> is one way a real handler reaches the `rigc`
+    logger tree (the other is -v/-vv, see below) -- read fresh at the top
+    of every main() call (not at import time), so this is observable
+    without a subprocess."""
     monkeypatch.setenv("RIGC_LOG", "debug")
 
     main(["expand", str(tmp_path / "no-such-rig.yml"),
@@ -304,4 +410,72 @@ def test_rigc_log_env_attaches_a_real_stderr_handler(
     # calling _configure_logging() again leaves the logger tree exactly
     # as every OTHER test in this module expects to find it.
     monkeypatch.delenv("RIGC_LOG")
+    _configure_logging()
+
+
+def _assert_verbose_flag_attaches_a_real_stderr_handler(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        flag: str, level: int) -> None:
+    """-v/-vv reach `_configure_logging` the same way RIGC_LOG does, with
+    no environment variable involved at all. A plain helper, not a
+    parametrized test -- tests/unit/ bans pytest markers outright
+    (test_layer_discipline.py), directory-classified only."""
+    monkeypatch.delenv("RIGC_LOG", raising=False)
+
+    main(["expand", str(tmp_path / "no-such-rig.yml"),
+         "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path), flag])
+
+    root = logging.getLogger("rigc")
+    real_handlers = [h for h in root.handlers
+                     if isinstance(h, logging.StreamHandler)
+                     and not isinstance(h, logging.NullHandler)]
+    assert len(real_handlers) == 1
+    assert root.getEffectiveLevel() == level
+
+    _configure_logging()   # same deterministic cleanup as the test above
+
+
+def test_dash_v_attaches_a_real_stderr_handler_at_info(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _assert_verbose_flag_attaches_a_real_stderr_handler(
+        tmp_path, monkeypatch, "-v", logging.INFO)
+
+
+def test_dash_vv_attaches_a_real_stderr_handler_at_debug(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _assert_verbose_flag_attaches_a_real_stderr_handler(
+        tmp_path, monkeypatch, "-vv", logging.DEBUG)
+
+
+def test_verbose_flag_overrides_rigc_log(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The CLI flag is the more explicit, per-invocation request, so it
+    wins when both are present -- here RIGC_LOG asks for DEBUG but -v
+    (INFO) is what the run actually gets."""
+    monkeypatch.setenv("RIGC_LOG", "debug")
+
+    main(["expand", str(tmp_path / "no-such-rig.yml"),
+         "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path), "-v"])
+
+    assert logging.getLogger("rigc").getEffectiveLevel() == logging.INFO
+
+    monkeypatch.delenv("RIGC_LOG")
+    _configure_logging()
+
+
+def test_log_format_carries_a_timestamp_and_the_emitting_function(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+        capsys: pytest.CaptureFixture[str]) -> None:
+    """Every enabled record must be traceable to WHEN it fired and WHICH
+    function emitted it -- both are missing from a plain level+name
+    format and neither is recoverable after the fact."""
+    monkeypatch.delenv("RIGC_LOG", raising=False)
+
+    main(["expand", str(tmp_path / "no-such-rig.yml"),
+         "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path), "-v"])
+
+    err = capsys.readouterr().err
+    assert "rigc.cli:main" in err   # module:function
+    assert re.search(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", err)
+
     _configure_logging()

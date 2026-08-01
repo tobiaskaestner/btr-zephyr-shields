@@ -33,8 +33,11 @@ Every renderer below takes `solved` and never reaches back through
 """
 from __future__ import annotations
 
+import logging
 import os
 from typing import Dict, List, Optional
+
+log = logging.getLogger(__name__)
 
 #: The shared provenance banner every rig-gen.* artifact carries (three
 #: comment forms: /* */ in the overlay and includes file, <!-- --> in the
@@ -70,6 +73,7 @@ def emit(rig: Rig, solved: Solved, types: Dict[str, ConnectorType], workdir: str
     corpus/fixture rig produces per-instance Kconfig fragments yet);
     `expectations.yml` always appears, though nothing gates its content
     (test_emitted_corpus.py's own docstring)."""
+    log.info("emit(): rig '%s'", rig.name)
     outputs = {
         "rig-gen.overlay": render_overlay(rig, solved, types).encode("utf-8"),
         "config-sheet.md": render_sheet(rig, solved, types, workdir,
@@ -79,6 +83,8 @@ def emit(rig: Rig, solved: Solved, types: Dict[str, ConnectorType], workdir: str
     if rig.dt_includes:
         outputs["rig-gen-includes.dtsi"] = _render_includes_dtsi(
             rig.dt_includes).encode("utf-8")
+    for fname, content in outputs.items():
+        log.debug("emit(): rendered %s (%d bytes)", fname, len(content))
     return outputs
 
 
@@ -106,7 +112,10 @@ def write_artifacts(out_dir: str, artifacts: Dict[str, bytes]) -> None:
 
     artifacts is read-only; writes each mapping entry as out_dir/<name>,
     returns nothing."""
+    log.info("write_artifacts(): writing %d file(s) to %s", len(artifacts), out_dir)
     os.makedirs(out_dir, exist_ok=True)
     for fname, content in artifacts.items():
-        with open(os.path.join(out_dir, fname), "wb") as f:
+        path = os.path.join(out_dir, fname)
+        with open(path, "wb") as f:
             f.write(content)
+        log.info("write_artifacts(): wrote %s (%d bytes)", path, len(content))

@@ -18,9 +18,10 @@ silent fallback to rigexp.
 logging tree falls through to Python's own `lastResort` handler, which
 would print any WARNING-or-louder record straight to stderr and corrupt a
 golden comparison. `cli.main()` is the ONE place that ever attaches a
-REAL handler, and only when the environment names a level
-(`RIGC_LOG=<level>`) -- see its own docstring for the stderr-purity
-tradeoff that knob makes deliberately."""
+REAL handler, and only when asked to: `-v`/`-vv` on the command line
+(INFO/DEBUG) or, absent either flag, the environment naming a level
+(`RIGC_LOG=<level>`) -- see `_configure_logging`'s own docstring for the
+stderr-purity tradeoff either knob makes deliberately."""
 import logging
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())

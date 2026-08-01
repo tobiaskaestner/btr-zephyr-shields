@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import logging
 import os
+import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -121,7 +122,7 @@ def preprocess(dts_path: str, include_dirs: List[str], out_path: str) -> None:
     for include_dir in include_dirs:
         cmd += ["-isystem", include_dir]
     cmd += ["-D__DTS__", dts_path, "-o", out_path]
-    log.debug("cpp argv: %s", cmd)
+    log.debug("cpp argv: %s", shlex.join(cmd))
     result = subprocess.run(cmd, capture_output=True, text=True)
     if result.returncode != 0:
         raise RuntimeError(f"cpp failed on {dts_path}:\n{result.stderr}")

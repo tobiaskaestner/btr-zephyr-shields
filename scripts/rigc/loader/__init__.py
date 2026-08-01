@@ -421,6 +421,10 @@ def load(rig_path: str, workdir: str,
         rig.dt_includes_refs = content.dt_includes_refs
         rig.instances = topology.instances()
         rig.wires = topology.wires
+        for inst in rig.instances:
+            log.info("rig '%s': instance '%s' requires shield '%s', "
+                     "mated to socket '%s'",
+                     rig.name, inst.name, inst.shield.name, inst.socket)
         return rig, diags, deps
     except LoadError as e:
         return None, diags + list(e.diags), deps
