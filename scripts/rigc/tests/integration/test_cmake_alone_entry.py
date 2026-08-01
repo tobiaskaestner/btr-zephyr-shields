@@ -45,6 +45,7 @@ from conftest import (
     board_extra_defines,
     render_argv,
     rig_board_name,
+    subprocess_timeout,
     zephyr_base,
 )
 
@@ -72,7 +73,7 @@ def _run_build_rig(rig_name: str, build_dir: Path,
     if extra_defines:
         cmd += ["--", *extra_defines]
     return subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=dict(os.environ),
-                           capture_output=True, text=True, timeout=600)
+                           capture_output=True, text=True, timeout=subprocess_timeout(600))
 
 
 def _cmake_alone_env() -> Dict[str, str]:
@@ -129,7 +130,7 @@ def _run_cmake_alone(build_dir: Path, extra_defines: list) -> "subprocess.Comple
     env = _cmake_alone_env()
     cmd = _cmake_alone_argv(build_dir, extra_defines)
     return subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=env,
-                           capture_output=True, text=True, timeout=300)
+                           capture_output=True, text=True, timeout=subprocess_timeout(300))
 
 
 def test_cmake_alone_entry_equivalent_to_build_rig(tmp_path: Path) -> None:
@@ -222,7 +223,7 @@ def test_cmake_alone_reconfigure_of_rig_build_dir_proceeds(tmp_path: Path) -> No
     env = _cmake_alone_env()
     second = subprocess.run(
         ["cmake", str(build_dir)], cwd=str(WEST_TOPDIR), env=env,
-        capture_output=True, text=True, timeout=300)
+        capture_output=True, text=True, timeout=subprocess_timeout(300))
     assert second.returncode == 0, (
         "reconfigure of an existing rig build dir (no -D flags repeated) "
         "must proceed -- BOARD is legitimately cache-carried from our own "
@@ -326,7 +327,7 @@ def test_cmake_alone_plain_shield_build_untouched(tmp_path: Path) -> None:
         "-GNinja",
     ]
     result = subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=env,
-                             capture_output=True, text=True, timeout=300)
+                             capture_output=True, text=True, timeout=subprocess_timeout(300))
     assert result.returncode == 0, (
         "a plain (no -DRIG) --shield-equivalent configure must remain "
         f"untouched\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
@@ -357,7 +358,7 @@ def test_cmake_alone_rig_swap_to_other_board_is_fatal(tmp_path: Path) -> None:
     second = subprocess.run(
         ["cmake", "-DRIG=lotus_buttons", str(build_dir)],
         cwd=str(WEST_TOPDIR), env=env,
-        capture_output=True, text=True, timeout=300)
+        capture_output=True, text=True, timeout=subprocess_timeout(300))
     assert second.returncode != 0, (
         "expected swapping -DRIG to a different-board rig in an existing "
         "build dir to FATAL, but configure succeeded")
@@ -381,7 +382,7 @@ def test_cmake_alone_rig_swap_same_board_proceeds(tmp_path: Path) -> None:
     second = subprocess.run(
         ["cmake", "-DRIG=nucleo_mux_farm", str(build_dir)],
         cwd=str(WEST_TOPDIR), env=env,
-        capture_output=True, text=True, timeout=300)
+        capture_output=True, text=True, timeout=subprocess_timeout(300))
     assert second.returncode == 0, (
         "swapping -DRIG to a SAME-board rig in an existing build dir must "
         f"proceed\n--- argv ---\n{render_argv(second)}\n--- stdout ---\n{second.stdout}\n"

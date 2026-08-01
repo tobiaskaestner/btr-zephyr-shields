@@ -52,6 +52,7 @@ from conftest import (
     normalize_dts_provenance,
     render_argv,
     rig_board_name,
+    subprocess_timeout,
     zephyr_base,
 )
 
@@ -85,7 +86,8 @@ def _run_build(rig_name: str, build_dir: Path,
     if extra_defines:
         cmd += ["--", *extra_defines]
     return subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=dict(os.environ),
-                           capture_output=True, text=True, timeout=600)
+                           capture_output=True, text=True,
+                           timeout=subprocess_timeout(600))
 
 
 @pytest.mark.parametrize("case", ACCEPT_CASES, ids=lambda c: c.name)

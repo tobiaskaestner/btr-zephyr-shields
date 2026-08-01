@@ -444,6 +444,23 @@ _PLAIN_BUILD_APP = "zephyr/samples/hello_world"
 _plain_build_cache: Dict[str, PlainBuild] = {}
 
 
+def subprocess_timeout(default: int) -> Optional[int]:
+    """The default for every long-running subprocess.run() timeout across
+    the integration tests, overridable via RIGC_SUBPROCESS_TIMEOUT (seconds;
+    0 disables the timeout). subprocess.run's timeout clock runs in the
+    pytest process and is oblivious to a debugger paused inside the child --
+    past the timeout it kills that child regardless, ending the debug
+    session out from under you. Set RIGC_SUBPROCESS_TIMEOUT=0 (e.g. via a
+    project-local .env picked up by nvim-dap-python) while debugging into a
+    subprocess.run child. Not applied to the short dts_equiv.py comparisons,
+    which carry no timeout of their own."""
+    raw = os.environ.get("RIGC_SUBPROCESS_TIMEOUT")
+    if not raw:
+        return default
+    value = int(raw)
+    return value if value > 0 else None
+
+
 def _run_plain_build(board: str, build_dir: Path) -> "subprocess.CompletedProcess[str]":
     """west build --cmake-only -b <board> of hello_world — deliberately
     PLAIN: no --shield, no -DRIG, so this exercises the legacy/plain
@@ -466,7 +483,8 @@ def _run_plain_build(board: str, build_dir: Path) -> "subprocess.CompletedProces
     _LOGGER.info("plain build argv: %s", shlex.join(cmd))
     write_rerun_script(build_dir, WEST_TOPDIR, cmd, env)
     return subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=env,
-                           capture_output=True, text=True, timeout=600)
+                           capture_output=True, text=True,
+                           timeout=subprocess_timeout(600))
 
 
 def plain_build_for(board: str, tmp_path_factory: "pytest.TempPathFactory") -> PlainBuild:
@@ -558,7 +576,8 @@ def run_expand(rig_yml: Path, out_dir: Path,
     _LOGGER.info("expand argv: %s", shlex.join(cmd))
     write_rerun_script(out_dir, REPO_ROOT, cmd, env)
     return subprocess.run(cmd, env=env, cwd=str(REPO_ROOT),
-                           capture_output=True, text=True, timeout=120)
+                           capture_output=True, text=True,
+                           timeout=subprocess_timeout(120))
 
 
 def freeze_or_assert(golden_path: Path, content: str) -> None:
