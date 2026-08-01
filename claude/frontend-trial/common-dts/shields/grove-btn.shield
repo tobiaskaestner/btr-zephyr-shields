@@ -1,0 +1,27 @@
+/* Grove module: Button (bridle grove_btn). ONE shield definition that
+ * replaces bridle's 64 overlays (grove_btn_d0..d31 x normal/inverted): the
+ * "which digital pin" axis becomes the socket the rig places it in, and the
+ * normal/inverted axis becomes the per-instance `invert:` parameter.
+ *
+ * The button drives a gpio-keys input on the Grove signal pin. Default wiring
+ * matches bridle's grove_btn_d0.overlay (pull-down, active-high).
+ */
+
+#include <dt-bindings/connector/grove.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/ {
+	rig-shields {
+		grove_btn: grove-btn {
+			shield,plugs = "grove";
+			gb_plug: plug { #gpio-cells = <2>; };
+
+			gpio {
+				gb_key: button {
+					shield,collect = "gpio-keys";	/* an entry in the shared gpio-keys collection */
+					gpios = <&gb_plug GROVE_SIG0 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>;
+				};
+			};
+		};
+	};
+};

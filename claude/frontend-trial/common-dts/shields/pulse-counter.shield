@@ -1,0 +1,25 @@
+/* Shield: hypothetical Pulse Counter (S7) — TRIG input pad; I2C config
+ * interface at a fixed address (1-element domain).
+ */
+
+#include <dt-bindings/connector/arduino-r3.h>
+
+/ {
+	rig-shields {
+		pulse_counter: pulse-counter {
+			shield,plugs = "arduino-r3";
+			pc_plug: plug { #gpio-cells = <2>; };
+
+			i2c {
+				pc_counter: counter@33 {
+					compatible = "vnd,pulsecnt";
+					reg = <0x33>;
+				};
+			};
+
+			pads {
+				pc_trig: trig { shield,role = "listener"; shield,of = <&pc_counter>; };
+			};
+		};
+	};
+};

@@ -1,0 +1,7 @@
+# seeded: WINC IRQ routes through a jumper but the rig selects no position
+# (non-CS positions are never auto-allocated -> must be pinned).
+rig:
+  name: seeded-m6
+  board: nucleo_f401re
+  instances:
+    - { name: wifi_1, shield: adafruit-winc1500, socket: nucleo_ard }

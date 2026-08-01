@@ -1,0 +1,16 @@
+# Slice A (reject) — the timer-channel clash. Two servos on grove_d2 and
+# grove_d4. Different pins (porta14 vs porta8), but the board's pwm-map lands
+# BOTH on tcc0 ch0 (real bridle fact: D2 and D4 share TCC0CH0). One timer
+# channel can't independently drive two servos — the expander catches it on
+# the channel net, even though the pins differ.
+
+rig:
+  name: lotus-pwm-clash
+  board: seeeduino_lotus
+  instances:
+    - name: servo_a
+      shield: grove-servo
+      socket: grove_d2               # SIG0 → PWM tcc0 ch0
+    - name: servo_b
+      shield: grove-servo
+      socket: grove_d4               # SIG0 → PWM tcc0 ch0  (same channel!)

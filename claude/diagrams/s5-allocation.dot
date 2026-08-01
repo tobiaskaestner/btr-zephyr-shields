@@ -1,0 +1,39 @@
+// S5 — Computed resource allocation: CS slots + strap-selected addresses (hypothetical clicks on Quail)
+digraph S5 {
+  rankdir=TB;
+  fontname="Helvetica"; fontsize=12; bgcolor="white";
+  node [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="white", color="#546E7A"];
+  edge [fontname="Helvetica", fontsize=9, color="#546E7A", dir=none];
+
+  subgraph cluster_f1 {
+    label="Flash Click A (socket 1)"; style="rounded,filled"; fillcolor="#E7F2E9"; color="#4C8A57"; fontcolor="#2F5E38";
+    fa [label="SPI NOR\nreg = 0  (allocated)", color="#2E7D32", fontcolor="#2E7D32"];
+  }
+  subgraph cluster_f2 {
+    label="Flash Click B (socket 2)"; style="rounded,filled"; fillcolor="#E7F2E9"; color="#4C8A57"; fontcolor="#2F5E38";
+    fb [label="SPI NOR\nreg = 1  (allocated)", color="#2E7D32", fontcolor="#2E7D32"];
+  }
+  subgraph cluster_t1 {
+    label="Temp Click A (socket 3)"; style="rounded,filled"; fillcolor="#E7F2E9"; color="#4C8A57"; fontcolor="#2F5E38";
+    ta [label="sensor@48\nADDR strap: open  (assigned)", color="#2E7D32", fontcolor="#2E7D32"];
+  }
+  subgraph cluster_t2 {
+    label="Temp Click B (socket 4)"; style="rounded,filled"; fillcolor="#E7F2E9"; color="#4C8A57"; fontcolor="#2F5E38";
+    tb [label="sensor@49\nADDR strap: CLOSED  (assigned)", color="#2E7D32", fontcolor="#2E7D32"];
+  }
+
+  subgraph cluster_board {
+    label="MikroE Quail"; style="rounded,filled"; fillcolor="#E8EEF7"; color="#5B7DB1"; fontcolor="#33517E";
+    spi1 [label="spi1\ncs-gpios = <socket1.CS (gpioa 3)>, <socket2.CS (gpioe 0)>\nBUS-WIDE, COMPUTED", fillcolor="#EBEBEB", color="#2E7D32", fontcolor="#2E7D32"];
+    i2c1 [label="i2c1 (shared by all sockets)", fillcolor="#EBEBEB", color="#555555"];
+  }
+
+  fa -> spi1 [label="CS idx 0", color="#2E7D32", fontcolor="#2E7D32"];
+  fb -> spi1 [label="CS idx 1", color="#2E7D32", fontcolor="#2E7D32"];
+  ta -> i2c1 [label="0x48", color="#2E7D32", fontcolor="#2E7D32"];
+  tb -> i2c1 [label="0x49", color="#2E7D32", fontcolor="#2E7D32"];
+
+  sheet [shape=note, fillcolor="#FFF8DC", color="#C79A3B",
+    label="physical configuration sheet (build output):\nTemp Click B: close ADDR jumper"];
+  sheet -> tb [style=dashed, color="#C79A3B"];
+}

@@ -1,0 +1,10 @@
+# seeded mistake: pinned address 0x4a is outside the strap's domain {0x48, 0x49}.
+rig:
+  name: seeded-m5
+  board: mikroe_quail
+  instances:
+    - name: temp_a
+      shield: temp-click
+      socket: quail_sock3
+      pin:
+        addr_strap: 0x4a

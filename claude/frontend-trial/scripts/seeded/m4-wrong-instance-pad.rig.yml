@@ -1,0 +1,10 @@
+# seeded mistake: cross-pair — sq exists, but on logger_1's shield,
+# not counter_1's.
+rig:
+  name: seeded-m4
+  board: nucleo_f401re
+  instances:
+    - { name: logger_1, shield: adafruit-data-logger, socket: nucleo_ard }
+    - { name: counter_1, shield: pulse-counter, socket: nucleo_ard }
+  wires:
+    - { from: counter_1.sq, to: counter_1.trig, route: adhoc }

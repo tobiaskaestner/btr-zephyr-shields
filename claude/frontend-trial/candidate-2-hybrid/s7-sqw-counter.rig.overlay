@@ -1,0 +1,22 @@
+/* rig.overlay for the nucleo-sqw-counter rig (Conv. 8) — the rig's optional
+ * DT payload, hand-authored beside s7-sqw-counter.rig.yml.
+ *
+ * OUTPUT REGIME: the loader never sees this file. It rides the overlay chain
+ * AFTER the generated overlay
+ *   (board.dts -> <generated>.overlay -> THIS -> EXTRA_DTC_OVERLAY_FILE),
+ * so it may reference GENERATED instance labels and plain dtc resolves them.
+ * Generated labels are compositions <instance>_<shield-local label> — the
+ * rig's public reference API (grep them in out/s7-sqw-counter-c2/overlay).
+ *
+ * Here: rig-owned alias SELECTIONS (which of the two shields' devices are the
+ * well-known singletons) — a choice no shield may make for the rig, and the
+ * reason aliases live at rig level (address authority rule, applied to names).
+ */
+
+/ {
+	aliases {
+		rtc0 = &logger_1_dl_rtc;		/* the data-logger's PCF8523 */
+		sdhc0 = &logger_1_dl_sd;
+		pulsecounter0 = &counter_1_pc_counter;	/* distinct shield, one bus */
+	};
+};

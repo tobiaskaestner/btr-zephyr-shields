@@ -1,0 +1,155 @@
+diff --git i/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi w/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi
+index 6d71a6a..a117996 100644
+--- i/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi
++++ w/boards/seeed/seeeduino_lotus_btr/grove_sockets_btr.dtsi
+@@ -24,21 +24,20 @@
+  * the expander's emitted `&adc0 { status = "okay"; };` fragment a real node
+  * to resolve against.
+  *
+- * NOTE — socket,pwm-map / socket,adc-map deliberately NOT carried here
+- * (R21 finding, see the task report): the expander-side board model has
+- * them (scripts/rigexp/boarddt.py parses them with raw dtlib, no schema),
+- * but on a REAL board compiled through edtlib, any property whose name ends
+- * in "-map" is auto-treated as a full DT nexus by
+- * devicetree.edtlib.Node.maps() — it demands a matching "#<name>-cells"
+- * property on BOTH this node AND the phandle target (&tcc0/&adc), which
+- * neither side declares (and &tcc0/&adc are real core SoC nodes we should
+- * not decorate with invented cells properties just to satisfy this). This
+- * is harmless to omit: the emitter never resolves a PWM/ADC claim through
+- * the socket's own nexus at the real-DTS layer anyway — the resolved
+- * `pwms`/`io-channels` (see scripts/rigexp/emitter.py `_device_node`)
+- * reference &tcc0 / &adc0 directly, bypassing the socket node entirely.
+- * gpio-map is unaffected: its parent targets (&porta/&portb) are already
+- * real GPIO controllers that declare "#gpio-cells" themselves.
++ * SPIKE 2a (temporary, see scripts/rigexp task report): standard-named
++ * `pwm-map` / `io-channel-map` nexuses added below on the sockets that carry
++ * PWM/ADC positions, encoding the SAME position -> controller+channel
++ * routing as the expander-side board model's `socket,pwm-map` /
++ * `socket,adc-map` (scripts/rigexp/common-dts/boards/seeeduino_lotus_btr.rig.dtsi).
++ * Unlike the invented `socket,pwm-map` name (R21 finding, P3 3c: edtlib
++ * strips "-map" -> "socket,pwm" -> demands a nonexistent "#socket,pwm-cells"
++ * property), the STANDARD names strip to "pwm" / "io-channel", which demand
++ * "#pwm-cells" / "#io-channel-cells" -- properties &tcc0/&tcc1 (board .dts
++ * override) and &adc already declare for their own consumer-facing PWM/ADC
++ * roles. So the target side needs no invented decoration; only the socket
++ * itself must additionally declare its own "#pwm-cells"/"#io-channel-cells"
++ * (the child/consumer-facing spec), same as gpio-map already requires
++ * "#gpio-cells" here.
+  */
+ 
+ #include <dt-bindings/connector/grove.h>
+@@ -58,6 +57,12 @@ adc0: &adc {};
+ 		gpio-map-mask = <0xffffffff 0xffffffc0>;
+ 		gpio-map-pass-thru = <0 0x3f>;
+ 		gpio-map = <GROVE_SIG0 0 &porta 14 0>, <GROVE_SIG1 0 &porta 9 0>;
++
++		/* SPIKE 2a: real bridle fact -- D2 and D4 share TCC0 ch0. */
++		#pwm-cells = <2>;
++		pwm-map-mask = <0xffffffff 0x00000000>;
++		pwm-map-pass-thru = <0x00000000 0xffffffff>;
++		pwm-map = <GROVE_SIG0 0 &tcc0 0 0>, <GROVE_SIG1 0 &tcc0 1 0>;
+ 	};
+ 	grove_d3: connector_grove_d3 {
+ 		compatible = "socket,grove";
+@@ -65,6 +70,11 @@ adc0: &adc {};
+ 		gpio-map-mask = <0xffffffff 0xffffffc0>;
+ 		gpio-map-pass-thru = <0 0x3f>;
+ 		gpio-map = <GROVE_SIG0 0 &porta 9 0>, <GROVE_SIG1 0 &porta 8 0>;
++
++		#pwm-cells = <2>;
++		pwm-map-mask = <0xffffffff 0x00000000>;
++		pwm-map-pass-thru = <0x00000000 0xffffffff>;
++		pwm-map = <GROVE_SIG0 0 &tcc0 1 0>, <GROVE_SIG1 0 &tcc0 0 0>;
+ 	};
+ 	grove_d4: connector_grove_d4 {
+ 		compatible = "socket,grove";
+@@ -72,6 +82,12 @@ adc0: &adc {};
+ 		gpio-map-mask = <0xffffffff 0xffffffc0>;
+ 		gpio-map-pass-thru = <0 0x3f>;
+ 		gpio-map = <GROVE_SIG0 0 &porta 8 0>, <GROVE_SIG1 0 &porta 15 0>;
++
++		/* SPIKE 2a: real bridle fact -- D2 and D4 share TCC0 ch0. */
++		#pwm-cells = <2>;
++		pwm-map-mask = <0xffffffff 0x00000000>;
++		pwm-map-pass-thru = <0x00000000 0xffffffff>;
++		pwm-map = <GROVE_SIG0 0 &tcc0 0 0>, <GROVE_SIG1 0 &tcc0 1 0>;
+ 	};
+ 	grove_d5: connector_grove_d5 {
+ 		compatible = "socket,grove";
+@@ -95,14 +111,23 @@ adc0: &adc {};
+ 		gpio-map = <GROVE_SIG0 0 &porta 21 0>, <GROVE_SIG1 0 &porta 6 0>;
+ 	};
+ 
+-	/* Analog Grove sockets. adc0 channel per position lives in the
+-	 * expander-side board model's socket,adc-map (not repeated here). */
++	/* Analog Grove sockets. SPIKE 2a: io-channel-map nexus, position ->
++	 * (adc0, channel), mirroring the expander-side board model's
++	 * socket,adc-map. #io-channel-cells = <1> matches &adc's own
++	 * "#io-channel-cells" (one cell: channel only, no flags), so the map
++	 * row's child spec is fully resolved by the matched entry -- no
++	 * pass-thru bits needed (mask fully covers the position cell). */
+ 	grove_a0: connector_grove_a0 {
+ 		compatible = "socket,grove";
+ 		#gpio-cells = <2>;
+ 		gpio-map-mask = <0xffffffff 0xffffffc0>;
+ 		gpio-map-pass-thru = <0 0x3f>;
+ 		gpio-map = <GROVE_SIG0 0 &porta 2 0>, <GROVE_SIG1 0 &portb 8 0>;
++
++		#io-channel-cells = <1>;
++		io-channel-map-mask = <0xffffffff>;
++		io-channel-map-pass-thru = <0x00000000>;
++		io-channel-map = <GROVE_SIG0 &adc0 0>, <GROVE_SIG1 &adc0 1>;
+ 	};
+ 	grove_a1: connector_grove_a1 {
+ 		compatible = "socket,grove";
+@@ -110,6 +135,11 @@ adc0: &adc {};
+ 		gpio-map-mask = <0xffffffff 0xffffffc0>;
+ 		gpio-map-pass-thru = <0 0x3f>;
+ 		gpio-map = <GROVE_SIG0 0 &portb 8 0>, <GROVE_SIG1 0 &portb 9 0>;
++
++		#io-channel-cells = <1>;
++		io-channel-map-mask = <0xffffffff>;
++		io-channel-map-pass-thru = <0x00000000>;
++		io-channel-map = <GROVE_SIG0 &adc0 1>, <GROVE_SIG1 &adc0 2>;
+ 	};
+ 	grove_a2: connector_grove_a2 {
+ 		compatible = "socket,grove";
+diff --git i/dts/bindings/connector/grove.yaml w/dts/bindings/connector/grove.yaml
+index 83dd575..6a5014b 100644
+--- i/dts/bindings/connector/grove.yaml
++++ w/dts/bindings/connector/grove.yaml
+@@ -44,6 +44,34 @@ properties:
+     required: true
+     const: 2
+ 
++  # SPIKE 2a (temporary): declared inline rather than via `include:
++  # [pwm-nexus.yaml, io-channel-nexus.yaml]` (existing upstream Zephyr
++  # bindings, dts/bindings/pwm/pwm-nexus.yaml + dts/bindings/iio/
++  # io-channel-nexus.yaml -- the same role gpio-nexus.yaml plays for
++  # gpio-map). `include:` merge rejects downgrading an included property's
++  # `required: true` to `false` ("'required' from included file
++  # overwritten"), and not every grove socket carries PWM/ADC (only some SIG
++  # positions reach a timer/ADC channel) -- so these are optional here,
++  # unlike gpio-map which every socket carries. Cell shapes/roles match the
++  # upstream bindings exactly (pwm-map: compound, #pwm-cells: int; same for
++  # io-channel-*), just not required.
++  pwm-map:
++    type: compound
++  pwm-map-mask:
++    type: array
++  pwm-map-pass-thru:
++    type: array
++  "#pwm-cells":
++    type: int
++  io-channel-map:
++    type: compound
++  io-channel-map-mask:
++    type: array
++  io-channel-map-pass-thru:
++    type: array
++  "#io-channel-cells":
++    type: int
++
+ gpio-cells:
+   - pin
+   - flags

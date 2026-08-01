@@ -1,0 +1,13 @@
+# S1 (fidelity milestone) — the baseline: one board, one shield, today's model.
+# Adafruit Data Logger on the Nucleo Arduino header — the exact setup of
+# `west build -b nucleo_f401re --shield adafruit_data_logger`. The generated
+# overlay must be EQUIVALENT (R2 — not byte-identical; labels may differ) to
+# the legacy shield overlay's output. See scripts/../FIDELITY.md.
+
+rig:
+  name: nucleo-datalogger
+  board: nucleo_f401re
+  instances:
+    - name: logger
+      shield: adafruit-data-logger
+      socket: nucleo_ard

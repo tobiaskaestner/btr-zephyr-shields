@@ -1,0 +1,14 @@
+/* seeded mistake: wire names an instance that does not exist (logger_9). */
+/dts-v1/;
+#include "../../common-dts/shields/data-logger.dtsi"
+#include "../../common-dts/shields/pulse-counter.dtsi"
+/ { rig {
+	rig,name = "seeded-m0"; rig,board = "nucleo_f401re";
+	logger_1: instance@0 { rig,shield = <&data_logger>; rig,socket = "nucleo_ard"; };
+	counter_1: instance@1 { rig,shield = <&pulse_counter>; rig,socket = "nucleo_ard"; };
+	wires { wire@0 {
+		rig,from = <&logger_9 &dl_sq>;
+		rig,to = <&counter_1 &pc_trig>;
+		rig,route = "adhoc";
+	}; };
+}; };

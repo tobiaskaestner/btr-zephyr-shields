@@ -1,0 +1,11 @@
+# seeded: IRQ jumper selection D5 is a real Arduino pin but NOT in the
+# jumper position domain {D7, D2} -- the copper cannot route it.
+rig:
+  name: seeded-m7
+  board: nucleo_f401re
+  instances:
+    - name: wifi_1
+      shield: adafruit-winc1500
+      socket: nucleo_ard
+      pin:
+        irq_jmp: D5

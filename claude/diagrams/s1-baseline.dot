@@ -1,0 +1,31 @@
+// S1 — Baseline: Nucleo-F401RE + Adafruit Data Logger shield
+digraph S1 {
+  rankdir=TB;
+  fontname="Helvetica"; fontsize=12; bgcolor="white";
+  node [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="white", color="#546E7A"];
+  edge [fontname="Helvetica", fontsize=9, color="#546E7A", dir=none];
+
+  subgraph cluster_shield {
+    label="Adafruit Data Logger shield"; style="rounded,filled"; fillcolor="#E7F2E9"; color="#4C8A57"; fontcolor="#2F5E38";
+    rtc   [label="PCF8523 RTC\nrtc@68 (I2C 0x68, fixed)"];
+    sd    [label="SD card\nsdhc@0 (SPI)"];
+    led1  [label="LED1 (jumper L1)"];
+    led2  [label="LED2 (jumper L2)"];
+  }
+
+  subgraph cluster_board {
+    label="Nucleo-F401RE"; style="rounded,filled"; fillcolor="#E8EEF7"; color="#5B7DB1"; fontcolor="#33517E";
+    hdr [label="arduino_header\n(gpio-map nexus)", fillcolor="#FFE3C2", color="#C97F2C"];
+    i2c [label="i2c1  —  \"arduino_i2c\" (label convention)", fillcolor="#EBEBEB", color="#555555"];
+    spi [label="spi1  —  \"arduino_spi\" (label convention)", fillcolor="#EBEBEB", color="#555555"];
+    gpio [label="SoC GPIO banks", fillcolor="#EBEBEB", color="#555555"];
+    hdr -> gpio [label="gpio-map", style=dotted];
+  }
+
+  rtc  -> i2c [label="addr 0x68"];
+  sd   -> spi [label="reg 0"];
+  sd   -> hdr [label="CS = D10\n(cs-gpios, written wholesale)"];
+  rtc  -> hdr [label="INT = D7 (jumper)"];
+  led1 -> hdr [label="D3"];
+  led2 -> hdr [label="D4"];
+}

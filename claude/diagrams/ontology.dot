@@ -1,0 +1,80 @@
+// Rigs ontology — entities (nouns) and relations, grouped by catalog / assembly / projection
+digraph Ontology {
+  rankdir=LR;
+  fontname="Helvetica"; fontsize=12; bgcolor="white";
+  node [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="white", color="#546E7A"];
+  edge [fontname="Helvetica", fontsize=9, color="#546E7A"];
+
+  subgraph cluster_catalog {
+    label="Catalog (type level)"; style="rounded,filled"; fillcolor="#E8EEF7"; color="#5B7DB1"; fontcolor="#33517E";
+
+    ctype [label="ConnectorType\n(arduino-r3, mikrobus,\ngrove, pad)"];
+    pos   [label="Position\nrole · optional group · width"];
+    pcba  [label="PCBA\nBoard (runs this build's image)\nShield (opaque intelligence)", fillcolor="#DCE7F5"];
+    conn  [label="Connector\n(exposed or consumed)", fillcolor="#FFE3C2", color="#C97F2C"];
+    pad   [label="Pad\n(arity-1 connector)", fillcolor="#FFE3C2", color="#C97F2C"];
+    dev   [label="Device\naddress domains,\ncapabilities"];
+    ep    [label="Endpoint\nfunction · role\n(driver/listener/bidir)"];
+    net   [label="Net\n(equipotential copper)", fillcolor="#EBEBEB", color="#555555"];
+    link  [label="Link\nwidth · lanes/pairs", fillcolor="#EBEBEB", color="#555555"];
+    aspace [label="AddressSpace\nnone / device-static /\ndevice-dynamic / message", fillcolor="#EBEBEB", color="#555555"];
+    constr [label="BusConstraints & Params\ntermination · bitrate", fillcolor="#EBEBEB", color="#555555"];
+    cfg   [label="ConfigElement\njumper · strap · switch", fillcolor="#FBF3DF", color="#C79A3B"];
+
+    ctype -> pos   [label="defines"];
+    conn  -> ctype [label="instance-of", style=dashed];
+    pad   -> conn  [label="is-a", style=dashed];
+    pcba  -> dev   [label="contains"];
+    pcba  -> net   [label="contains"];
+    pcba  -> cfg   [label="contains"];
+    pcba  -> conn  [label="exposes /\nconsumes"];
+    conn  -> net   [label="binds\nposition ↦ net", color="#C97F2C", fontcolor="#C97F2C"];
+    pad   -> net   [label="binds", color="#C97F2C", fontcolor="#C97F2C"];
+
+    dev  -> ep     [label="has", color="#33517E", fontcolor="#33517E"];
+    ep   -> net    [label="attaches\n(function, role)", color="#33517E", fontcolor="#33517E"];
+    link -> net    [label="groups", color="#33517E", fontcolor="#33517E"];
+    link -> aspace [label="carries", color="#33517E", fontcolor="#33517E"];
+    link -> constr [label="constrains /\nagrees-on", color="#33517E", fontcolor="#33517E"];
+    dev  -> link   [label="roots (new scope:\nmux, bridge)", color="#33517E", fontcolor="#33517E", penwidth=2];
+    dev  -> link   [label="sits-in\n(PHY, transceiver)", color="#33517E", fontcolor="#33517E", style=dashed];
+
+    cfg -> net    [label="switches", color="#C79A3B", fontcolor="#C79A3B"];
+    cfg -> aspace [label="selects addr", color="#C79A3B", fontcolor="#C79A3B"];
+    cfg -> constr [label="enables", color="#C79A3B", fontcolor="#C79A3B"];
+  }
+
+  subgraph cluster_rig {
+    label="Rig (assembly level)"; style="rounded,filled"; fillcolor="#E7F2E9"; color="#4C8A57"; fontcolor="#2F5E38";
+
+    rig    [label="Rig\n(single source of truth)", fillcolor="#D9EBDC"];
+    inst   [label="Instance\nparams: free · pinned · allocated"];
+    mating [label="Mating\nsubset + width check"];
+    adhoc  [label="Ad-hoc Net\n(jumper wire)"];
+    claim  [label="Claim\nnet+role · address · pool slot"];
+    derived [label="derived (computed):\nnet-identity classes → share / net / conflict\nscope tree → per-scope uniqueness\nallocator: static device addrs + pools only",
+             shape=note, fillcolor="#EFE3F6", color="#6A3FA0", fontcolor="#6A3FA0", fontsize=9];
+  }
+
+  rig  -> inst   [label="instantiates", color="#2E7D32", fontcolor="#2E7D32"];
+  inst -> pcba   [label="of type", style=dashed, color="#2E7D32", fontcolor="#2E7D32"];
+  rig  -> mating [label="mates", color="#2E7D32", fontcolor="#2E7D32"];
+  mating -> conn [label="exposed ×\nconsumed", color="#2E7D32", fontcolor="#2E7D32"];
+  mating -> net  [label="merges", color="#6A3FA0", fontcolor="#6A3FA0", style=dotted, penwidth=2];
+  rig   -> adhoc [label="wires", color="#2E7D32", fontcolor="#2E7D32"];
+  adhoc -> pad   [label="joins ×2", color="#2E7D32", fontcolor="#2E7D32"];
+  inst  -> claim [label="claims", color="#2E7D32", fontcolor="#2E7D32"];
+  claim -> net    [label="role", color="#6A3FA0", fontcolor="#6A3FA0", style=dotted];
+  claim -> aspace [label="addr / slot", color="#6A3FA0", fontcolor="#6A3FA0", style=dotted];
+
+  subgraph cluster_out {
+    label="Projection (per firmware image)"; style="rounded,filled"; fillcolor="#FBF3DF"; color="#C79A3B"; fontcolor="#7A5C1E";
+    dts    [label="devicetree\n(MCU-visible, static)"];
+    sheet  [label="config sheet\n(human-realized)"];
+    expect [label="test expectations\n(runtime-discoverable)"];
+  }
+
+  rig -> dts    [label="projects", color="#C97F2C", fontcolor="#C97F2C", penwidth=2];
+  rig -> sheet  [color="#C97F2C", penwidth=2];
+  rig -> expect [color="#C97F2C", penwidth=2];
+}

@@ -1,0 +1,17 @@
+# Slice A (realizable) — the same physical pin used as PWM and as ADC, on the
+# real Seeeduino Lotus. A servo on grove_d2 (PWM → tcc0 ch0) and a light sensor
+# on grove_a0 (ADC → adc0 ch0). The expander resolves each position through the
+# board's per-function nexus (socket,pwm-map / socket,adc-map), emits resolved
+# `pwms`/`io-channels`, enables the controllers, and notes the board pin-mux.
+# Exercises ontology Refinement 1: functions live on endpoints, not nets.
+
+rig:
+  name: lotus-pwm
+  board: seeeduino_lotus
+  instances:
+    - name: servo_1
+      shield: grove-servo
+      socket: grove_d2               # SIG0 → PWM tcc0 ch0
+    - name: light_1
+      shield: grove-light
+      socket: grove_a0               # SIG0 → ADC adc0 ch0

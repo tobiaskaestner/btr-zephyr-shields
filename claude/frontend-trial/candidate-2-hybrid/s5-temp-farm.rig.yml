@@ -1,0 +1,23 @@
+# S5 test piece — candidate #2 (YAML/DTS hybrid).
+# Same connector types / templates / board fragment as candidate #1
+# (common-dts/) — ONLY this topology file differs.
+
+rig:
+  name: quail-temp-farm
+  board: mikroe_quail            # self-contained: rig names its board
+
+  instances:
+    - name: flash_a
+      shield: flash-click
+      socket: quail_sock1
+    - name: flash_b
+      shield: flash-click
+      socket: quail_sock2
+    - name: temp_a
+      shield: temp-click
+      socket: quail_sock3
+    - name: temp_b
+      shield: temp-click
+      socket: quail_sock4
+      pin:
+        addr_strap: 0x49         # pinned allocation (R18)

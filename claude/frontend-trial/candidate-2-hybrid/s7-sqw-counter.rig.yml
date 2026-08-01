@@ -1,0 +1,25 @@
+# S7 test piece — candidate #2 (YAML/DTS hybrid).
+# Stacked shields on one Arduino socket; cross-instance wires via
+# dotted references (instance.node), resolved by the loader.
+
+rig:
+  name: nucleo-sqw-counter
+  board: nucleo_f401re
+
+  instances:
+    - name: logger_1
+      shield: adafruit-data-logger
+      socket: nucleo_ard
+    - name: counter_1
+      shield: pulse-counter
+      socket: nucleo_ard                # stacked mating (arduino_r3 is stackable)
+
+  wires:
+    # (b) pad-to-pad jumper: exists in no connector
+    - from: logger_1.sq
+      to: counter_1.trig
+      route: adhoc
+    # (a) alternative: same net, routed via header pin D2
+    # - from: logger_1.sq
+    #   to: counter_1.trig
+    #   route: { via: D2 }

@@ -1,0 +1,38 @@
+// S4-b — MikroE Quail: 4 mikroBUS sockets, three sharing regimes, hand-rolled 16-label matrix
+digraph S4b {
+  rankdir=TB;
+  fontname="Helvetica"; fontsize=12; bgcolor="white";
+  node [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="white", color="#546E7A"];
+  edge [fontname="Helvetica", fontsize=9, color="#546E7A", dir=none];
+
+  subgraph cluster_click {
+    label="Temp&Hum Click (HTS221)"; style="rounded,filled"; fillcolor="#E7F2E9"; color="#4C8A57"; fontcolor="#2F5E38";
+    hts [label="hts221@5f\n(fixed 0x5f)"];
+  }
+
+  subgraph cluster_board {
+    label="MikroE Quail  —  socket x resource matrix hand-encoded as 16 labels (mikrobus_N_{adc,i2c,spi,uart})";
+    style="rounded,filled"; fillcolor="#E8EEF7"; color="#5B7DB1"; fontcolor="#33517E";
+
+    s1 [label="socket 1\n(nexus: CS/RST/INT/PWM)", fillcolor="#FFE3C2", color="#C97F2C"];
+    s2 [label="socket 2\n(nexus)", fillcolor="#FFE3C2", color="#C97F2C"];
+    s3 [label="socket 3\n(nexus)", fillcolor="#FFE3C2", color="#C97F2C"];
+    s4 [label="socket 4\n(nexus)", fillcolor="#FFE3C2", color="#C97F2C"];
+
+    i2c1  [label="i2c1 — SHARED by all 4", fillcolor="#EBEBEB", color="#555555"];
+    spi1  [label="spi1 — shared 1+2", fillcolor="#EBEBEB", color="#555555"];
+    spi3  [label="spi3 — shared 3+4", fillcolor="#EBEBEB", color="#555555"];
+    u3 [label="usart3\ndedicated", fillcolor="#EBEBEB", color="#555555"];
+    u2 [label="usart2\ndedicated", fillcolor="#EBEBEB", color="#555555"];
+    u6 [label="usart6\ndedicated", fillcolor="#EBEBEB", color="#555555"];
+    u1 [label="usart1\ndedicated", fillcolor="#EBEBEB", color="#555555"];
+
+    s1 -> i2c1; s2 -> i2c1; s3 -> i2c1; s4 -> i2c1;
+    s1 -> spi1; s2 -> spi1;
+    s3 -> spi3; s4 -> spi3;
+    s1 -> u3; s2 -> u2; s3 -> u6; s4 -> u1;
+  }
+
+  hts -> s1 [label="hardcoded label\n\"mikrobus_1_i2c\"", color="#C62828", fontcolor="#C62828", penwidth=2];
+  hts -> s3 [label="socket 3?\ninexpressible", style=dashed, color="#C62828", fontcolor="#C62828"];
+}

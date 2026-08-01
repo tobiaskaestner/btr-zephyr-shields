@@ -1,0 +1,14 @@
+/* seeded mistake: wire references a misspelled shield node (dl_sqq). */
+/dts-v1/;
+#include "../../common-dts/shields/data-logger.dtsi"
+#include "../../common-dts/shields/pulse-counter.dtsi"
+/ { rig {
+	rig,name = "seeded-m3"; rig,board = "nucleo_f401re";
+	logger_1: instance@0 { rig,shield = <&data_logger>; rig,socket = "nucleo_ard"; };
+	counter_1: instance@1 { rig,shield = <&pulse_counter>; rig,socket = "nucleo_ard"; };
+	wires { wire@0 {
+		rig,from = <&logger_1 &dl_sqq>;
+		rig,to = <&counter_1 &pc_trig>;
+		rig,route = "adhoc";
+	}; };
+}; };

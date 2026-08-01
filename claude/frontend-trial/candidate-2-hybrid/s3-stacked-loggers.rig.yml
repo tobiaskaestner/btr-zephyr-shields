@@ -1,0 +1,20 @@
+# S3 test piece — candidate #2 (YAML/DTS hybrid): the SEEDED-ERROR showcase.
+# Two Data Logger shields stacked on one Arduino socket. Same expansion
+# contract as candidate-1 (see s3-stacked-loggers.rig.dts header):
+#   accept  - stacked mating (arduino-r3 stackable)
+#   accept  - LED nets D3/D4 (1 driver + 2 listeners, R22)
+#   error 1 - rtc@68 unary domain x2 on the one i2c scope (R9)
+#   error 2 - SD CS copper-fixed D10 x2 on one socket stack
+#   warning candidate - shared open-drain INT on D7 (drive-type refinement)
+
+rig:
+  name: nucleo-stacked-loggers
+  board: nucleo_f401re
+
+  instances:
+    - name: logger_a
+      shield: adafruit-data-logger
+      socket: nucleo_ard
+    - name: logger_b
+      shield: adafruit-data-logger
+      socket: nucleo_ard             # stacked mating — legal

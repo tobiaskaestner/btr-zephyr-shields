@@ -1,0 +1,31 @@
+# ConnectorType "arduino-r3", plug side — consumed by the rig loader.
+
+description: |
+  Contract for shields plugging an Arduino R3 socket. Bus proxies: i2c,
+  spi, uart. Positions A0-A5, D0-D15 per ARDUINO_HEADER_R3_*; all gpio
+  positions claimable (D11-D13 double as SPI lines electrically — conflicts
+  surface via net identity at the board binding, not here).
+
+plug: "arduino-r3"
+bus-proxies: [i2c, spi, uart]
+positions:
+  A0: {function: analog}
+  A1: {function: analog}
+  A2: {function: analog}
+  A3: {function: analog}
+  A4: {function: gpio}
+  A5: {function: gpio}
+  D0: {function: gpio}
+  D1: {function: gpio}
+  D2: {function: gpio}
+  D3: {function: gpio}
+  D4: {function: gpio}
+  D5: {function: gpio}
+  D6: {function: gpio}
+  D7: {function: gpio}
+  D8: {function: gpio}
+  D9: {function: gpio}
+  D10: {function: gpio}
+  D11: {function: gpio}
+  D12: {function: gpio}
+  D13: {function: gpio}

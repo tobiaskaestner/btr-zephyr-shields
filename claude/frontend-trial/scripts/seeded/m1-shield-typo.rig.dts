@@ -1,0 +1,7 @@
+/* seeded mistake: instance references a misspelled shield (data_loger). */
+/dts-v1/;
+#include "../../common-dts/shields/data-logger.dtsi"
+/ { rig {
+	rig,name = "seeded-m1"; rig,board = "nucleo_f401re";
+	logger_1: instance@0 { rig,shield = <&data_loger>; rig,socket = "nucleo_ard"; };
+}; };

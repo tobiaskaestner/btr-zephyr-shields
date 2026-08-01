@@ -1,0 +1,7 @@
+/* seeded mistake: rig,socket names a socket the board does not have. */
+/dts-v1/;
+#include "../../common-dts/shields/data-logger.dtsi"
+/ { rig {
+	rig,name = "seeded-m2"; rig,board = "nucleo_f401re";
+	logger_1: instance@0 { rig,shield = <&data_logger>; rig,socket = "nucleo_arf"; };
+}; };

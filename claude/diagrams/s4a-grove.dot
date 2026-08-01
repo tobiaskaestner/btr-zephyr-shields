@@ -1,0 +1,29 @@
+// S4-a — Maker Pi RP2040: 7 Grove sockets, connectors exist but nothing can attach
+digraph S4a {
+  rankdir=TB;
+  fontname="Helvetica"; fontsize=12; bgcolor="white";
+  node [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="white", color="#546E7A"];
+  edge [fontname="Helvetica", fontsize=9, color="#546E7A", dir=none];
+
+  module [label="any Grove module\n(zero Grove shields exist in-tree)", style="rounded,dashed", color="#C62828", fontcolor="#C62828"];
+
+  subgraph cluster_board {
+    label="Cytron Maker Pi RP2040"; style="rounded,filled"; fillcolor="#E8EEF7"; color="#5B7DB1"; fontcolor="#33517E";
+    h1 [label="grove_header1\ntype: \"UART\" (comment!)", fillcolor="#FFE3C2", color="#C97F2C"];
+    h2 [label="grove_header2\ntype: \"I2C\" (comment!)", fillcolor="#FFE3C2", color="#C97F2C"];
+    h3 [label="grove_header3", fillcolor="#FFE3C2", color="#C97F2C"];
+    h4 [label="grove_header4", fillcolor="#FFE3C2", color="#C97F2C"];
+    h5 [label="grove_header5\npin0 = gpio0 26", fillcolor="#FFE3C2", color="#C62828", penwidth=2];
+    h6 [label="grove_header6\npin1 = gpio0 26", fillcolor="#FFE3C2", color="#C62828", penwidth=2];
+    h7 [label="grove_header7", fillcolor="#FFE3C2", color="#C97F2C"];
+    gpio [label="RP2040 gpio0", fillcolor="#EBEBEB", color="#555555"];
+    i2c1 [label="i2c1 — NO grove bus labels defined at all", fillcolor="#EBEBEB", color="#555555", fontcolor="#C62828"];
+
+    h1 -> gpio [style=dotted]; h2 -> gpio [style=dotted]; h3 -> gpio [style=dotted];
+    h4 -> gpio [style=dotted]; h7 -> gpio [style=dotted];
+    h5 -> gpio [label="gpio0 26", color="#C62828", fontcolor="#C62828", penwidth=2];
+    h6 -> gpio [label="gpio0 26", color="#C62828", fontcolor="#C62828", penwidth=2];
+  }
+
+  module -> h4 [label="no mechanism\ncan target a socket", style=dashed, color="#C62828", fontcolor="#C62828"];
+}

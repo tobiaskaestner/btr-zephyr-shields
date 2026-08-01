@@ -1,0 +1,30 @@
+// S7 — Cross-module wiring: RTC SQW output feeds pulse counter input (two routings)
+digraph S7 {
+  rankdir=LR;
+  fontname="Helvetica"; fontsize=12; bgcolor="white";
+  node [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="white", color="#546E7A"];
+  edge [fontname="Helvetica", fontsize=9, color="#546E7A", dir=none];
+
+  subgraph cluster_dl {
+    label="Data Logger"; style="rounded,filled"; fillcolor="#E7F2E9"; color="#4C8A57"; fontcolor="#2F5E38";
+    rtc [label="PCF8523 RTC"];
+    sq  [label="port SQW (output)\n\"SQ\" pad — in NO devicetree", shape=cds, fillcolor="#EFE3F6", color="#6A3FA0", fontcolor="#6A3FA0"];
+    rtc -> sq [style=dotted];
+  }
+
+  subgraph cluster_pc {
+    label="Pulse Counter (hypothetical)"; style="rounded,filled"; fillcolor="#E7F2E9"; color="#4C8A57"; fontcolor="#2F5E38";
+    cnt  [label="counter chip"];
+    trig [label="port TRIG (input)", shape=cds, fillcolor="#EFE3F6", color="#6A3FA0", fontcolor="#6A3FA0"];
+    trig -> cnt [style=dotted];
+  }
+
+  subgraph cluster_board {
+    label="host board"; style="rounded,filled"; fillcolor="#E8EEF7"; color="#5B7DB1"; fontcolor="#33517E";
+    d2 [label="arduino_header D2", fillcolor="#FFE3C2", color="#C97F2C"];
+  }
+
+  sq -> d2   [label="net (a): jumper via header pin\n1 driver + 1 listener = NET, not conflict", color="#6A3FA0", fontcolor="#6A3FA0", penwidth=2, dir=forward];
+  d2 -> trig [color="#6A3FA0", penwidth=2, dir=forward];
+  sq -> trig [label="net (b): pad-to-pad jumper\nexists in NO connector\n-> cross-instance phandle needed", color="#6A3FA0", fontcolor="#6A3FA0", penwidth=2, style=dashed, dir=forward];
+}

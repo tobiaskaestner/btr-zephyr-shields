@@ -1,0 +1,9 @@
+# seeded mistake: wire references a misspelled shield node (sqq).
+rig:
+  name: seeded-m3
+  board: nucleo_f401re
+  instances:
+    - { name: logger_1, shield: adafruit-data-logger, socket: nucleo_ard }
+    - { name: counter_1, shield: pulse-counter, socket: nucleo_ard }
+  wires:
+    - { from: logger_1.sqq, to: counter_1.trig, route: adhoc }

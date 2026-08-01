@@ -1,0 +1,41 @@
+/* S7 test piece — candidate #1 (pure valid-DTS), post-pushback shape.
+ * Two shields STACKED on the one Arduino socket (arduino_r3 is
+ * connector,stackable). Wires use phandle pairs <&instance &shield-node>.
+ */
+
+/dts-v1/;
+
+#include "../common-dts/shields/data-logger.shield"
+#include "../common-dts/shields/pulse-counter.shield"
+
+/ {
+	rig {
+		rig,name = "nucleo-sqw-counter";
+		rig,board = "nucleo_f401re";
+
+		logger_1: instance@0 {
+			rig,shield = <&data_logger>;
+			rig,socket = "nucleo_ard";
+		};
+		counter_1: instance@1 {
+			rig,shield = <&pulse_counter>;
+			rig,socket = "nucleo_ard";	/* stacked mating */
+		};
+
+		wires {
+			/* (b) pad-to-pad jumper: exists in no connector */
+			wire@0 {
+				rig,from = <&logger_1 &dl_sq>;
+				rig,to = <&counter_1 &pc_trig>;
+				rig,route = "adhoc";
+			};
+			/* (a) alternative: same net via header D2
+			wire@1 {
+				rig,from = <&logger_1 &dl_sq>;
+				rig,to = <&counter_1 &pc_trig>;
+				rig,route-via = <ARDUINO_HEADER_R3_D2>;
+			};
+			*/
+		};
+	};
+};

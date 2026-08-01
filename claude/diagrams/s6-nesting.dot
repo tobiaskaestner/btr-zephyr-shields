@@ -1,0 +1,36 @@
+// S6 — Nested composition: FRDM-K64F > arduino_uno_click adapter > ETH Click, and the CS coincidence chain
+digraph S6 {
+  rankdir=TB;
+  fontname="Helvetica"; fontsize=12; bgcolor="white";
+  node [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="white", color="#546E7A"];
+  edge [fontname="Helvetica", fontsize=9, color="#546E7A", dir=none];
+
+  subgraph cluster_click {
+    label="ETH Click (socket 1)"; style="rounded,filled"; fillcolor="#E7F2E9"; color="#4C8A57"; fontcolor="#2F5E38";
+    eth [label="ENC28J60\neth_click@0\ndeclares NO CS"];
+  }
+
+  ghost [label="Temp&Hum Click\nundefined label 'mikrobus_1_i2c'\nHARD ERROR", style="rounded,dashed", color="#C62828", fontcolor="#C62828"];
+
+  subgraph cluster_adapter {
+    label="arduino_uno_click adapter (shield carrying 2 sockets)"; style="rounded,filled"; fillcolor="#FBF3DF"; color="#C79A3B"; fontcolor="#7A5C1E";
+    mb1 [label="mikroBUS socket 1\nCS routed to D10", fillcolor="#FFE3C2", color="#C97F2C"];
+    mb2 [label="mikroBUS socket 2\nCS routed to D9", fillcolor="#FFE3C2", color="#C97F2C"];
+  }
+
+  subgraph cluster_board {
+    label="NXP FRDM-K64F"; style="rounded,filled"; fillcolor="#E8EEF7"; color="#5B7DB1"; fontcolor="#33517E";
+    hdr  [label="arduino_header\nD10 = PTD0", fillcolor="#FFE3C2", color="#C97F2C"];
+    spi0 [label="spi0 (arduino_spi)\nmerged tree: NO cs-gpios at all", fillcolor="#EBEBEB", color="#C62828", fontcolor="#C62828"];
+    pmux [label="pinctrl: SPI0_PCS0 = PTD0 (native CS)\n/* pins conflict with uart2 */", fillcolor="#EBEBEB", color="#555555"];
+  }
+
+  eth -> mb1 [label="INT via nexus\n(2-level gpio-map: OK)", color="#2E7D32", fontcolor="#2E7D32"];
+  mb1 -> hdr [style=dotted, label="nexus remap"];
+  mb2 -> hdr [style=dotted];
+  eth -> spi0 [label="reg 0"];
+  ghost -> mb2 [style=dashed, color="#C62828"];
+
+  // the coincidence chain
+  eth  -> pmux [label="COINCIDENCE CHAIN:\nclick assumes CS0 exists /\nboard muxes PCS0 onto PTD0 /\nadapter routes D10 to socket-1 CS\n— agree by luck, checked nowhere", style=dashed, color="#C62828", fontcolor="#C62828", penwidth=2];
+}

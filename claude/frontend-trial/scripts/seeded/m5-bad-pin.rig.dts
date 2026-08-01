@@ -1,0 +1,11 @@
+/* seeded mistake: pinned address 0x4a is outside the strap's domain
+ * {0x48, 0x49} — the copper cannot select it. */
+/dts-v1/;
+#include "../../common-dts/shields/temp-click.dtsi"
+/ { rig {
+	rig,name = "seeded-m5"; rig,board = "mikroe_quail";
+	temp_a: instance@0 {
+		rig,shield = <&temp_click>; rig,socket = "quail_sock3";
+		rig,pin = <&tc_addr_strap 0x4a>;
+	};
+}; };

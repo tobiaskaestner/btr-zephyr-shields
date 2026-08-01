@@ -1,0 +1,2263 @@
+# Rigs — Session Handoff
+
+## RESUME (2026-08-01) — D10 IMPLEMENTED; A BATCH OF LOGGING MINORS LANDED; NEXT = LAZY SHIELD LIBRARY
+
+### STATE AT SESSION CLOSE (2026-08-01)
+
+btr-shields HEAD **`84e7e4e`** ("rigs: post-cutover minors -- -v/-vv
+logging, workdir cleanup (D10), readable rerun scripts"), one commit on
+top of the cutover's `fce7eaf`. `main` **ahead 1 of origin, NOT pushed**.
+
+Tree otherwise NOT clean — **Tobi has his own concurrent, uncommitted
+edits in this same checkout** (`scripts/rigc/tests/integration/{conftest.py,
+test_cmake_alone_entry.py,test_resolved_corpus.py}`, `.gitignore`, an
+untracked `.env`), live-edited THROUGHOUT this session (confirmed by him
+mid-session — see the traps below). None of it was touched by the driver;
+none of it is in `84e7e4e`. Read those files fresh before assuming their
+state from this handoff.
+
+**Gate, driver-verified, FULL (not `CHECK_FAST`):** mypy **85 files**
+clean, rigc unit suite **487 passed** (coverage 89% vs the 88 floor),
+frozen suite **143 passed** in 3m18s — every `build`-marked test
+(real `west build-rig --cmake-only` configures, including the
+lotus/bridle-module case) included, not just the fast subset. ALL GREEN,
+zero golden churn.
+
+### WHAT LANDED THIS SESSION (all in `84e7e4e`, requested incrementally)
+
+1. **`-v`/`-vv` on `expand`** — INFO/DEBUG on stderr; overrides `RIGC_LOG`
+   when given. Format now carries a timestamp and the emitting function
+   (`%(asctime)s %(levelname)s %(name)s:%(funcName)s`). Unit tests observe
+   the `rigc` logger tree at DEBUG unconditionally, via a new autouse
+   fixture in `scripts/rigc/tests/unit/conftest.py` — independent of
+   whether a real stderr handler is attached.
+2. **Readable rerun scripts, both sides** — `dtsio.py`'s "cpp argv" DEBUG
+   lines now `shlex.join` instead of rendering a raw Python list.
+   `cmake/dts.cmake`'s `rerun-expand.sh`/`message(VERBOSE)` rendering had
+   a SEPARATE, hand-duplicated blanket-quoting path the driver initially
+   missed (fixed `_rig_shell_quote_argv`/`_rig_shell_quote_env` first,
+   then found the `rerun-expand.sh` `export` line loop had its own copy of
+   the same "quote every token unconditionally" logic) — now both funnel
+   through one shared `_rig_shell_quote_token` helper that quotes a token
+   ONLY when it actually needs it (mirrors Python's `shlex.quote`).
+   Verified against a REAL `west build-rig` configure's generated
+   `rerun-expand.sh`, not just a standalone cmake-language test.
+3. **D10 IMPLEMENTED** (cutover-decisions.md, now updated; backlog group A
+   item 1, now CLOSED) — `cli.py::_expand` wraps its body in
+   `try/finally`; an `accepted` flag (set only at the clean `return 0`)
+   gates `shutil.rmtree(workdir)`; any non-zero exit keeps it (a cpp
+   failure's own diagnostic points at that path); `RIGC_KEEP_WORKDIR`
+   overrides the accept-path deletion. Unit tests pair
+   accept-removes/reject-keeps as each other's negative control, plus a
+   third for the env override.
+4. **Emitter logging** (previously silent) — INFO phase markers in
+   `emit()`/`write_artifacts()`/`context.render()`, DEBUG-then-INFO byte
+   counts per artifact/file (see item 6).
+5. **Loader logging** — an INFO summary per instance after topology
+   assembly (`load()`, `loader/__init__.py`): `rig 'X': instance 'Y'
+   requires shield 'Z', mated to socket 'W'` — covers nested/carrier
+   sockets naturally (e.g. `mux_1.ch0`). Plus `dtsio.py::parse_tu`
+   (confirmed by its own docstring as "the shield-TU entry point") now
+   logs `shield TU: <name>` at INFO for every translation, eager-scan and
+   lazy-revision-resolve alike.
+6. **Directories + every file write, at INFO** — `cli.py` logs `workdir:
+   <path>` and `out-dir: <path>` once each is resolved. Swept the WHOLE
+   package for `open(..., "w"/"wb")` (four sites total: `emitter/__init__
+   .py::write_artifacts`, `dtsio.py::parse_tu`/`check_include`/
+   `resolve_token`) and every one now logs `wrote <path>` (the emitter's
+   was DEBUG until this item generalized the ask to INFO everywhere).
+
+All of it verified against REAL `west build-rig` configures at each step
+(not just the unit/frozen suites), since none of this is exercised by the
+suites' default silent-stderr paths.
+
+### TRAPS THIS SESSION, both process not code
+
+1. **A live collision, not a bug**: mid-session, `cli.py`'s `run_expand`
+   equivalent in `scripts/rigc/tests/integration/conftest.py` picked up an
+   unconditional `-vv` (Tobi's own in-progress edit, made in anticipation
+   of the `-v`/`-vv` feature before it existed) — once the flag became
+   real, every subprocess in the frozen suite started emitting DEBUG logs
+   on stderr, corrupting 41 byte-exact `stderr.txt` goldens. Diagnosed via
+   a probe insertion + direct `west build-rig`, not assumed; Tobi reverted
+   it himself. **Lesson**: when two people edit the same checkout live,
+   a sudden wave of unrelated-looking golden failures is worth suspecting
+   as a collision before assuming a regression in the change just made.
+2. **A live debugger, not a code bug**: later, every unit test reaching
+   `cli.py::_expand` started failing `bdb.BdbQuit` — a `debugpy` adapter
+   process was live (Tobi debugging in his editor with a breakpoint set);
+   it resolved itself once his debug session ended. Same lesson: check
+   `ps aux` for a live debug adapter before assuming a code regression
+   when failures are this exotic.
+3. **Side-by-side editing is standing practice now, not a one-off**: this
+   session confirmed (again) that Tobi actively edits files in `btr-shields`
+   (not just `btr-shields-review`) WHILE the driver works in the same
+   checkout — `cli.py` itself got reformatted (black-style) and picked up
+   an inert `# breakpoint()` comment mid-session, unrelated to the driver's
+   own edits. Read a file fresh before editing it again; don't assume its
+   state from an earlier Read in the same session.
+
+### NEXT, in order
+
+1. **LAZY SHIELD LIBRARY** — the item with real leverage, now the top of
+   the standing queue (D10 no longer blocks it). C2 removed ONE of its two
+   pins: `RIG_DEPENDS` breadth is free now (compared as a set), but
+   **scan-time diagnostic ORDER is still pinned** because `stderr.txt`
+   stays byte-exact. The slice must preserve diagnostic order or come with
+   an explicit refreeze ruling.
+2. Then the standing queue, unchanged: **hwmv2 revision semantics** (lands
+   in `rigc/loader/axes.py`), **rig-schema.yaml**, **shield plurality**,
+   **BRIDLE MIGRATION**, then **board-as-invocation-coordinate**.
+3. `main` is ahead 1, unpushed — decide whether to push.
+4. Reconcile with Tobi's own uncommitted edits (see STATE above) before
+   starting new work in this checkout — they were never reviewed or
+   tested by the driver this session.
+
+## RESUME (2026-07-30c) — **CUTOVER COMPLETE. rigc IS THE TOOL; rigexp IS GONE.**
+
+### STATE AT SESSION CLOSE (2026-07-30c)
+
+btr-shields HEAD **`fce7eaf`** ("rigs: cutover C4"), tree CLEAN except an
+untracked `.vscode/` (an editor artifact — gitignoring it is Tobi's call).
+`main` is **ahead 9 of origin, NOT pushed** — the push is Tobi's decision.
+Zephyr at the pin **`8da5b3a0f60`**, which IS the `tskr/zephyr-rigs` tip;
+`west.yml` deliberately keeps a HASH rather than tracking the branch,
+because the five carried commits are not upstream and that branch already
+rebased once, silently invalidating a differential run.
+
+**Gate, driver-verified:** `check.sh` ALL GREEN — mypy **84 files** (rigc
+alone), rigc unit suite **479**, coverage **89%** against a new
+`fail_under = 88` floor, frozen suite **143**.
+
+Suite layout is now `scripts/rigc/tests/{unit,integration,fixtures,goldens}`.
+`RIG_EXPAND_COMPILE` defaults to `rigc`. `build` is the only pytest marker.
+
+### THE SEVEN CUTOVER COMMITS
+
+| slice | commit | what landed |
+|---|---|---|
+| C1 | `6dbcc3d` | suite moved to rigc; rigc became the default; **differential retired** |
+| C2a | `e128f9e` | `context.cmake` → key→value mapping, `RIG_DEPENDS` a SET |
+| C2b | `46a40cd` | `config-sheet.md` → the facts it carries, total-coverage enforced |
+| C2c | `d8d8b26` | `rig-gen.overlay` → split contract + a census guard |
+| C2d | `3ef718a` | `rig-gen-includes.dtsi` → ordered list; banner normalization retired; `fail_under` |
+| C3 | `d747514` | **rigexp retired** — 5246 deletions |
+| C4 | `fce7eaf` | one discipline regime; `build` the only marker |
+
+### WHAT THE CUTOVER ACTUALLY CHANGED (do not mis-summarise this)
+
+Calling C2 "loosening the goldens" undersells it. **Rendering loosened;
+MEANING tightened.** `context.cmake` now rejects a duplicate-key file that
+bytes accepted; `config-sheet.md` enforces total line coverage, which byte
+comparison never did; the overlay ties each annotation comment to the
+position it describes, a pairing nothing checked before. That is why the
+BRIDLE MIGRATION should now land without a refreeze tax.
+
+Byte-exact **permanently, by owner ruling, not pending a comparator**:
+`exit_code` and `stderr.txt`. The reject corpus's diagnostic wording is a
+user-facing product surface. A C2d review caught a conftest docstring
+actively inviting a future agent to loosen it; that sentence is fixed.
+
+Deliberate golden edits across the whole cutover: **7 files** — C1's
+classified path refreeze (6) and C2d's one banner token. **57 goldens still
+spell `generated by rigexp`** in a banner comment no comparator reads: that
+is deliberate, not drift, and §8.1's predicted 58-file refreeze became a
+one-token hand edit because the comparators landed first.
+
+### TWO NEW DOCUMENTS — READ BOTH BEFORE RESUMING
+
+- **`cutover-decisions.md`** — D0–D11, every call the driver made
+  unattended, each with its reasoning and rejected alternative. **D9, D10,
+  D11 are SIGNED OFF** (2026-07-30c).
+- **`post-cutover-backlog.md`** — **26 items in six groups**, the whole
+  known-open surface. This is the queue; `parked.md` remains the long-term
+  design park and is separate.
+
+### NEXT, in order
+
+1. **D10 — stop the expander leaking a temp workdir per invocation.** The
+   only group-A item that is still work: design RATIFIED (delete on exit 0,
+   keep on a reject, optional `RIGC_KEEP_WORKDIR`), no code written.
+   Measured 7001 dirs / 787 MB in one session, and `/tmp` here is tmpfs, so
+   it is RAM; `dts.cmake` runs the expander per configure, so every real
+   build leaks one. Backlog group A item 1 has the acceptance criteria.
+2. **LAZY SHIELD LIBRARY** — the item with real leverage. C2 removed ONE of
+   its two pins: `RIG_DEPENDS` breadth is free now (compared as a set), but
+   **scan-time diagnostic ORDER is still pinned** because `stderr.txt` stays
+   byte-exact. The slice must preserve diagnostic order or come with an
+   explicit refreeze ruling.
+3. Then the standing queue: **hwmv2 revision semantics** (its brief predates
+   the freeze and targets rigexp's `_parse_axis_decl` — it now lands in
+   `rigc/loader/axes.py`, the seam R2 built for it), **rig-schema.yaml**,
+   **shield plurality**, **BRIDLE MIGRATION**, then
+   **board-as-invocation-coordinate**.
+
+**CLOSED, no work:** the `shield-uart-subset-frdm` tier-2 build (D9 — its
+goal is met by the byte-compared exception plus C2c's census guard), and
+the exit-vocabulary collapse (D11 — §8.3 WITHDRAWN, not deferred: four live
+`Unimplemented` sites are deliberate, so collapsing would be a
+product-design slice authoring a new `lang-parse` diagnostic).
+
+### PROCESS DISCIPLINE THIS RUN EARNED — carry it forward
+
+**The integration suite cannot falsify a comparator.** Emitter output equals
+the goldens, so a correct, weakened or GUTTED comparator passes all 143
+tests identically — proven by injecting 10 mutations that all passed.
+`tests/unit/test_compare.py` is the only thing between a refactor and a
+silently-green comparator. **Every comparator guard now has a named
+negative control, mutation-verified with a hash-checked restore.** Keep
+that for any future comparator.
+
+**A control's expectation must come from OUTSIDE the code it checks.** Three
+times this run a control was vacuous because it derived its expectation
+from the thing under test: R5's escape-order pair (two errors cancelled on
+single-character input), C2d's two-header ordering (descending sort equalled
+declaration order), and C4's launcher set (parametrizing over the set meant
+dropping an entry just shrank the loop). All three passed while proving
+nothing.
+
+**A census-style test is falsified by mutating the WORLD it observes**,
+never by editing its own assertion.
+
+**Every review round found something real — 4 for 4 — and the best finds
+were all one shape: a guard that passes while enforcing less than it
+claims.** C1's directory guard would have skipped the entire frozen suite
+while exiting 0. Ten comparator guards had no control. Eight build tests
+were protected only by an incidental module-level marker. A deleted
+assertion had no surviving equivalent. Do not skip the review round.
+
+**Three ratified items rested on premises nobody had measured** (the tier-2
+build's cost, then its benefit, then the exit vocabulary). §8's rulings were
+drafted from code censuses that did not all exist yet. Treat a brief's
+factual claims as checkable, not settled.
+
+**Environment traps, all real:** `/tmp` is tmpfs, so pytest basetemps AND
+the expander's leaked workdirs are charged to RAM and OOM-killed two runs;
+pass no `--basetemp` for runs you will not inspect. `cmd | tail; echo $?`
+reports tail's status and hid a failing gate for a full cycle. A stale
+`.pyc` whose source has the same size and same-second mtime is considered
+VALID by Python — purge `__pycache__` after any mutate-and-restore.
+
+## RESUME (2026-07-30b, superseded) — R5 LANDED: 146/146, CONFORMANCE COMPLETE; cutover then run to C4
+
+### STATE AT SESSION CLOSE (2026-07-30b)
+
+btr-shields HEAD **`380f69c`** ("rigs: R5 — rigc emitter"), tree CLEAN,
+`main` **ahead 2 of origin**. NOTE: `origin/main` sits at `2f93800`, so
+the "ahead 8" in the previous block was STALE — seven commits were
+pushed after it was written; only R4.5 and R5 are unpushed. Zephyr at
+the pin `8da5b3a0f60`, no drift.
+
+**The differential reads 146/146** (driver-verified twice, the second
+time after a cache purge — see the trap below). rigc reproduces rigexp's
+verdicts, diagnostics and artifacts over the whole corpus. `check.sh`
+ALL GREEN: mypy 99 files, rigc unit suite **392**, frozen suite 146.
+Coverage 89%; `emitter/{__init__,context,expectations}.py` 100%,
+`overlay.py` 77%, `sheet.py` 59% (its section renderers are verified by
+the reviewer's hand-differential against rigexp, not by unit test).
+
+**R5 content** (brief `rigc-r5-brief.md`, RATIFIED with all six rulings
+accepted as recommended): the emitter as a package of value functions
+(`overlay`/`sheet`/`expectations`/`context` + composer), artifacts as
+`{filename: bytes}` written by ONE shell with explicit UTF-8, `Solved`
+FROZEN (closes M7), `context.cmake` rendered by a value function instead
+of string-built in the CLI, and the RIG_DEPENDS closure (R3 review D3):
+`load()` returns `(Rig | None, diagnostics, Deps)`, the four absent
+recording points added, the five discarded values kept.
+
+**Two byte-level facts now frozen by the accept goldens, both of which
+PIN the lazy-shield-library slice** (still queued, still post-cutover):
+deps follow resolution HISTORY not the final topology
+(`pilot_variants_variant_c` keeps `adafruit_data_logger/shield.yml`
+though `RIG_SHIELDS` is only `pilot_alt_button`), and the eager scan's
+breadth is contract (`lotus_buttons`: 14 `.shield` for a rig naming 2).
+The rig's own `dt-includes` headers stay ABSENT from RIG_DEPENDS.
+
+**Review round: 1 major + 3 minors, all driver-applied.** The major was
+a RATIFIED RULING SILENTLY UNIMPLEMENTED (frozen `Solved`, absent from
+the diff and unmentioned in the report) — the precedent matters more
+than the keyword: rulings must not become optional whenever the goldens
+still pass. Minors: a TAUTOLOGICAL escape-order test (its expectation was
+composed from single-character results, where the two errors cancel, so
+it held under the WRONG order too); a stale `deps.py` docstring; and no
+unit test for `_controllers`/`_synth_nexus_nodes`, whose only guard was
+one golden each — which is exactly how this slice's one real bug (an em
+dash typed as `--` inside an EMITTED comment literal) survived to a
+200-second differential run. Emitted string literals are frozen
+contract. The reviewer also ran a HARNESS POSITIVE CONTROL worth
+reusing: `RIG_EXPAND_COMPILE=definitely_not_a_module` must fail with
+"No module named", proving the knob really drives `python -m <module>`
+and the 146/146 was genuinely rigc.
+
+### ⚠ TRAP THAT COST A CYCLE THIS SESSION (both halves are process, not code)
+
+1. **A red-proof mutation that preserves FILE SIZE, restored within the
+   SAME SECOND, leaves stale bytecode Python trusts** — the `.pyc`
+   validates on `(source mtime seconds, source size)` and both matched,
+   so `check.sh` imported the MUTATED `_cmake_list_escape` while the
+   source on disk was correct. After any restore: purge `__pycache__`
+   (or `touch` the file), and verify the restore against a HASH taken
+   BEFORE mutating — diffing the backup against the file you just copied
+   from it is vacuous. See memory `reference_stale_pyc_same_second`.
+2. **`cmd | tail -N; echo $?` reads tail's status, not the command's.**
+   That read a FAILING gate as exit 0 and hid the truncation for a full
+   cycle. `check.sh` exits immediately when the rigc suite fails, so its
+   output stopped at the coverage table and the frozen suite never ran —
+   the visible symptom of a hidden failure. Redirect to a log and read
+   the exit code directly.
+
+   Why the differential still read 146/146 against that bad bytecode:
+   `_cmake_list_escape` behaves identically on every real path (none
+   contain `;`, `"`, `\`), so NO golden can distinguish the orders. That
+   is precisely why the reviewer's unit test for it was load-bearing.
+
+### CUTOVER IN PROGRESS — **C1 + ALL OF C2 LANDED**; C3 dispatched, C4 next
+
+**Read `cutover-decisions.md`** — every call the driver made unattended
+(D0–D10), with reasoning and rejected alternatives. **D9 and D10 need the
+owner's sign-off.**
+
+| slice | commit | result |
+|---|---|---|
+| C1 move | `6dbcc3d` | suite at `scripts/rigc/tests/{unit,integration,fixtures,goldens}`; `RIG_EXPAND_COMPILE` default → `rigc`; differential RETIRED |
+| C2a | `e128f9e` | `context.cmake` = key→value mapping; `RIG_DEPENDS` a SET, `RIG_SHIELDS` ordered |
+| C2b | `46a40cd` | `config-sheet.md` = the facts it carries; total-coverage enforced |
+| C2c | `d8d8b26` | `rig-gen.overlay` = split contract (semantics ride `zephyr.dts`) + census guard |
+| C2d | `3ef718a` | `rig-gen-includes.dtsi` = ordered header list; `_normalize_banner` DELETED; `fail_under = 88` |
+
+Gate at `3ef718a`: mypy **101**, rigc unit **471**, coverage **89%** vs the
+88 floor, frozen suite **147**. The 147 is not drift — C2c ADDED one
+non-build census test; no golden moved except the two deliberate edits
+below.
+
+**THE C2 HEADLINE:** §8.1's ruling (comparators BEFORE the banner
+refreeze) paid off exactly as hoped — a predicted **58-file refreeze became
+ONE token in ONE file**. 57 goldens still spell `generated by rigexp` in a
+banner comment **no comparator reads**; that is deliberate, not drift.
+Total deliberate golden edits across the whole cutover so far: 6 (C1's
+classified path refreeze) + 1 (C2d's banner token) = **7 files**.
+
+**Byte-exact PERMANENTLY, by owner ruling, not pending a comparator:**
+`exit_code` and `stderr.txt`. The reject corpus's diagnostic wording is a
+user-facing product surface. A C2d review found a conftest docstring
+actively inviting a future agent to loosen it; that sentence is fixed.
+
+**The discovery that shaped the whole series (D4):** the integration suite
+has ZERO falsification power for a comparator — emitter output equals the
+goldens, so a gutted comparator passes all 147 tests identically. Proven
+by injecting 10 mutations that all passed. So `tests/unit/test_compare.py`
+is the ONLY thing standing between a refactor and a silently-green
+comparator, and **every comparator guard now has a named negative control,
+mutation-verified with hash-checked restores.** Keep that discipline for
+any future comparator.
+
+**Traps this cost real time on, all recorded:** a stale `.pyc` Python
+considers valid (same size + same-second mtime, D7's companion);
+`cmd | tail; echo $?` reporting tail's status and hiding a failing gate;
+`/tmp` being tmpfs so accumulated pytest basetemps AND the expander's
+leaked workdirs OOM-kill build suites (D7, D10); and TWICE a negative
+control made vacuous by a two-element example (R5's escape order, C2d's
+header order) — a control needs an input that distinguishes the WRONG
+implementations from each other, not merely from nothing.
+
+### CUTOVER — earlier state, superseded: C1 LANDED `6dbcc3d`
+
+`cutover-brief.md` is RATIFIED (all rulings; §8.2 resolved as the SPLIT
+CONTRACT — see the brief). Sequence: C1 move ✅ → **C2 comparators (next,
+one slice per artifact class)** → C3 retire rigexp → C4 discipline merge.
+
+**C1 (`6dbcc3d`)**: 338 renames, only 89 insertions/67 deletions.
+Suite lives at `scripts/rigc/tests/{unit,integration,fixtures,goldens}`.
+`check.sh` ALL GREEN (mypy 99, unit **392**, frozen **146**),
+`CHECK_FAST=1` green (66/80 deselected). Two classes of driver work rode
+along, both ratified: three diagnostic sites now render paths through
+`anchor_path` (documents.py, loader/__init__'s missing-content, and
+boarddt's CWD-relative one — a real reproduction hazard), and the fixture
+connector root moved OUT of `fixtures/dts/bindings/` to
+`fixtures/dts/connectors/` because edtlib's recursive scan loaded both
+halves' `socket,fixture-nexus` declarations and failed on the duplicate.
+Classified refreeze: exactly 6 goldens, 6 lines out/6 in.
+
+**⚠ THE DIFFERENTIAL IS RETIRED as of C1.** `RIG_EXPAND_COMPILE`'s
+default is now `rigc`. rigexp's anchor rule is relpath against its OWN
+package dir, so with fixtures under `scripts/rigc/` it cannot render them
+the way the goldens carry them — no fixture location satisfies both.
+Measured for the record: the rigexp direction reads **42 failed, 104
+passed**, and that number is not a metric (it counts goldens containing a
+path). rigexp production code is still on disk until C3.
+
+**Driver lesson from C1, the same shape as R5's:** verifying ONE mechanism
+is not verifying the class. `anchor_path` was proven inert and the
+conclusion over-generalized; three sites bypassed it entirely. Also:
+`check.sh`'s directory guard named the old path and would have SILENTLY
+SKIPPED the whole frozen suite post-move while reporting green — a gate
+that tests nothing looks exactly like a gate that passes. Check guards,
+not just assertions, whenever paths move.
+
+### The cutover plan (brief has the detail)
+
+**Tobi's direction (2026-07-30b):** the goldens "have served their
+purpose but become a burden to stay byte-identical for the next design
+iterations." Byte-identity has exactly one job left, and R5 just
+finished it (being the oracle for the differential).
+
+`cutover-brief.md` carries the full plan and **6 flagged rulings**. The
+headline ruling (§8.1) INVERTS the order this handoff previously
+assumed: do the COMPARATORS BEFORE the banner refreeze, because every
+artifact carrying the banner carries it in a COMMENT — so once the
+overlay/context.cmake/config-sheet comparators stop comparing raw text,
+the 58-file refreeze may disappear entirely instead of being performed
+and mechanically verified. Slices: C1 move → C2 comparators → C3 retire
+rigexp → C4 merge the discipline regimes.
+
+Two facts the driver verified for that brief, both load-bearing:
+- **The fixture move is byte-inert, proven not assumed.** `anchor_path()`
+  (`rigc/diag.py:84`) renders paths relative to the `scripts/<module>/`
+  component, so `goldens/route-no-via/stderr.txt` already reads
+  `at tests/fixtures/...` with no module name — none of the 48 reject
+  goldens churn when fixtures move to `scripts/rigc/tests/`. This is what
+  R1 §3 ratified the module-agnostic rule FOR.
+- **The banner class is exactly 58 files across the 19 accept dirs**
+  (19 overlay + 19 config-sheet + 19 context.cmake + 1 includes.dtsi);
+  NO reject golden carries it. Placeholder renames are a separate,
+  smaller class: `<RIGEXP_WORKDIR>` 1 golden, `<RIGEXP_BUILD>` 18.
+
+**RESOLVED at C4:** the two discipline regimes contradicted each other —
+one required layer markers, the other forbade them — which is why rigc ran
+as a separate pytest invocation. C4 dropped the layer markers entirely
+(directory decides the layer), left `build` as the only marker, retired the
+marker census and `scripts/markers.sh`, and replaced them with a static
+guard asserting every build-reaching integration test is `build`-marked.
+The two invocations REMAIN, now for exactly one reason: coverage must stay
+scoped to the in-process unit layer.
+
+The analysis behind the brief, kept here for continuity:
+
+- **The burden is measurable in the queue**: 4 of 5 queued design items
+  churn goldens for reasons unrelated to what they test. The sharpest is
+  the BRIDLE MIGRATION — the eager scan makes RIG_DEPENDS O(tree size),
+  so importing a 19-folder shield library rewrites every corpus rig's
+  `context.cmake`. The lazy shield library is the burden in pure form: a
+  fix with ZERO user-visible semantics, blocked only by frozen deps
+  lists and scan-time diagnostic order. And `rig-gen.overlay`'s label
+  scheme is explicitly parked-and-provisional (R10), i.e. the most
+  expensive artifact to refreeze is one already meant to change.
+- **The suite already contains the answer**: `dts_equiv.py` decided long
+  ago that for the resolved devicetree, labels/phandles/ordering are not
+  the contract. Extend that principle per artifact class: `exit_code`
+  byte-exact; `zephyr.dts` unchanged; `rig-gen.overlay` structural;
+  `context.cmake` a parsed mapping with RIG_DEPENDS as a SET
+  (must-contain / must-not-contain); `config-sheet.md` asserted on the
+  FACTS it must carry, never the rendering.
+- **Do NOT loosen the reject corpus wording** — Tobi's own ratified
+  position (2026-07-28) kept 40 tests precisely because they freeze
+  user-facing diagnostic wording, a real product surface. What IS
+  separable: diagnostic IDENTITY (category + anchor + which input
+  rejects) stays hard; PROSE wants a cheap blessing path.
+- **Ordering is absolute**: nothing loosens while rigexp is the oracle.
+- **Acceptance criterion that makes loosening non-destructive**: land
+  each new comparator with the goldens UNCHANGED and the suite still
+  green. A comparator that accepts today's bytes is provably no weaker
+  than the one it replaces — the T0b/T0c zero-churn standard applied to
+  the test layer. Only after that does golden CONTENT become free.
+- **Interaction**: as goldens loosen, the unit layer becomes primary
+  correctness evidence, which makes the still-open `fail_under` ruling
+  more consequential, not less.
+
+Cutover's own mechanical steps are unchanged: frozen suite + fixtures
+move to `scripts/rigc/tests/`, banner refreeze (58 goldens, one class —
+rigc says "generated by rigc" and the harness normalizes it today),
+un-pin `west.yml`, retire rigexp and `unimplemented.py`, flip
+`RIG_EXPAND_COMPILE`'s default. Keep the banner refreeze in its OWN
+commit, separate from the comparator change, or neither diff is
+reviewable.
+
+**Then**: lazy shield library → hwmv2 revision semantics → rig-schema.yaml
+→ shield plurality → BRIDLE MIGRATION. `fail_under` ruling still open.
+M8 (recipe-error tracebacks) parked on the post-conformance wart list
+with the dt-includes deps wart.
+
+## RESUME (2026-07-30, superseded) — R2..R4.5 LANDED; 94/146, ALL REJECTS GREEN; NEXT = R5 EMITTER BRIEF
+
+### STATE AT SESSION CLOSE (2026-07-30)
+
+btr-shields HEAD **`689903a`** (R4.5, on top of `2f93800`), tree CLEAN,
+`main` **ahead 8 of origin, NOT pushed** (push decision still open).
+Differential 94/146 with the red set byte-identical through every R4.5
+layer (the T0b/T0c zero-churn standard, diffed mechanically). rigc unit
+suite **355** (~0.4s), mypy **88 files**, `check.sh` green at commit.
+
+**R4.5 (the INTERLUDE, Tobi-reviewed personally — no opus round) landed
+in one commit, three layers:**
+1. *Agent's parts A–C* (brief `rigc-r45-brief.md`, ratified): `load()`
+   split into `_resolve_metadata` / `_gather_content` /
+   `_build_topology` with frozen phase records (agent self-caught a
+   D1-class LoadError boundary need in phase 3); the logging skeleton
+   (`RIGC_LOG` env knob, NullHandler default, INFO=lifecycle,
+   DEBUG=per-item+cpp argv, stderr-purity test); address allocation's
+   value-shaped core (`allocate_scope_addresses` + AddressMember/
+   Placement/Problem — closes R4-M2).
+2. *Driver diff from the joint review*: diag.py trio (Literal severity;
+   `ref is None` render guard with refs honestly Optional — closes
+   R4-M6; LoadError asserts non-empty); rule-10 purification
+   (FragmentPresence value, probes hoisted to `_gather_content`,
+   `test_fragments.py` tmp_path-free, stem construction single-sourced
+   in `*_contribution_names`); the DOCSTRING SWEEP (37 public functions
+   now state returns + ownership).
+3. *Test-readability sweep*: 65 inline `\n`-escape YAML/DTS strings →
+   dedented `"""\` blocks; writing helpers dedent.
+
+**Conventions RATIFIED this session (recorded in
+`.claude/agents/rig-implementor.md` + memory):** docstrings state
+returns+ownership (D1 was an ownership bug); IO at the edges, compute on
+values (hoist reads, don't mock; emitter computes artifacts as
+{filename: bytes}, one shell writes); tests write YAML/DTS as dedented
+triple-quoted blocks.
+
+**Live-run findings (Tobi's own logging test-drive):** the M8
+recipe-error traceback family WIDENED — see the R5 queue entry; working
+standalone invocation recipe = `--board-dts` + `--build-info` from any
+`--cmake-only` configure (hand-assembled include dirs chase
+base-board → zephyr dts roots → hal module dts, don't).
+
+### NEXT: R5 — the emitter (write the brief first; queue item 3 below
+has everything the brief must rule on: solved.wires never rig.wires,
+artifacts-as-values law, deps recording points, frozen-Solved, the M8
+family). Then fail_under ruling, then the standing queue.
+
+**NEW WORK ITEM (Tobi, 2026-07-30, from reading the logs): LAZY SHIELD
+LIBRARY — a named post-conformance slice, AT CUTOVER, BEFORE the bridle
+migration.** The scan eagerly cpp-parses EVERY discoverable shield
+template (nucleo_mux_farm's log: 13 eager TUs for a rig referencing 2)
+— this does not scale (bridle = 19+ folders; a real upstream shields
+tree worse), and it is the root of BOTH recorded §2 warts (one
+malformed member poisons the whole scan; deps record
+scanned-but-unreferenced shields). Fix = extend the EXISTING lazy path
+(revisioned shields already defer to resolve()'s first selection) to
+axis-less shields: discovery stays eager (folder walk + shield.yml,
+cheap, keeps the known-shields census for lang-instance-shield), the
+TU parse defers to first reference. One fix retires both warts AND the
+scaling problem. PINNED until cutover by two byte-level facts:
+scan-time diagnostic ORDER (broken shields report before rig-side
+diags today — R3-review HD3 proved it; lazy moves/elides them) and
+RIG_DEPENDS breadth (R5's accept goldens will freeze the eager set).
+Lands as a deliberate refreeze-class step with the banner class.
+
+## RESUME (2026-07-29, superseded) — R2 + R3 + R4 LANDED; DIFFERENTIAL 94/146, ALL REJECTS GREEN; NEXT = R4.5 THEN EMITTER
+
+### STATE AT SESSION CLOSE (2026-07-29, updated after R4)
+
+btr-shields HEAD **`2f93800`** ("rigs: R4 — rigc analyzer + board
+reader"), tree CLEAN, `main` **ahead 7 of origin, NOT pushed**.
+**Differential 94/146 — every reject golden green**; the 52 remaining
+reds are exactly the accept corpus + reference shields + cmake-alone
+family, all the controlled emitter refusal. rigc unit suite **325**
+(audit-hook-verified: zero subprocess, zero production-data opens, zero
+frozen-fixture reads), mypy **86 files**, coverage 88%.
+
+**R4's review round, worth remembering:** the opus review REJECTED the
+first pass on a defect its own probing found — `allocate_cs`
+shallow-copied the gpio pass's returned nets dict (shared claim lists =
+the banned accumulator via an alias; wrong diagnostic code + corrupted
+Solved.nets on an input one step from frdm_cs_clash, uncatchable by any
+golden). The implementor's hand-differential RECORD claimed that exact
+site verified — **treat implementor verification records as hypotheses,
+same as their code**. Its flagged CS-interleaving "divergence" was
+DISPROVEN by probe (blueprint is itself two-phase). Driver fixed
+(key-set + non-tautological regression test + SPDX header), reviewer
+re-ran: byte-match, red set byte-identical pre/post fix. Full carry-
+forward list in `2f93800`'s commit message.
+
+R2/R3-era state below still applies (zephyr pin, gate commands, the
+workdir-prefix gotcha). Zephyr
+checkout RESTORED to the pin `8da5b3a0f60` (detached; it had drifted to
+`tiacsys/main` — see the warning in the 2026-07-28b block; the drift made
+one differential run read 25/146, which was environmental, not a
+regression).
+
+Gate GREEN, reviewer- and driver-verified: frozen suite 146, rigc unit
+suite **217** (subprocess-free by AUDIT HOOK, zero production-data opens,
+~0.25s), mypy clean over **62 files**, coverage 87% (cpp-invoking halves
+of dtsio/library integration-only by construction; still no fail_under —
+revisit was "after R2", now due). **Differential meter: 79/146** — 38 of
+48 reject goldens green; the one reject remaining is `unmapped-socket`
+(phys-socket). All 67 remaining reds are exit-3 refusals or clean
+mismatches, zero tracebacks.
+
+### What landed
+
+**`0e6885f` R2 — the loader proper** (brief `rigc-r2-brief.md`, ratified;
+19 flips, 45→64). Loader became a package: documents / axes (the hwmv2
+seam — decl parse, resolution, normalization AND fragment-stem
+construction in one module) / binding (SocketBinding, the S2 rules, one
+seam) / fragments (rule 10) / delta (Topology + V1b engine). model.py
+holds the value types. Recorded decisions in the commit message: unknown
+content/delta keys silently ignored (rigexp-conformant); rigexp
+TRACEBACKS on a list-shaped revisions: where rigc rejects cleanly
+(no-golden divergence, recorded).
+
+**`54a9d38` R3 — the shield library** (brief `rigc-r3-brief.md`,
+ratified; 15 flips, 64→79). registry / dtsio (cpp+dtlib, $ZEPHYR_BASE at
+call time only) / shields (FULL model port, nothing refused) /
+loader/library (scan, shield.yml axes via R2's parser, lazy memoized
+resolution) / loader/params. ShieldRef seam closed; wire node checks
+live. GOTCHA recorded in cli.py: the workdir prefix must stay
+`rigexp-` — the frozen conftest's `_WORKDIR_RE` is hardcoded.
+
+**Process, both slices:** sonnet implementor → opus reviewer
+(APPROVE-WITH-MINORS both times; every count independently re-measured)
+→ driver applied the minors → commit. Real defects the reviews caught:
+R2's variant fragment stem wrongly passed through revision normalization
+(+ the seam-leak duplicate that invited it); R3's fatal LoadError path
+DROPPED every previously accumulated diagnostic (LoadError now carries a
+tuple, boundaries prepend — proven byte-identical on a
+scan-finding-then-parse-error fixture; no frozen golden could catch it),
+and the unit suite silently read production connector data through
+`--connector-dir`'s None-fallback (audit-hook-verified fixed). BOTH
+implementor agents stalled awaiting their own background gate — the
+known pattern; resume with SendMessage listing what they still owe.
+**The no-golden hand-differential rule is now ratified standing
+discipline** (R2 brief §6): 13 hand-differential fixture sets across the
+two slices; they caught 1 + 8 em-dash/wording drifts pre-review.
+
+**Deps carry-forward for the emitter slice:** dependency data is
+returned-value-shaped at the R3 recording points, but four blueprint
+recording points are absent (rig.yml + the three content documents,
+blueprint loader_yml.py:1185,786) and the values are currently discarded
+in loader/__init__.py and cli.py. The emitter slice (RIG_DEPENDS) must
+add them — recorded in R3's review as D3.
+
+### NEXT, in order
+
+1. ~~R4 — the analyzer~~ **LANDED `2f93800`** (ratified brief
+   `rigc-r4-brief.md`; 15 flips, 79→94; acid test satisfied —
+   `test_cs.py` answers the cs-gpios question scenario-free; REJECT →
+   fix → APPROVE review round recorded above).
+2. **R4.5 — loader-shape + logging mini-slice (Tobi, 2026-07-29, from
+   joint code review; do BETWEEN R4 and the emitter). BRIEF DRAFTED:
+   `rigc-r45-brief.md`, awaiting ratification (3 rulings: RIGC_LOG
+   knob shape; execution mode — standing agent pattern vs DRIVER-LED,
+   flagged because the slice's purpose is code understanding; Part C
+   riding along).** Two
+   behavior-preserving changes in one slice, acceptance = differential
+   byte-identical (the T0b/T0c zero-golden-churn standard): (a) split
+   `loader/__init__.py::load()` (~140 lines of glue, same smell the
+   analysis flagged in the blueprint's 137-line load) into its three
+   latent phases — `_resolve_metadata` (steps 2–5, cpp-free),
+   `_gather_content` (6–9), `_build_topology` (10–11) — phase results as
+   VALUE records, never a shared mutable context (§6); diag order
+   preserved by concatenation; the cpp-free phases get unit tests
+   (closes the reviewers' recurring 66–68% orchestration-coverage note,
+   and pre-localizes the hwmv2 slice inside `_resolve_metadata`).
+   (b) `logging` skeleton along those phase boundaries: package logger
+   `rigc` with NullHandler, enable ONLY via env (`RIGC_LOG` — the argv
+   surface is frozen); INFO = lifecycle (argv, scan summary, phase/pass
+   entries, verdict), DEBUG = per-item results + THE CPP ARGV per
+   invocation (T2's rerun.sh counterpart), WARNING/ERROR = tool-internal
+   only — **log records describe the tool's execution, Diagnostics
+   describe the user's input; logging must never become a second
+   findings channel** (§6 in disguise). Plus a stderr-purity discipline
+   test: a full main() run emits ONLY renderer bytes on stderr (Python's
+   lastResort handler leaks WARNING+ to stderr when unconfigured — the
+   golden-corruption trap this test pins shut). (c) **R4 review M2 rides
+   along** (same behavior-preserving class): extract address
+   allocation's value-shaped core the way CS got one — `_allocate_scope`
+   currently threads a pass-local mutable result and `test_addresses.py`
+   needs scenarios where `test_cs.py` doesn't. Acceptance for all three:
+   goldens byte-identical. **(d) diag.py review notes (Tobi + driver,
+   joint review 2026-07-29), driver applies at the R4.5 commit round
+   (AFTER the implementor reports — no driver edits while it owns the
+   tree):** severity becomes `Literal["error", "warning"]` (typo-proof
+   at mypy level — this is the module where a typo becomes wrong frozen
+   bytes); `_render_one` gets rigexp's `ref is None` guard (R4-M6 —
+   otherwise any future Optional src field turns a diagnostic into a
+   traceback); `LoadError` asserts a non-empty diags tuple (an empty one
+   would render empty stderr + exit 1, a silent reject). All zero-churn
+   class. **(e) Docstring interface convention (Tobi, RATIFIED
+   2026-07-29, joint review):** every PUBLIC (cross-module) function's
+   docstring states in prose (1) what it returns — tuple element
+   meanings, None-semantics, ordering guarantees — and (2) OWNERSHIP
+   (inputs read-only? who owns the result?); parameters only where
+   name+type don't say it; private helpers may stay narrative; no
+   reST/Google boilerplate, a "Returns …" sentence in house style.
+   Rationale: measured 16 of 123 functions document their return, and
+   R4's D1 was an OWNERSHIP bug prose contracts would have surfaced.
+   Driver applies the ~23-function sweep at the R4.5 commit round and
+   records the convention in `.claude/agents/rig-implementor.md`;
+   future briefs inherit it. Enforcement = review, deliberately.
+3. **R5, the emitter slice** — the 19 accept goldens + reference
+   shields + resolved corpus + cmake-alone (52 reds) + context.cmake +
+   RIG_DEPENDS (close the R3-D3 deps carry-forward: four blueprint
+   recording points absent — rig.yml + the three content docs — and the
+   threaded values currently discarded in loader/__init__ and cli).
+   Brief must rule/record, from R4's review: **read `solved.wires`,
+   never `rig.wires`** (they differ — resolved route vs raw via name; a
+   silent wrong-overlay bug otherwise); whether `Solved` becomes frozen
+   (M7); the `_render_one` ref-guard trigger (M6 — CLOSED by the R4.5
+   driver diff); the RECIPE-ERROR TRACEBACK FAMILY (M8, WIDENED by
+   Tobi's live run 2026-07-29): a bogus --build-info path AND an
+   insufficient recipe (an extension board whose base-board/SoC/hal
+   include dirs are missing) both escape as RuntimeError tracebacks —
+   `edt_build.preprocess` raises RuntimeError identically in BOTH
+   implementations (rigexp:114 = rigc:127, blueprint parity) — where a
+   phys-board diagnostic belongs. Post-conformance wart list, or R5's
+   brief if it touches cli's board step anyway. Standalone-invocation
+   lesson: hand-assembled recipes chase base-board → zephyr dts roots →
+   hal module dts; use --build-info from any real `--cmake-only`
+   configure instead.
+4. Coverage fail_under ruling (was deferred "until after R2").
+5. Standing queue unchanged: hwmv2 revision semantics (lands in rigc's
+   axes.py seam), rig-schema.yaml, shield plurality, CUTOVER, BRIDLE
+   MIGRATION. Forward-looking: `board-as-invocation-coordinate.md`
+   (design-log 2026-07-29a) — post-cutover.
+6. `main` is ahead 6 unpushed — decide whether to push.
+
+## RESUME (2026-07-28b) — rigc MISSION LAUNCHED: R0 + R1 LANDED
+
+### STATE AT SESSION CLOSE (2026-07-28b)
+
+btr-shields HEAD **`ecc3058`**, tree CLEAN, `main` **ahead 4 of origin,
+NOT pushed** (`b62f466` zephyr pin, `28e8ce6` R0, `a49c980` R1,
+`ecc3058` gate instrumentation). Tobi accepted R1 at session close and
+the two-commit split landed after a fresh full-gate run (146 green).
+
+Gate GREEN, driver-verified this session: mypy clean over BOTH packages
+(39 files), rigc unit suite **44 passed** (~0.1s), frozen suite **146
+passed**. `west.yml` is PINNED to zephyr `8da5b3a0f60` (`b62f466`, Tobi's
+ruling) for the whole differential period; un-pin is a deliberate cutover
+step. Workspace zephyr checkout is at that hash.
+
+**⚠ WORKSPACE DRIFT (found 2026-07-29, driver): the zephyr checkout has
+MOVED off the pin** — it sits at `e82cba12f38` on branch `tiacsys/main`
+(clean tree, pinned hash still present locally; west.yml pin untouched).
+The carried commits are missing there (shield-schema `template:` among
+them), so EVERY build-marked test fails with "Malformed shield YAML …
+'template' was unexpected" and edt reads break — a full differential run
+on 2026-07-29 gave 25/146 instead of the true 45/146 baseline for exactly
+this reason; that run is INVALID as a baseline, not a regression. Restore
+before any gate run: `west update zephyr` (or `git -C zephyr checkout
+8da5b3a0f60`). NOT restored by the driver — the checkout may belong to
+other in-flight work (it looks like a deliberate branch checkout).
+
+Gate commands (unchanged env vars, new knob):
+`ZEPHYR_BASE=/wrk/z/ws-up/zephyr PYTHON=/wrk/z/ws-up/.venv/bin/python3
+scripts/check.sh`, `CHECK_FAST=1` for the fast path, and prefix
+**`RIG_EXPAND_COMPILE=rigc`** for the differential run (fast is currently
+RED by design under rigc: 38/66, all controlled refusals).
+
+### What landed / what's pending
+
+**`b62f466`** — west.yml pins the rebased tiacsys tip (any red golden
+during the differential is OURS by construction).
+
+**`28e8ce6` — R0, the differential harness.** One knob,
+`RIG_EXPAND_COMPILE` (Tobi's spelling), default `rigexp`: cmake cache var
+(precedence `-D` > `$ENV` > default — the env fallback is what reaches
+the frozen test files that bypass `board_extra_defines`) + the same-named
+test-side env constant. Covers both argv sites, the `dts.cmake` source
+GLOB feeding `CMAKE_CONFIGURE_DEPENDS` (the stale-configure trap the
+inputs record missed), and every debug affordance. Golden comparison
+normalizes exactly the `generated by <module>` banner token (**58**
+goldens carry it — brief's 57 was a miscount, `lotus_buttons/
+rig-gen-includes.dtsi` is the 58th), guarded byte-inert when the module
+is `rigexp`. These conftest edits are the ONLY frozen-suite changes,
+ratified. Implementor: sonnet.
+
+**`a49c980` R1 — skeleton, CLI, diag core, proof of life.** Ran on
+**FABLE** (Tobi's explicit per-slice override of the sonnet rule; memory
+updated). Brief: `rigc-r1-brief.md` (ratified + post-ratification
+amendment, below). Content: `cli.py` (frozen argv surface, in-process
+`main(argv)`, exit vocabulary **0 accept / 1 reject / 2 usage / 3 not
+implemented** — 3 is `unimplemented.py`'s loud refusal, so a differential
+red is never mistakable for a wrong diagnostic); `diag.py` (diagnostics
+are RETURN values, no accumulator exists in the package; ONE renderer;
+the RATIFIED **module-agnostic anchor rule** — a path under
+`scripts/<module>/` renders relative to that component, else absolute —
+byte-identical to rigexp's own-package-dir rule on the whole corpus AND
+fixture anchors survive cutover unchanged, so the 43 reject goldens'
+anchor lines never refreeze); `loader.py` sliver (marked YAML,
+construct-don't-parse filenames, the metadata/content key split, thin
+revision selection; EVERYTHING out of scope raises Unimplemented — no
+input exists on which rigc renders a wrong verdict).
+
+**Differential baseline: 45/146** — but the honest meter is **4 of the
+101 expander-dependent scenarios**: the four loader-shape rejects
+(`missing-content-file`, `content-file-carries-board`,
+`content-file-carries-sockets`, `revision-carries-board`), all
+driver-re-verified byte-identical. The other 41 passers never invoke the
+expander (18 corpus identity checks, 12 board reads, 5 cmake-entry
+guards, 3 rigexp in-process unit tests, 3 file-level/meta).
+
+**RULING (Tobi 2026-07-28, supersedes capability naming; memory
+`feedback_unit_tests_name_their_unit`): unit test modules NAME THEIR
+UNIT.** `test_<module>.py` mirrors the production module; sub-folders
+`tests/unit/<module>/` when one unit needs several modules; tests may USE
+other units but the named unit is the SUBJECT; the capability story moves
+INSIDE the module. Driver applied the rework (8 capability modules → 4
+unit-named + `test_layer_discipline.py` as the one recorded META
+exemption, all 43 tests preserved) and the discipline test now ENFORCES
+the naming (`test_unit_test_modules_name_their_unit`; exemptions =
+`_META_MODULES`, additions deliberate). Suite is 44 tests.
+
+**`ecc3058` instrumentation (driver, this session):**
+- **Coverage over rigc's unit suite** — T3 dissolved exactly as
+  predicted: in-process tests mean plain `coverage run -m pytest`, no
+  pytest-cov (coverage.py 7.14.1 driven directly), config in pyproject
+  `[tool.coverage.*]`, data + HTML under gitignored `.reports/`
+  (`coverage-rigc-html/index.html`). Baseline **79%**: diag 100 / cli 90
+  / loader 70 — the misses ARE the scenario paths the frozen integration
+  suite covers through the front door, plus the subprocess-only
+  `__main__`. **No fail_under yet — Tobi's call, revisit after R2.** The
+  frozen rigexp suite stays deliberately unmeasured (subprocess suite;
+  near-zero would be measured and believed).
+- **junit → HTML** — `scripts/junit_html.py` (stdlib-only, same
+  no-new-dependency rule; companion to timing_report.py over the same
+  files) renders `.reports/junit-{rigc,fast,full}.html`: summary badges,
+  failures-first expandable, per-module tables. check.sh now uses
+  capture-render-reraise around BOTH pytest invocations so the reports
+  exist for RED runs too (proven: differential fast run exited 1 with 38
+  rendered failures).
+
+**Docs this session:** `rigc-mission-brief.md` written and RATIFIED (§9
+rulings: banner plan as recommended; knob = `RIG_EXPAND_COMPILE`; pin the
+zephyr hash) — §6 naming bullet superseded in place, banner class
+corrected to 58. `rigc-r1-brief.md` RATIFIED (anchor-root rule, separate
+pytest invocation — forced by the frozen marker-discipline census whose
+collected-item walk would fail rigc's marker-less tests — and exit 3) +
+the post-ratification naming amendment.
+
+### NEXT, in order
+
+1. **R2 — the loader proper. BRIEF DRAFTED 2026-07-29
+   (`rigc-r2-brief.md`), AWAITING RATIFICATION** — 4 flagged rulings
+   (ShieldRef seam; the no-golden hand-differential rule; the 19-target
+   list; implementor model). Targets 19 rejects (6 lang-schema + 3 rig
+   lang-rev + 10 lang-variant, all census-verified single-error, no
+   params), expected meter 45→64/146. Incorporates the SocketBinding seam
+   from `board-as-invocation-coordinate.md` §6 (design-log 2026-07-29a)
+   and the hwmv2 seam (axis decl/resolve as swappable value functions).
+2. **R3 — the shield library. BRIEF DRAFTED 2026-07-29
+   (`rigc-r3-brief.md`), AWAITING RATIFICATION** — 4 flagged rulings
+   (slice size, with an R3a/R3b split offered; the cpp/unit-test seam;
+   dependency data as returned value; implementor model). Targets 15
+   rejects (shield.yml lang-schema 2, lang-shield-name, shield lang-rev 3,
+   lang-param 6, lang-dt-include 3), expected meter 64→79/146. Closes
+   R2's ShieldRef deferrals. Then **analyzer capabilities → emitter**, a
+   brief per slice — analyzer is where the unit-naming rule and the
+   `cs-gpios` acid test really bite (`tests/unit/analyzer/` sub-folder
+   pattern).
+3. **Standing queue behind the mission** (unchanged order): hwmv2
+   revision semantics — NOTE its brief predates the freeze and targets
+   `_parse_axis_decl` in rigexp; it now lands in RIGC's loader instead,
+   re-read before dispatch — then metadata-only rig-schema.yaml, shield
+   plurality, BRIDLE MIGRATION (tool = rigc).
+4. At mission end: CUTOVER — frozen integration suite + fixtures move to
+   `scripts/rigc/tests/`, banner refreeze (58 goldens, one class), un-pin
+   west.yml, retire rigexp. Each is a deliberate recorded step.
+
+**Workflow notes that keep paying:** driver verifies INDEPENDENTLY (this
+session the habit corrected the brief's banner count via the agent, and
+survived a false alarm from a PRUNED SHARED pytest tmp dir —
+`/tmp/pytest-of-tobi` is shared across projects and pytest keeps only the
+last 3 numbered roots, so never inspect a differential artifact without a
+private `--basetemp`). R0's acceptance depended on knowing a delegating
+stub passes the suite whether or not the knob reaches — pair every
+delegation proof with a red proof at the same call site.
+
+## MISSION CHANGE (Tobi, 2026-07-28) — rigexp is FROZEN; `rigc` is built from scratch
+
+### STATE AT SESSION CLOSE (2026-07-28)
+
+btr-shields **`7e35f33`**, tree CLEAN, **PUSHED** — `main` is in sync with
+`origin/main` (tobiaskaestner/btr-zephyr-shields). 17 commits landed this
+session. Gate GREEN at **146 passed**, mypy clean on 25 files.
+`-m unit` 4 (0.50s) / `-m integration` 142 / `CHECK_FAST=1` 66.
+
+**THE ZEPHYR CARRIED COMMITS WERE REBASED AND HAVE NEW HASHES.** The
+`tiacsys/tskr/zephyr-rigs` branch was rewritten onto a different base (one
+carrying tiacsys' own work, including `[tcs noup,temphack]` commits). The
+workspace zephyr checkout is now IN SYNC with it. Any older hash in these
+docs — design-log, the E-series briefs, cmake-fork-refactor-brief,
+connector-unification-brief — is STALE; translate with this table rather than
+trusting the old value:
+
+| was | now | commit |
+|---|---|---|
+| `ca040c05cad` | **`8da5b3a0f60`** | schemas: shield `revisions:` block |
+| `1a657124349` | **`c0025d3692a`** | edtlib: vendor-namespaced binding keys |
+| `c1c4d2acf2d` | **`feb51fa0f70`** | edtlib: `*-cells` precedence fix |
+| `76305e9aa49` | **`3f205005b99`** | schemas: shield `template` boolean |
+| `df2c127228f` | **`3438c62f0dd`** | cmake: modules `cmake-modules` key |
+
+Historical documents are deliberately NOT rewritten — a design log that gets
+edited to match a later rebase stops being a record. This table is the single
+place that reconciles them.
+
+**Consequence worth acting on:** `btr-shields/west.yml:26` pins
+`revision: tskr/zephyr-rigs` — a BRANCH NAME, not a hash. So a `west update`
+now resolves to the rebased tree, which is not the tree most of this session's
+gate runs validated against. Consider pinning a hash while `rigc` is built
+against a known-good tree.
+
+**rigexp's production code will not be touched again.** rigexp — INCLUDING its
+tests — is the BLUEPRINT for building `rigc` from scratch in `scripts/rigc/`,
+proper TDD, with `tests/unit` and `tests/integration` subdirectories. The
+loader/analyzer/emitter decomposition stays; testable design gets the
+attention it did not get the first time. **Writing that mission brief is the
+NEW session's first job** — the ratified inputs are recorded in
+**`rigc-mission-inputs.md`**, so write the brief from that record rather than
+reconstructing it.
+
+Headlines from it: the integration suite moves by **parameterising the
+expander module name via a CMAKE VARIABLE** (ratified) rather than
+copy-and-substitute, giving a differential harness over the same goldens —
+exactly two invocation sites (`conftest.py:480`, `cmake/dts.cmake:347`), and
+`PYTHONPATH` is already `<repo>/scripts` in both, so `-m rigc` resolves as
+soon as the package exists. Fixtures copy as-is after the Part B restructure.
+Unit tests are re-written, not moved. **THE GOLDENS ARE THE SPECIFICATION** —
+the 43 reject goldens plus the emitted/resolved corpus are an executable list
+of everything `rigc` must reproduce, and they are portable precisely BECAUSE
+the integration tests only reach the expander through the CLI.
+
+Consequently SUPERSEDED: `unit-test-layer-brief.md`'s slices U1/U2/U3 (they
+extracted seams inside rigexp) — that document is retitled ANALYSIS and is a
+design INPUT to rigc. `refactor-tests-plan.md` Part A likewise only matters
+if rigexp's own test modules are ever reorganised, which the freeze makes
+unlikely; **Part B (fixture tree) LANDED `7e35f33`** — 117 git-mv renames, one golden
+change class (51 provenance-path lines across 43 goldens), and the finding
+that fixture shields are CASE-SCOPED by construction (only 1 of 10 shared);
+see `rigc-mission-inputs.md`. Part D (fixture shield renames) follows,
+separately — see the revised
+note there for why they must NOT be combined.
+
+## RESUME (2026-07-27b) — S1 + S2 BOTH LANDED; V2 FULLY ABSORBED; NEXT = close the S2 test gap, then hwmv2 revision semantics
+
+**State.** btr-shields HEAD **`bc63b50`** ("rigs: S2 — board per axis value"),
+tree CLEAN, gate GREEN: **135 passed**, mypy clean on 22 files, verified over
+three consecutive runs with golden drift clean each time. `main` is **ahead 7
+of origin, NOT pushed**. zephyr carries `ca040c05cad`, **ahead 1 of tiacsys,
+NOT pushed**.
+
+**Landed this session, two commits:**
+- **`da1e01f` S1** — the pure move. `rig.yml` is METADATA
+  (`name:`/`board:`/`revisions:`/`variants:`, nested under `rig:`);
+  `<rigname>.yml` is CONTENT (`instances:`/`wires:`/`dt-includes:`) as a FLAT
+  top-level document. Content file REQUIRED (`lang-content`); an EMPTY
+  `instances:` stays legal and distinct. Name CONSTRUCTED from the rig's own
+  `name:`, never parsed from the folder. `_load_delta_doc` needed ZERO code
+  changes to serve both base and fragments — the fragments finally have a base.
+  Refreeze classification, driver-verified: 32 `RIG_DEPENDS` (additive only,
+  set-compared), 34 provenance lines, 4 wording lines. `rig-gen.overlay`,
+  `config-sheet.md`, `zephyr.dts` and `exit_code` never appear in the diff.
+- **`bc63b50` S2** — board per axis value. **ONE RIG DESCRIPTION, MANY HOSTS.**
+
+**What S2 actually delivers, at the author level:** `board:` moves under each
+`variants:` list entry (entries may now be mappings, `{name:, board:,
+sockets:}`); the content file names NO board and addresses sockets by abstract
+name; each variant maps those names onto its own board's labels. Build
+`ard_datalogger` or `ard_datalogger/frdm` from ONE description. The frdm tuple
+carries NO fragment at all, which is the proof of content reuse. D10 is index
+16 on both hosts and resolves to `gpiob 6` / `gpiod 0`.
+
+**The board-swap rejection is DELETED, not lifted** — it existed because
+resolution reads metadata BEFORE any content file opens while the override
+arrived late from a fragment. Moving the key to the declaration removes the
+contradiction rather than working around it. **V2 IS FULLY ABSORBED**: board
+swapping is now a declaration, and `sockets:` positive-path coverage falls out
+by construction.
+
+Two more S2 changes worth remembering: the socket map now applies to the BASE
+topology (it previously resolved only for instances a variant fragment
+happened to restate, so abstract names were unusable), and rule 10 widened —
+contribution = a fragment OR a resolved `(board, sockets)` DIFFERING from the
+default's. Presence of the keys is deliberately not contribution.
+
+**The S2 test gap is CLOSED — `8f5fb91`.** Eight reject fixtures (the six D2
+shape rules, plus the `sockets:` half of the content-file rejection and the
+SHIELD-owner spelling of the mapping-entry defect, which guards V1c's
+`owner`-parameter regression). **All six were REACHABLE** — each fixture was
+run through the expander before its test was written, specifically to find a
+rejection shadowed by an earlier check; none was. Pure test addition, 175
+insertions / 0 deletions, no production code, no golden churn, and none
+build-marked (loader-level shape defects fail before any board is read), so
+135 → 143 tests at no gate-time cost.
+
+**RESIDUAL, pre-existing:** enumerating every `lang-schema` site to verify
+that work turned up one still uncovered and OLDER than S2 — `"'list' must be a
+non-empty list"`, from V1a. Worth a fixture when someone is next in
+`test_tier1_goldens.py`.
+
+**A real bug S2's agent found and fixed, worth knowing about:**
+`list_rigs._resolve_axis` checked variant membership against `str()` of each
+list entry — for a MAPPING entry that stringifies the whole dict, so a bare
+`"frdm"` never matched. `-DRIG=ard_datalogger/frdm` would have failed through
+cmake while the standalone loader accepted it: a silent split between the two
+resolvers that must stay consistent. Driver reproduced it rather than trusting
+the report.
+
+**NEXT, in order:**
+1. ~~Close the S2 test gap~~ **DONE `8f5fb91`.**
+2. **hwmv2 revision semantics** (`hwmv2-revision-semantics-brief.md`).
+   **INTERACTION:** that slice rewrites `_parse_axis_decl`, which S2 just
+   changed to accept mapping entries gated on `allow_variant_metadata`. Read
+   S2's version before writing the upstream revision block.
+3. **rig-schema.yaml, metadata-only** (`rig-schema-brief.md`) — after 2. It
+   then becomes what ENFORCES the split, and `additionalProperties: false`
+   would also close the general unknown-key gap S1/S2 deliberately left in
+   content files.
+4. **Shield plurality** (pre-migration, `bridle-migration.md`).
+5. Then the **BRIDLE MIGRATION** (tool = `rigc`).
+
+**BACKLOG — TEST SUITE REFACTOR** (`refactor-tests-plan.md`, Tobi
+2026-07-27): after the current queue, **DEFINITELY BEFORE the bridle
+migration** (tests move there; refactoring after rewrites condensed
+history). Part A = module structure: modules are named on FIVE different
+axes today and none names a feature, so every feature slice lands in
+`test_tier1_goldens.py` (1262 lines, 41% of test code, 6 features inside).
+Rule: no module may MIX unit and integration tests — a file-level rule,
+stronger than markers, with an enforcement test. Only ONE module mixes
+today, and the feature clusters and the unit set are nearly the same set,
+so a FEATURE split delivers the purity almost for free — a bare
+unit/integration split would cement the mechanism naming and move the same
+tests twice. Part B = the fixture tree becomes a Zephyr module rooted at
+`fixtures/` (`boards/rigs/`, `boards/shields/`, `boards/mainboards/`,
+`dts/bindings/connectors/`, `include/dt-bindings/connector/`); it is also
+the cheapest place to prove the `mainboards/` layout before the real
+rename. Part A before Part B; never concurrently with a feature slice.
+T1 need NOT wait — markers are cheap to reapply after a move.
+
+**QUEUED, order-independent — TEST INSTRUMENTATION** (`test-instrumentation-brief.md`,
+Tobi 2026-07-27, NOT yet ratified): execution-time tracking, coverage
+extraction, and a unit/integration split with coverage reported per suite.
+Measured baseline: **97% of the ~206s gate is 81 build-marked tests; the other
+62 finish in 5.33s**. Two findings — (1) the two stated definitions of "unit"
+(synthetic-fixture vs needs-nothing-outside-rigexp) did NOT select the same
+set, because after THE FLIP a synthetic fixture still needs a real board DT.
+**RESOLVED by Tobi 2026-07-27: move whatever unit tests need INTO the fixture
+tree**, since only the unit suite travels easily — that makes the two criteria
+coincide. Precedent is half-built (`fixtures/controller-label/socket.dts` is a
+standalone synthetic board, but its recipe still pulls `$ZEPHYR_BASE` and
+`REPO_ROOT` bindings, and every real connector binding
+`include:`s Zephyr's `base.yaml`/`gpio-nexus.yaml` — that chain is the whole
+remaining dependency). Fixtures must be PURPOSE-BUILT synthetic connector
+types, never copies of the real ones, or the unit suite goes green against a
+stale contract. **T0b LANDED `0ab3c7f`** — connector roots configurable (one
+`--connector-dir`; `<type>.h` rides the existing `--include-dir`), registry
+resolved ONCE at CLI entry and threaded through loader/analyzer/emitter
+(the emitter's four per-run re-globs are gone), plus a reference shield set
+built end to end. A cross-cutting refactor through six modules with ZERO
+golden churn. **T0c LANDED `340f0aa`** — `run_cpp` takes the caller's include dirs
+(same shape as T0b's `parse_header_indices`, no new flag: reuses
+`--include-dir`), so a fixture `.shield` can `#include` a fixture-tree
+header. Reference shields now use `FIXTURE_D0`/`FIXTURE_CS` instead of
+literals, so they finally demonstrate Convention 4 rather than inverting
+it. ZERO golden churn was the acceptance criterion and it held — macros
+expand to the values the literals had. NOTE: real builds pass
+`--include-dir` too (`dts.cmake:155,165`), so shield cpp now searches
+board dirs BEFORE the module's; benign (board dirs hold no
+`dt-bindings/connector/` subtree) but it is a real ordering choice.
+**mypy is 23 files, not 22** — `0ab3c7f`'s message misstates it.
+
+**Superseded — the defect T0c fixed:** `dtsio.run_cpp` (`dtsio.py:59`)
+hardcodes its cpp includes, so a fixture `.shield` cannot include a
+fixture-tree header and the reference shields hardcode positions —
+inverting Convention 4, the very thing they exist to teach. Fix is to reuse
+`--include-dir`; do it BEFORE T1.
+
+**T2 SCOPE EXPANDED (Tobi 2026-07-27): timing PLUS command visibility.**
+`-s` cannot show what a build test ran — subprocesses are captured
+programmatically (`conftest.py:352,440` `capture_output=True`), so
+`print()` does not solve it. Verified gap: **NO assertion anywhere
+interpolates the argv**, so a failing build test shows stdout/stderr but
+never the command that produced them. Three parts: (1) `logging.info` the
+argv, visible via `--log-cli-level=INFO`, no `-s` needed; (2) an
+executable `rerun.sh` written into the test's tmp dir, mirroring
+`dts.cmake`'s `rerun-expand.sh` which already survives a FAILED configure;
+(3) argv in the failure assertions. Pairs with tmp retention —
+`tmp_path_retention_policy` default is `failed` (failing dirs already
+kept); `-o tmp_path_retention_policy=all` keeps passing ones too, verified.
+Do NOT change the default in pyproject — 146 build dirs costs real disk.
+
+**RATIFIED (Tobi 2026-07-28) — a unit test uses NO SUBPROCESS, and a reject
+is not a unit concern.** Reaching a unit through the front door (the CLI) has
+already made it an integration test; and a reject is an OUTCOME against a
+SCENARIO, which does not exist at unit level — scenarios are consumed at the
+system level (rigexp/rigc). So the unit layer does not duplicate the reject
+corpus, it is NEW coverage of a different subject.
+**Measured: there are THREE real unit tests, not 44** — 40 of the 44 drive
+`python -m rigexp expand` as a subprocess and assert on rendered stderr
+(`test_emitted_rejects` 39, `test_reference_shields` 1); only
+`test_controller_label` (2) and `test_edt_build` (1) are in-process.
+**This dissolves most of T3:** all the subprocess-coverage machinery existed
+to measure coverage THROUGH the CLI, which is the integration suite where
+coverage is not the priority. Unit coverage is just
+`coverage run -m pytest -m unit` — no plumbing, no new dependency.
+Plan: (1) reclassify the 40 as integration, KEEPING them (they freeze
+user-facing diagnostic wording, a real contract); (2) build the unit layer,
+own brief, the real work; (3) T3 over `-m unit`, now trivial.
+**(1) LANDED `9983e27`** — unit 4 / integration 142; `-m unit` is 0.50s and
+subprocess-free. **(2) BRIEFED: `unit-test-layer-brief.md`** (ratified, not
+dispatched). Aim at STABLE CONTRACTS (test: would you want this contract kept
+if the implementation were rewritten?). Tobi's requirement: **the unit tests
+must tell the story of the design** — asked where `cs-gpios` is calculated,
+the answer should be the tests that call it. So unit modules are named after
+the CAPABILITY (`test_cs_allocation.py`), not the production module.
+**Tobi's finding, now a first-class deliverable: the code is not very
+testable.** Measured — 20 of analyzer.py's 23 functions take the mutable
+`solved` accumulator and/or `diags`; only `_role_of`, `_soc_net` and two
+formatters are value-shaped. `_allocate_cs(rig, solved, types, diags)` is the
+worked example: the seam exists BY NAME but not BY SHAPE, so calling it means
+constructing a scenario. Hence the layer is a sequence of small extractions,
+each justified as a design improvement on its own, each proven
+behaviour-preserving by goldens staying byte-identical (the T0b/T0c
+acceptance). Slices U1 cs-allocation, U2 address-allocation, U3 the
+already-value-shaped contracts, U4 = T3 coverage over `-m unit`.
+
+**T0 LANDED `1a6638f`** — fixture-local `socket,fixture-nexus` vocabulary
+(nexus props declared INLINE; every real connector binding pulls Zephyr's
+`gpio-nexus.yaml`/`base.yaml`, which is what inline severs). Hermetic was
+REDEFINED: `ZEPHYR_BASE` may be set purely to locate the devicetree package
+— pip-vendoring it is REJECTED because this branch carries two non-upstream
+edtlib patches (`c1c4d2acf2d`, `1a657124349`) a pip release would lack. The
+criterion is NO ZEPHYR DATA, proven structurally by
+`conftest.assert_fixture_local()`. **CEILING FOUND:**
+`ctypes_registry.BINDINGS` is a hardcoded module constant, so a shield can
+only MATE against the four real connector types — any shield-mating test is
+stuck as integration until that dir becomes configurable and is threaded
+through cli/loader/analyzer/emitter. **Decide that before T1;** (2) **every expander run is a SUBPROCESS**
+(`conftest.py:357`), so naive coverage measures the harness and would report
+near-zero on the very modules under test, plausibly enough to be believed.
+`coverage` 7.14.1 is installed, `pytest-cov` is not — drive coverage.py
+directly with `--parallel-mode` + `COVERAGE_PROCESS_START` rather than adding a
+dependency. Do it BEFORE the bridle migration (tests move there); slice as
+T1 split / T2 timing / T3 coverage, T1 first.
+
+**Naming DECIDED this session (Tobi, recorded in `bridle-migration.md`):** the
+board kind is **`mainboards/`** — `boards/{mainboards,shields,rigs}`, top-level
+structure untouched. Costs ZERO code: `list_boards.py:231` rglobs
+`boards/**/board.yml` at any depth, takes the dir as `board_yml.parent`, and
+reads vendor from the FILE's `vendor:` key, never the path. `hosts/` was the
+first choice and was rejected on a real collision — "host" means the build
+machine in CMake/Zephyr. `bases/` collides with the extension vocabulary;
+`targets/` recreates the residual-category error since a rig is a target too.
+
+**Workflow note — the stall, and what it cost.** S2's agent STOPPED mid-slice
+waiting on its own background gate, reporting nothing. The gate then finished
+while the agent was idle, so it never saw the result. Recovery that worked:
+wait for the agent's background process to exit, THEN resume it with
+SendMessage listing exactly what verification it still owed. Do NOT resume it
+while its own background work is in flight — that just produces a second
+stall. The driver also pre-loaded two specific questions into the resume (two
+unrequested files; a reject fixture with two goldens), both of which came back
+with sound answers.
+
+**NOTE — `claude/` is NOT a git repo.** All design work here is unversioned.
+
+## RESUME (2026-07-27, superseded) — S1 (the metadata/content split) DONE + VERIFIED, UNCOMMITTED; NEXT = commit it, then S2
+
+**State.** btr-shields HEAD still **`bfe8433`** (V1c); **S1 sits UNCOMMITTED**
+in the working tree awaiting Tobi's accept. Gate GREEN: **125 passed** (124 +
+one driver-added reject), mypy clean on 22 files, verified over two
+consecutive runs with golden drift clean both times. `main` ahead 5 of origin,
+NOT pushed; zephyr carries `ca040c05cad`, ahead 1 of tiacsys, NOT pushed.
+Working tree: 133 paths, 49 of them new.
+
+**What S1 did.** `rig.yml` is now METADATA only (`name:`/`board:`/`revisions:`/
+`variants:`, still nested under `rig:`); `<rigname>.yml` is CONTENT
+(`instances:`/`wires:`/`dt-includes:`) as a FLAT top-level document — 18
+corpus rig content files, 32 fixtures split. The content file is REQUIRED
+(new `lang-content` diagnostic; an EMPTY `instances:` list stays legal and
+distinct, which 11 axis-rule fixtures rely on). Content filename is
+CONSTRUCTED from the rig's own `name:`, never parsed from the folder.
+
+**The predicted convergence held:** `_load_delta_doc` needed ZERO code changes
+to serve both the base content file and the delta fragments — base and
+fragment are now literally the same document shape, which is what "the
+fragments finally have a base" means in practice.
+
+**Dependency tracking, both mechanisms, and the second one is the subtle
+half:** the loader `deps.see`s the content file (so it rides `RIG_DEPENDS`),
+AND `dts.cmake` registers a constructed `_rig_content_yml` in the static
+`CMAKE_CONFIGURE_DEPENDS` set **unconditionally, NOT gated on `EXISTS`** —
+because a missing or broken content file means expansion never writes
+`RIG_DEPENDS` at all, so only a static entry can retrigger configure once the
+file is created or fixed.
+
+**Pure-move evidence (the reason the slice was cut this way), verified by the
+driver rather than accepted:** only two golden file types changed — 16
+`context.cmake`, 14 `stderr.txt`. `rig-gen.overlay`, `config-sheet.md`,
+`zephyr.dts` and `exit_code` never appear in the diff AT ALL. `RIG_DEPENDS` is
+additive-only (scripted set-comparison: each of the 16 gains exactly one
+`boards/rigs/*/<rigname>.yml`, loses nothing). Diagnostic text is
+byte-identical apart from the `at PATH:LINE` line. Structural sweep: no
+`rig.yml` anywhere still holds a content key, no content file holds a
+top-level metadata key.
+
+**Two driver fixes applied on top of the agent's work:**
+1. **A stale diagnostic pointing at the wrong file** — `lang-dt-include` still
+   said "add the header that defines it to rig.yml dt-includes:", which the
+   split made false. Now names the actual content file
+   (`param-unresolvable.yml dt-includes:`). The agent found this and
+   deliberately left it to keep the golden diff inside the two allowed
+   classes, then flagged it — the right call for an implementor, and the
+   driver's to make.
+2. **`lang-content` had no test** — verified by hand in a throwaway copy, so
+   nothing in the suite covered it. Added the `missing-content-file` fixture
+   and golden.
+
+Final classification, three classes and nothing else: **32 `RIG_DEPENDS`
+lines, 34 diagnostic source lines, 4 wording lines** (16/17/2 goldens, both
+sides).
+
+**NEXT, in order:**
+1. **Commit S1**, with the refreeze justified by the classification above.
+2. **Dispatch S2** — brief `rig-metadata-content-split-brief.md`, section S2:
+   `board:` moves under each axis value; the socket map applies to the BASE
+   topology rather than only where a delta restates `socket:`; rule 10 widens
+   so a metadata-only contribution counts. The board-swapping rejection gets
+   DELETED, not lifted. **V2 is fully absorbed once this lands.** Golden
+   budget: the dual-host `ard_datalogger` rig, BOTH tuples built for real,
+   with the frdm tuple carrying NO fragment so it proves content reuse across
+   boards.
+3. **hwmv2 revision semantics** (`hwmv2-revision-semantics-brief.md`).
+4. **rig-schema.yaml, metadata-only** (`rig-schema-brief.md`) — after 3,
+   because both predecessors change the keys it describes. It then becomes
+   what ENFORCES the split.
+5. **Shield plurality** (pre-migration, `bridle-migration.md`).
+6. Then the **BRIDLE MIGRATION** (tool = `rigc`).
+
+**Workflow note that keeps paying:** implementor on **sonnet** (standing rule,
+memory `feedback_agents_run_sonnet`), contract inlined, agent STOPS and
+reports, driver verifies INDEPENDENTLY — re-run the gate, classify the diff
+yourself, treat "byte-identical"/"inert"/"code-verified" as hypotheses. S1's
+report was accurate and its two self-flagged items were both real.
+
+**NOTE — `claude/` is NOT a git repo.** All design work here is unversioned.
+
+## RESUME (2026-07-26c, superseded) — V1c LANDED; V1 IS FEATURE-COMPLETE
+
+**State.** btr-shields HEAD **`bfe8433`** ("rigs: V1c — shield revisions"),
+tree CLEAN, gate GREEN: **124 passed**, mypy clean on 22 files, verified over
+two consecutive runs with golden drift clean both times. `main` is **ahead 5
+of origin, NOT pushed**. The zephyr checkout carries a FIFTH carried commit,
+**`ca040c05cad`** ("schemas: shield: allow a `revisions:` block in
+shield.yml"), standalone and upstreamable, **ahead 1 of tiacsys, NOT pushed**
+— `list_shields.py` jsonschema-validates every shield.yml under
+`additionalProperties: false`, so the block needed schema support exactly as
+`template:` did (`76305e9aa49`).
+
+**V1c content + the four driver fixes + the symmetric-provenance ruling are
+in design-log 2026-07-26g.** Headline: shield revisions work via ONE
+translation unit (base + `<name>_<rev>.shield`, DT overlay-by-label doing the
+merge, no YAML vocabulary); review found four defects the agent had not seen,
+including a reachable `AssertionError`; `model.Shield` gained
+`revisions`/`revision` with the design decision recorded (the lifted freeze
+requires one).
+
+**Rig revision × shield revision COMPOSES with no code of its own, and is
+now PINNED** — `shield_rev_family` (base resolves the sensor to revision 1,
+the rig's own revision 2 moves it to the shield's revision 2), tier-1 plus a
+real tier-2 build asserting both `zephyr.dts` and the collected
+`i2c_sensor_2.conf`. Tobi asked whether it already worked; the driver
+verified rather than trusting the agent's throwaway-script claim, then folded
+it into the golden budget it had been missing from.
+
+**The refreeze in `bfe8433`, justified:** 13 goldens moved and every changed
+line is one of exactly two kinds — 13 × `RIG_DEPENDS` (additive only) and 1 ×
+a new `RIG_SHIELD_REVISIONS`. A rig's shield.yml dependencies are tracked at
+RESOLVE time, so a rig depends only on shields it names;
+`pilot_variants_variant_c` picking up its variant-substituted
+`pilot_alt_button/shield.yml` is the evidence that tracking follows the
+RESOLVED topology rather than the declared one.
+
+**NEXT, in order — the queue CHANGED at session end (design-log 2026-07-26h):**
+0. **The rig.yml / `<rigname>.yml` SPLIT** — brief:
+   `rig-metadata-content-split-brief.md` (RATIFIED, Tobi's own finding).
+   `rig.yml` is not symmetric with board.yml/shield.yml because it is ALSO
+   the `<rigname>.yml` that sits symmetric with `<board>.dts` /
+   `<name>.shield`; both roles being YAML masked it. Metadata files are
+   TYPE-named and carry no hardware; content files are INSTANCE-named — and
+   our delta fragments are already instance-named with no same-stem base.
+   **S1 = the pure move** (content keys out of rig.yml; acceptance is
+   goldens byte-identical except provenance paths — a clean bisect point).
+   **S2 = board per axis value + socket map applied to the BASE topology +
+   rule 10 widened**, which DELETES the board-swapping rejection instead of
+   lifting it and **absorbs V2 entirely**. Driver's sequencing call, which
+   Tobi delegated: pull it in straight, ahead of everything below, because
+   doing V2 first builds a fragment-aware resolver S2 retires, doing the
+   schema first cements the conflation, and doing it after the migration
+   rewrites freshly condensed history. ONE decision to settle first: the
+   content file's name (recommendation `<rigname>.yml`, reasoning in the
+   brief).
+1. **hwmv2 revision semantics** — brief:
+   `hwmv2-revision-semantics-brief.md` (RATIFIED 2026-07-26). Upstream's
+   revision block and behaviour exactly: format typing, `exact:`,
+   nearest-lower match, zero-append; NOT `format: custom` nor the
+   filename-globbing revision discovery. Costs the one-schema-for-both-axes
+   property deliberately; needs requested-vs-resolved in the model. Migrates
+   rigs AND shields in one place (`_parse_axis_decl`), so the carried
+   shield-schema commit gets rewritten before upstreaming — accepted churn.
+2. **rig-schema.yaml + metadata** — brief: `rig-schema-brief.md` (RATIFIED).
+   `full_name` required / `vendor` optional / target-regex `@` fix, plus
+   signposting rejections for `rigs:` and `extend:`. Do it AFTER item 1 so
+   the schema is authored against the final revision block.
+3. ~~**V2-residue**~~ — **ABSORBED BY S2.** Board swapping becomes a
+   declaration (no fragment-aware resolver is ever built) and `sockets:`
+   positive-path coverage falls out of the dual-host rig by construction.
+4. **Shield plurality** — pre-migration, see `bridle-migration.md`: bridle has
+   ZERO shield.yml in 19 folders and runs on the legacy overlay-basename
+   fallback. Plural `shields:` is to be ADOPTED (it declares the NAME SET;
+   filenames are constructed from it, which is Q6's own discipline). Cost is
+   one function; the identity ruling it needs was already made by V1c fix 2.
+5. Then the **BRIDLE MIGRATION** (`bridle-migration.md`, tool = `rigc`).
+
+**Doc work landed this session (claude/ only):** design-log 2026-07-26h (the
+metadata/content split round — the three-role board argument, the worked
+dual-host rig, the three changes the split requires) and its brief; 2026-07-26f (the
+rig.yml/board.yml key-by-key delta and three rulings) and 2026-07-26g (this
+review); ontology §7's symmetry heuristic widened to **BIDIRECTIONAL** with a
+six-cell table — the one-directional form is why board→rig gaps accumulated
+unnoticed; `bridle-migration.md` gained the shield-plurality task with the
+per-folder triage (`grove_btn`/`grove_led`'s 64 overlays collapse to ONE
+template; `waveshare_pico_10dof_imu_sensor`'s `_r1`/`_r2` is a real shield
+revision; `rpi_pico_lcd`'s 11 LCDs are the only true residue).
+
+**NOTE — `claude/` is NOT a git repo** (the 2026-07-26b block below claims it
+is and says to commit it first; that is wrong as of this session). Design
+work here is unversioned; treat that as a risk when it matters.
+
+**Two verification rules, both earned:** after a stalled/resumed slice run the
+suite TWICE and diff the goldens; and treat an agent's own
+"inert"/"cosmetic"/"code-verified" claims as HYPOTHESES — this session that
+rule caught a wrong-blaming diagnostic, a silent identity fallback, a
+reachable assert, and a dependency-tracking hole.
+
+## RESUME (2026-07-26b, superseded) — V1a + V1b LANDED; NEXT = V1c, then V2-residue
+
+**State.** btr-shields HEAD **`5995f08`**, tree CLEAN, gate GREEN
+(**109 passed**, mypy clean on 22 files). Gate unchanged:
+`ZEPHYR_BASE=/wrk/z/ws-up/zephyr
+PYTHON=/wrk/z/ws-up/.venv/bin/python3 btr-shields/scripts/check.sh`.
+`main` is **ahead 4 of origin, NOT pushed**. **`claude/` is itself a git
+repo and ALL this session's design work is UNCOMMITTED there** — the
+readiness pass, the V1 spec, `bridle-migration.md` and the design-log
+entries exist only in the working tree. Commit that first thing.
+
+**Landed this session (11 commits):** slices A / B1 / B2 / C' / P / R, the
+three comment sweeps (`d285554` `1c8068f` `df98521`), then **V1a
+`5031a0f`** (qualified targets resolve; per-axis fragments collect) and
+**V1b `5995f08`** (the delta engine). Gate went 72 -> 74 -> 81 -> 98 -> 109.
+
+**NEXT, in order:**
+1. **V1c — shield revisions.** The DT side: base `<name>.shield` plus
+   `<name>_<rev>.shield` cpp-included after it into the SAME translation
+   unit, DT's own overlay-by-label semantics doing the merge (no YAML
+   vocabulary on the shield side at all). `shield: <name>@<rev>`
+   references, `shield.yml` gaining the same `revisions:` block, rule 13.
+   Spec: `rig-variants-revisions.md` §"V1 — IMPLEMENTOR-READY SPEC" §4
+   and §6 rule 13. Golden budget: give one corpus shield a rev 2 whose
+   DEFAULT stays rev 1, so every existing row is untouched by
+   construction, plus one new accept tuple exercising `shield: <name>@2`.
+2. **V2-residue** — and it is small, because V1a/V1b absorbed the rest
+   (see design-log 2026-07-26e). Two items:
+   - **board swapping.** A variant's `board:` is currently REJECTED with a
+     loud not-yet-wired diagnostic. The requirement is UNCHANGED and the
+     key stays variant-only in the vocabulary; what is missing is a
+     fragment-aware resolver: `list_rigs.py` resolves the board BEFORE any
+     fragment is read, so applying an override in the loader made the
+     model / overlay header / `RIG_BOARD` disagree with the board actually
+     built. Lift the rejection in the slice that makes resolution read
+     deltas. It belongs with the rig-swap guard / `RIG_INFERRED_BOARD` /
+     RIG-BOARD-exclusivity surface — give it its own review.
+   - **`sockets:` positive-path coverage.** Abstract->label translation is
+     implemented (`resolve_socket` in `_apply_delta`) but only its
+     rejection path is tested; rule 5's rejection is demonstrated via
+     `board:` only (same code branch).
+3. Then the **BRIDLE MIGRATION** — `bridle-migration.md` is the plan
+   (commit sequence with a stands-alone-because column, three-way content
+   triage, the zephyr prerequisites, naming DECIDED as **`rigc`**, and a
+   pre-migration task: both comment sweeps MISSED
+   `dts/bindings/connectors/*.yaml` and `include/dt-bindings/connector/*.h`,
+   which carry the heaviest archaeology AND are the most public artifacts).
+
+**Two rules learned, both about verification:**
+- **After a stalled/resumed slice, run the suite TWICE and diff the
+  goldens.** V1b's agent stalled; the resumed run left a duplicated
+  golden-freeze block that wrote one fixture's diagnostic into ANOTHER
+  fixture's golden while the second test lost its freeze entirely — a
+  committed golden that was wrong and asserted by nothing. The gate stayed
+  green because nothing checked it. A clobbering freeze only surfaces on a
+  second run; a golden nobody asserts never surfaces at all.
+- **"Accepted but inert" deserves a second look.** V1b reported a
+  variant's `board:` as cosmetic; it actually flowed into the overlay
+  header and `RIG_BOARD`, so it was an active disagreement with the built
+  board, not a no-op.
+
+**Also open (unchanged):** the `edt_build.build_edt()`/`preprocess()`
+coverage gap before that BSD-3 reader upstreams; `rig-gen.conf` is never
+produced so every build prints a misleading "no Kconfig fragment produced";
+`_RIG_BTR_ROOT` -> `ZEPHYR_BTR_SHIELDS_MODULE_DIR`; normalize-on-freeze
+should strip line numbers; a native-socket-board corpus row (all four
+targets are extension variants — recorded as a risk against migration
+commit 2); the `aliases:`/`chosen:` companion, unscheduled.
+
+**Workflow (eight slices in, it works):** implementor agent per slice
+(contract inlined, sonnet), agent STOPS and reports, driver verifies
+INDEPENDENTLY — re-run the gate yourself, read the diff, and treat the
+agent's own "no churn"/"inert"/"fine" claims as hypotheses. Three of the
+last four slices had a real defect or spec bug that only independent
+verification caught. Joint driver+Tobi review, driver applies minors and
+commits. RULE: a SendMessage-resumed agent owns the checkout until its NEXT
+report.
+
+## RESUME (2026-07-26, superseded) — comment sweeps + V1 readiness pass
+
+**State.** btr-shields HEAD **`df98521`**, tree CLEAN, gate GREEN
+(**81 passed**, mypy clean on 22 files -- `rigexp.model` is OFF the mypy
+exemption list, which holds only `devicetree.*`). `origin/main` is at
+`d285554`, so the last two commits are UNPUSHED. Gate unchanged:
+`ZEPHYR_BASE=/wrk/z/ws-up/zephyr
+PYTHON=/wrk/z/ws-up/.venv/bin/python3 btr-shields/scripts/check.sh`.
+`main` is **ahead 5 of origin, NOT pushed** (Tobi's call). zephyr checkout
+= branch `tskr/zephyr-rigs`, FOUR carried commits, all pushed to tiacsys —
+**no fifth carried commit is needed** (see C' below). Bridle still NOT in
+the manifest; lotus builds pass `-DEXTRA_ZEPHYR_MODULES=<topdir>/bridle`.
+
+**This session, EIGHT slices, all committed after joint review:**
+- **`2378fab` slice A — controller-label determinism.**
+  `_controller_label` → `labels[0]` (the DEFINING label), closing the E3
+  regression at its root. HALF DEFERRED TO V1: analyzer diagnostics
+  sourcing controller identity independently of the emitter needs
+  `model.BoardSocket.pwm_map` widened = the model.py freeze lifted.
+- **`eb929e0` slice B1 — rig<->board naming symmetry (Tobi's ruling).**
+  Rig names UNDERSCORED throughout; `rig.conf` → `<rigname>_defconfig`,
+  `rig.overlay` → `<rigname>.overlay`; folders renamed to rig identity;
+  `RigCase` collapsed to one field.
+- **`3660303` slice B2 — de-provenance sweep.** Test framing recast as
+  timeless contract language; BSD-3 `test_edt_build.py` split out
+  (partial by design); unknown-board + module.yml grooming.
+- **`76b45cf` slice C' — rig Kconfig fragments ride `shield_conf_files`.**
+  Tobi first wanted the rig defconfig applied BEFORE prj.conf, then
+  WITHDREW that on evidence (no pre-prj slot exists upstream for a
+  module; it would have needed a 5th carried commit AND dragged shield
+  confs ahead of prj.conf). The ratified move is precedence-IDENTICAL and
+  keeps the app-level overlay machinery undisturbed until after V1/V2.
+- **`454b7c7` slice P — per-instance parameters.** Design settled in a
+  three-pushback round with Tobi, then implemented: `shield,params` per
+  device node (property PRESENT = default, ABSENT = required); rig.yml
+  `params:` (block style — see below) + `dt-includes:`; loader resolves
+  tokens against exactly the declared headers (six rules, `lang-param`/
+  `lang-dt-include`), emitter emits the SYMBOL verbatim; new
+  `rig-gen-includes.dtsi` pulled in by a quoted `#include` from
+  `rig-gen.overlay` (resolution PROVEN with a real build). Trigger bug
+  dead at the root: grove_btn's type-level `zephyr,code` is gone and
+  lotus_buttons' buttons resolve to distinct keycodes (0xb/0x2, both were
+  `<11>`). **model.py freeze LIFTED** — replaced by "a model change
+  requires a recorded design decision"; `rigexp.model` came off the mypy
+  exemption list. `invert:` deliberately NOT folded in (it is a flag
+  transform, not a property assignment).
+
+- **`ca31821` slice R — `rig-shields` -> `shield-templates`.** Closes the
+  last live item of the parked rig-/.rig. prefix cleanup. Wrapper KEPT (it
+  marks a file as a template rather than an overlay to apply) with the
+  reasoning recorded at the parse site.
+- **`d285554` + `1c8068f` + `df98521` — the comment sweeps.** Tobi's own
+  pass over the three cmake forks, then the mechanics layer (12 production
+  modules), then tests + content. Design-process archaeology out; markdown
+  quoting of identifiers out (double quotes only for literal VALUES);
+  convention recorded in `.claude/agents/rig-implementor.md` so it does not
+  come back. Comment-only PROVEN by AST-shape comparison, not asserted.
+  KEPT deliberately: the bridle-64-overlays product argument.
+
+**NEXT: dispatch V1a.** The readiness pass is DONE (2026-07-26) and
+`rig-variants-revisions.md` §"V1 — IMPLEMENTOR-READY SPEC" is the
+contract — selection grammar, declarations, fragment construction,
+resolution order + the per-stage invariant, the merge vocabulary, 13
+numbered validation rules with codes, provenance, model additions, golden
+budget, and a slicing recommendation. Round record: design-log 2026-07-26a.
+
+TERMINOLOGY, do not conflate: **V1 = the delta engine + revisions + shield
+revisions; V2 = VARIANTS** (variants ride the engine V1 builds). Order
+ratified: **P → V1 → V2**; P is DONE.
+
+**Slicing (driver recommendation in the spec, not yet dispatched):**
+- **V1a — selection and collection.** Qualifier resolution end to end
+  (list_rigs.py, west rigs, build-rig, the cmake forks), the declaration
+  blocks, fragment-name construction/discovery, provenance. NO deltas: a
+  selected axis supplying only .overlay/_defconfig files is already useful
+  and fully testable.
+- **V1b — the delta engine.** Vocabulary, resolution order, the per-stage
+  invariant, rules 5-12. Slice A's deferred analyzer-independence half can
+  ride here (it is already in the model).
+- **V1c — shield revisions.** The DT side, `shield: <name>@<rev>`, rule 13.
+
+**Four decisions the readiness pass added** (details in the spec):
+1. Diagnostics are `lang-rev`/`lang-variant`, SUPERSEDING Q7's `phys-*`.
+   Physical WORDING is unchanged; only the family moved.
+2. `params:` replaces wholesale (required, not merely acceptable) PLUS a
+   restate-check for same-shield deltas, which kills a silent revert to the
+   shield default.
+3. A per-stage parameter invariant REPLACES the proposed
+   variants-may-add/revisions-may-not asymmetry.
+4. `dt-includes:` UNIONS across stages — the one key with union semantics.
+Plus a found limitation: family-wide revisions cannot re-parametrize a
+variant-substituted instance (device labels differ per shield); validated
+by rule 12, with per-variant revision streams recorded as the escape hatch
+(Q9's "real case" has now arrived).
+
+Superseded, kept for reference — what the pass had to settle:
+1. **Fragment filenames** — already re-derived under the B1 rename, with
+   the board+shield analogy table, in `rig-variants-revisions.md`
+   §"FRAGMENT FILENAMES re-derived". Q6's construct-don't-parse mechanic is
+   untouched; only the prefix moved. DECIDED: shield revision Kconfig
+   fragments are `<name>_<rev>.conf` (shield convention); rigs use
+   `_defconfig` (board convention) because a rig OWNS a board.
+2. **A ratified-but-now-inconsistent diagnostic family.** Q7 specified
+   `phys-rev`/`phys-variant`. Slice P established from the code that
+   `lang-*` is the DECLARATION/ASSIGNMENT family and `phys-*` is for
+   PHYSICAL conflicts — and "rev 2 removes instance 'th2', which variant
+   'frdm' does not have" is a declaration error, not a physics violation.
+   Settle this rather than inheriting the collision.
+3. **`params:` under a delta.** As an instance top-level key it is
+   REPLACED WHOLESALE (Q7's no-deep-merge rule, deliberately kept intact
+   rather than carving a silent exception). So a revision changing one
+   keycode restates that instance's parameters. Coarse; revisit only if it
+   bites, and never by making the merge silently deeper.
+4. Then V2 (variants on the same engine), then the BRIDLE MIGRATION.
+
+**Slice A's deferred half is now UNBLOCKED** (the freeze is lifted):
+analyzer diagnostics sourcing controller identity independently of the
+emitter's pick needs `model.BoardSocket.pwm_map`'s tuple widened. Do it
+with V1 or as its own small slice.
+
+**Companion feature identified, NOT scheduled (Tobi has not ruled):**
+rig-level `aliases:`/`chosen:` addressing instance devices symbolically
+(`sw0: btn_start.gb_key`) — same rig-level-assignment family as
+parameters, and it would retire Conv. 8's accepted trade (today the rig
+author hand-writes emitter-generated label spellings in
+`<rigname>.overlay`, where a typo silently creates a fresh node). Needs
+its own addressing + diagnostics and reopens Conv. 8, so it was kept out
+of V1 deliberately. See design-log 2026-07-25h.
+
+**Open items Tobi must decide (not blocking V1):**
+- **`rig-shields`** — the DT subtree name every `.shield` wraps content
+  in. The one real decision left from the naming sweep; highest blast
+  radius (13 shield files + 3 tier-1 goldens' diagnostic paths). See
+  `parked.md` — the rest of that parked item is now MOOT (the `.rig.*`
+  infixes are gone, the `/ { rig { } }` node never existed).
+- **Push `main`** (ahead 5).
+
+**Three gaps recorded this session, none blocking:**
+- **`edt_build.build_edt()`/`preprocess()` have NO dedicated test** —
+  every exercise goes through `board_edt`'s higher-level API. Fill before
+  that BSD-3 reader upstreams to python-devicetree.
+- **`rig-gen.conf` is never produced** — the emitter has no such output
+  key, so the generated Kconfig fragment is designed-but-unimplemented
+  (parked "Kconfig layering"). Every rig build prints `rig: no Kconfig
+  fragment produced`, which reads like a fault; reword or drop that
+  STATUS line when the feature is picked up.
+- **Slice P's rule-6 golden freezes a diagnostic CASCADE** — a
+  `dt-includes` header that does not exist reports the header failure
+  (root cause, first) AND a consequent unresolvable-token error for the
+  same assignment. Acceptable as-is; if the consequent is ever suppressed,
+  that golden updates.
+
+**Two rules learned this session — apply them, they cost real time:**
+- **The gate passing is NOT evidence that goldens match the tree.** Any
+  edit changing a file's LINE COUNT invalidates every tier-2 provenance
+  comment citing it, and `dts_equiv` ignores comments so nothing fails.
+  A one-line comment rewrap in `grove_sockets.dtsi` silently staled 152
+  references. Strengthens the parked normalize-on-freeze item: it should
+  strip line numbers.
+- **When a value has a raw user-supplied form and a resolved form, derive
+  from the RESOLVED one.** B1 derived filenames from `${RIG}`, which will
+  carry `@rev/variant` once V1 lands — and since both fragments are
+  optional, that degrades to a SILENTLY unapplied defconfig. Now uses
+  `_RIG_RESOLVED_NAME`.
+
+**Workflow (unchanged, and it worked well five times):** implementor agent
+per slice (contract inlined via general-purpose, sonnet), agent STOPS and
+reports, driver verifies INDEPENDENTLY (re-run the gate yourself; read the
+diff; the agent's report understated the blast radius twice), joint
+driver+Tobi review, driver applies minors and commits. RULE: a
+SendMessage-resumed agent owns the checkout until its NEXT report.
+
+## RESUME (2026-07-25, superseded) — EXTENSION MIGRATION E1-E4 COMPLETE; NEXT = de-provenance sweep, then V1
+
+**State.** btr-shields HEAD **`90b4126`**, tree CLEAN, gate GREEN
+(**72 passed**; count moves with parametrization, see 07-25c ledger).
+Gate: `ZEPHYR_BASE=/wrk/z/ws-up/zephyr
+PYTHON=/wrk/z/ws-up/.venv/bin/python3 btr-shields/scripts/check.sh`.
+zephyr checkout = branch `tskr/zephyr-rigs`, FOUR carried commits
+(cmake-modules, shield template, edtlib *-cells precedence fix, edtlib
+vendor-namespaced keys), all pushed to tiacsys. Bridle: NOT in the
+manifest (deliberate, 2026-07-24f) — lotus builds pass
+`-DEXTRA_ZEPHYR_MODULES=<topdir>/bridle`; harness threads it per-case.
+
+**This session's arc (design-log 2026-07-24 a–f, 2026-07-25 a–c):**
+fork-per-phase cmake refactor → cmake-alone entry (-DRIG = sole physical
+coordinate; excludes BOARD and SHIELD; rig-swap guard) → rig-gen.*
+rename + vendor prefixes → edtlib carried commits → connector
+unification (plug,* keys, dts/bindings/connectors/, dts/connectors
+gone) → E2/E3/E4 (ALL boards now hwmv2 extensions of their real bases;
+clones deleted). TRAJECTORY (2026-07-25): after V1/V2 the content
+migrates INTO BRIDLE (Tobi maintains it), commits recreated condensed,
+then upstreamed to zephyr in chunks.
+
+**NEXT, in order:**
+1. **Test-suite de-provenance sweep** (unblocked by E4; deadline = the
+   bridle migration): timeless contract docstrings, sort tests by
+   upstream destination, rename s1/s5-style rig folders to rig names;
+   fold in the naming sweep (parked.md) and the small grooming items
+   (unknown-board empty known-list; zephyr/module.yml stale comment).
+2. **Controller-label determinism + diagnostic wording** (queued at E3
+   review — implementation-plan bullet; tcc0→grove_pwm_d19 evidence).
+3. **V1/V2** (rig-variants-revisions.md; V1's design round ALSO settles
+   per-instance parameters + lifts the model.py freeze).
+4. Then the BRIDLE MIGRATION (workspace switch, condensed history; see
+   2026-07-25 trajectory ledger entry for the recorded implications).
+
+**Workflow (unchanged):** implementor agent per slice (contract inlined
+via general-purpose, sonnet), joint driver+Tobi review (reviewer agent
+on request), driver commits after Tobi's accept. RULE: a
+SendMessage-resumed agent owns the checkout until its NEXT report
+(memory feedback_resumed_agent_owns_tree).
+
+## RESUME (2026-07-24c) — cmake-alone entry LANDED (+ vendor-prefixes + rig-gen rename); NEXT = E2-E4, then edtlib carried commit, then V1
+
+**TRAJECTORY (2026-07-25, read design-log entry): after V1/V2 the content
+upstreams INTO BRIDLE** (Tobi = bridle maintainer; workspace switch,
+commits recreated condensed, then zephyr in small chunks from there).
+Shapes current work: don't over-polish the E3 lotus extension (dissolves
+at migration), sweeps' deadline = migration, carried commit #1 may retire
+via bridle's ZephyrBuild hook.
+
+**Landed since the block below (all pushed, HEAD `03790fc`, tree CLEAN,
+gate 69 passed):**
+- **`a51553b` cmake-alone rig entry** — -DRIG is the sole physical
+  coordinate: slot-10 inference via list_rigs.py query mode (full
+  `name[@rev][/variant]` grammar, loud V1/V2 placeholders); RIG excludes
+  BOARD (RIG_INFERRED_BOARD marker, survives reconfigures) AND SHIELD
+  (zephyr_get guard in the shields fork — was a silent no-op); rig-swap
+  guard (joint-review finding: changing -DRIG to a different-board rig in
+  an existing dir previously expanded against the STALE board with
+  wrong-board-blaming phys-socket diagnostics — now FATAL + pristine hint;
+  same-board swaps legal); build-rig = pure wrapper (rig.yml scan deleted;
+  empirical: `west build` without -b only WARNS, no gate existed);
+  configure-log provenance (`Rig:` line at slot 10 + per-shield `<-`
+  lines); 8 build-marked tests in test_cmake_alone_entry.py. Implementor
+  agent + TWO mid-flight design amendments (mutual exclusivity replacing
+  the mismatch check; SHIELD exclusion); joint driver+Tobi review.
+- **`7f9fc47` vendor-prefixes** — btr-shields/dts/bindings/
+  vendor-prefixes.txt registers `socket`/`plug` pseudo-vendors (zephyr/vnd
+  precedent); unknown-vendor warnings gone (causality verified).
+- **`03790fc` rig-gen rename** — generated outputs are
+  `rig-gen.overlay`/`rig-gen.conf` (bare `overlay` gone; `rig.overlay`
+  stays the hand-authored file); ALL stale cmake/rig.cmake comment refs
+  retargeted to the dts fork incl. context.cmake header; justified
+  refreeze (renames + header + provenance basenames ONLY, grep-proven).
+
+**NEXT:** (1) E2 quail+frdm extensions, E3 lotus, E4 delete clones;
+(2) edtlib CARRIED COMMITS **LANDED 2026-07-24c**: `c1c4d2acf2d`
+(*-cells precedence BUG fix — upstream candidate #4, PR-able alone) +
+`1a657124349` (vendor-namespaced binding keys; -cells suffix keeps its
+specifier2cells meaning by design) on `tskr/zephyr-rigs`, signed-off,
+branch ref updated ([ahead 2] of tiacsys — PUSH PENDING, Tobi's call);
+CONNECTOR UNIFICATION also LANDED (`e425a19`): one file per type under
+**dts/bindings/connectors/** (plural), plug contracts as **plug,***
+keys — namespace rule (supersedes the rig,* choice): extension keys are
+namespaced by the SIDE they describe (plug,*/socket,*), never by the
+project; dts/connectors/ gone; standing test_connector_bindings.py
+edtlib-validates all four files (the only coverage i2c-port.yaml ever
+gets). WORKFLOW RULE from this slice: a SendMessage-resumed agent owns
+the checkout until its NEXT report lands — driver edits wait
+(design-log 2026-07-24d, memory feedback_resumed_agent_owns_tree);
+(3) V1/V2 (+ per-instance parameters design round).
+Parked: cmake fork re-idiomization; "board = trivial rig" endgame
+(ontology §7).
+
+---
+
+## RESUME (2026-07-24) — fork-per-phase LANDED; workspace consolidated; NEXT = cmake-alone entry slice, then E2-E4, then V1
+
+**Workspace RESTRUCTURED (Tobi): the zephyr-rigs worktree is GONE.** The
+workspace `zephyr` checkout IS branch `tskr/zephyr-rigs` (the two
+rig-enabling commits REBASED onto current upstream main: `df2c127228f`
+cmake-modules + `76305e9aa49` shield template; also on remote `tiacsys`).
+btr-shields/west.yml pins it; `.west/config` zephyr.base=zephyr. Gate is now
+`ZEPHYR_BASE=/wrk/z/ws-up/zephyr PYTHON=/wrk/z/ws-up/.venv/bin/python3
+btr-shields/scripts/check.sh`; agent contracts updated (`59ba775`). Tier-2
+goldens refrozen for the rebase (`f734fa6`: provenance path comments +
+upstream `7c32047f94c` st-pinctrl `ranges;`, net +5 lines). Remote pushes
+now routine (origin=tobiaskaestner/btr-zephyr-shields, main tracks).
+
+**Fork-per-phase cmake refactor LANDED (`016af37`, HEAD, tree CLEAN, gate
+green 61 passed).** Brief (authoritative, incl. verified upstream
+module-chain facts + slot numbering): `cmake-fork-refactor-brief.md`.
+cmake/ is now: boards.cmake fork (real include + _rig_resolve_board_dts +
+extension -isystem guard), shields.cmake = 28-line pure dispatch (rig
+builds have NO shields phase), dts.cmake fork = the whole rig block in 9
+steps (native pre_dt, called 2x — saferail-13 mirror DELETED; prepend
+handoff — user extras WIN, cache-FORCE clobber bug dead; saferail 12
+amended: app dir in pass-1 recipe, edt.pickle cross-check guards it).
+rig.cmake DELETED. Implemented by sonnet implementor (contract inlined via
+general-purpose agent), reviewed JOINTLY driver+Tobi (reviewer agent
+deliberately skipped, Tobi's call). Upstream-issue candidate #3:
+BOARD_EXTENSION_DIRS dead in dts.cmake:181/kconfig.cmake:96 (HWMv1 removal
+c02c6add101).
+
+**NEXT (order):**
+1. **cmake-alone rig entry** — brief `cmake-alone-rig-entry-brief.md`
+   (ratified): slot-10 rig→board inference via resolver (FULL
+   `name@rev/variant` string, variant-proof), -DRIG EXCLUDES both
+   -DBOARD and -DSHIELD (physical inputs are rig-owned; matching board
+   also FATAL, marker survives reconfigures; SHIELD guard markerless in
+   the shields fork; config inputs stay open), build-rig stripped to
+   pure wrapper (passes NO board), double resolution collapsed.
+   Principle: ontology.md §7 — **the board→rig lift** (board = trivial
+   rig; grammar/resolver = board machinery lifted; identity-build +
+   commutation laws; symmetry-table review heuristic). Design-log
+   2026-07-24 has the ledger entry.
+2. ~~E2 quail+frdm extensions~~ **E2 LANDED `0bf32b9`** (2026-07-24e:
+   boards/extend/{mikroe/quail,nxp/frdm_k64f}, five rigs repointed,
+   refreeze classification dts_equiv-verified old-vs-new, clones stay;
+   GOTCHA for E3: a literal `*/` inside a DTS block comment corrupts the
+   parse). **E3 LANDED `fd77560`** (2026-07-25b: cross-module extension
+   of bridle's base, bridle NOT in manifest — lotus builds pass
+   -DEXTRA_ZEPHYR_MODULES explicitly, harness threads per-case; all five
+   clone-divergence checks clean; ACCEPTED-WITH-QUEUE: labels[-1]
+   controller-label flip tcc0→grove_pwm_d19 — follow-up in
+   implementation-plan "Controller-label determinism"). E4 (delete all
+   four clones, goldens byte-untouched, pwm-nonzero-flags fixture
+   repoint) DISPATCHED 2026-07-25; the de-provenance sweep follows E4
+   as its own slice.
+3. V1/V2 per `rig-variants-revisions.md` — V1's design round now ALSO
+   settles **per-instance parameters** (§QUEUED in that file: grove_btn's
+   type-level `zephyr,code` is wrong, both lotus-buttons buttons get
+   INPUT_KEY_0; rig.overlay REJECTED as modeling answer; generalize
+   `invert:`; lift model.py freeze). Plus the small rename: generated
+   expander outputs `overlay`/`conf` → **`rig-gen.overlay`/`rig-gen.conf`**
+   (`rig.overlay` is taken by the hand-authored file) + retarget
+   cli.py's context.cmake header comment (still says rig.cmake) — driver
+   task, carries a justified tier-1 refreeze if header text is frozen.
+4. Small driver tasks queued behind the cmake-alone slice:
+   `dts/bindings/vendor-prefixes.txt` (register `socket`/`plug`
+   pseudo-vendors — kills the unknown-vendor warnings), and the
+   rig-gen rename from item 3.
+5. **edtlib namespaced-extension-keys carried commit + connector
+   unification (RATIFIED 2026-07-24b, saferail 10 AMENDED)** — see the
+   implementation-plan bullet + design-log 2026-07-24b: driver-scope
+   zephyr-branch commit (ok_top permits comma-namespaced keys →
+   Binding.raw), then plug contracts merge into socket bindings and
+   `dts/connectors/` dissolves. Namespace choice rides the naming sweep.
+6. Parked new: cmake fork re-idiomization for upstream (parked.md §Build
+   integration — `_rig_*` prefix is NOT zephyr idiom; function-wrap at
+   patch-drafting time).
+
+---
+
+## RESUME (2026-07-23b, session pause) — Bridge-A COMPLETE; E1 board-extension LANDED; NEXT = fork-per-phase cmake refactor (decision B), then E2-E4, then V1
+
+**Since the morning block below (all committed, HEAD `1654ec4`, tree CLEAN):**
+loose ends closed (`63f59c7` flags→analyzer diagnostic + analyzer off mypy
+exemptions [only frozen model remains]; `9af9fb3` shield-name collision →
+rig-template-marker preference; `c33dece` normalize-on-freeze), and **E1
+landed (`4db27bc`)**: nucleo_f401re rig-variant as an hwmv2 BOARD EXTENSION
+(`boards/extend/st/nucleo_f401re/`, target `nucleo_f401re/stm32f401xe/rig`),
+five nucleo rigs migrated, clone kept until E4. Design:
+`board-extension-migration.md`. MECHANISM GAP found (upstream-issue
+candidate #2): hwmv2 extensions can't cross-dir #include their base
+(pre_dt only adds DTS_ROOT subpaths; both canonical examples avoid it) —
+bridged data-driven in the shields fork (`_rig_resolve_board_dts` +
+BOARD_DIRECTORIES `-isystem` guard; a per-board path table and a
+freestanding cmake helper file were both REJECTED by Tobi — see the
+implementor contract's cmake rules + memory `cmake-dir-conventions`).
+
+**DECISION B (joint analysis, ratified): fork-per-phase cmake refactor,
+run BEFORE V1/V2.** Every file in cmake/ overloads its upstream namesake
+and owns its phase's rig logic: NEW boards.cmake fork (board-dts helper +
+extension -isystem guard move there), shields.cmake fork keeps ONLY the
+shield Kconfig tail, NEW dts.cmake fork (include pre_dt natively — the
+saferail-13 pre_dt MIRROR in rig.cmake DISSOLVES — run the expander, set
+overlay/conf lists, provenance, then delegate to real dts.cmake).
+rig.cmake's 675 lines redistribute; each fork's content doubles as the
+draft upstream patch. V1/V2's per-variant/rev file collection then lands
+in the dts fork.
+
+**Sequencing NEXT session:** (1) fork-per-phase refactor (B); (2) E2
+quail+frdm extensions, E3 lotus (base in BRIDLE — the include-path guard
+already handles it; keep --board-dts explicit, boarddt standalone
+discovery has a documented cross-module limitation), E4 delete the four
+clones; (3) V1 revisions + shield revisions, V2 variants
+(`rig-variants-revisions.md`, settled); (4) post-E4: test-suite
+de-provenance sweep (goldens outlive Bridge-A as the expander's contract;
+strip the saferail/flip archaeology from docstrings, sort tests by
+upstream destination, rename s1/s5-style folders — recorded in
+implementation-plan.md).
+
+**Repo remote:** `origin = git@github.com:tobiaskaestner/btr-zephyr-shields.git`
+added — NOT pushed yet (Tobi's call). Upstream-issue drafts:
+`upstream-buildinfo-issue.md` (build_info list truncation, ready to file);
+the extension include-gap needs drafting.
+
+---
+
+**State.** The Bridge-A deconstruction / edtlib rewrite is **DONE, all steps
++ THE FLIP**: the production expander reads the REAL board DT via edtlib
+(`edt_build.py` BSD-3 reader + `board_edt.py` Apache projection),
+`scripts/rigexp/common-dts/` is deleted in full, and rig.cmake computes the
+pass-1 recipe (pre_dt.cmake mirror; amended saferail 13) + records rig
+provenance into build_info.yml (`cmake.vendor-specific.rig.*`). Also landed:
+cmake debuggability (`-DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE` prints
+copy-pasteable python invocations; `<build>/rig/rerun-expand.sh` always
+written, survives failed configures) and the RIG_DEPENDS depfile handoff
+(editing .shield / plug YAML retriggers configure). Work in
+**`/wrk/z/ws-up/btr-shields/`**, HEAD **`cf867ce`**, tree CLEAN. Session
+commit trail: `a35e15a` (commit gate + agents) `bf515c3` (goldens frozen)
+`8ef98e3` (phase-1 dual-read) `f99ec63` (frdm/quail scaffold fix — the
+shadow caught 5 WRONG pins) `b126017` (2a real pwm/adc nexuses) `89568d4`
+(2b socket-relative emission + latent pwm cell-count bug fixed) `21ff9ec`
+(step-3 relocation) `854712e` (THE FLIP) `dd35c9e` (step-4 dtsio) `05b2395`
+(loader_dts retired) `cf867ce` (cmake debug + deps). Upstream zephyr-rigs
+still pristine except the two known rig-enabling commits.
+
+**Workflow (established this session, KEEP USING IT).** Every change runs
+implementor→reviewer→gate→commit: `.claude/agents/rig-implementor.md`
+(sonnet) implements one scoped task, leaves changes uncommitted;
+`.claude/agents/rig-reviewer.md` (opus, read-only) independently re-runs
+gates and verdicts ACCEPTED/CHANGES-REQUIRED; driver applies minors and
+commits. (This session they were inlined via general-purpose agents — the
+named types register from `.claude/agents/` at session start, so NEXT
+session can dispatch them directly.) Commit gate:
+`ZEPHYR_BASE=/wrk/z/ws-up/zephyr-rigs PYTHON=/wrk/z/ws-up/.venv/bin/python3
+btr-shields/scripts/check.sh` (mypy + pytest; `CHECK_FAST=1` skips
+build-marked tests — post-flip that includes tier-1 goldens, which need a
+cached plain-board build for the recipe). mypy exemption list
+(pyproject.toml) is down to `analyzer` + `model` (frozen); RULE: it only
+ever shrinks — migrating a module drops it in the same commit.
+
+**Tests** live in `scripts/rigexp/tests/` (NEVER a top-level `tests/` —
+reserved for twister apps, Tobi rule). Two-tier goldens (13-rig corpus + 3
+synthetic rejects unknown-board / not-rig-enabled / route-no-via):
+tier 1 = expander outputs byte-frozen (normalized), tier 2 = pass-2
+zephyr.dts via dts_equiv (THE invariant) + semantic pin (edt.pickle
+resolved pwm/adc) + build_info provenance + RIG_DEPENDS assertions.
+Refreeze: `RIGEXP_REFREEZE=1` — always inspect the diff; every refreeze
+needs justification in the commit. `test_board_read.py` = plain builds
+(saferail 11) + edt.pickle cross-check (recipe equivalence, saferail 3).
+`expectations.yml` is emitted but NEVER gated (parked →
+`claude/hw-expectations/`).
+
+**Expander CLI grew** (the flip): `--board-dts`, `--include-dir`/
+`--bindings-dir` (repeatable), `--build-info <yml>` (standalone
+convenience — the harness uses cached plain-build build_info.yml).
+rig.cmake passes the explicit form. Board name→dts discovery via zephyr's
+list_boards.py (standalone fallback); two board diagnostics: phys-board
+not-found (+known list) and exists-but-not-rig-enabled.
+
+**NEXT — dispatch slice V1: rig revisions + shield revisions (delta
+engine).** Design SETTLED 2026-07-23 after five pushback rounds —
+**`rig-variants-revisions.md`** (the settled-shape paragraph up top) +
+slices V1/V2 in `implementation-plan.md`. Ratified: hwmv2-exact grammar
+(`--rig name@rev/variant`, `shield: name@rev`); variant = named axis = a
+general DELTA (board and/or sockets and/or instance/shield substitutions —
+NOT board-tied); ONE family-wide revision stream, applied after the
+variant; fragments named by `_`-joined DECLARED axes (filenames never
+parsed; variant name ≠ revision id validation); shield revisions
+first-class via DT-overlay fragments (`<name>_<rev>.shield`) — the
+migration answer to `x_nucleo_iks01a1/2/3`-style folder copying; minimal
+merge vocabulary (shallow, instance-name-keyed, explicit add/remove, wires
+by endpoint pair, errors never silent no-ops); default variant allowed.
+Everything resolves in the LOADER — analyzer/emitter untouched. V1 golden
+budget is in the brief (Q8): 4 accept tuples both tiers + 4 synthetic
+rejects + zero-churn shield-rev pilot.
+
+**Follow-ups (recorded, lower priority).** Shield name-collision across
+board roots (last-wins resolves zephyr-rigs' stock adafruit_data_logger
+over ours — prioritize rig-owning root or warn; reviewer rated worth
+prioritizing). Analyzer migration bundle (cs-pool merge simplification —
+now redundant post-flip; emitter's nonzero-pwm-flags ValueError → proper
+analyzer diagnostic; mypy off the list). normalize-on-freeze (tier-2
+goldens embed pytest tmp paths in provenance comments — cosmetic refreeze
+churn). Upstream report candidate: zephyr build_info() vendor-specific
+path truncates un-joined lists (worked around by list(JOIN)). Parked
+upstream items unchanged (twister-as-platform, guarded legacy-compat,
+naming sweep — parked.md).
+
+**Gotchas learned this session.** edtlib REJECTS custom binding keys
+(ok_top edtlib.py:450) — rig-extension data must never live under a
+dts/bindings root (hence dts/connectors/). build_info.yml does NOT exist
+at expand time (dts.cmake writes it AFTER rig.cmake) and include(pre_dt)
+at shields time is unsafe (ARCH_V2_NAME_LIST unset + include_guard
+poisoning) — rig.cmake mirrors pre_dt, edt.pickle cross-check guards
+equivalence. sam0 pwm is 2-cell (channel,period — NO flags): the emitter's
+old 3-cell form was a latent day-one bug, caught only when the vnd,* test
+compatibles got typed bindings (untyped props are INERT in edtlib — no
+resolution, no validation, no macros). board_edt `_controller_label` uses
+labels[-1] (board alias wins) — order-fragile, overlay-affecting, guarded
+only by tier-1 text now; read its docstring before touching. Shell-env
+quoting: `NAME='value'`, never `'NAME=value'`. Goldens: config-sheet
+renders from the board MODEL (scaffold-era bug surface), zephyr.dts from
+the real DT — they can disagree; the flip ended that split.
+
+---
+
+Everything below is the pre-rewrite record (2026-07-22 and earlier).
+
+---
+
+## RESUME (2026-07-22) — P3 DONE + boards cleaned; Bridge-A rewrite DESIGNED + spike-validated; NEXT = start the rewrite (freeze goldens first)
+
+**State.** P0–P2 done; rig build machinery in place; **all downstream P3 slices
+(3a allocation, 3b interposers, 3c multi-function/pinctrl) complete + committed**;
+mechanics de-hardcode audit + `west rigs` + rig-name/app-path fixes done; **all
+four board clones cleaned** (connectors described once, via the typed sockets);
+and **the Bridge-A deconstruction / edtlib rewrite is fully DESIGNED, both spikes
+(nucleo read-side, lotus 2a) VALIDATED, and the 18 saferails agreed** — the
+implementation has NOT started. Work is in **`/wrk/z/ws-up/btr-shields/`** (git;
+HEAD **`b02bdc7`**, working tree CLEAN — the spikes reverted their experimental
+changes by design). Commit trail: 3a-and-earlier `79a719d`→`ffd0cb1`; mechanics
+hardening `0a4b36d`→`5e2a92c`; 3b `ae4f62b` `0158260`; 3c `afe5857` `a980947`
+`a555120`; board cleanup `a46cec9` (lotus) `b02bdc7` (nucleo/quail/frdm).
+Upstream `zephyr`/`zephyr-rigs` stay pristine EXCEPT two deliberate rig-enabling
+commits on **zephyr-rigs**: `904e8fe7e63` (module.yml `cmake-modules` key) +
+`96de1e63074` (shield.yml `template` field).
+
+**Front door / build.** (run from `west topdir` = `/wrk/z/ws-up`)
+```
+/wrk/z/ws-up/.venv/bin/west build-rig --rig <name> <app>   # full compile
+   [--cmake-only] [-d <dir>] [-p always] [-- -D…]           # extra opts pass through
+   # e.g. …build-rig --rig nucleo-datalogger zephyr/samples/hello_world
+   #   (--rig takes the rig.yml `rig.name`, NOT the folder basename `s1`)
+```
+`build-rig` (subclass of zephyr's `build`, `scripts/west_commands/rig.py`) infers
+the board from the rig and runs the seam. It resolves the zephyr tree via
+`--zephyr-base` > west config `zephyr.base` (= zephyr-rigs here) > discovery, and
+sets `ZEPHYR_BASE` explicitly (ignoring the profile's ambient `$ZEPHYR_BASE` =
+plain `zephyr`). The app source dir is REQUIRED (positional or `-s`) — no default
+app; omitting it is a hard error. West manifest = btr-shields.
+
+**How the machinery fits (all under `btr-shields/`):**
+- `zephyr/module.yml`: `board_root`/`dts_root: .` + `cmake-modules: cmake`.
+- `cmake/shields.cmake` FORKS zephyr's `shields` (via the cmake-modules PATH
+  prepend): `-DRIG` builds → `cmake/rig.cmake`; else → the original shields.cmake.
+- `cmake/rig.cmake`: HEAD expands the rig (`python -m rigexp expand` →
+  EXTRA_DTC_OVERLAY_FILE; reads back `context.cmake` = RIG_NAME/BOARD/SHIELDS);
+  TAIL drives shield Kconfig over RIG_SHIELDS (sets SHIELD_AS_LIST, collects each
+  shield's `.conf`, DROPS `.overlay` — expander owns DT); appends the rig's
+  `rig.conf` to OVERLAY_CONFIG. `-DRIG` resolves via `scripts/list_rigs.py`.
+- Shields = folders `boards/shields/<name>/{<name>.shield, shield.yml
+  (template:true), Kconfig.shield (+defconfig)}` — discovered by list_shields.py.
+- Rigs = folders `boards/rigs/<name>/{rig.yml, rig.conf}` — discovered by
+  `scripts/list_rigs.py` (mirrors list_shields.py).
+- Expander `scripts/rigexp/` (+ Bridge-A board models in
+  `scripts/rigexp/common-dts/boards/`); R2 checker `scripts/dts_equiv.py`.
+
+**3a verified.** s1 / s5-temp-farm / s4b-sockets full-compile & link with the
+shield DRIVERS built (rtc_pcf8523, sdhc_spi, spi_nor, hts221); s2-wifi-logger +
+s4b-dup-addr reject at configure (phys-net / phys-addr); legacy `--shield` path
+unaffected. s2-wifi-logger-ok: winc1500 driver compiles but a full LINK needs
+app-level net config (entropy/IPv4) — deferred.
+
+**3b DONE (2026-07-22).** `frdm_k64f_btr` clone; shields `arduino_uno_click`
+(carrier), `eth_click`, `i2c_mux` (ti,tca9548a), `i2c_sensor`. Rigs: `frdm-eth-nest`
+(S6 accept, full link), `frdm-cs-clash` (S6 reject phys-cs), `nucleo-mux-farm`
+(S8 accept, full link), `nucleo-mux-clash` (S8 reject phys-addr). Required an
+emitter fix (`ae4f62b`): synthesized carrier nexuses now carry gpio-map-mask/
+pass-thru (real edtlib rejected the flags mismatch — first nested-carrier rig).
+
+**3c DONE (2026-07-22).** `seeeduino_lotus_btr` clone (from bridle); connector
+binding `grove.yaml` + index header; shields `grove_servo`/`grove_light`/
+`grove_btn`/`grove_led`. **Board cleanup (`a46cec9` lotus, `b02bdc7`
+nucleo/frdm/quail):** ALL clones now describe each connector ONCE, via the typed
+`socket,*` nodes — the legacy per-connector nexus nodes (bridle grove/arduino,
+st_morpho, mikrobus_N_header, edge_header + the mikrobus_*/skd stubs) were
+dropped as unreferenced duplication. Load-bearing bus config (status/pinctrl,
+frdm's onboard fxos8700, quail's SPI3 flash) was KEPT. Typed sockets point at
+the real controllers directly, so no legacy alias is needed. Rigs:
+`lotus-pwm` (accept, full link), `lotus-pwm-clash` (reject phys-channel),
+`lotus-buttons` (accept, full link). Required TWO mechanics changes: emitter
+`_collection_entry` now carries collected devices' passthrough props (`afe5857`,
+so `zephyr,code` reaches the gpio-keys overlay), and rig.cmake now appends a
+rig-authored **`rig.overlay`** to EXTRA_DTC_OVERLAY_FILE (`a980947`) — the DT
+counterpart of rig.conf — so `lotus-pwm/rig.overlay` supplies the real
+PA14/TCC0-WO4 pinmux the expander can't author (R21 deep half). GOTCHA learned:
+never put a `*-map`-named prop (socket,pwm-map/adc-map) on a REAL board node —
+edtlib treats any `*-map` as a nexus needing `#<name>-cells`; the emitter emits
+fully-resolved `pwms`/`io-channels` to `&tcc0`/`&adc0` directly instead.
+
+**NEXT — pick up here: the Bridge-A deconstruction / edtlib rewrite.** It is
+fully DESIGNED, both spikes VALIDATED, and the 18 saferails agreed — the full
+spec + saferails are in `implementation-plan.md` (the "Bridge-A deconstruction /
+edtlib rewrite" block in the hardening section). Retires `scripts/rigexp/
+common-dts/{boards,bindings}`; pass 1 reads the REAL board DT + bindings via
+`edtlib.EDT`. Phases (each validated against the corpus): (1) `boarddt`→edtlib EDT
+of the real board [nucleo spike ✓, cross-checked vs pass-2 `edt.pickle`]; (2)
+PWM/ADC as standard `pwm-map`/`io-channel-map` nexuses on the real socket [lotus
+spike ✓; validated nexus diff + the edtlib EDT-construction recipe/compare scripts
+preserved in `claude/rigs/spikes/` (lotus2a-*, nucleo-*)] — COUPLED to
+(3) because the connector binding must DECLARE those nexus props; (3) connector-
+type extensions → `dts/bindings/connector/X.yaml`, read via `edtlib.Binding.raw`;
+(4) drop `dtsio` hand-rolled cpp/dtlib per P0.
+
+**START WITH: freeze the goldens** (saferail #1) — a small harness that runs every
+3a/3b/3c rig and captures overlay + verdict + diagnostics as committed fixtures
+(follow the `tests/test_edtlib.py` pytest template; that's also the seed for the
+rigexp unit-tests + twister). Safe, self-contained, touches no expander code.
+Then work the phases per the saferails: per-board (nucleo→quail→frdm→lotus),
+per-phase, SHADOW dual-read (common-dts vs edtlib, assert-equal) before flipping,
+`model.py` frozen, consume-edtlib-zero-patch, and the upstreaming rules (minimal
+footprint, edtlib idioms + mypy, BSD-3 reader / Apache product split).
+
+**Also remaining (lower priority):** upstream integration (parked twister-as-
+platform; `rig-`/`.rig.` naming sweep + landing sequence in `parked.md`; the
+**guarded legacy-compat layer** — `#ifndef RIG_BUILD` compat .dtsi, design in
+`implementation-plan.md` Parked; its auto-synthesis variant rides on rewrite
+step 1); and the deferred items just below.
+
+PARKED (moved OUT of the downstream P3 push, 2026-07-22): **twister harness.**
+Making twister run the corpus means teaching `testcase.yaml` to accept a RIG as
+a platform — that lives in Zephyr's twister/platform layer, so it is NOT
+solvable downstream. Park it against the **upstream-integration** milestone
+(do it just before/after upstream landing). Until then the regression net is
+`frontend-trial/scripts/run_trials.py` (accept/reject oracle) + per-rig
+`west build-rig` accept/reject checks. See `implementation-plan.md` Test/CI.
+Deferred (tracked in memory + `implementation-plan.md`): LED-merge aggregation
+(via `.cmake` post-`dts` inheritance), s2 networking, **Kconfig.rig** (rig folders
+are ready for it), and rigexp Python review & unit tests. The **de-hardcode /
+assumption audit is DONE (2026-07-22)** — see the "Since 3a" note below.
+
+**Since 3a (2026-07-22) — mechanics hardening (committed).**
+- `west build-rig <rig> <app>`: app source dir is now REQUIRED (no scenario-1
+  default; positional or `-s`), and `--rig` resolves by the rig.yml `rig.name`
+  (not the folder basename), matching board/shield convention.
+- New `west rigs` command (lists rigs; `-f`/`-n`/`--board-root`, like `west shields`).
+- **De-hardcode audit complete**: `RIG_EXPAND_PYTHON`→`PYTHON_EXECUTABLE`;
+  `RIG_EXPAND_SHIELD_DIR` gone → shields discovered from every `BOARD_ROOT`'s
+  `boards/shields`; `dtsio.py`/`dts_equiv.py` dtlib paths ← `$ZEPHYR_BASE`;
+  `rig.py` self-locates (`parents[2]`); zephyr tree ← `--zephyr-base` > west
+  config `zephyr.base` > discovery (no `zephyr-rigs` literal, ambient
+  `$ZEPHYR_BASE` ignored). No `/wrk` literals left in mechanics code.
+- **NOT done (deliberately deferred to the edtlib rewrite / P0):** the expander
+  still reads board models + connector bindings from its bundled
+  `scripts/rigexp/common-dts/{boards,bindings}` (Bridge-A). Retire that by
+  building on `edtlib.EDT` (reads real board DT/bindings from the board_root) —
+  bundle with the rigexp code-review + unit-test item, after/with 3b/3c. NOTE:
+  the "unused" bundled board models (`frdm_k64f`, `seeeduino_lotus`, `cytron_*`)
+  are pre-staged content for 3b/3c — do not delete.
+
+**Gotchas.** Build against zephyr-rigs — `build-rig` resolves it from west config
+`zephyr.base` (override with `--zephyr-base`); it ignores the profile's ambient
+`$ZEPHYR_BASE` (= plain `zephyr`, the wrong tree). Rebuild goldens fresh before an
+R2 diff (a stale golden once gave a spurious 124-vs-129). The shield-discovery
+glob must be `<dir>/<basename>.shield` (Kconfig.shield also ends in ".shield").
+**Shield identity** = shield.yml `name:`; **rig identity** = rig.yml `rig.name:`
+(both may differ from the folder basename — e.g. rig folder `s1` → name
+`nucleo-datalogger`). Naming: shields underscored (adafruit_data_logger, etc.).
+
+**Docs.** `implementation-plan.md` (phases + the post-slice hardening block);
+`P3-brief.md` (3a detail — NOTE its Kconfig section is superseded by the
+shield-folder model, see memory); `P2-brief.md` / `P2-S1-equivalence.md` (P2
+record). Full running detail in the auto-memory `project_zephyr_rigs.md`.
+
+---
+
+Everything below is the earlier P2 / P3-staging record.
+
+---
+
+## RESUME (2026-07-21b) — P2 in flight
+
+P2 hand-off brief written: **`P2-brief.md`** (the authoritative build sheet for
+the S1 walking skeleton — read it first for P2). Downstream tree decided:
+**`/wrk/z/ws-up/btr-shields/`** (named to avoid the "rigs" clash), board cloned
+under new id `nucleo_f401re_btr`, `.shield` + rig files owned in-tree, our own
+app at `btr-shields/app/s1-app`, cache-var delivery (BOARD_ROOT/DTS_ROOT), no
+bridle edits (per-app `ZephyrAppConfiguration` seam), builds against
+`zephyr-rigs` (`export ZEPHYR_BASE=/wrk/z/ws-up/zephyr-rigs`). O1–O5 resolved in
+the brief.
+
+Tasks **T1** (rigexp `expand` CLI), **T2** (clone board/shield/bindings +
+s1.rig.yml), **T3** (ZephyrApp cmake seam) ran as parallel sonnet sub-agents —
+**all three PASS**. Gate cleared with two decisions:
+- **Bridge-A** (board-model seam): the prototype expander learns board sockets
+  from `rigexp/common-dts/boards/<board>.rig.dtsi`, which was missing/misnamed
+  for the clone. Added `nucleo_f401re_btr.rig.dtsi` mirroring T2's real socket
+  node (full 22 positions, `nucleo_ard`, i2c1/spi1, stackable). **Temporary
+  duplication** (real board DT + expander model) — retire when the edtlib real
+  expander reads the actual board DT (P0 direction). Real `s1.rig.yml` now
+  expands byte-identical to the trial oracle (modulo board name).
+- **CLI hardening**: `rigexp/cli.py` now abspaths rig/shield-dir/out-dir — a
+  relative `--shield-dir` produced an unresolvable `#include` from the temp
+  workdir; the cmake seam runs from the build dir, so this would have bitten T5.
+
+Build tasks **T4/T5/T6** ran (one sonnet sub-agent). **P2 walking-skeleton
+milestone MET:** legacy path 134/134 nodes match (regression net solid); rig
+spike builds through the seam; **S1 R2 equivalence met** — 129 nodes identical,
+3 justified divergences (typed-socket reference targets with *identical pins*;
+Conv. 8 rtc alias out of scope), one **deferred** gap (shield LEDs land in
+`/gpio_leds` vs board `/leds` — P3 aggregation slice, deferred with Tobi's OK).
+Emitter gained `status="okay"` + auto `sdmmc-disk` child (closed the 2 enumerated
+S1 gaps). Result recorded in **`P2-S1-equivalence.md`**.
+
+**Layout restructured to upstream conventions** (Tobi): `btr-shields/` now has
+`boards/shields/`, `boards/rigs/`, `scripts/rigexp/` (+ `scripts/dts_equiv.py`),
+`samples/rigs/scenario-1/` (the app + `ZephyrAppConfig.cmake`). Seam + CLI
+re-verified green after the move; upstream `zephyr-rigs` pristine.
+
+**btr-shields promoted to a PROPER Zephyr module + `west rig` UI** (Tobi):
+`zephyr/module.yml` (`board_root`/`dts_root: .`) + `cmake/rig_expand.cmake`
+(seam logic extracted into a self-locating `rig_expand()`; AppConfig just puts
+`cmake/` on `CMAKE_MODULE_PATH` and calls it). Registered via a west
+**submanifest project** `zephyr/submanifests/btr-shields.yaml` — that one entry
+both (a) auto-discovers btr-shields as a Zephyr module (board_root → no
+`-DBOARD_ROOT`/`-DDTS_ROOT`, no `EXTRA_ZEPHYR_MODULES`) and (b) registers the
+`west rig` extension (west loads west-commands from the working tree). The whole
+invocation is now just:
+```
+west rig s1              # infers board, forces ZEPHYR_BASE=zephyr-rigs, runs the seam
+```
+(`--cmake-only`/`-p`/`-d`/`--app`/`--zephyr-base` supported; extra `-D…` pass through.)
+Verified: board inferred, module auto-discovered, built vs zephyr-rigs, 129-node
+equivalence unchanged, `zephyr-rigs` pristine.
+
+UPDATE: Tobi made btr-shields a **manifest repo** (`btr-shields/west.yml` imports
+zephyr + `self.west-commands`; `.west/config` manifest.path=btr-shields) — so the
+zephyr submanifest hack was reverted (zephyr checkout clean again).
+
+Front door is now **`west build-rig --rig s1`** — a subclass of zephyr's `Build`
+(full build UX + `--rig`), forcing `ZEPHYR_BASE=zephyr-rigs`. The monkey-patch of
+`west build` (venv `.pth`) was tried and REVERTED (too fragile/global).
+
+**zephyr-rigs commit `904e8fe7e63`**: `module.yml` gains `build: cmake-modules:
+<dir>` → prepends `<dir>` to CMAKE_MODULE_PATH + auto-includes `<dir>/default.cmake`
+(before boards/dts/kconfig/soc). btr-shields wires `cmake-modules: cmake`.
+**DONE: the seam now lives in `btr-shields/cmake/default.cmake`** (auto-included,
+module-global, `if(DEFINED RIG) rig_expand(RIG)`), and **`ZephyrAppConfig.cmake`
+is RETIRED**. Verified: build-rig works via default.cmake, equivalence 129, plain
+builds (no --rig) are a clean no-op. rig_expand() still in `cmake/rig_expand.cmake`.
+GOTCHA: `zephyr.base` config doesn't stick (manifest `zephyr` project → path
+`zephyr`); explicit ZEPHYR_BASE env wins. Rebuild goldens fresh on zephyr-rigs
+before diffing (stale golden once gave a spurious 124-vs-129).
+
+CAUTION LEARNED: never store durable artifacts inside a `west build -d` dir —
+`-p always` wipes them (lost the first equivalence normaliser/writeup that way;
+now in the source tree). Build dirs used: `build-rig/proposal/{S1,
+S1-legacy-upstream,S1-legacy-clone}`.
+
+**Next: P3** — slice 3a (allocation + Kconfig manifest) per `implementation-plan.md`;
+the LED-merge aggregation gap rides along in 3a.
+
+## RESUME (2026-07-21) — prototype done, entering implementation
+
+Prototype phase COMPLETE (S1–S8 + bridle port + PWM/ADC; 20 rigs green in
+`frontend-trial/scripts/`, `python3 run_trials.py [--rig NAME]`). Real-impl
+plan written: **`implementation-plan.md`** — read it first. Additive-first;
+a driver agent delegates phases to sub-agents (**run sub-agents on sonnet**),
+human review between phases; P0∥P1 parallel.
+
+- **P0 (reuse-boundary, dtlib/edtlib) — DONE**, outcome recorded in
+  `implementation-plan.md` §P0: build the real expander on `edtlib.EDT`,
+  consume-don't-patch, keep model/analyzer/emitter new.
+- **P1 (integration seam) — DONE**, outcome recorded in `implementation-plan.md`
+  §P1: **downstream module, zero upstream edits**; bridle's
+  `ZephyrBuildConfiguration` hook runs an early cmake module before `dts` →
+  `execute_process(expander)` → `set(EXTRA_DTC_OVERLAY_FILE …)`. Prereq: add a
+  `python -m rigexp expand` CLI.
+
+Both P0 and P1 are complete (ran on the default model this session). The fresh
+session goes straight to **P2 — the S1 walking skeleton + the P1 spike**
+(build a sample with `-DRIG=s1`, confirm the overlay is ingested and the shield
+nodes land in `zephyr.dts`). **Run all future sub-agents on sonnet** (Agent
+tool `model: sonnet`) per the plan's execution model.
+
+---
+
+Older pick-up notes (design/pushback phase) below; superseded by the plan.
+
+## Where we are
+
+Design is settled through three pushback rounds. The rig model: rigs are a
+**third build-system entity** (self-contained, `west build --rig <name>`, no
+`-b`); connector types are **bindings + dt-bindings index header** (no type
+devicetree); shields are DT-shaped templates with a local **plug node**, bus
+membership by parentage, and the **address authority rule** (shield declares
+domains via `shield,addr-from`/`shield,domain`; rig file owns selections;
+expander is sole author of `reg`+unit-address pairs). Boards opt in with
+typed socket nodes **in their own DT** (real phandles, legacy labels for
+migration — no shim; legacy `-b`/`--shield` path must never break). Front-end
+verdict candidate #1 (pure DTS) vs #2 (rig.yml hybrid) is **deliberately
+open** — decided by loader error-quality comparison in the prototype.
+
+## Artifact map (all under /wrk/z/ws-up/claude/rigs/)
+
+| File | What |
+|---|---|
+| `design-log.md` | decision ledger incl. all pushback rounds — the "why" record |
+| `requirements.md` | R1–R27 consolidated into 6 concepts; compatibility scope |
+| `ontology.md` | nouns + relations + projection principle + bus stress test (A1–A6) |
+| `architecture.md` | **toolchain terms** — loader / rig model / expander (analyzer+emitter), Zephyr seam |
+| `implementation-plan.md` | **real-impl plan** — phases P0∥P1 → P2 → P3; prototype phase is DONE |
+| `conventions.md` | **v4 front-end spec** — read after this file |
+| `rig-dt-syntax.md` | syntax reference — all 4 layers (rig.yml / shield,* / socket,* / bindings) |
+| `frontend-trial/FIDELITY.md` | S1 R2 equivalence result (overlay-level) |
+| `rig-playbook.md` | scenarios S1–S8 with verified baselines |
+| `parked.md` | consciously postponed work (CAN pass, Kconfig, multi-board…) |
+| `frontend-trial/` | normative example files, both candidates + `EVALUATION.md` |
+| `diagrams/` | graphviz sources+SVGs; atlas artifact: https://claude.ai/code/artifact/9dc7b621-f012-4703-b340-6729815d7595 |
+| `/wrk/z/ws-up/build-rig/upstream/S*` | verified cmake-only baselines (S1–S6) |
+
+Zephyr worktree: `/wrk/z/ws-up/zephyr-rigs` (branch zephyr-rigs @ origin/main,
+clean). Workspace west modules were synced by Tobi (full module set builds).
+
+## Immediate next steps (agreed order)
+
+1. ~~**`s3-stacked-loggers` trial piece**~~ **DONE 2026-07-19** — authored in
+   both candidates, smoke-tested (CPP + dtlib clean, phandles resolve, YAML
+   parses); expansion contract (accepts E1/E2/W1 table) recorded in
+   `frontend-trial/EVALUATION.md` §"S3 seeded-error showcase". Superseded v1
+   `common-dts/rig-types/` + `templates/` removed.
+2. ~~**Expander prototype**~~ **DONE 2026-07-19** — `frontend-trial/scripts/`
+   (rigexp package + run_trials.py; 6 seeded mistakes). **Front-end verdict:
+   candidate #2 (rig.yml)** — recorded with evidence in EVALUATION.md,
+   decisive finding: stock dtlib's free reference errors carry no file:line
+   for cell-value refs; the hand-built YAML resolver beats them.
+   **Ratification by Tobi pending**, then rewrite conventions.md around
+   rig.yml. Flagged stopgap: device gpio roles are name-inferred (R23
+   authoring gap; solve with the drive-type refinement).
+3. ~~**Conventions rewrite around rig.yml**~~ **DONE 2026-07-20** — verdict
+   ratified; conventions.md now v4 (rig.yml is THE front-end, candidate #1
+   retired to git history; Conv. 8 folded in; two source artifacts +
+   per-shield-TU as Ground rule 3). S7 gained
+   `candidate-2-hybrid/s7-sqw-counter.rig.overlay` (Conv. 8 alias example,
+   label-consistency verified). Ground rule 3 (per-shield translation units)
+   **implemented 2026-07-21** — the candidate-2 loader parses each `.shield`
+   as its own TU, so labels are shield-scoped (grove-led and grove-light both
+   use `gl_plug`, no collision); prefix discipline no longer required.
+4. **S1 fidelity milestone**: port = data-logger shield already exists in the
+   trial; write the S1 rig, expand, build with the generated overlay into
+   `build-rig/proposal/S1`, diff `zephyr.dts` against
+   `build-rig/upstream/S1` (R2 — equivalence, not byte-identity: labels may
+   differ).
+5. ~~S5 allocation against the golden sketch~~ — effectively verified by the
+   prototype (byte-level golden match + R18/R7 order-independence, see
+   EVALUATION.md); revisit only if the S1 build path changes the emitter.
+
+## Smoke-test command (re-verify trial after any edit)
+
+```sh
+cd /wrk/z/ws-up/claude/rigs/frontend-trial
+gcc -E -x assembler-with-cpp -nostdinc -I /wrk/z/ws-up/zephyr-rigs/include \
+  -I common-dts/include -undef -D__DTS__ candidate-1-dts/<file>.rig.dts -o /tmp/x.pre.dts
+# then: dtlib.DT("/tmp/x.pre.dts") using
+# /wrk/z/ws-up/zephyr-rigs/scripts/dts/python-devicetree/src
+```
+
+Gotchas learned: top-level `/name/ {}` is invalid DTS (nest under `/ {}`);
+dtlib lowercases unit-addresses; zsh does not word-split unquoted `$FLAGS`.
+
+## Open questions parked, not forgotten
+
+See `parked.md`. The two most likely to bite during the prototype: Kconfig
+handling for instantiated shields, and the aliases/`chosen` naming policy
+(R10) — both fine to stub with TODOs.

@@ -1,0 +1,37 @@
+// S2 — Two different shields on one shared SPI bus: three collision classes
+digraph S2 {
+  rankdir=TB;
+  fontname="Helvetica"; fontsize=12; bgcolor="white";
+  node [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="white", color="#546E7A"];
+  edge [fontname="Helvetica", fontsize=9, color="#546E7A", dir=none];
+
+  subgraph cluster_dl {
+    label="Data Logger shield"; style="rounded,filled"; fillcolor="#E7F2E9"; color="#4C8A57"; fontcolor="#2F5E38";
+    rtc [label="PCF8523 RTC\n@0x68"];
+    sd  [label="SD card\nsdhc@0", color="#C62828", penwidth=2];
+  }
+
+  subgraph cluster_wifi {
+    label="WINC1500 WiFi shield"; style="rounded,filled"; fillcolor="#E7F2E9"; color="#4C8A57"; fontcolor="#2F5E38";
+    winc [label="WINC1500\nwinc1500@0", color="#C62828", penwidth=2];
+  }
+
+  subgraph cluster_board {
+    label="Nucleo-F401RE"; style="rounded,filled"; fillcolor="#E8EEF7"; color="#5B7DB1"; fontcolor="#33517E";
+    hdr [label="arduino_header", fillcolor="#FFE3C2", color="#C97F2C"];
+    i2c [label="i2c1 (arduino_i2c)", fillcolor="#EBEBEB", color="#555555"];
+    spi [label="spi1 (arduino_spi)\ncs-gpios: LAST SHIELD WINS", fillcolor="#EBEBEB", color="#C62828", fontcolor="#C62828"];
+  }
+
+  rtc  -> i2c  [label="0x68"];
+  sd   -> spi  [label="reg 0", color="#C62828", fontcolor="#C62828", penwidth=2];
+  winc -> spi  [label="reg 0", color="#C62828", fontcolor="#C62828", penwidth=2];
+  sd   -> hdr  [label="CS D10 (ACTIVE_LOW)", color="#C62828", fontcolor="#C62828", style=dashed];
+  winc -> hdr  [label="CS D10 (flags 0!)", color="#C62828", fontcolor="#C62828", style=dashed];
+  rtc  -> hdr  [label="INT D7", color="#C62828", fontcolor="#C62828", style=dashed];
+  winc -> hdr  [label="IRQ D7", color="#C62828", fontcolor="#C62828", style=dashed];
+  winc -> hdr  [label="RST D5 / EN D6"];
+
+  legend [shape=plaintext, style="", fillcolor="white", fontcolor="#C62828", fontsize=10,
+    label="A: cs-gpios clobbered (silent)\nB: reg 0 twice (1 warning)\nC: D7 double-booked (silent)"];
+}

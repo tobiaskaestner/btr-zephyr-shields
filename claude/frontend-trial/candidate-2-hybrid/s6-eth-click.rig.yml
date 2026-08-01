@@ -1,0 +1,24 @@
+# S6 (realizable) — nested composition (R19). NXP FRDM-K64F + Arduino UNO
+# Click adapter (carrier exposing two mikroBUS sockets) + two ETH Clicks, one
+# per adapter socket. Today (verified, build-rig/upstream/S6): works once, by
+# coincidence — the click assumes CS index 0 and it happens to line up through
+# adapter copper + SoC pinmux, verified nowhere.
+#
+# Here the chain is explicit: each click's SPI resolves to the host's spi0
+# (passed through the adapter), and each mikroBUS CS resolves through the
+# adapter to the host's Arduino CS pin (mb1 -> D10 -> PTD0; mb2 -> D9). The two
+# clicks share spi0 and get distinct, allocated CS indices (R4 through R19).
+
+rig:
+  name: frdm-eth-nest
+  board: frdm_k64f
+  instances:
+    - name: adapter_1
+      shield: arduino-uno-click
+      socket: frdm_ard               # the carrier plugs the host Arduino socket
+    - name: eth_1
+      shield: eth-click
+      socket: adapter_1.mb1          # nested: carrier instance . exposed socket
+    - name: eth_2
+      shield: eth-click
+      socket: adapter_1.mb2

@@ -1,0 +1,22 @@
+/* Grove module: button (S4-a). Digital module; drives a button-press
+ * interrupt out on its SIG1 pin (device output = driver). Placed with the PIR
+ * such that their board-side pins alias the same SoC net — the R13 case. */
+
+#include <dt-bindings/connector/grove.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/ {
+	rig-shields {
+		grove_button: grove-button {
+			shield,plugs = "grove";
+			gbtn_plug: plug { #gpio-cells = <2>; };
+
+			gpio {
+				gbtn_out: button {
+					compatible = "vnd,grove-button";
+					int-gpios = <&gbtn_plug GROVE_SIG1 GPIO_ACTIVE_HIGH>;
+				};
+			};
+		};
+	};
+};

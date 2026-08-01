@@ -1,0 +1,24 @@
+/* Grove module: Servo (PWM). Uses the Grove signal pin as PWM (Slice A): the
+ * `pwms` property targets the plug in the PWM function (#pwm-cells = 3:
+ * position, period, flags); the expander resolves the position through the
+ * socket's pwm-map to a (timer, channel), emits the resolved `pwms`, enables
+ * the timer, and notes the board pin-mux. */
+
+#include <dt-bindings/connector/grove.h>
+#include <zephyr/dt-bindings/pwm/pwm.h>
+
+/ {
+	rig-shields {
+		grove_servo: grove-servo {
+			shield,plugs = "grove";
+			gsv_plug: plug { #gpio-cells = <2>; #pwm-cells = <3>; };
+
+			pwm {
+				servo: servo {
+					compatible = "vnd,pwm-servo";
+					pwms = <&gsv_plug GROVE_SIG0 20000000 PWM_POLARITY_NORMAL>;	/* 20 ms */
+				};
+			};
+		};
+	};
+};

@@ -1,0 +1,35 @@
+/* S5 test piece — candidate #1 (pure valid-DTS), post-pushback shape.
+ * Rig source includes connector types + shields only. Board sockets live in
+ * the BOARD's DT (boards/mikroe_quail.rig.dtsi); cross-tree references are
+ * name strings — in-tree references stay phandles.
+ */
+
+/dts-v1/;
+
+#include "../common-dts/shields/flash-click.shield"
+#include "../common-dts/shields/temp-click.shield"
+
+/ {
+	rig {
+		rig,name = "quail-temp-farm";
+		rig,board = "mikroe_quail";
+
+		flash_a: instance@0 {
+			rig,shield = <&flash_click>;
+			rig,socket = "quail_sock1";
+		};
+		flash_b: instance@1 {
+			rig,shield = <&flash_click>;
+			rig,socket = "quail_sock2";
+		};
+		temp_a: instance@2 {
+			rig,shield = <&temp_click>;
+			rig,socket = "quail_sock3";
+		};
+		temp_b: instance@3 {
+			rig,shield = <&temp_click>;
+			rig,socket = "quail_sock4";
+			rig,pin = <&tc_addr_strap 0x49>;	/* pinned (R18) */
+		};
+	};
+};

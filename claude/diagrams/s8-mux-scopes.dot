@@ -1,0 +1,50 @@
+// S8 — Active interposer: I2C mux creates per-channel address scopes; 4x same fixed address becomes legal
+digraph S8 {
+  rankdir=TB;
+  fontname="Helvetica"; fontsize=12; bgcolor="white";
+  node [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="white", color="#546E7A"];
+  edge [fontname="Helvetica", fontsize=9, color="#546E7A", dir=none];
+
+  subgraph cluster_board {
+    label="host board"; style="rounded,filled"; fillcolor="#E8EEF7"; color="#5B7DB1"; fontcolor="#33517E";
+    i2c1 [label="i2c1 — parent scope", fillcolor="#EBEBEB", color="#555555"];
+  }
+
+  subgraph cluster_mux {
+    label="I2C Mux Shield (hypothetical; target DT structure = in-tree ti,tca9548a, cf. imx943_evk)";
+    style="rounded,filled"; fillcolor="#FBF3DF"; color="#C79A3B"; fontcolor="#7A5C1E";
+    mux [label="TCA9548A\n@0x70 — claims addr on PARENT scope"];
+
+    subgraph cluster_ch0 {
+      label="channel 0 = new scope"; style="dashed,rounded"; color="#6A3FA0"; fontcolor="#6A3FA0";
+      c0 [label="mux_i2c@0", fillcolor="#EBEBEB", color="#555555"];
+    }
+    subgraph cluster_ch1 {
+      label="channel 1 = new scope"; style="dashed,rounded"; color="#6A3FA0"; fontcolor="#6A3FA0";
+      c1 [label="mux_i2c@1", fillcolor="#EBEBEB", color="#555555"];
+    }
+    subgraph cluster_ch2 {
+      label="channel 2 = new scope"; style="dashed,rounded"; color="#6A3FA0"; fontcolor="#6A3FA0";
+      c2 [label="mux_i2c@2", fillcolor="#EBEBEB", color="#555555"];
+    }
+    subgraph cluster_ch3 {
+      label="channel 3 = new scope"; style="dashed,rounded"; color="#6A3FA0"; fontcolor="#6A3FA0";
+      c3 [label="mux_i2c@3", fillcolor="#EBEBEB", color="#555555"];
+    }
+    mux -> c0 [style=dotted]; mux -> c1 [style=dotted]; mux -> c2 [style=dotted]; mux -> c3 [style=dotted];
+  }
+
+  s0 [label="sensor@48", fillcolor="#E7F2E9", color="#4C8A57"];
+  s1 [label="sensor@48", fillcolor="#E7F2E9", color="#4C8A57"];
+  s2 [label="sensor@48", fillcolor="#E7F2E9", color="#4C8A57"];
+  s3 [label="sensor@48", fillcolor="#E7F2E9", color="#4C8A57"];
+
+  mux -> i2c1 [label="0x70"];
+  s0 -> c0 [label="0x48", color="#2E7D32", fontcolor="#2E7D32"];
+  s1 -> c1 [label="0x48", color="#2E7D32", fontcolor="#2E7D32"];
+  s2 -> c2 [label="0x48", color="#2E7D32", fontcolor="#2E7D32"];
+  s3 -> c3 [label="0x48", color="#2E7D32", fontcolor="#2E7D32"];
+
+  note [shape=note, fillcolor="#FFF8DC", color="#C79A3B",
+    label="same fixed address x4 — LEGAL, one per scope\n(S3's impossible topology, made realizable)\nchannel assignment -> configuration sheet"];
+}

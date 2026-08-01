@@ -1,0 +1,34 @@
+// S3 — The same shield twice: silent collapse into one instance
+digraph S3 {
+  rankdir=TB;
+  fontname="Helvetica"; fontsize=12; bgcolor="white";
+  node [fontname="Helvetica", fontsize=11, shape=box, style="rounded,filled", fillcolor="white", color="#546E7A"];
+  edge [fontname="Helvetica", fontsize=9, color="#546E7A", dir=none];
+
+  subgraph cluster_dl1 {
+    label="Data Logger #1"; style="rounded,filled"; fillcolor="#E7F2E9"; color="#4C8A57"; fontcolor="#2F5E38";
+    rtc1 [label="RTC @0x68"];
+    sd1  [label="SD sdhc@0"];
+  }
+
+  subgraph cluster_dl2 {
+    label="Data Logger #2 — REQUESTED, NEVER MATERIALIZES"; style="rounded,dashed"; color="#C62828"; fontcolor="#C62828";
+    rtc2 [label="RTC @0x68\n(fixed addr — physically\nimpossible on shared bus)", style="rounded,dashed", color="#C62828", fontcolor="#C62828"];
+    sd2  [label="SD sdhc@0", style="rounded,dashed", color="#C62828", fontcolor="#C62828"];
+  }
+
+  subgraph cluster_board {
+    label="Nucleo-F401RE"; style="rounded,filled"; fillcolor="#E8EEF7"; color="#5B7DB1"; fontcolor="#33517E";
+    i2c [label="i2c1 (arduino_i2c)", fillcolor="#EBEBEB", color="#555555"];
+    spi [label="spi1 (arduino_spi)", fillcolor="#EBEBEB", color="#555555"];
+  }
+
+  rtc1 -> i2c [label="0x68"];
+  sd1  -> spi [label="reg 0"];
+  rtc2 -> i2c [style=dashed, color="#C62828"];
+  sd2  -> spi [style=dashed, color="#C62828"];
+
+  collapse [shape=plaintext, style="", fillcolor="white", fontcolor="#C62828", fontsize=10,
+    label="merge-by-path: overlay applied twice = same nodes\nzero diagnostics, output byte-identical to one shield"];
+  collapse -> rtc2 [style=invis];
+}

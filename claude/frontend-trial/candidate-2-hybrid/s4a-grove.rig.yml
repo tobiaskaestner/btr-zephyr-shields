@@ -1,0 +1,18 @@
+# S4-a (realizable) — Cytron Maker Pi RP2040, seven Grove sockets. Today
+# (verified, build-rig/upstream/S4a): the board configures clean but NOTHING
+# can attach — a Grove shield overlay must hardcode one of seven socket labels,
+# so no in-tree Grove shields exist. The rig model attaches modules to socket
+# INSTANCES by name (R12), against machine-typed sockets (R11).
+#
+# Here the two modules sit in non-aliasing sockets -> distinct nets -> clean.
+
+rig:
+  name: makerpi-grove
+  board: cytron_maker_pi_rp2040
+  instances:
+    - name: motion_1
+      shield: grove-pir
+      socket: grove1                 # SIG0 -> gpio0 0
+    - name: button_1
+      shield: grove-button
+      socket: grove2                 # SIG1 -> gpio0 3

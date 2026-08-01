@@ -1,0 +1,6 @@
+# seeded mistake: instance references a misspelled shield (adafruit-data-loger).
+rig:
+  name: seeded-m1
+  board: nucleo_f401re
+  instances:
+    - { name: logger_1, shield: adafruit-data-loger, socket: nucleo_ard }

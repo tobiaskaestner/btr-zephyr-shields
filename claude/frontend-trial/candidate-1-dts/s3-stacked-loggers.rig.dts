@@ -1,0 +1,52 @@
+/* S3 test piece — candidate #1 (pure valid-DTS): the SEEDED-ERROR showcase.
+ * Two Data Logger shields stacked on the one Arduino socket (redundant
+ * logging, playbook S3). The rig SOURCE is well-formed on purpose — every
+ * problem below is physical, so it must surface at EXPANSION, worded at the
+ * copper level, never as a DT merge artifact (today: silent collapse,
+ * byte-identical to S1).
+ *
+ * Expansion contract for this rig:
+ *
+ * ACCEPT — mating: two consumers on one socket, arduino-r3 is stackable
+ *   (socket,stackable; net merge identical per instance).
+ * ACCEPT — LED nets D3/D4: per net 1 driver (MCU pin) + 2 listeners
+ *   (each instance's LED) -> legal net, R22.
+ *
+ * ERROR E1 (fatal) — address-set infeasible: rtc@68 has the 1-element
+ *   domain {0x68} (PCF8523, no address-select pins); 2 instances on ONE
+ *   i2c scope (nucleo_ard socket,i2c -> &i2c1). Expected wording names the
+ *   scope, both instances, and the fix space: second bus / i2c mux (S8) /
+ *   drop one RTC. (R9 rejection — never "node overwritten".)
+ *
+ * ERROR E2 (fatal) — CS pool infeasible: dl_sd CS is copper-fixed at D10
+ *   (shield,cs-position); 2 instances claim the SAME dedicated net D10 on
+ *   one socket stack. Pool has no freedom (copper-fixed beats the D10,D9,D8
+ *   candidate list). Expected wording: both claimants + "copper-fixed, no
+ *   jumper modeled".
+ *
+ * WARNING candidate (refinement, NOT an expected error) — both RTC INT1
+ *   endpoints drive D7: 2 drivers on one net is an R22 conflict, but INT is
+ *   open-drain (wired-AND) -> once roles carry a drive-type this becomes a
+ *   warning. Until then the prototype may emit it as a third error; noted in
+ *   EVALUATION.md as the drive-type-on-roles refinement.
+ */
+
+/dts-v1/;
+
+#include "../common-dts/shields/data-logger.shield"
+
+/ {
+	rig {
+		rig,name = "nucleo-stacked-loggers";
+		rig,board = "nucleo_f401re";
+
+		logger_a: instance@0 {
+			rig,shield = <&data_logger>;
+			rig,socket = "nucleo_ard";
+		};
+		logger_b: instance@1 {
+			rig,shield = <&data_logger>;
+			rig,socket = "nucleo_ard";	/* stacked mating — legal */
+		};
+	};
+};

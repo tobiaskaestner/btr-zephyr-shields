@@ -1,0 +1,6 @@
+# seeded mistake: socket names a socket the board does not have.
+rig:
+  name: seeded-m2
+  board: nucleo_f401re
+  instances:
+    - { name: logger_1, shield: adafruit-data-logger, socket: nucleo_arf }

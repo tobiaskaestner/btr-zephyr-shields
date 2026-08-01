@@ -1,0 +1,25 @@
+/* Shield: MikroE ETH Click (S6) — ENC28J60, SPI. Plain mikroBUS click; its
+ * CS is pool-allocated from the socket (mikroBUS dedicated CS position). When
+ * it sits on the adapter, the CS resolves through the two-level chain to the
+ * host board's Arduino CS pin (R19/R21).
+ */
+
+#include <dt-bindings/connector/mikrobus.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/ {
+	rig-shields {
+		eth_click: eth-click {
+			shield,plugs = "mikrobus";
+			eth_plug: plug { #gpio-cells = <2>; };
+
+			spi {
+				eth: eth {
+					compatible = "microchip,enc28j60";
+					spi-max-frequency = <20000000>;
+					int-gpios = <&eth_plug MIKROBUS_INT GPIO_ACTIVE_LOW>;
+				};
+			};
+		};
+	};
+};
