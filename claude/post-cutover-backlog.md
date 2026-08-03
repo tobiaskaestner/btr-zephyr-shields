@@ -76,24 +76,29 @@ All three are now CLOSED — two with no work to do, one implemented.
 
 ---
 
-## B. Unblocked by C2 — the item with real leverage
+## B. Unblocked by C2 — the item with real leverage (DONE)
 
-5. **LAZY SHIELD LIBRARY.** The scan eagerly cpp-parses EVERY discoverable
-   shield template (13 TUs for a rig referencing 2). It does not scale —
-   bridle is 19+ folders — and it is the root of both recorded warts: one
-   malformed shield poisons the whole scan, and deps record
-   scanned-but-unreferenced shields. Fix: keep discovery eager (folder walk
-   + `shield.yml`, cheap, preserves the known-shields census), defer the TU
-   parse to first reference, extending the path revisioned shields already
-   use.
+5. **CLOSED, LANDED 2026-08-03 (`c46fdc3`) — LAZY SHIELD LIBRARY.**
+   Discovery stays eager (folder walk + `shield.yml`, preserving the
+   known-shields census); the template parse defers to `resolve()`'s first
+   reference, generalising the path revisioned shields already used.
+   `nucleo_mux_farm` went from 14 shield TUs to 2. All three warts retired
+   together. Brief: `lazy-shield-library-brief.md`.
 
-   **C2 removed ONE of its two pins, not both.** RIG_DEPENDS breadth is no
-   longer a blocker — `context.cmake` compares that list as a SET now, so
-   the eager set is not frozen. But **scan-time diagnostic ORDER still is**:
-   broken shields report before rig-side diagnostics today, and
-   `stderr.txt` stays byte-exact permanently by owner ruling. So the slice
-   must either preserve diagnostic order or come with an explicit ruling to
-   refreeze the affected reject goldens.
+   The second pin was removed by ruling, not by engineering: **Tobi,
+   2026-08-03 — scan-time diagnostic ORDER need not be preserved, because
+   rigexp is no longer a point of reference.** `stderr.txt` stays
+   byte-exact; what changed is that its content may be re-derived when the
+   tool's own execution order changes for a good reason. In the event no
+   reject golden churned at all: the corpus's only scan-time template
+   diagnostic (`shield-node-name-mismatch`) belongs to a rig that DOES
+   reference the broken shield, so it still fires, from `resolve()`.
+
+   **Correction to this file's own earlier claim**: "RIG_DEPENDS breadth is
+   no longer a blocker — compared as a SET" was misleading.
+   `compare_context_cmake` compares it as a set with EXACT membership, so
+   breadth is order-free but not membership-free. The slice refroze 18
+   `context.cmake` files, one `RIG_DEPENDS` line each.
 
 ---
 
@@ -113,9 +118,9 @@ All three are now CLOSED — two with no work to do, one implemented.
 
 8. **Shield plurality** — pre-migration (`bridle-migration.md`).
 
-9. **BRIDLE MIGRATION** — the goal the whole mission serves. Do the lazy
-   shield library (item 4) first: bridle is what makes the eager scan
-   untenable.
+9. **BRIDLE MIGRATION** — the goal the whole mission serves. Its
+   prerequisite, the lazy shield library (item 5), is DONE: the eager scan
+   bridle would have made untenable is gone.
 
 10. **Board as an invocation coordinate** — "the board is no longer part of
    the rig definition." `board-as-invocation-coordinate.md`, design-log
@@ -183,6 +188,12 @@ All three are now CLOSED — two with no work to do, one implemented.
     comparator reads. Cosmetic; a one-shot rewrite is now free of
     consequence, and doing it removes a retired tool's name from the tree.
 
+    **Watch out**: `RIGC_REFREEZE=1` rewrites whole files, so ANY refreeze
+    silently performs this rewrite as a side effect. The lazy-shield-library
+    slice had to revert 40 such files (plus stale `zephyr.dts` line-number
+    annotations, item 27) to keep its own diff reviewable. Until this item
+    is done, classify every refreeze diff before committing it.
+
 21. `loader.load()`'s `types: Optional[dict]` was never tightened to
     `Dict[str, ConnectorType]` (noted at R5, pre-existing).
 
@@ -212,6 +223,16 @@ All three are now CLOSED — two with no work to do, one implemented.
 
 26. `refactor-tests-plan.md` **Part D** — fixture shield renames. Recorded
     as needing to stay separate from other work.
+
+27. **`zephyr.dts` goldens carry stale source-line annotations.** A refreeze
+    during the lazy-shield-library slice moved e.g.
+    `zephyr/dts/arm/atmel/samd2x.dtsi:37` to `:38` in `lotus_buttons` and
+    `lotus_pwm`. NOT zephyr drift — the checkout is exactly at the pin
+    `8da5b3a0f60`; these were frozen against an older tree and have been
+    invisible ever since because `dts_equiv` ignores comments. Harmless, but
+    it means those annotations cannot be trusted as provenance. Refreezing
+    them is a one-shot, and belongs with item 20 rather than riding along
+    with unrelated work.
 
 ---
 
