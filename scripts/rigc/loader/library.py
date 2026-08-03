@@ -14,12 +14,26 @@ parsed by `loader.axes.parse_axis_decl` -- the SAME `{default:, list:}`
 shape rig.yml's own axes use, reused rather than reimplemented (the two
 lang-schema shield-side flips come from this reuse for free).
 
-**Eager vs lazy**: no declared axis -> the base template parses at scan
-time; a declared axis -> parse is deferred to `resolve()`'s first
-selection of each revision (including the declared default) -- eagerly
-combining every declared revision regardless of use would do needless
-cpp/dtlib work and leak an unreferenced revision's path into dependency
-data.
+**Eager vs lazy**: discovery (the folder walk, the `<name>.shield`
+presence probe, `shield.yml`'s axis read) is ALWAYS eager -- it is cheap,
+has no subprocess, and is what builds the known-shields census
+`lang-instance-shield` prints. Parsing a template -- base or revision --
+never happens at scan time; every discovered shield is recorded as
+`_Pending` and its template parses on `resolve()`'s first reference,
+whether or not it declares a `revisions:` axis. Eagerly parsing every
+discovered shield regardless of use would do needless cpp/dtlib work (a
+rig referencing 2 of 14 discovered shields has no business preprocessing
+the other 12) and leak an unreferenced template's path into dependency
+data; eagerly combining every declared REVISION of a referenced shield
+would repeat the same mistake one level down, so that stays deferred to
+each revision's own first selection too.
+
+A base parse that fails (its template defines no node matching the
+folder name) is memoized in `ShieldLibrary.failed` so a second reference
+reports nothing new -- the scan-time echo this replaces fired exactly
+once by construction (one folder, one scan pass); a lazy re-parse per
+reference would otherwise re-run cpp and re-report the same defect once
+per referencing instance.
 
 **Diagnostics and dependency data are RETURN values** (mission brief Sec
 6, ratified ruling 3): `resolve()` never writes into an accumulator
@@ -35,7 +49,7 @@ import glob
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 from ..deps import Deps, touch, union
 from ..diag import Diagnostic, LoadError, SourceRef, error
@@ -55,23 +69,33 @@ SHIELDS_DIR = os.path.join(MODULE_ROOT, "boards", "shields")
 
 @dataclass(frozen=True)
 class _Pending:
-    """A shield whose base template has NOT been parsed yet (it declared
-    a revisions: axis) -- what `resolve()` needs to parse it lazily on
-    first selection."""
+    """A discovered shield whose template has NOT been parsed yet --
+    every discovered shield gets one of these, whether or not it
+    declares a `revisions:` axis. `decl` is `None` for an axis-less
+    shield (its base template is what `resolve()` parses on first bare
+    reference) or the parsed `AxisDecl` for a revisioned one (each
+    revision, including the declared default, parses on its own first
+    selection)."""
 
     shield_dir: str
     base_file: str
-    decl: AxisDecl
+    decl: Optional[AxisDecl]
 
 
 @dataclass
 class ShieldLibrary:
-    """Every discovered shield template, keyed for V1c revision
-    resolution: by the CONSTRUCTED stems rule 13 resolves against --
-    "<name>" (a revision-less shield, or a revisioned one's DEFAULT) and
-    "<name>@<rev>" (any declared revision, once resolved) -- never by the
-    `.shield` DT node name alone, which is IDENTICAL across a shield's own
-    revisions."""
+    """The discovered shield library. `axes` and `pending` name EVERY
+    discovered shield -- `axes` is the known-shields census a
+    lang-instance-shield diagnostic prints, `pending` is what each one
+    needs to parse itself on first reference -- while `shields` holds
+    only what has actually been PARSED so far, filled in by `resolve()`
+    as references arrive rather than by the scan.
+
+    `shields` is keyed for V1c revision resolution: by the CONSTRUCTED
+    stems rule 13 resolves against -- "<name>" (a revision-less shield,
+    or a revisioned one's DEFAULT) and "<name>@<rev>" (any declared
+    revision, once resolved) -- never by the `.shield` DT node name
+    alone, which is IDENTICAL across a shield's own revisions."""
 
     shields: Dict[str, Shield]
     axes: Dict[str, Optional[AxisDecl]]
@@ -80,23 +104,33 @@ class ShieldLibrary:
     types: Dict[str, ConnectorType]
     workdir: str
     include_dirs: Optional[List[str]] = None
+    #: Axis-less shields whose base parse has already failed once (a
+    #: template that defines no node matching its folder name) -- checked
+    #: before a second reference would re-run cpp and re-report the same
+    #: defect. `_resolve_revision`'s own failures are deliberately NOT
+    #: recorded here (see its docstring): this asymmetry is a decision,
+    #: not an oversight.
+    failed: Set[str] = field(default_factory=set)
 
     def resolve(self, ref: str, ctx: str, src: SourceRef,
                ) -> Tuple[Optional[Shield], List[Diagnostic], Deps]:
         """`<name>` or `<name>@<rev>` (rule 13's identical @rev grammar)
-        -> the Shield, parsing a not-yet-resolved revision on first use.
-        Mirrors `resolve_axis`'s three failure shapes (not declared at
-        all / not a member / no default), reported as lang-rev -- the
-        shield-side analogue of a qualified rig target's own axis
-        resolution -- plus lang-instance-shield for a name this library
-        never discovered at all. `ctx` names the caller (e.g. "instance
-        'sensor_0'") for that diagnostic's message.
+        -> the Shield, parsing a not-yet-parsed template on first use --
+        the base template of an axis-less shield exactly like a
+        revisioned shield's own selected revision. Mirrors
+        `resolve_axis`'s three failure shapes (not declared at all / not
+        a member / no default), reported as lang-rev -- the shield-side
+        analogue of a qualified rig target's own axis resolution -- plus
+        lang-instance-shield for a name this library never discovered at
+        all. `ctx` names the caller (e.g. "instance 'sensor_0'") for that
+        diagnostic's message.
 
         Returns (shield, diagnostics, deps); shield is None when
-        resolution failed (the diagnostics say why) or when the
-        scan already reported this template's defect. The library
-        memoizes resolved revisions in place -- its own cache, not
-        a shared accumulator; the caller owns diagnostics and
+        resolution failed (the diagnostics say why) or when this
+        shield's base parse already failed on an earlier reference (the
+        failure was reported then, silently now). The library memoizes
+        parsed shields (and axis-less parse failures) in place -- its own
+        cache, not a shared accumulator; the caller owns diagnostics and
         deps."""
         name, sep, rev = ref.partition("@")
         if name not in self.axes:
@@ -128,11 +162,19 @@ class ShieldLibrary:
         if name in self.shields:
             return self.shields[name], [], deps
         if decl is None:
-            # A shield with no declared axis is parsed EAGERLY -- a
-            # missing entry here means its template defined no shield
-            # node under this folder name, already reported by
-            # _pick_shield during the scan.
-            return None, [], deps
+            if name in self.failed:
+                return None, [], deps
+            pending = self.pending[name]
+            shield, parse_diags, pdeps = _parse_shield_template(
+                name, pending.base_file, [pending.base_file],
+                f"shield-{name}.dts", self.workdir, self.include_dirs,
+                self.types)
+            deps = union(deps, touch(pending.base_file), pdeps)
+            if shield is None:
+                self.failed.add(name)
+                return None, parse_diags, deps
+            self.shields[name] = shield
+            return shield, parse_diags, deps
         if decl.default is not None:
             shield, d, rdeps = self._resolve_revision(name, decl.default, decl, src)
             return shield, d, union(deps, rdeps)
@@ -146,6 +188,11 @@ class ShieldLibrary:
     def _resolve_revision(self, name: str, rev: str, decl: AxisDecl,
                           src: SourceRef,
                           ) -> Tuple[Optional[Shield], List[Diagnostic], Deps]:
+        """A single revision's own lazy parse -- deliberately UNMEMOIZED
+        on failure (unlike the axis-less base parse `resolve()` handles
+        directly): a bad revision is pre-existing behaviour that
+        re-reports on every reference, no golden distinguishes it, and
+        changing that is out of scope here."""
         key = f"{name}@{rev}"
         cached = self.shields.get(key)
         if cached is not None:
@@ -168,13 +215,19 @@ class ShieldLibrary:
                 f"{name}_{rev_norm}.conf, neither exists",
                 (src,))], frozenset()
         includes = [pending.base_file] + ([rev_file] if has_rev_file else [])
-        deps: Deps = touch(rev_file) if has_rev_file else frozenset()
-        dt = parse_tu(includes, self.workdir, f"shield-{name}-{rev_norm}.dts",
-                     self.include_dirs)
-        deps = union(deps, frozenset(source_files(dt, self.workdir)))
-        parsed, diags = parse_shields(dt, self.types)
-        shield, pd = _pick_shield(parsed, name, pending.base_file)
-        diags = diags + pd
+        # The base template is touched explicitly (not left to cpp
+        # linemarker recovery alone): a revision fragment that defines no
+        # node of its own still #includes the base, but a base that
+        # defined no node EITHER would otherwise drop out of
+        # dependency data entirely.
+        deps: Deps = touch(pending.base_file)
+        if has_rev_file:
+            deps = union(deps, touch(rev_file))
+        shield, diags, pdeps = _parse_shield_template(
+            name, pending.base_file, includes,
+            f"shield-{name}-{rev_norm}.dts", self.workdir, self.include_dirs,
+            self.types)
+        deps = union(deps, pdeps)
         if shield is None:
             return None, diags, deps
         shield.revisions = decl
@@ -183,6 +236,32 @@ class ShieldLibrary:
         if is_default:
             self.shields[name] = shield
         return shield, diags, deps
+
+
+def _parse_shield_template(name: str, template: str, includes: List[str],
+                          dts_name: str, workdir: str,
+                          include_dirs: Optional[List[str]],
+                          types: Dict[str, ConnectorType],
+                          ) -> Tuple[Optional[Shield], List[Diagnostic], Deps]:
+    """Build one shield translation unit (`parse_tu`) and pick its node
+    (`_pick_shield`) -- the parse body `resolve()`'s axis-less path and
+    `_resolve_revision` both need, factored so neither hand-duplicates
+    the cpp/dtlib wiring. May raise LoadError (a real cpp/dtlib failure);
+    callers decide whether that failure gets memoized.
+
+    Returns (shield, diagnostics, deps); shield is None only when the
+    template parsed but defined no node named `name` (`_pick_shield`'s
+    own diagnostic is included). `deps` are the real source files THIS
+    parse touched, recovered from cpp linemarkers (`source_files`) --
+    never `includes` themselves, since only the caller knows whether
+    those are a base template or a revision fragment and which of the
+    two dependency rules (Sec 2.3) applies."""
+    log.debug("shield library: parsing %s (%s)", name, os.path.basename(template))
+    dt = parse_tu(includes, workdir, dts_name, include_dirs)
+    deps = frozenset(source_files(dt, workdir))
+    parsed, diags = parse_shields(dt, types)
+    shield, pd = _pick_shield(parsed, name, template)
+    return shield, diags + pd, deps
 
 
 def _pick_shield(parsed: Dict[str, Shield], name: str, template: str,
@@ -240,9 +319,14 @@ def load_shield_library(workdir: str, shield_dirs: Optional[List[str]] = None,
     is checked against; None falls back to `registry.load_types()`.
 
     Returns (library, diagnostics, deps): the library, with every
-    axis-less shield already parsed and every revisioned one pending
-    lazy resolution; every scan-time finding in discovery order; and
-    every file the scan read. The caller owns all three."""
+    discovered shield recorded as pending -- NOTHING parsed yet,
+    regardless of whether it declares a `revisions:` axis; every
+    scan-time finding in discovery order (shield.yml's own `revisions:`
+    schema, the only diagnostic the scan itself can produce now); and
+    every file the scan actually READ (shield.yml when present, the
+    connector-type registry) -- a discovered `.shield` template is not
+    itself a dependency until something references it (Sec 2.3). The
+    caller owns all three."""
     diags: List[Diagnostic] = []
     deps: Deps = frozenset()
     if types is None:
@@ -268,28 +352,20 @@ def load_shield_library(workdir: str, shield_dirs: Optional[List[str]] = None,
                 base_file = os.path.join(shield_dir, name + ".shield")
                 if not os.path.isfile(base_file):
                     continue
-                deps = union(deps, touch(base_file))
+                # The template itself is NOT touched here (Sec 2.3): a
+                # rig depends on a discovered shield's translation unit
+                # only once something actually references it, recorded
+                # by resolve()/_resolve_revision at that point instead.
                 shield_yml = os.path.join(shield_dir, "shield.yml")
                 if os.path.isfile(shield_yml):
                     ymls[name] = shield_yml
                 decl, d = _load_shield_revisions(shield_dir)
                 diags += d
                 axes[name] = decl
-                if decl is None:
-                    dt = parse_tu([base_file], workdir, f"shield-{name}.dts",
-                                 include_dirs)
-                    deps = union(deps, frozenset(source_files(dt, workdir)))
-                    parsed, d = parse_shields(dt, types)
-                    diags += d
-                    shield, pd = _pick_shield(parsed, name, base_file)
-                    diags += pd
-                    if shield is not None:
-                        shields[name] = shield
-                else:
-                    pending[name] = _Pending(shield_dir, base_file, decl)
+                pending[name] = _Pending(shield_dir, base_file, decl)
     except LoadError as e:
         raise LoadError(*diags, *e.diags) from None
-    log.info("shield library: %d eager, %d pending", len(shields), len(pending))
+    log.info("shield library: %d shields discovered", len(pending))
     lib = ShieldLibrary(shields=shields, axes=axes, pending=pending,
                        ymls=ymls, types=types, workdir=workdir,
                        include_dirs=include_dirs)

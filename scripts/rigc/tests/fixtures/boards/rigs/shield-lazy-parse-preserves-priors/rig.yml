@@ -1,0 +1,3 @@
+rig:
+  name: shield-lazy-parse-preserves-priors
+  board: nucleo_f401re/stm32f401xe/rig
