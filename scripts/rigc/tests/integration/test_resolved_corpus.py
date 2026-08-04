@@ -41,6 +41,7 @@ import yaml
 from conftest import (
     ACCEPT_CASES,
     DTS_EQUIV,
+    FIXTURES_DIR,
     GOLDENS_DIR,
     REFREEZE,
     REJECT_CASES,
@@ -50,6 +51,7 @@ from conftest import (
     WEST_TOPDIR,
     board_extra_defines,
     normalize_dts_provenance,
+    plain_build_for,
     render_argv,
     rig_board_name,
     subprocess_timeout,
@@ -609,3 +611,61 @@ def test_resolved_ard_datalogger_dual_host_d10(tmp_path: Path) -> None:
     assert (nucleo_labels, nucleo_pin) != (frdm_labels, frdm_pin), (
         "D10 resolved to the SAME (controller, pin) on both hosts -- the "
         "dual-host portability claim is not actually exercised")
+
+
+# ---------------------------------------------------------------- identity laws
+#
+# board-as-invocation-coordinate.md Sec 1 / board-as-coordinate-brief.md
+# Sec 5: the old ontology Sec 7 lift is replaced by two identity laws, of
+# which saferail 11 (empty rig == plain board) is the first ever tested.
+# Written against TODAY's coordinate (`west build-rig --rig <name>`, not
+# the not-yet-built `--board X --rig Y` form) so it still holds, unchanged,
+# once that coordinate lands.
+
+
+_EMPTY_RIG_BOARD = "nucleo_f401re/stm32f401xe/rig"
+
+
+def test_resolved_empty_rig_equals_plain_board(
+        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
+    """Saferail 11: a rig declaring `instances: []` must configure clean
+    and produce a zephyr.dts structurally EQUIVALENT (dts_equiv.py) to a
+    PLAIN `west build` of the same board target -- no --shield, no -DRIG
+    at all. The rig path applies rig-gen.overlay and the rest of
+    dts.cmake's rig fork unconditionally; this is the first time anyone
+    has checked that path adds literally nothing when the rig has
+    nothing to add.
+
+    The fixture (tests/fixtures/boards/rigs/empty-rig/, rig.yml name:
+    empty_rig) lives OUTSIDE boards/rigs/ -- the real corpus every other
+    test in this file scans -- so this is the one call in the file that
+    needs an extra -DBOARD_ROOT alongside board_extra_defines, pointing
+    list_rigs.py at FIXTURES_DIR too; the real board target still
+    resolves through the repo's own default board root (module.yml's
+    board_root: .), so BOARD_ROOT gains an entry rather than losing one."""
+    build_dir = tmp_path / "build"
+    extra = board_extra_defines(_EMPTY_RIG_BOARD) + [f"-DBOARD_ROOT={FIXTURES_DIR}"]
+    result = _run_build("empty_rig", build_dir, extra)
+    assert result.returncode == 0, (
+        f"empty_rig: expected `west build-rig --cmake-only` to configure "
+        f"clean (an empty rig is a valid, ACCEPT rig)\n--- argv ---\n"
+        f"{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
+        f"--- stderr ---\n{result.stderr}")
+
+    rig_dts = build_dir / "zephyr" / "zephyr.dts"
+    assert rig_dts.is_file(), f"empty_rig: no zephyr.dts at {rig_dts}"
+
+    plain = plain_build_for(_EMPTY_RIG_BOARD, tmp_path_factory)
+    plain_dts = plain.build_dir / "zephyr" / "zephyr.dts"
+    assert plain_dts.is_file(), f"plain board build: no zephyr.dts at {plain_dts}"
+
+    zb = zephyr_base()
+    check = subprocess.run(
+        [sys.executable, str(DTS_EQUIV), str(plain_dts), str(rig_dts)],
+        env={**os.environ, "ZEPHYR_BASE": zb},
+        capture_output=True, text=True)
+    assert check.returncode == 0, (
+        "saferail 11 (empty rig == plain board) VIOLATED -- empty_rig's "
+        "resolved zephyr.dts is not structurally equivalent to the same "
+        f"board's plain build (dts_equiv.py):\n--- argv ---\n"
+        f"{render_argv(check)}\n{check.stdout}\n{check.stderr}")
