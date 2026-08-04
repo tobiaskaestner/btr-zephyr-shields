@@ -5,9 +5,21 @@ stays what it is: the design exploration record (Tobi + driver,
 2026-07-29). This file is the actionable half, written 2026-08-04 after
 reading that document against the current tree.
 
-**Headline: the architectural prerequisite is DONE and intact. The
-groundwork is not. Three rulings are needed before the coordinate change
-itself can be briefed.**
+**Headline: the architectural prerequisite is DONE and intact. All three
+rulings are now settled (2026-08-04). Steps 1 and 2 of §7 have landed;
+the remaining blocker is the singleton identity law, which needs a
+feature that does not exist yet (§5).**
+
+Status of §7's steps:
+
+| step | state |
+|---|---|
+| 1. aliases + alias-aware lookup | LANDED `d47ec86` |
+| 2a. empty-rig identity law | LANDED `e6423c0` — the law HOLDS |
+| 2b. singleton identity law | **BLOCKED**, see §5 |
+| 3. content migration | ready, not started |
+| 4. the coordinate change | ready once rulings applied |
+| 5. `--boards-for` | independent, shippable any time |
 
 ## 1. What is already in place — verified, not assumed
 
@@ -137,11 +149,23 @@ native in bridle's own board. So option 3 is where two separate threads
 are already heading, and options 1 and 2 differ mainly in how much
 interim UI debt we take.
 
-**Ruling wanted.** My recommendation: option 1 for now, explicitly as
-interim — it needs no new mechanism, it is honest about the extension
-being a real board target, and it costs nothing to retire under option 3.
-Option 2 buys prettiness at the price of the one discipline this codebase
-most consistently enforces.
+**RULED 2026-08-04: option 1 — the extension target stays EXPLICIT.**
+Users name `nucleo_f401re/stm32f401xe/rig`. No inference over board names
+is built.
+
+The stated expectation is that upstream boards gain typed sockets over
+time, at which point the `/rig` variant has nothing left to add and goes
+away on its own — option 3 arriving by attrition rather than by a
+migration step. That makes option 2 actively unattractive: an inference
+mechanism would be built to hide an artifact we expect to disappear, and
+would then itself need retiring.
+
+Practical consequence for whoever implements step 4: do not add a
+board-name fixup anywhere. If a plain `--board nucleo_f401re` fails
+because the board declares no typed socket, that is the correct and
+informative outcome — it is the same `phys-socket` answer §4 of the
+design doc already relies on, and it names exactly what the board is
+missing.
 
 ## 4. RULING 3 — per-board fragments
 
@@ -151,12 +175,35 @@ names upstream shields' `boards/<board>.overlay` existence-checked
 discovery as the adoptable precedent and observes that
 construct-then-check-exists does not violate Q6.
 
-**Ruling wanted: adopt that precedent, or defer per-board fragments
-entirely** until a real case demands them. Deferring is defensible — no
-corpus rig needs one today, and the feature can land later without
-disturbing the coordinate change. Building it ahead of need is the thing
-§4.3 of the design doc explicitly warns against for the sockets escape
-hatch, and the same argument applies here.
+**RULED 2026-08-04: adopt it.** A rig gets per-board fragments the way a
+shield has them today — `boards/<board>.overlay` (and the `_defconfig`
+counterpart) inside the rig's own directory, discovered by
+construct-then-check-exists, which is Q6-clean because the filename is
+constructed from the resolved board name and merely probed, never parsed.
+
+Two things to settle while implementing rather than after:
+
+- **Which board name constructs the filename.** Under ruling 2 the user
+  names the extension target (`nucleo_f401re/stm32f401xe/rig`), and that
+  string contains `/`. Upstream shields key on a plain board name. Decide
+  explicitly whether the fragment is keyed by the full qualified target,
+  by the bare board name, or by the normalized form — and note the hwmv2
+  precedent already in this codebase: `normalize_revision` exists because
+  a revision id's dots cannot go into a filename. This is the same class
+  of problem and should reuse that thinking, not invent a second scheme.
+  Whatever is chosen, derive it from the RESOLVED name (hazard class B1).
+- **Where it sits in the overlay chain.** `parked.md`'s "Application
+  rig-specific overlays" entry already records the chain: board.dts →
+  generated overlay → shield `boards/<board>.overlay` → `rig.overlay` →
+  app overlays → `EXTRA_DTC_OVERLAY_FILE`. A rig's own per-board fragment
+  belongs beside `rig.overlay`, most-specific-wins; say which side and
+  why.
+
+Note this makes the per-board fragment the mechanism that absorbs what
+S2's per-variant boards do today — a variant that exists ONLY to swap the
+host board becomes a board fragment instead, which is precisely the
+axis-conflation §3 of the design doc lists as the argument FOR the whole
+direction.
 
 ## 5. The two identity laws have no tests
 
@@ -168,6 +215,22 @@ the tree:
   produces byte-equal `zephyr.dts` to `--board b`. No test anywhere.
 - **Singleton rig ≡ upstream shield** (new): `--board b --shield s` ≡
   `--board b --rig <one default-placed instance of s>`.
+  **BLOCKED, and not on cost.** "Default-placed" is load-bearing —
+  upstream `--shield` names no socket — but `loader/delta.py::
+  parse_instance` does `require(item, "socket", "instance")`, so every
+  instance MUST name its socket. Omission is exactly §4.2 of the design
+  doc's unique-by-type inference, which that doc says exists "to make the
+  singleton identity law hold", and which is unimplemented. So the law
+  cannot be written in its stated form today. Three ways forward, in
+  preference order: implement §4.2 first (a small, self-contained loader
+  feature the design doc already rules is sugar-only, not the general
+  mechanism); write a weakened version naming the socket explicitly (still
+  a real equivalence, but it drops the half the law exists for); or defer.
+  A SECOND cost applies either way: no shield in the tree exists in
+  upstream form — every one is a `.shield` template with no plain
+  `.overlay` — so the law needs a shield authored in both worlds, with the
+  hand-written overlay as the oracle. Known-feasible: the P2 S1-equivalence
+  work did exactly that against the legacy `--shield` build.
 
 **Write both BEFORE the coordinate change, not after.** They are the only
 things that would catch a regression in what the product coordinate is
@@ -239,7 +302,10 @@ provider rule and change not at all.
    the WORLD it observes (drop a label from a board) and never by editing
    its own assertion.
 2. **The two identity-law tests** (§5), against TODAY's coordinate. They
-   must pass before anything changes, or they are not laws.
+   must pass before anything changes, or they are not laws. **2a landed
+   (`e6423c0`) and the law holds** — with a verified negative control: a
+   single instance in the fixture makes `dts_equiv` report differences.
+   **2b is blocked** (§5).
 3. **Content migration** to conventional labels: the classified refreeze
    of §6. `zephyr.dts` byte-identical is the acceptance criterion.
 4. **The coordinate change itself** — delete `boards.cmake` step 1 and

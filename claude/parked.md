@@ -69,6 +69,46 @@ parked, where the context lives. Newest first within sections.
 
 ## Build integration
 
+- **`--shield` with inline socket placement, desugaring to an in-memory rig**
+  *(parked 2026-08-04, Tobi's idea; the in-memory-rig half is what we will
+  definitely return to)* — extend upstream's `--shield` so a shield can name
+  WHICH typed socket it mates. Solves a real upstream problem with no answer
+  today ("place this shield on connector 3 of 4"), and is a far more
+  digestible upstream contribution than the whole rig ontology: a bridge that
+  makes typed sockets useful to people who never adopt rigs. Prior art to
+  read first — upstream RFC #82889 / PR #82825 (shield options,
+  `shield@index:opt=val`), closed unmerged 2026-02-27.
+
+  Three findings from when this was floated, recorded so they are not
+  rediscovered:
+
+  1. **`;` cannot be the separator.** `SHIELD` is already list-valued —
+     `zephyr/cmake/modules/shields.cmake:44` is
+     `string(REPLACE " " ";" SHIELD_AS_LIST "...")` — so space AND semicolon
+     already separate shield NAMES. A `-DSHIELD=name;sockets=...` form
+     reaches cmake as a two-element list whose second element fails as an
+     unknown shield. Upstream's own RFC used `@` and `:` for exactly this
+     reason.
+  2. **It must DESUGAR to a rig, never reimplement placement.** rig.yml is
+     THE front end (conventions v4). Growing a second socket-binding
+     mechanism in cmake means two semantics in two languages that will
+     drift. Constructing a synthetic one-instance rig in memory and running
+     the ordinary pipeline makes this shorthand rather than a second front
+     end — and that in-memory-rig mechanism is reusable well beyond this
+     feature.
+  3. **It does NOT unblock the singleton identity law**, and must not be
+     justified that way. That law is `--shield s` ≡ a DEFAULT-placed
+     singleton rig; an explicit socket is the opposite direction. Worse, if
+     our extended `--shield` desugars to a rig, comparing it against a rig
+     is true by construction and tests nothing — the law's oracle must stay
+     upstream's REAL `--shield`, because its whole value is that two
+     INDEPENDENT mechanisms agree.
+
+  Cost not yet paid: `cmake/shields.cmake` is currently pure dispatch and
+  promises non-rig builds "behave exactly as upstream". This retires that
+  promise, and the SHIELD/RIG exclusivity FATAL needs rethinking, since the
+  extended form wants the rig path.
+
 - **Application rig-specific overlays** *(2026-07-21)* — extend Zephyr's app
   `boards/<board>.overlay` auto-discovery to rigs: board-keyed overlays keep
   firing on the rig's board (unchanged), plus a new rig-keyed overlay
