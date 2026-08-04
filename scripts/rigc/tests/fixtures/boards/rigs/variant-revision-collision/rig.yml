@@ -6,9 +6,12 @@
 rig:
   name: variant-revision-collision
   board: nucleo_f401re/stm32f401xe/rig
-  revisions:
-    default: 1
-    list: [1, 2]
+  revision:
+    format: number
+    default: "1"
+    revisions:
+      - name: "1"
+      - name: "2"
   variants:
     default: 2
     list: [2, 3]

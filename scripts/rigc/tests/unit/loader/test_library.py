@@ -129,8 +129,11 @@ def test_load_shield_revisions_bad_default_is_blamed_on_the_shield(tmp_path: Pat
 def test_load_shield_revisions_mapping_entry_is_blamed_on_the_shield(tmp_path: Path) -> None:
     """A mapping entry in a shield's OWN revisions: list is illegal (only
     a rig's variants: list allows it) -- rejected per-entry, so the
-    remaining well-formed entries still constitute a valid (partial) axis
-    (parse_axis_decl's own per-item `continue`, ported unchanged)."""
+    remaining well-formed entries still constitute a valid (partial)
+    axis. UNCHANGED by the hwmv2 slice: a shield's revisions: axis stays
+    on this pre-hwmv2 shape permanently (parse_legacy_revision_decl's own
+    docstring has the external reason), so bare names are still the only
+    legal entry."""
     shield_dir = tmp_path / "fx"
     shield_dir.mkdir()
     (shield_dir / "shield.yml").write_text(
@@ -194,6 +197,10 @@ def test_resolve_at_rev_against_undeclared_axis() -> None:
 
 
 def test_resolve_at_rev_not_a_declared_member() -> None:
+    """A shield's own revision axis has NO format (its declaration keeps
+    the pre-hwmv2 shape permanently, see parse_legacy_revision_decl), so
+    resolve_axis_selection runs no hwmv2 machinery here: '99' is rejected
+    outright, never nearest-lower-matched down to '2'."""
     decl = AxisDecl(values=["1", "2"], default="1")
     lib = ShieldLibrary(shields={}, axes={"fx": decl}, pending={}, ymls={},
                         types={}, workdir="/nonexistent")
@@ -204,6 +211,31 @@ def test_resolve_at_rev_not_a_declared_member() -> None:
     # wording is a parameter this call site passes to the shared decision.
     assert diags[0].message == (
         "shield 'fx': revision '99' is not declared -- known revisions: 1, 2")
+
+
+def test_resolve_at_rev_nearest_lower_match_is_owner_agnostic_in_the_shared_function() -> None:
+    """hwmv2-revision-semantics-brief.md ruling 3 ("shields get hwmv2
+    semantics too") turned out to collide with a hard external
+    constraint, discovered by running a REAL cmake configure against a
+    migrated shield.yml: the pinned zephyr tree carries its own schema
+    restricting a shield's revisions: block to {default:, list: []} --
+    Zephyr's own list_shields.py enforces it on every configure, whether
+    or not the shield is used, so a shield.yml can never carry format:
+    until that schema itself changes (parse_legacy_revision_decl's own
+    docstring has the measured detail).
+
+    resolve_axis_selection itself is unaffected -- it reads decl.format,
+    never owner_kind, so if a shield decl EVER carried one, this exact
+    '99' -> '2' nearest-lower resolution would already work, reached
+    through ShieldLibrary.resolve exactly as shown here. This proves the
+    mechanism is ready; it does not claim shields exercise it today."""
+    decl = AxisDecl(values=["1", "2"], default="1", format="number")
+    cached = _shield("fx")
+    lib = ShieldLibrary(shields={"fx@2": cached}, axes={"fx": decl}, pending={},
+                        ymls={}, types={}, workdir="/nonexistent")
+    shield, diags, deps = lib.resolve("fx@99", "instance 'x'", _SRC)
+    assert shield is cached
+    assert diags == []
 
 
 def test_resolve_bare_name_with_a_declared_axis_but_no_default() -> None:
@@ -364,18 +396,98 @@ def test_resolved_axis_less_shield_deps_include_its_own_base_file(
     assert deps == frozenset({"/some/fx/fx.shield"})
 
 
+# ------------------------------- resolve(): hwmv2 mechanism, owner-agnostic
+#
+# A real shield.yml can never carry format: today (the pinned zephyr
+# tree's own carried schema forbids it, see parse_legacy_revision_decl's
+# docstring) -- so the two tests below construct a hwmv2-shaped AxisDecl
+# by hand and seed it directly into a synthetic ShieldLibrary, bypassing
+# _load_shield_revisions entirely. They prove `_resolve_revision` and its
+# stem/memoization-key construction have NO owner-kind branching of their
+# own: whatever resolve_axis_selection resolves to is what gets used,
+# rig or shield alike. That is what makes ruling 3 ("shields get hwmv2
+# semantics too") already true of the MACHINERY, pending only the
+# zephyr-side schema change that would let a real shield.yml reach it.
+
+def test_resolve_shield_side_nearest_lower_stem_follows_the_resolved_value(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """hwmv2-revision-semantics-brief.md Sec 0.4: the RESOLVED value (not
+    the requested one) constructs a shield revision's own template dts
+    name, .shield/.conf lookups and memoization key -- a nearest-lower
+    match must never look for the REQUESTED id's own fragment files. A
+    requested '1.5' zero-appends to '1.5.0' (major.minor.patch's own
+    loose typing) and, undeclared, resolves DOWN to '1.0.0' -- only a
+    'fx_1_0_0...'-shaped lookup is ever attempted, never 'fx_1_5...'."""
+    decl = AxisDecl(values=["1.0.0", "2.0.0"], default="1.0.0",
+                    format="major.minor.patch")
+    calls: List[str] = []
+
+    def _fake(name: str, template: str, includes: List[str], dts_name: str,
+             workdir: str, include_dirs: Optional[List[str]],
+             types: Dict[str, ConnectorType],
+             ) -> Tuple[Optional[Shield], List[Diagnostic], Deps]:
+        calls.append(dts_name)
+        return _shield(name), [], frozenset()
+
+    monkeypatch.setattr("rigc.loader.library._parse_shield_template", _fake)
+    pending = _Pending("/some/fx", "/some/fx/fx.shield", decl)
+    lib = ShieldLibrary(shields={}, axes={"fx": decl}, pending={"fx": pending},
+                        ymls={}, types={}, workdir="/nonexistent")
+
+    shield, diags, deps = lib.resolve("fx@1.5", "instance 'x'", _SRC)
+
+    assert diags == []
+    assert shield is not None
+    assert shield.revision == "1.0.0"
+    assert shield.revision_requested == "1.5"
+    assert calls == ["shield-fx-1_0_0.dts"]
+    assert "fx@1.0.0" in lib.shields
+    assert "fx@1.5" not in lib.shields
+
+
+def test_resolve_nearest_lower_memoizes_under_the_resolved_key(
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """Sec 5's own interaction to verify, not assume: '@1.5' and '@1'
+    both resolve to the SAME declared revision here -- they must parse
+    the template only ONCE, memoized under the RESOLVED key, or a naive
+    requested-keyed cache would parse it (and re-run cpp) twice."""
+    decl = AxisDecl(values=["1.0.0", "2.0.0"], default="1.0.0",
+                    format="major.minor.patch")
+    calls: List[str] = []
+
+    def _fake(name: str, template: str, includes: List[str], dts_name: str,
+             workdir: str, include_dirs: Optional[List[str]],
+             types: Dict[str, ConnectorType],
+             ) -> Tuple[Optional[Shield], List[Diagnostic], Deps]:
+        calls.append(dts_name)
+        return _shield(name), [], frozenset()
+
+    monkeypatch.setattr("rigc.loader.library._parse_shield_template", _fake)
+    pending = _Pending("/some/fx", "/some/fx/fx.shield", decl)
+    lib = ShieldLibrary(shields={}, axes={"fx": decl}, pending={"fx": pending},
+                        ymls={}, types={}, workdir="/nonexistent")
+
+    shield1, diags1, _ = lib.resolve("fx@1.5", "instance 'a'", _SRC)
+    shield2, diags2, _ = lib.resolve("fx@1", "instance 'b'", _SRC)
+
+    assert diags1 == [] and diags2 == []
+    assert shield1 is shield2
+    assert calls == ["shield-fx-1_0_0.dts"]
+
+
 # ------------------------------------------------------- load_shield_library scan
 
 def _declared_shield_folder(root: Path, name: str, revisions: str = "1") -> None:
-    """A shield folder that declares a revisions: axis -- scanned but
+    """A shield folder that declares a revision: axis -- scanned but
     deferred to `pending`, so `load_shield_library` never calls
     parse_tu/cpp for it (keeps this whole test subprocess-free)."""
     d = root / name
     d.mkdir(parents=True)
     (d / f"{name}.shield").write_text(f"/* fixture: {name} */\n")
     (d / "shield.yml").write_text(
-        f"shield:\n  name: {name}\n  revisions:\n"
-        f"    default: \"{revisions}\"\n    list: [\"{revisions}\"]\n")
+        f"shield:\n  name: {name}\n  revision:\n"
+        f"    format: number\n    default: \"{revisions}\"\n"
+        f"    revisions:\n      - name: \"{revisions}\"\n")
 
 
 def test_scan_discovers_exactly_basename_dot_shield(tmp_path: Path) -> None:

@@ -82,6 +82,28 @@ def variant_boards(variants):
     return boards
 
 
+def _revision_axis_shape(rig_data):
+    """rig.yml's `revision:` block (hwmv2-revision-semantics-brief.md
+    shape: `format:`/`default:`/`exact:`/a plural `revisions:` list of
+    `{name:}` mappings), reshaped into the `{'default':, 'list': [...]}`
+    this module's OWN `_resolve_axis`/`variant_names` already expect --
+    kept in that shape rather than teaching those two hwmv2's own keys,
+    since this module predicts cmake-side fragment filenames for the
+    plain case (a bare target, or one naming a revision declared
+    verbatim) ONLY. It does not implement `rigc.loader.axes`'s
+    per-format validation, zero-append or nearest-lower match -- an
+    undeclared-but-nearest-lower-eligible revision is rejected HERE,
+    before `rigc expand` (the canonical validator, which DOES resolve
+    it) ever runs; a known gap, not this rename's job to close.
+    None when rig.yml declares no `revision:` block at all."""
+    block = rig_data.get('revision')
+    if not isinstance(block, dict):
+        return None
+    names = [str(item['name']) for item in (block.get('revisions') or [])
+             if isinstance(item, dict) and item.get('name') is not None]
+    return {'default': block.get('default'), 'list': names}
+
+
 def variant_names(variants):
     """Bare variant-axis values, whichever shape variants: list: entries
     take -- a scalar, or a {name:, board:, sockets:} mapping in the
@@ -144,7 +166,7 @@ def find_rigs_in(root):
         # content file's own existence, are the rigc loader's job).
         ret.append(Rig(name=name, dir=maybe_rig,
                        board=rig_data.get('board'),
-                       revisions=rig_data.get('revisions'),
+                       revisions=_revision_axis_shape(rig_data),
                        variants=rig_data.get('variants')))
 
     return sorted(ret, key=rig_key)
@@ -269,7 +291,7 @@ def resolve_rig_target(target, args):
     for rig in rigs:
         if rig.name == name:
             resolved_revision = _resolve_axis(
-                rig.name, 'revision', 'revisions', rig.revisions, revision)
+                rig.name, 'revision', 'revision', rig.revisions, revision)
             resolved_variant = _resolve_axis(
                 rig.name, 'variant', 'variants', rig.variants, variant)
             resolved_board = _resolve_board(rig, resolved_variant)

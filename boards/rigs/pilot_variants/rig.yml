@@ -1,9 +1,12 @@
 rig:
   name: pilot_variants
   board: nucleo_f401re/stm32f401xe/rig
-  revisions:
-    default: 1
-    list: [1, 2]
+  revision:
+    format: number
+    default: "1"
+    revisions:
+      - name: "1"
+      - name: "2"
   variants:
     default: variant_a
     list: [variant_a, variant_b, variant_c]

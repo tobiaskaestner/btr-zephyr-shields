@@ -1,6 +1,9 @@
 rig:
   name: shield_rev_family
-  revisions:
+  revision:
+    format: number
     default: "1"
-    list: ["1", "2"]
+    revisions:
+      - name: "1"
+      - name: "2"
   board: nucleo_f401re/stm32f401xe/rig

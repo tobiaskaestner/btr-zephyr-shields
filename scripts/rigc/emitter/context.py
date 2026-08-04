@@ -49,9 +49,15 @@ def render(rig: Rig, deps: Deps) -> bytes:
     RIG_REVISION/RIG_VARIANT appear only when the rig actually declares
     the corresponding axis/shield-revision -- the "no declaration, no
     artifact" rule that keeps an axis-less rig's context.cmake
-    byte-identical to one from before the axis existed. RIG_DEPENDS is
-    always present, sorted, each element escaped for a CMake list
-    literal (`_cmake_list_escape`)."""
+    byte-identical to one from before the axis existed. RIG_REVISION is
+    always the RESOLVED value (hwmv2's nearest-lower match already
+    applied, hwmv2-revision-semantics-brief.md Sec 3); RIG_REVISION_
+    REQUESTED appears alongside it only when a request was made AND it
+    differs from what it resolved to -- dts.cmake's own configure-log line
+    reads this to print "requested -> resolved" only in that case, never
+    when a rig simply took its declared default. RIG_DEPENDS is always
+    present, sorted, each element escaped for a CMake list literal
+    (`_cmake_list_escape`)."""
     log.info("context.render(): rig '%s'", rig.name)
     shields: List[str] = []
     shield_revisions: List[str] = []
@@ -87,6 +93,10 @@ def render(rig: Rig, deps: Deps) -> bytes:
     # context.cmake stays byte-identical.
     if rig.revision is not None:
         lines.append(f'set(RIG_REVISION "{rig.revision}")')
+        if (rig.revision_requested is not None
+                and rig.revision_requested != rig.revision):
+            lines.append(
+                f'set(RIG_REVISION_REQUESTED "{rig.revision_requested}")')
     if rig.variant is not None:
         lines.append(f'set(RIG_VARIANT "{rig.variant}")')
     deps_list = ";".join(_cmake_list_escape(p) for p in sorted(deps))

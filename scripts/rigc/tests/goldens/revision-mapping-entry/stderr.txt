@@ -1,2 +1,0 @@
-error[lang-schema]: rig revisions: a mapping entry (name:/board:/sockets:) is legal only in a rig's variants: list -- this axis takes bare names
-    at tests/fixtures/boards/rigs/revision-mapping-entry/rig.yml:10 (rig.revisions.list[1])

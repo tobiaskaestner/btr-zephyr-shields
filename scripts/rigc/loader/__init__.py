@@ -123,15 +123,15 @@ def _resolve_metadata(doc: Val, revision: Optional[str], variant: Optional[str],
     rig = Rig(name=name_v.value, src=rig_v.src)
     rig_map = as_mapping(rig_v, "rig: block")
 
-    revisions, d = axes.parse_axis_decl(rig_v, "revisions", owner="rig")
+    revisions, d = axes.parse_revision_decl(rig_v, "revision", owner="rig")
     diags += d
-    variants, d = axes.parse_axis_decl(rig_v, "variants", owner="rig",
-                                       allow_variant_metadata=True)
+    variants, d = axes.parse_variant_decl(rig_v, "variants", owner="rig")
     diags += d
     rig.revisions, rig.variants = revisions, variants
     diags += axes.check_axis_collision(rig.name, variants, revisions, rig_v.src)
 
-    rig.revision, d = axes.resolve_axis(rig.name, "revision", "revisions",
+    rig.revision_requested = revision
+    rig.revision, d = axes.resolve_axis(rig.name, "revision", "revision",
                                         revisions, revision, rig_v.src)
     diags += d
     rig.variant, d = axes.resolve_axis(rig.name, "variant", "variants",
@@ -139,6 +139,10 @@ def _resolve_metadata(doc: Val, revision: Optional[str], variant: Optional[str],
     diags += d
     log.debug("rig '%s': selected revision=%r variant=%r",
              rig.name, rig.revision, rig.variant)
+    if (rig.revision is not None and rig.revision_requested is not None
+            and rig.revision != rig.revision_requested):
+        log.info("rig '%s': revision requested %r resolved to %r",
+                 rig.name, rig.revision_requested, rig.revision)
 
     board_v = rig_map.get("board")
     sockets_v = rig_map.get("sockets")

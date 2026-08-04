@@ -10,9 +10,14 @@ be mis-globbed; the presence check also self-filters a shields directory
 to rig templates only, skipping legacy overlay-only shields).
 
 **shield.yml** supplies ONLY the `revisions:` axis (never identity),
-parsed by `loader.axes.parse_axis_decl` -- the SAME `{default:, list:}`
-shape rig.yml's own axes use, reused rather than reimplemented (the two
-lang-schema shield-side flips come from this reuse for free).
+parsed by `loader.axes.parse_legacy_revision_decl` -- its OWN pre-hwmv2
+shape (`{default:, list: []}`), NOT the hwmv2 block rig.yml's own
+`revision:` axis takes. This is a hard external constraint, not a
+choice: the pinned zephyr tree carries its own schema restricting a
+shield's `revisions:` block to exactly that shape (see
+`parse_legacy_revision_decl`'s own docstring). `resolve_axis_selection`
+still applies -- a shield revision axis with `format is None` runs
+exact-membership resolution only, no nearest-lower.
 
 **Eager vs lazy**: discovery (the folder walk, the `<name>.shield`
 presence probe, `shield.yml`'s axis read) is ALWAYS eager -- it is cheap,
@@ -57,7 +62,7 @@ from ..dtsio import MODULE_ROOT, parse_tu, source_files
 from ..model import AxisDecl, ConnectorType, Shield
 from ..registry import load_types
 from ..shields import parse_shields
-from .axes import normalize_revision, parse_axis_decl, resolve_axis_selection
+from .axes import normalize_revision, parse_legacy_revision_decl, resolve_axis_selection
 from .documents import parse_marked
 
 log = logging.getLogger(__name__)
@@ -146,14 +151,20 @@ class ShieldLibrary:
         decl = self.axes[name]
         if not sep and name in self.shields:
             return self.shields[name], [], deps
+        requested = rev if sep else None
         # The shared decision (loader.axes.resolve_axis_selection): which
-        # revision string applies, or None when this is a bare reference
-        # to an axis-less shield (nothing declared, nothing selected --
-        # legitimate, not a failure). It does no parsing; the branches
-        # below own turning that value into a Shield.
+        # revision string applies -- the RESOLVED value (nearest-lower
+        # match already applied WHEN decl.format is set; a shield's own
+        # axis never has one today, see _load_shield_revisions -- requested
+        # vs resolved kept apart via `requested` above regardless) -- or
+        # None when this is a bare reference to an axis-less shield
+        # (nothing declared, nothing selected -- legitimate, not a
+        # failure). It does no parsing; the branches below own turning
+        # that value into a Shield. decl_key is "revisions" (plural),
+        # matching the actual YAML key a shield.yml declares (its own
+        # pre-hwmv2 shape) -- NOT the rig's singular "revision".
         value, verdict = resolve_axis_selection(
-            "shield", name, "revision", "revisions", decl,
-            rev if sep else None, src)
+            "shield", name, "revision", "revisions", decl, requested, src)
         if verdict:
             return None, verdict, deps
         if value is None:
@@ -175,17 +186,23 @@ class ShieldLibrary:
         # narrow it explicitly since the shared decision's own return
         # type can't express that invariant to mypy.
         assert decl is not None
-        shield, d, rdeps = self._resolve_revision(name, value, decl, src)
+        shield, d, rdeps = self._resolve_revision(name, value, requested, decl, src)
         return shield, d, union(deps, rdeps)
 
-    def _resolve_revision(self, name: str, rev: str, decl: AxisDecl,
-                          src: SourceRef,
+    def _resolve_revision(self, name: str, rev: str, requested: Optional[str],
+                          decl: AxisDecl, src: SourceRef,
                           ) -> Tuple[Optional[Shield], List[Diagnostic], Deps]:
         """A single revision's own lazy parse -- deliberately UNMEMOIZED
         on failure (unlike the axis-less base parse `resolve()` handles
         directly): a bad revision is pre-existing behaviour that
         re-reports on every reference, no golden distinguishes it, and
-        changing that is out of scope here."""
+        changing that is out of scope here.
+
+        `rev` is the RESOLVED value (nearest-lower match already applied
+        by `resolve_axis_selection`) -- every stem this method constructs,
+        and the memoization key below, are built from it; `requested` is
+        the raw `<name>@<rev>` string a reference actually named (kept on
+        the returned Shield for provenance only, never for filenames)."""
         key = f"{name}@{rev}"
         cached = self.shields.get(key)
         if cached is not None:
@@ -225,6 +242,7 @@ class ShieldLibrary:
             return None, diags, deps
         shield.revisions = decl
         shield.revision = rev
+        shield.revision_requested = requested
         self.shields[key] = shield
         if is_default:
             self.shields[name] = shield
@@ -280,10 +298,12 @@ def _pick_shield(parsed: Dict[str, Shield], name: str, template: str,
 
 def _load_shield_revisions(shield_dir: str,
                            ) -> Tuple[Optional[AxisDecl], List[Diagnostic]]:
-    """shield.yml's `revisions:` declaration (V1c): the SAME axis shape
-    as rig.yml's own, so `loader.axes.parse_axis_decl` is reused as-is.
-    shield.yml stays OPTIONAL -- a folder with none (or one with no
-    revisions: key) declares no axis."""
+    """shield.yml's `revisions:` declaration (V1c): its OWN pre-hwmv2
+    shape (`{default:, list: []}`), parsed by `loader.axes.
+    parse_legacy_revision_decl` -- NOT rig.yml's hwmv2 `revision:` block
+    (see that function's own docstring for the external constraint this
+    is pinned by). shield.yml stays OPTIONAL -- a folder with none (or
+    one with no revisions: key) declares no axis."""
     path = os.path.join(shield_dir, "shield.yml")
     if not os.path.isfile(path):
         return None, []
@@ -293,8 +313,8 @@ def _load_shield_revisions(shield_dir: str,
     shield_v = doc.value.get("shield")
     if shield_v is None:
         return None, []
-    return parse_axis_decl(shield_v, "revisions",
-                           owner=f"shield '{os.path.basename(shield_dir)}'")
+    return parse_legacy_revision_decl(
+        shield_v, "revisions", owner=f"shield '{os.path.basename(shield_dir)}'")
 
 
 def load_shield_library(workdir: str, shield_dirs: Optional[List[str]] = None,

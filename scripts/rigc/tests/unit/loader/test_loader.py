@@ -93,13 +93,17 @@ def test_resolve_metadata_resolves_the_declared_default_revision(
         "rig:\n"
         "  name: r\n"
         "  board: b/s/rig\n"
-        "  revisions:\n"
+        "  revision:\n"
+        "    format: number\n"
         "    default: '1'\n"
-        "    list: ['1', '2']\n")
+        "    revisions:\n"
+        "      - name: '1'\n"
+        "      - name: '2'\n")
     meta, diags = _resolve_metadata(doc, None, None)
     assert diags == []
     assert meta.rig is not None
     assert meta.rig.revision == "1"
+    assert meta.rig.revision_requested is None
 
 
 def test_resolve_metadata_an_explicit_revision_selection_wins_over_the_default(
@@ -109,30 +113,63 @@ def test_resolve_metadata_an_explicit_revision_selection_wins_over_the_default(
         "rig:\n"
         "  name: r\n"
         "  board: b/s/rig\n"
-        "  revisions:\n"
+        "  revision:\n"
+        "    format: number\n"
         "    default: '1'\n"
-        "    list: ['1', '2']\n")
+        "    revisions:\n"
+        "      - name: '1'\n"
+        "      - name: '2'\n")
     meta, diags = _resolve_metadata(doc, "2", None)
     assert diags == []
     assert meta.rig is not None
     assert meta.rig.revision == "2"
+    assert meta.rig.revision_requested == "2"
+
+
+def test_resolve_metadata_nearest_lower_match_keeps_requested_for_provenance(
+        tmp_path: Path) -> None:
+    """The requested/resolved split (hwmv2-revision-semantics-brief.md
+    Sec 3): a nearest-lower match resolves DOWN, but the RAW requested
+    string survives on `revision_requested` -- what a caller (the
+    configure-log "requested -> resolved" line) needs to tell the two
+    apart."""
+    doc = _parsed(
+        tmp_path, "rig.yml",
+        "rig:\n"
+        "  name: r\n"
+        "  board: b/s/rig\n"
+        "  revision:\n"
+        "    format: number\n"
+        "    default: '1'\n"
+        "    revisions:\n"
+        "      - name: '1'\n"
+        "      - name: '2'\n")
+    meta, diags = _resolve_metadata(doc, "99", None)
+    assert diags == []
+    assert meta.rig is not None
+    assert meta.rig.revision == "2"
+    assert meta.rig.revision_requested == "99"
 
 
 def test_resolve_metadata_reports_an_axis_collision(tmp_path: Path) -> None:
     """rule 4: a variant name equal to a revision id constructs the same
     fragment stem -- still returns a Rig (not None), since the collision
-    is a warning-shaped continuation, not a stop-here defect."""
+    is a warning-shaped continuation, not a stop-here defect. '9' rather
+    than a word: a variant name has no format constraint, but a revision
+    id must match its own declared format (number here)."""
     doc = _parsed(
         tmp_path, "rig.yml",
         "rig:\n"
         "  name: r\n"
         "  board: b/s/rig\n"
         "  variants:\n"
-        "    default: same\n"
-        "    list: [same]\n"
-        "  revisions:\n"
-        "    default: same\n"
-        "    list: [same]\n")
+        "    default: '9'\n"
+        "    list: ['9']\n"
+        "  revision:\n"
+        "    format: number\n"
+        "    default: '9'\n"
+        "    revisions:\n"
+        "      - name: '9'\n")
     meta, diags = _resolve_metadata(doc, None, None)
     assert meta.rig is not None
     assert any(d.code == "lang-variant" for d in diags)

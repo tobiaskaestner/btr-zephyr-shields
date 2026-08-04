@@ -1,8 +1,12 @@
 # Synthetic fixture: a --revision naming a value not in the declared
-# revisions: list -- rule 1 (lang-rev).
+# revisions: list -- rule 1. exact: true (else hwmv2 nearest-lower wins).
 rig:
   name: unknown-revision
   board: nucleo_f401re/stm32f401xe/rig
-  revisions:
-    default: 1
-    list: [1, 2]
+  revision:
+    format: number
+    default: "1"
+    exact: true
+    revisions:
+      - name: "1"
+      - name: "2"

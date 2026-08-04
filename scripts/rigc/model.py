@@ -153,10 +153,17 @@ class Shield:
     jumpers: Dict[str, Jumper] = field(default_factory=dict)
     exposes: Dict[str, ExposedSocket] = field(default_factory=dict)
     by_path: Dict[str, object] = field(default_factory=dict)   # dtlib path -> element
-    # shield.yml's declared revisions: axis (V1c) and which one THIS Shield
-    # represents -- both None for a shield with no revisions: block.
+    # shield.yml's declared revision: axis (V1c) and which one THIS Shield
+    # represents -- both None for a shield with no revision: block.
+    # `revision` is the RESOLVED value (what constructed this Shield's own
+    # stems, hwmv2-revision-semantics-brief.md Sec 3); `revision_requested`
+    # is the raw `<name>@<rev>` value a reference actually named, kept
+    # ONLY for provenance -- nearest-lower match means the two can differ,
+    # and every filename/RIG_SHIELD_REVISIONS entry is built from
+    # `revision`, never `revision_requested`.
     revisions: Optional["AxisDecl"] = None
     revision: Optional[str] = None
+    revision_requested: Optional[str] = None
     src: Optional[SourceRef] = None
 
     def by_name(self, name: str) -> List[object]:
@@ -253,23 +260,36 @@ class Board:
 
 @dataclass
 class AxisDecl:
-    """One declared qualifier axis (rig.yml `revisions:` or `variants:`):
-    the values a selection may take, and the one a bare (unqualified)
-    target takes by default. Ported value-shaped, unchanged in shape,
-    from rigexp/model.py's own AxisDecl -- the hwmv2 seam
-    (rigc-r2-brief.md Sec 3) keeps resolution a single pure function
-    over (decl, selected), so this dataclass is exactly the value that
-    swap will later replace the declaration parsing behind.
+    """One declared qualifier axis: a rig's `variants:` (unchanged
+    shape), a rig's `revision:` (hwmv2's own shape --
+    hwmv2-revision-semantics-brief.md), or a shield's `revisions:` (its
+    OWN pre-hwmv2 shape, permanently -- `loader.axes.
+    parse_legacy_revision_decl`'s own docstring has the external reason).
+    `values`/`default` are the values a selection may take and the one a
+    bare (unqualified) target takes by default, shared by all three;
+    `format`/`exact` are a rig's revision axis only -- always None/False
+    for a `variants:` decl (no format concept) AND for a shield's own
+    revision axis (pinned to its pre-hwmv2 shape, which has no format:/
+    exact: keys either).
 
     boards/sockets carry, per declared VALUE, the board a rig variant
     selects and its abstract-socket map -- populated only for a rig's
     own `variants:` axis when it uses the per-variant-board shape;
-    empty for every other axis."""
+    empty for every other axis.
+
+    `format` (one of "letter"/"number"/"major.minor.patch"/"custom") and
+    `exact` govern `loader.axes.resolve_axis_selection`'s revision-only
+    behaviour (per-format id validation, nearest-lower match, the
+    `exact: true` opt-out) when set; `format is None` (a `variants:` decl
+    always, a shield's `revisions:` decl always) instead runs plain
+    exact-membership resolution, hwmv2 entirely uninvolved."""
 
     values: list[str]
     default: Optional[str] = None
     boards: dict[str, str] = field(default_factory=dict)
     sockets: dict[str, dict[str, str]] = field(default_factory=dict)
+    format: Optional[str] = None
+    exact: bool = False
 
 
 @dataclass
@@ -282,6 +302,14 @@ class Rig:
     dt_includes_refs: list[SourceRef] = field(default_factory=list)
     revisions: Optional[AxisDecl] = None
     variants: Optional[AxisDecl] = None
+    # `revision` is the RESOLVED value (nearest-lower match already
+    # applied) -- what every fragment filename, context.cmake entry and
+    # RIG_REVISION is built from. `revision_requested` is the raw
+    # --revision string a target actually asked for, kept ONLY for
+    # provenance (hwmv2-revision-semantics-brief.md Sec 3): None whenever
+    # no --revision was given, equal to `revision` whenever the request
+    # matched a declared value exactly.
     revision: Optional[str] = None
+    revision_requested: Optional[str] = None
     variant: Optional[str] = None
     src: Optional[SourceRef] = None

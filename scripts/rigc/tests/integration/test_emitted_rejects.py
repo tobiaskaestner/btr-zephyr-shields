@@ -360,7 +360,7 @@ def test_empty_revisions_list_golden(tmp_path: Path) -> None:
 
     assert result.returncode != 0, "an empty revisions: list must be rejected"
     assert "[lang-schema]" in result.stderr, result.stderr
-    assert "'list' must be a non-empty list" in result.stderr, result.stderr
+    assert "'revisions' must be a non-empty list" in result.stderr, result.stderr
 
     zb = zephyr_base()
     golden_dir = GOLDENS_DIR / "empty-revisions-list"
@@ -518,7 +518,7 @@ def test_dotted_revision_no_fragment_golden(tmp_path: Path) -> None:
 
     assert result.returncode != 0, "a dotted revision contributing nothing must be rejected"
     assert "[lang-rev]" in result.stderr, result.stderr
-    assert "dotted-revision-no-fragment_1_5_defconfig" in result.stderr, result.stderr
+    assert "dotted-revision-no-fragment_1_5_0_defconfig" in result.stderr, result.stderr
     assert "dotted-revision-no-fragment_1.5_defconfig" not in result.stderr, (
         "the dot must be NORMALIZED to an underscore, per hwmv2's own "
         f"convention, not left literal\n{result.stderr}")
@@ -776,25 +776,13 @@ def test_unmapped_socket_golden(tmp_path: Path) -> None:
 # the analyzer, so none needs a real board recipe (no @pytest.mark.build).
 
 
-def test_revision_mapping_entry_golden(tmp_path: Path) -> None:
-    """A mapping entry ({name:, board:}) in a NON-variant axis's list: is
-    rejected -- only a rig's variants: axis may take that shape; a
-    revision is a change within one physical family, never a move to a
-    different host board, so revisions: (and every shield.yml revisions:)
-    takes bare names only."""
-    out_dir = tmp_path / "out"
-    rig_yml = FIXTURES_DIR / "boards" / "rigs" / "revision-mapping-entry" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
-
-    assert result.returncode != 0, (
-        "a mapping entry in a non-variant axis list must be rejected")
-    assert "[lang-schema]" in result.stderr, result.stderr
-    assert "legal only in a rig's variants: list" in result.stderr, result.stderr
-
-    zb = zephyr_base()
-    golden_dir = GOLDENS_DIR / "revision-mapping-entry"
-    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
-    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+# test_revision_mapping_entry_golden RETIRED (hwmv2-revision-semantics-
+# brief.md ruling 2026-08-03): upstream's revision: shape IS mapping
+# entries with name: -- what this test asserted is no longer true, and
+# its fixture (revision-mapping-entry/) is gone. Its golden directory is
+# now orphaned; deleting it is the classified reject refreeze's job, not
+# this migration's (goldens are frozen bytes the fixture layer does not
+# touch).
 
 
 def test_board_declared_twice_golden(tmp_path: Path) -> None:
@@ -921,9 +909,17 @@ def test_shield_revisions_mapping_entry_golden(tmp_path: Path) -> None:
     """The identical mapping-entry rejection, raised from a SHIELD's own
     shield.yml revisions: list rather than a rig's: blamed on the shield,
     BY NAME, since the axis parser is shared with rig.yml and would
-    otherwise report "rig revisions: ...", naming no shield at all. Its
-    own fixture shields root, because the defect is reported at
-    library-scan time for every folder scanned."""
+    otherwise report "rig revisions: ...", naming no shield at all.
+
+    NOT retired alongside test_revision_mapping_entry_golden (rig.yml's
+    own axis, which DID adopt upstream's mapping-entry shape): a shield's
+    revisions: axis stays on its PRE-hwmv2 shape permanently -- the
+    pinned zephyr tree carries its own schema restricting a shield.yml
+    revisions: block to exactly {default:, list: []}
+    (`loader.axes.parse_legacy_revision_decl`'s own docstring has the
+    measured reason), so a mapping entry here is still exactly as illegal
+    as it always was. Its own fixture shields root, because the defect is
+    reported at library-scan time for every folder scanned."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-revisions-mapping-entry" / "rig.yml"
     result = run_expand(rig_yml, out_dir,

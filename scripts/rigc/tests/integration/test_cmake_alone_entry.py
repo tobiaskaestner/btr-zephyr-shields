@@ -281,7 +281,7 @@ def test_cmake_alone_qualified_rig_target_against_undeclared_axis_rejected(
     result = _run_cmake_alone(build_dir, [f"-DRIG={_RIG}@1"])
     assert result.returncode != 0
     combined = f"{render_argv(result)}\n" + result.stdout + result.stderr
-    assert "declares no revisions" in combined, combined
+    assert "declares no revision" in combined, combined
 
     build_dir = tmp_path / "qualified-variant"
     result = _run_cmake_alone(build_dir, [f"-DRIG={_RIG}/foo"])

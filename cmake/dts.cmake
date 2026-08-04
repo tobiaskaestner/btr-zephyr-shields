@@ -500,6 +500,12 @@ include(${_rig_out_dir}/context.cmake OPTIONAL)
 set(_rig_qualifier_desc "")
 if(RIG_REVISION)
   string(APPEND _rig_qualifier_desc " revision=${RIG_REVISION}")
+  # hwmv2 nearest-lower match: only set by context.cmake when a request
+  # was actually made AND it resolved to something else (emitter/context.py
+  # render()) -- an axis simply defaulted never prints this.
+  if(RIG_REVISION_REQUESTED)
+    string(APPEND _rig_qualifier_desc " (requested ${RIG_REVISION_REQUESTED})")
+  endif()
 endif()
 if(RIG_VARIANT)
   string(APPEND _rig_qualifier_desc " variant=${RIG_VARIANT}")
