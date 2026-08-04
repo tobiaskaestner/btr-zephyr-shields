@@ -137,7 +137,7 @@ def _shield(plugs="arduino-r3", exposes=None) -> Shield:
     return Shield(name="sh", label="sh", plugs=plugs, exposes=exposes or {})
 
 
-def _inst(name: str, socket: str, shield: Shield) -> Instance:
+def _inst(name: str, socket: str | None, shield: Shield) -> Instance:
     return Instance(name=name, shield=shield, socket=socket)
 
 
@@ -318,6 +318,139 @@ def test_resolve_sockets_skips_a_failed_instance_but_keeps_going() -> None:
     assert "bad" not in resolution.sockets
     assert "good" in resolution.sockets
     assert len(diags) == 1
+
+
+# ---------------------------------------------------------------- stacking census keyed by RESOLVED socket
+
+
+def test_resolve_sockets_two_labels_for_one_socket_still_caught_as_not_stackable() -> None:
+    """socket-inference-brief.md Sec 6: since a board socket can be named
+    by either its defining label or a conventional alias, two instances
+    naming the SAME physical socket through DIFFERENT strings must still
+    collide -- the exclusivity check is keyed by the RESOLVED socket, not
+    the raw reference each instance happened to write. Latent today (the
+    corpus's only non-stackable type has no aliased board), reachable the
+    moment one gains an alias; this pins the property regardless."""
+    board = Board(name="b", sockets={
+        "nucleo_ard": BoardSocket(label="nucleo_ard", path="/ard",
+                                 type_name="arduino-r3", gpio_map={},
+                                 buses={}, cs_pool=None)},
+                  aliases={"arduino_r3": "nucleo_ard"})
+    a = _inst("a", "nucleo_ard", _shield())
+    b = _inst("b", "arduino_r3", _shield())
+    rig = Rig(name="r", instances=[a, b])
+
+    _resolution, diags = resolve_sockets(
+        rig, board, {"arduino-r3": _ctype(stackable=False)})
+
+    assert len(diags) == 1
+    assert diags[0].code == "phys-mating"
+    assert "not stackable" in diags[0].message
+
+
+# ---------------------------------------------------------------- socket inference (Sec 1/2)
+
+
+def test_resolve_sockets_infers_the_sole_mating_candidate_silently() -> None:
+    """Exactly one board socket mates the shield's plug type -> resolves,
+    no diagnostic at all."""
+    board = Board(name="b", sockets={
+        "ard": BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
+                          gpio_map={}, buses={}, cs_pool=None),
+        "mb": BoardSocket(label="mb", path="/mb", type_name="mikrobus",
+                         gpio_map={}, buses={}, cs_pool=None)})
+    inst = _inst("i1", None, _shield(plugs="arduino-r3"))
+    rig = Rig(name="r", instances=[inst])
+
+    resolution, diags = resolve_sockets(
+        rig, board, {"arduino-r3": _ctype(), "mikrobus": _ctype("mikrobus")})
+
+    assert diags == []
+    assert resolution.sockets["i1"].label == "ard"
+
+
+def test_resolve_sockets_inference_zero_candidates_names_plug_type_and_offerings() -> None:
+    board = Board(name="b", sockets={
+        "mb": BoardSocket(label="mb", path="/mb", type_name="mikrobus",
+                         gpio_map={}, buses={}, cs_pool=None)})
+    inst = _inst("i1", None, _shield(plugs="arduino-r3"))
+    rig = Rig(name="r", instances=[inst])
+
+    resolution, diags = resolve_sockets(rig, board, {"mikrobus": _ctype("mikrobus")})
+
+    assert "i1" not in resolution.sockets
+    assert len(diags) == 1
+    assert diags[0].code == "phys-socket"
+    assert "arduino-r3" in diags[0].message
+    assert "mb (mikrobus)" in diags[0].message
+
+
+def test_resolve_sockets_inference_two_candidates_rejects_rather_than_tie_breaks() -> None:
+    """The control Sec 8 calls out by name: an implementation that
+    tie-breaks between several mating sockets passes the single-candidate
+    test above and fails only here. Two sockets of the same mating type
+    must be listed and the instance must be rejected -- never resolved to
+    either one."""
+    board = Board(name="b", sockets={
+        "ard1": BoardSocket(label="ard1", path="/ard1", type_name="arduino-r3",
+                           gpio_map={}, buses={}, cs_pool=None),
+        "ard2": BoardSocket(label="ard2", path="/ard2", type_name="arduino-r3",
+                           gpio_map={}, buses={}, cs_pool=None)})
+    inst = _inst("i1", None, _shield(plugs="arduino-r3"))
+    rig = Rig(name="r", instances=[inst])
+
+    resolution, diags = resolve_sockets(rig, board, {"arduino-r3": _ctype()})
+
+    assert "i1" not in resolution.sockets
+    assert len(diags) == 1
+    assert diags[0].code == "phys-socket"
+    assert "ard1" in diags[0].message
+    assert "ard2" in diags[0].message
+
+
+def test_resolve_sockets_inference_never_considers_carrier_exposed_sockets() -> None:
+    """RULING 1 (Sec 4): candidates are BOARD sockets only. A carrier
+    exposing a socket of the mating type must not make it a candidate --
+    otherwise inference would depend on which carriers happen to already
+    be parsed, an order-dependence the delta engine exists to avoid. The
+    board here offers no mikrobus socket directly, only an arduino-r3 one
+    a carrier plugs into and re-exposes as mikrobus -- a leaf shield
+    needing mikrobus must still get the zero-candidate error."""
+    board = Board(name="b", sockets={
+        "ard": BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
+                          gpio_map={}, buses={}, cs_pool=None)})
+    carrier_shield = _shield(plugs="arduino-r3", exposes={
+        "mb1": ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
+                             gpio_map={}, buses={})})
+    carrier = _inst("adapter_1", "ard", carrier_shield)
+    leaf = _inst("eth_1", None, _shield(plugs="mikrobus"))
+    rig = Rig(name="r", instances=[carrier, leaf])
+
+    resolution, diags = resolve_sockets(
+        rig, board, {"arduino-r3": _ctype(), "mikrobus": _ctype("mikrobus")})
+
+    assert "eth_1" not in resolution.sockets
+    assert any(d.code == "phys-socket" and "mikrobus" in d.message for d in diags)
+
+
+def test_resolve_sockets_inference_obeys_the_existing_stacking_rule() -> None:
+    """RULING 2 (Sec 5): two instances that each infer the SAME socket are
+    subject to the ordinary stackability check, not a rule of inference's
+    own -- a non-stackable type still rejects the second instance even
+    though neither one named a socket."""
+    board = Board(name="b", sockets={
+        "ard": BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
+                          gpio_map={}, buses={}, cs_pool=None)})
+    a = _inst("a", None, _shield(plugs="arduino-r3"))
+    b = _inst("b", None, _shield(plugs="arduino-r3"))
+    rig = Rig(name="r", instances=[a, b])
+
+    _resolution, diags = resolve_sockets(
+        rig, board, {"arduino-r3": _ctype(stackable=False)})
+
+    assert len(diags) == 1
+    assert diags[0].code == "phys-mating"
+    assert "not stackable" in diags[0].message
 
 
 def _ctype(name: str = "arduino-r3", stackable: bool = True) -> ConnectorType:

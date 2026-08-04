@@ -7,20 +7,29 @@ order-independent, pinnable (R18).
 
 Ported from rigexp/analyzer.py's `_key(inst, dev)` (`analyzer.py:68-70`),
 unchanged in shape: `(socket, instance name, device name)`, read straight
-off the Instance/Device values already in hand -- no BoardSocket or Rig
-needed, which is what makes it a value function on its own."""
+off the Instance/Device values already in hand plus the resolved socket
+the caller already has -- no Rig needed, which is what makes it a value
+function on its own."""
 from __future__ import annotations
 
 from typing import Tuple
 
-from ..model import Device, Instance
+from ..model import BoardSocket, Device, Instance
 
-#: The stable allocation order: (the instance's own socket REFERENCE
-#: string -- not the resolved BoardSocket's label, the same string
-#: Instance.socket already carries -- then instance name, then device
-#: name).
+#: The stable allocation order: (the sort key's socket component, then
+#: instance name, then device name). The socket component is the
+#: instance's own AUTHORED reference string -- not the resolved
+#: BoardSocket's label -- wherever the instance declared one; only an
+#: inferred instance (Instance.socket is None, socket-inference-brief.md)
+#: falls back to the resolved label, since it has no authored string to
+#: sort by (the same declared-else-resolved shape config-sheet.md's
+#: socket column uses).
 AllocationKey = Tuple[str, str, str]
 
 
-def allocation_key(inst: Instance, dev: Device) -> AllocationKey:
-    return (inst.socket, inst.name, dev.name)
+def allocation_key(inst: Instance, dev: Device, socket: BoardSocket) -> AllocationKey:
+    """socket is the instance's OWN already-resolved BoardSocket (every
+    caller has one in hand from the same scope member); read-only, used
+    only as the None fallback below."""
+    ref = inst.socket if inst.socket is not None else socket.label
+    return (ref, inst.name, dev.name)

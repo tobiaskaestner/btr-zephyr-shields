@@ -16,8 +16,21 @@ from typing import Dict, List, Optional
 
 from ..analyzer import Solved
 from ..dtsio import is_int_literal, resolve_token
-from ..model import ConnectorType, Rig
+from ..model import ConnectorType, Instance, Rig
 from . import GEN
+
+
+def _socket_display(inst: Instance, s: Solved) -> str:
+    """The socket name a bench instruction shows: the instance's own
+    declared reference wherever it authored one, else the label
+    inference resolved to (socket-inference-brief.md Sec 7) --
+    `s.sockets[inst.name]` is always present here, since the emitter
+    only ever runs on an accepted rig where every instance's socket
+    already resolved. Read-only over its arguments; returns a plain str
+    the caller owns."""
+    if inst.socket is not None:
+        return inst.socket
+    return s.sockets[inst.name].label
 
 
 def render_sheet(rig: Rig, s: Solved, types: Dict[str, ConnectorType], workdir: str,
@@ -32,7 +45,7 @@ def render_sheet(rig: Rig, s: Solved, types: Dict[str, ConnectorType], workdir: 
            "## Socket assignment", "",
            "| instance | shield | socket |", "|---|---|---|"]
     for inst in sorted(rig.instances, key=lambda i: i.name):
-        out.append(f"| {inst.name} | {inst.shield.name} | {inst.socket} |")
+        out.append(f"| {inst.name} | {inst.shield.name} | {_socket_display(inst, s)} |")
 
     if s.straps or s.jumpers_set:
         out += ["", "## Straps / jumpers", ""]
@@ -40,14 +53,14 @@ def render_sheet(rig: Rig, s: Solved, types: Dict[str, ConnectorType], workdir: 
                 s.straps, key=lambda t: (t[0].name, t[1].name)):
             sheet = strap.sheet_label or strap.name
             out.append(
-                f"- **{inst.name}** ({inst.socket}): set **{sheet}** to state "
+                f"- **{inst.name}** ({_socket_display(inst, s)}): set **{sheet}** to state "
                 f"{state} → device address {addr:#04x}")
         for inst, jmp, jmp_state, pos in sorted(
                 s.jumpers_set, key=lambda t: (t[0].name, t[1].name)):
             sheet = jmp.sheet_label or jmp.name
             posname = types[s.sockets[inst.name].type_name].posname(pos)
             out.append(
-                f"- **{inst.name}** ({inst.socket}): set **{sheet}** to state "
+                f"- **{inst.name}** ({_socket_display(inst, s)}): set **{sheet}** to state "
                 f"{jmp_state} → routed to pin {posname}")
 
     if s.channels:

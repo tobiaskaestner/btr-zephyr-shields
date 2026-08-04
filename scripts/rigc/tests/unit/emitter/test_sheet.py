@@ -11,7 +11,7 @@ from __future__ import annotations
 from rigc.analyzer import Solved
 from rigc.diag import SourceRef
 from rigc.emitter.sheet import render_sheet
-from rigc.model import Instance, Rig, Shield, Wire, WireEnd
+from rigc.model import BoardSocket, Instance, Rig, Shield, Wire, WireEnd
 
 _SRC = SourceRef("f.yml", 1, "k")
 
@@ -70,6 +70,40 @@ def test_params_table_shows_an_int_literal_value_with_no_resolution_attempt() ->
     text = render_sheet(rig, s, {}, workdir="/does-not-matter")
 
     assert "| i1 | dev | debounce-interval-ms | 30 |" in text
+
+
+def test_socket_assignment_row_shows_the_resolved_label_when_none_was_declared() -> None:
+    """socket-inference-brief.md Sec 7: an instance whose socket: was
+    omitted and inferred carries no declared string to print -- the sheet
+    is a bench instruction and must fall back to the resolved socket's own
+    label rather than print "None"."""
+    shield = Shield(name="sh", label="sh", plugs="t")
+    inst = Instance(name="i1", shield=shield, socket=None)
+    rig = Rig(name="r", instances=[inst])
+    socket = BoardSocket(label="ard", path="/ard", type_name="t",
+                        gpio_map={}, buses={}, cs_pool=None)
+    s = Solved(sockets={"i1": socket})
+
+    text = render_sheet(rig, s, {}, workdir="/does-not-matter")
+
+    assert "| i1 | sh | ard |" in text
+    assert "None" not in text
+
+
+def test_socket_assignment_row_shows_the_declared_string_when_one_was_given() -> None:
+    """The other half: declared-else-resolved must not disturb the
+    everyday case -- a declared socket: still prints verbatim, never the
+    resolved label, wherever the two differ (an alias, say)."""
+    shield = Shield(name="sh", label="sh", plugs="t")
+    inst = Instance(name="i1", shield=shield, socket="arduino_r3")
+    rig = Rig(name="r", instances=[inst])
+    socket = BoardSocket(label="nucleo_ard", path="/ard", type_name="t",
+                        gpio_map={}, buses={}, cs_pool=None)
+    s = Solved(sockets={"i1": socket})
+
+    text = render_sheet(rig, s, {}, workdir="/does-not-matter")
+
+    assert "| i1 | sh | arduino_r3 |" in text
 
 
 def test_params_table_absent_when_no_instance_assigns_any() -> None:

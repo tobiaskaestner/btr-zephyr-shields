@@ -149,7 +149,7 @@ def allocate_cs(rig: Rig, sockets: Dict[str, BoardSocket],
     seen: set[NetKey] = set(nets_before)
 
     for bus_path, raw_members in sorted(scopes.items()):
-        members = sorted(raw_members, key=lambda m: allocation_key(m[0], m[1]))
+        members = sorted(raw_members, key=lambda m: allocation_key(m[0], m[1], m[2]))
         cs_members = []
         for inst, dev, socket in members:
             ctype = types[socket.type_name]

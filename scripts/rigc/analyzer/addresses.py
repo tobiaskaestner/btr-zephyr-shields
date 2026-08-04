@@ -178,14 +178,14 @@ def _allocate_scope(bus_path: str, members: List[Tuple[Instance, Device, BoardSo
 
     address_members: List[AddressMember] = []
 
-    for inst, dev, socket in sorted(fixed_scope, key=lambda m: allocation_key(m[0], m[1])):
+    for inst, dev, socket in sorted(fixed_scope, key=lambda m: allocation_key(m[0], m[1], m[2])):
         assert dev.reg is not None
         identity = f"{inst.name}/{dev.name}"
         by_identity[identity] = (inst, dev, socket)
         kind_of[identity] = "fixed"
         address_members.append(AddressMember(identity=identity, fixed=dev.reg))
 
-    for inst, dev, socket in sorted(pinned_scope, key=lambda m: allocation_key(m[0], m[1])):
+    for inst, dev, socket in sorted(pinned_scope, key=lambda m: allocation_key(m[0], m[1], m[2])):
         assert dev.addr_from is not None
         strap = inst.shield.straps[dev.addr_from]
         want = inst.pins[dev.addr_from]
@@ -196,7 +196,7 @@ def _allocate_scope(bus_path: str, members: List[Tuple[Instance, Device, BoardSo
         address_members.append(AddressMember(
             identity=identity, pin=(want, tuple(strap.domain))))
 
-    for inst, dev, socket in sorted(free_scope, key=lambda m: allocation_key(m[0], m[1])):
+    for inst, dev, socket in sorted(free_scope, key=lambda m: allocation_key(m[0], m[1], m[2])):
         free_strap = inst.shield.straps.get(dev.addr_from) if dev.addr_from else None
         if free_strap is None:
             continue  # the loader already reported the addr-authority violation

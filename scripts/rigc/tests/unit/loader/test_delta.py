@@ -106,6 +106,22 @@ def test_parse_instance_applies_the_socket_binding(tmp_path) -> None:
     assert inst.socket == "nucleo_ard"
 
 
+def test_parse_instance_socket_is_optional(tmp_path) -> None:
+    """socket-inference-brief.md Sec 2: the loader never sees the board
+    and so must not be the one requiring a socket to be named -- omitting
+    socket: parses cleanly, carrying `None` through for the analyzer to
+    infer later."""
+    lib = _library(_shield("sh"))
+    item = _doc(tmp_path, """\
+        name: a
+        shield: sh
+        """)   # no socket:
+    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", [], str(tmp_path))
+    assert diags == []
+    assert inst is not None
+    assert inst.socket is None
+
+
 def test_parse_instance_missing_required_key_returns_diagnostic(tmp_path) -> None:
     item = _doc(tmp_path, """\
         name: a

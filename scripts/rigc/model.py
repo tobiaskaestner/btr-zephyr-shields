@@ -205,7 +205,14 @@ class Wire:
 class Instance:
     name: str
     shield: Shield
-    socket: str                     # already resolved through a SocketBinding
+    # already resolved through a SocketBinding; None means the author
+    # declared no socket: at all, so it is not yet resolved to a physical
+    # one -- the analyzer infers it iff exactly one board socket mates the
+    # shield's plug type (socket-inference-brief.md). The loader carries
+    # the absence through unresolved rather than picking one itself: it
+    # never sees the board, which is precisely what lets it stay ignorant
+    # of board identity everywhere else.
+    socket: Optional[str]
     invert: bool = False            # flip the active level of the module's gpio signals
     pins: Dict[str, int] = field(default_factory=dict)          # strap name -> pinned address
     pin_refs: Dict[str, SourceRef] = field(default_factory=dict)

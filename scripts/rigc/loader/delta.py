@@ -74,10 +74,14 @@ def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
                    include_dirs: Optional[List[str]] = None,
                    ) -> Tuple[Optional[Instance], List[Diagnostic], Deps]:
     """One `instances:` entry (base content, or an `add-instances:` item
-    -- the identical shape): name/shield/socket required. `shield:`
-    resolves against the REAL library (`lib.resolve`) -- the R2 seam this
-    slice closes. `socket:` applies through the binding, `pin:`/`params:`
-    apply fully against the resolved shield.
+    -- the identical shape): name/shield required, socket OPTIONAL
+    (socket-inference-brief.md Sec 2) -- omitting it carries `None`
+    through to `Instance.socket` unresolved, since this loader never sees
+    the board and cannot be the one to infer a physical socket; the
+    analyzer resolves it later, alongside the existing mating check.
+    `shield:` resolves against the REAL library (`lib.resolve`) -- the R2
+    seam this slice closes. A DECLARED `socket:` still applies through the
+    binding; `pin:`/`params:` apply fully against the resolved shield.
 
     Returns (instance, diagnostics, deps); instance is None when a
     required key is missing or the shield reference did not resolve.
@@ -85,15 +89,14 @@ def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
     name_v, diags = require(item, "name", "instance")
     shield_v, d = require(item, "shield", "instance")
     diags += d
-    socket_v, d = require(item, "socket", "instance")
-    diags += d
-    if name_v is None or shield_v is None or socket_v is None:
+    if name_v is None or shield_v is None:
         return None, diags, frozenset()
     name = str(name_v.value)
     shield, d, deps = lib.resolve(shield_v.value, f"instance '{name}'", shield_v.src)
     diags += d
     if shield is None:
         return None, diags, deps
+    socket_v = item.value.get("socket")
 
     inv_v = item.value.get("invert")
     pins, pin_refs, jumpers, jumper_refs, d = apply_pin_block(
@@ -106,7 +109,8 @@ def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
     diags += d
 
     inst = Instance(
-        name=name, shield=shield, socket=binding.get(socket_v.value),
+        name=name, shield=shield,
+        socket=binding.get(socket_v.value) if socket_v is not None else None,
         invert=bool(inv_v.value) if inv_v is not None else False,
         pins=pins, pin_refs=pin_refs, jumpers=jumpers, jumper_refs=jumper_refs,
         params=params, param_refs=param_refs, src=item.src)

@@ -123,17 +123,67 @@ def resolve_sockets(rig: Rig, board: Board, types: Dict[str, ConnectorType],
     in the SAME order the blueprint's single accumulator would have
     emitted them (per-instance mating/subset checks in rig.instances
     order, recursing into not-yet-resolved carriers depth-first; the
-    stackability sweep last, over sorted socket references)."""
+    stackability sweep last, over sorted RESOLVED socket labels)."""
     diags: List[Diagnostic] = []
     sockets: Dict[str, BoardSocket] = {}
     scopes: Dict[str, Tuple[str, object]] = {}
     by_name = {i.name: i for i in rig.instances}
+    # keyed by the RESOLVED socket's own label, never the reference string
+    # that named it -- a board socket can be named by either its defining
+    # label or a conventional alias (board-as-invocation-coordinate-brief.md
+    # Sec 2.1), so two instances naming the SAME physical socket by
+    # DIFFERENT strings must still land in the same bucket for the
+    # exclusivity check below to see them.
     per_socket: Dict[str, List[Instance]] = {}
+
+    def infer_socket(inst: Instance) -> Optional[BoardSocket]:
+        """socket-inference-brief.md Sec 1/2: `mating_ok` run in REVERSE
+        across every board socket, keeping the candidates instead of a
+        boolean -- board sockets only, never a carrier's own exported
+        ones (Sec 4: those come from instances, so the candidate set
+        would change as instances are parsed, making inference
+        order-dependent). Exactly one candidate resolves silently; zero
+        or two-or-more is always an error, never a guess (Sec 1's
+        strictness IS the design -- an implementation that picks between
+        several reasonable candidates is wrong however sensible its
+        tie-break looks)."""
+        candidates = [s for s in board.sockets.values()
+                     if mating_ok(inst.shield.plugs, s.type_name)]
+        if not candidates:
+            diags.append(error(
+                "phys-socket",
+                f"instance '{inst.name}': shield '{inst.shield.name}' plugs "
+                f"'{inst.shield.plugs}', but no socket of board "
+                f"'{board.name}' offers a matching type -- add an explicit "
+                "socket: to a socket of a different type, or use a "
+                "different board\n"
+                f"sockets of {board.name}: "
+                + ", ".join(f"{s.label} ({s.type_name})"
+                            for s in board.sockets.values()),
+                (inst.src,) if inst.src else ()))
+            return None
+        if len(candidates) > 1:
+            diags.append(error(
+                "phys-socket",
+                f"instance '{inst.name}': shield '{inst.shield.name}' plugs "
+                f"'{inst.shield.plugs}', which mates more than one socket "
+                f"of board '{board.name}' -- add an explicit socket: to "
+                "pick one\n"
+                "candidates: " + ", ".join(s.label for s in candidates),
+                (inst.src,) if inst.src else ()))
+            return None
+        return candidates[0]
 
     def resolve_one(inst: Instance, stack: Tuple[str, ...]) -> Optional[BoardSocket]:
         if inst.name in sockets:
             return sockets[inst.name]
         ref = inst.socket
+        if ref is None:                                      # inferred board socket
+            socket = infer_socket(inst)
+            if socket is None:
+                return None
+            sockets[inst.name] = socket
+            return socket
         if "." not in ref:                                  # board socket
             socket = board.resolve(ref)
             if socket is None:
@@ -179,7 +229,7 @@ def resolve_sockets(rig: Rig, board: Board, types: Dict[str, ConnectorType],
                 tuple(x for x in (inst.src, carrier.src) if x)))
             return None
         socket, d, scope_entries = compose_socket(
-            inst.socket, carrier.name, exposed, parent, inst.src)
+            ref, carrier.name, exposed, parent, inst.src)
         diags.extend(d)
         for path, entry in scope_entries:
             scopes[path] = entry
@@ -200,7 +250,7 @@ def resolve_sockets(rig: Rig, board: Board, types: Dict[str, ConnectorType],
                 f"'{socket.type_name}' socket — the connectors do not mate",
                 tuple(x for x in (inst.src, socket.src) if x)))
             continue
-        per_socket.setdefault(inst.socket, []).append(inst)
+        per_socket.setdefault(socket.label, []).append(inst)
 
         # subset exposure (R20/S6): used proxies vs offered socket,<bus>
         used = {d.bus for d in inst.shield.devices if d.bus}
@@ -212,14 +262,14 @@ def resolve_sockets(rig: Rig, board: Board, types: Dict[str, ConnectorType],
                 f"socket,{bus} (subset exposure is declared by absence)",
                 tuple(x for x in (inst.src, socket.src) if x)))
 
-    for ref, insts in sorted(per_socket.items()):
+    for label, insts in sorted(per_socket.items()):
         if len(insts) < 2:
             continue
         ctype = types[sockets[insts[0].name].type_name]
         if not ctype.stackable:
             diags.append(error(
                 "phys-mating",
-                f"{len(insts)} instances mate socket '{ref}' but connector type "
+                f"{len(insts)} instances mate socket '{label}' but connector type "
                 f"'{ctype.name}' takes exactly one module (not stackable): "
                 + ", ".join(i.name for i in insts),
                 tuple(i.src for i in insts if i.src)))
