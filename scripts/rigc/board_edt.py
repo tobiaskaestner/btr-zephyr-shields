@@ -55,16 +55,25 @@ def project_edt(edt: "edtlib.EDT", name: str) -> Board:
     both a fresh read and a real build's own edt.pickle can share this
     exact projection.
 
-    Returns a fresh Board holding one BoardSocket per
-    socket,*-compatible node; the EDT is read-only."""
+    Returns a fresh Board holding one BoardSocket per socket,*-compatible
+    node, keyed by its defining label (node.labels[0]); every OTHER label
+    the node declares projects into Board.aliases instead of a second
+    sockets entry (board-as-invocation-coordinate-brief.md Sec 2.1) -- DT
+    allows several labels per node, and a board rig-extension may add its
+    connector type's conventional label (e.g. "arduino_r3") alongside the
+    board-prefixed one it already had ("nucleo_ard") without renaming
+    anything. The EDT is read-only."""
     sockets: Dict[str, BoardSocket] = {}
+    aliases: Dict[str, str] = {}
     for node in edt.nodes:
         compat = node.matching_compat
         if compat is None or not compat.startswith("socket,"):
             continue
         socket = _project_socket(node, compat)
         sockets[socket.label] = socket
-    return Board(name=name, sockets=sockets)
+        for alias in node.labels[1:]:
+            aliases[alias] = socket.label
+    return Board(name=name, sockets=sockets, aliases=aliases)
 
 
 def _project_socket(node: "edtlib.Node", compat: str) -> BoardSocket:

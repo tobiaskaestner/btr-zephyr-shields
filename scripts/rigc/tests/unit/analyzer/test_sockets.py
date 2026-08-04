@@ -154,6 +154,44 @@ def test_resolve_sockets_finds_a_direct_board_socket() -> None:
     assert resolution.sockets["i1"].label == "ard"
 
 
+def test_resolve_sockets_finds_a_board_socket_by_its_conventional_alias() -> None:
+    """board-as-invocation-coordinate-brief.md Sec 2.1: a socket node's
+    SECOND (conventional) label must resolve exactly like its defining
+    one -- resolve_sockets goes through Board.resolve, not a bare
+    board.sockets.get, precisely so this works."""
+    board = Board(name="b", sockets={
+        "nucleo_ard": BoardSocket(label="nucleo_ard", path="/ard",
+                                 type_name="arduino-r3", gpio_map={},
+                                 buses={}, cs_pool=None)},
+                  aliases={"arduino_r3": "nucleo_ard"})
+    inst = _inst("i1", "arduino_r3", _shield())
+    rig = Rig(name="r", instances=[inst])
+
+    resolution, diags = resolve_sockets(rig, board, {"arduino-r3": _ctype()})
+
+    assert diags == []
+    assert resolution.sockets["i1"].label == "nucleo_ard"
+
+
+def test_resolve_sockets_still_finds_the_socket_by_its_defining_label() -> None:
+    """The other half of additive conformance: adding the alias must not
+    disturb the pre-existing reference -- this is the NEGATIVE CONTROL a
+    bare board.sockets.get(ref) already passed, unaffected by the switch
+    to board.resolve(ref)."""
+    board = Board(name="b", sockets={
+        "nucleo_ard": BoardSocket(label="nucleo_ard", path="/ard",
+                                 type_name="arduino-r3", gpio_map={},
+                                 buses={}, cs_pool=None)},
+                  aliases={"arduino_r3": "nucleo_ard"})
+    inst = _inst("i1", "nucleo_ard", _shield())
+    rig = Rig(name="r", instances=[inst])
+
+    resolution, diags = resolve_sockets(rig, board, {"arduino-r3": _ctype()})
+
+    assert diags == []
+    assert resolution.sockets["i1"].label == "nucleo_ard"
+
+
 def test_resolve_sockets_unknown_board_socket_is_phys_socket() -> None:
     board = Board(name="b", sockets={})
     inst = _inst("i1", "nope", _shield())

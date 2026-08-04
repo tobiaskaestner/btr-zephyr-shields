@@ -17,12 +17,34 @@ controller carries a SECOND, later-attached label -- the controller-label
 determinism invariant, ported as a pair of tests from the blueprint's
 own test_controller_label.py), io-channel-map, an i2c bus phandle, and an
 authored socket,cs-pool override.
+
+fixture_socket_bare additionally carries a SECOND label of its own
+(fixture_bare_alias) -- the alias-index fixture for
+board-as-invocation-coordinate-brief.md Sec 2.1: project_edt must index
+every label a socket node declares for RESOLUTION (Board.resolve), while
+Board.sockets itself stays keyed by the defining label alone, one entry
+per physical socket.
+
+The module-level census below (test_every_board_rig_extension_socket_...)
+is a SEPARATE concern from the rest of this file: it scans the REAL
+boards/extend/ tree's .dtsi text (regex, not edtlib -- several of those
+fragments, e.g. lotus's `adc0: &adc {};`, reference a node their own file
+never defines, so they are not standalone-parseable outside a real board
+build) for the per-connector-type conventional label
+board-as-invocation-coordinate-brief.md Sec 2 rules. It is a census-style
+test: falsified by mutating the WORLD it observes (dropping a label from
+a real board file), never by editing its own assertion.
 """
 from __future__ import annotations
 
+import re
 from pathlib import Path
+from typing import Iterator, List, Tuple
+
+import textwrap
 
 from rigc import board_edt
+from rigc.dtsio import MODULE_ROOT
 from rigc.edt_build import ensure_devicetree_on_path
 from rigc.tests.conftest import FIXTURES_DIR, assert_fixture_local
 
@@ -66,6 +88,57 @@ def test_project_edt_ignores_non_socket_compatibles() -> None:
     own (only the two socket,fixture-nexus nodes do)."""
     board = board_edt.project_edt(_edt(), "fixture-board")
     assert len(board.sockets) == 2
+
+
+# ------------------------------------------------------- alias-aware lookup
+#
+# fixture_socket_bare's second label (fixture_bare_alias) is the fixture
+# for board-as-invocation-coordinate-brief.md Sec 2.1: a socket node may
+# declare more than one label, and every one of them must resolve --
+# without the defining-label dict growing a second entry per socket.
+
+
+def test_project_edt_indexes_every_additional_label_as_an_alias() -> None:
+    board = board_edt.project_edt(_edt(), "fixture-board")
+    assert board.aliases == {"fixture_bare_alias": "fixture_socket_bare"}
+
+
+def test_resolve_finds_a_socket_by_its_defining_label() -> None:
+    board = board_edt.project_edt(_edt(), "fixture-board")
+    assert board.resolve("fixture_socket_bare") is board.sockets["fixture_socket_bare"]
+
+
+def test_resolve_finds_the_same_socket_by_its_alias() -> None:
+    """The additive-conformance claim itself: BOTH labels of one node
+    resolve to the identical BoardSocket."""
+    board = board_edt.project_edt(_edt(), "fixture-board")
+    assert board.resolve("fixture_bare_alias") is board.resolve("fixture_socket_bare")
+
+
+def test_resolve_of_an_unknown_ref_is_none() -> None:
+    board = board_edt.project_edt(_edt(), "fixture-board")
+    assert board.resolve("no_such_socket") is None
+
+
+def test_an_alias_does_not_double_key_the_sockets_census() -> None:
+    """The critical constraint: board.sockets stays ONE entry per
+    physical socket. analyzer/sockets.py's phys-socket diagnostic
+    iterates board.sockets.values() to render "sockets of <board>: ..."
+    (wording frozen by the unmapped-socket golden) -- a second key per
+    socket would list it twice and churn that census."""
+    board = board_edt.project_edt(_edt(), "fixture-board")
+    assert len(board.sockets) == 2
+    assert "fixture_bare_alias" not in board.sockets
+
+
+def test_a_bare_dict_get_does_not_find_the_alias() -> None:
+    """Negative control: this is what board.sockets.get(ref) alone
+    (today's pre-alias lookup, board-as-invocation-coordinate-brief.md
+    Sec 2.1) does with an alias -- nothing, since the second label is
+    inert without going through resolve(). Proves resolve() is doing
+    real work, not just tolerating an already-working lookup."""
+    board = board_edt.project_edt(_edt(), "fixture-board")
+    assert board.sockets.get("fixture_bare_alias") is None
 
 
 def test_gpio_map_resolves_position_to_controller_pin_flags() -> None:
@@ -142,3 +215,84 @@ def test_gpio_map_controller_label_is_the_defining_label() -> None:
     ctrl_label, _pin, _flags = _socket().gpio_map[2]
     assert ctrl_label == "defining_ctrl"
     assert ctrl_label != "legacy_alias"
+
+
+# ------------------------------------------- conventional-label census (Sec 2)
+#
+# board-as-invocation-coordinate-brief.md Sec 2/2.1's lint: every socket,*
+# node a board rig-extension declares must carry its connector type's
+# conventional label -- "<type>" for a singleton, "<type>_<silkscreen>"
+# for a family -- ALONGSIDE whatever board-prefixed label it already had.
+# That is the fact Board.resolve() depends on: an alias only resolves if
+# board_edt actually saw it declared in the board's own devicetree.
+
+_SOCKET_NODE_RE = re.compile(
+    r"(?P<labels>(?:\w+\s*:\s*)+)(?P<name>\w+)\s*\{(?P<body>[^{}]*)\}")
+_COMPAT_RE = re.compile(r'compatible\s*=\s*"socket,([\w-]+)"')
+
+
+def _socket_nodes(text: str) -> Iterator[Tuple[List[str], str]]:
+    """Every socket,*-compatible node .dtsi TEXT declares, as (labels in
+    declaration order, type_name with dashes as underscores -- the same
+    shape model.BoardSocket.type_name uses). Regex, not dtlib: a board
+    rig-extension fragment may reference a node its OWN file never
+    defines (lotus's `adc0: &adc {};`), so it is not standalone-parseable
+    outside a real board build; every socket node in this tree is a
+    childless leaf (properties only, no nested node), so a brace-balanced
+    regex is exact for that shape."""
+    for m in _SOCKET_NODE_RE.finditer(text):
+        compat = _COMPAT_RE.search(m.group("body"))
+        if compat is None:
+            continue
+        labels = [lbl.strip() for lbl in m.group("labels").split(":") if lbl.strip()]
+        yield labels, compat.group(1).replace("-", "_")
+
+
+def _conventional_label_offenders(text: str) -> List[str]:
+    """The defining label of every socket,* node in text whose label set
+    carries NO label matching its type's convention -- "<type>" or
+    "<type>_<anything>". Empty when every node conforms."""
+    offenders = []
+    for labels, type_name in _socket_nodes(text):
+        if not any(label == type_name or label.startswith(type_name + "_")
+                  for label in labels):
+            offenders.append(labels[0] if labels else "<unlabeled>")
+    return offenders
+
+
+def test_conventional_label_offenders_detects_a_missing_alias() -> None:
+    """Mechanism check for the checker itself, on synthetic text -- BEFORE
+    trusting it to census the real tree. A node with no conventional
+    label is flagged; the identical node WITH one is not."""
+    missing = textwrap.dedent("""\
+        / {
+            board_ard: connector_arduino_r3 {
+                compatible = "socket,arduino-r3";
+            };
+        };
+        """)
+    assert _conventional_label_offenders(missing) == ["board_ard"]
+
+    present = textwrap.dedent("""\
+        / {
+            board_ard: arduino_r3: connector_arduino_r3 {
+                compatible = "socket,arduino-r3";
+            };
+        };
+        """)
+    assert _conventional_label_offenders(present) == []
+
+
+def test_every_board_rig_extension_socket_carries_its_type_convention_label() -> None:
+    """The census over the REAL tree. Falsified by mutating the WORLD it
+    observes -- drop a label from a real boards/extend/*.dtsi and this
+    fails -- never by editing this assertion."""
+    root = Path(MODULE_ROOT) / "boards" / "extend"
+    offenders = []
+    for path in sorted(root.rglob("*.dtsi")):
+        for offender in _conventional_label_offenders(path.read_text()):
+            offenders.append(f"{path.relative_to(MODULE_ROOT)}: {offender}")
+    assert not offenders, (
+        "socket,* node(s) with no label matching their connector type's "
+        "convention (board-as-invocation-coordinate-brief.md Sec 2 -- "
+        f"'<type>' singleton or '<type>_<silkscreen>' family): {offenders}")

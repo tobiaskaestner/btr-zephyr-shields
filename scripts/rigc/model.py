@@ -254,8 +254,31 @@ class BoardSocket:
 
 @dataclass
 class Board:
+    """sockets is canonical: exactly one entry per physical socket, keyed
+    by its DEFINING label (node.labels[0]) -- analyzer/sockets.py iterates
+    board.sockets.values() to build the "sockets of <board>: ..." census
+    inside the phys-socket diagnostic (wording frozen by the
+    unmapped-socket golden), so a second key per socket would list every
+    aliased socket twice and churn it. aliases carries every ADDITIONAL
+    label a socket node declares (board-as-invocation-coordinate-brief.md
+    Sec 2.1's per-connector-type convention, e.g. "arduino_r3" alongside a
+    board-prefixed "nucleo_ard"), mapped to that socket's defining label --
+    resolve() is the only thing that should widen with it; iteration over
+    sockets itself must not."""
+
     name: str
-    sockets: Dict[str, BoardSocket] = field(default_factory=dict)   # by label
+    sockets: Dict[str, BoardSocket] = field(default_factory=dict)   # by defining label
+    aliases: Dict[str, str] = field(default_factory=dict)  # additional label -> defining label
+
+    def resolve(self, ref: str) -> Optional[BoardSocket]:
+        """The board socket ref names, through the alias index if ref is
+        an additional (non-defining) label, else ref itself -- the same
+        lookup-else-identity shape loader/binding.py's SocketBinding.get
+        uses for abstract-socket names. Returns None when ref names no
+        socket of this board at all (a phys-socket finding is the
+        caller's job, not this method's). The board and its sockets are
+        read-only to this call; nothing is constructed or owned here."""
+        return self.sockets.get(self.aliases.get(ref, ref))
 
 
 @dataclass

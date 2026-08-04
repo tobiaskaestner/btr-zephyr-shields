@@ -28,7 +28,7 @@
 #include <zephyr/dt-bindings/gpio/arduino-header-r3.h>
 
 / {
-	frdm_ard: connector_arduino_r3 {
+	frdm_ard: arduino_r3: connector_arduino_r3 {
 		compatible = "socket,arduino-r3";
 		#gpio-cells = <2>;
 		gpio-map-mask = <0xffffffff 0xffffffc0>;

@@ -135,7 +135,7 @@ def resolve_sockets(rig: Rig, board: Board, types: Dict[str, ConnectorType],
             return sockets[inst.name]
         ref = inst.socket
         if "." not in ref:                                  # board socket
-            socket = board.sockets.get(ref)
+            socket = board.resolve(ref)
             if socket is None:
                 diags.append(error(
                     "phys-socket",

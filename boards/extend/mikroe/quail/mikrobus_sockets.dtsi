@@ -30,7 +30,7 @@
 #include <dt-bindings/connector/mikrobus.h>
 
 / {
-	quail_sock1: connector_mikrobus_1 {
+	quail_sock1: mikrobus_1: connector_mikrobus_1 {
 		compatible = "socket,mikrobus";
 		#gpio-cells = <2>;
 		gpio-map-mask = <0xffffffff 0xffffffc0>;
@@ -52,7 +52,7 @@
 		socket,uart = <&usart3>;
 	};
 
-	quail_sock2: connector_mikrobus_2 {
+	quail_sock2: mikrobus_2: connector_mikrobus_2 {
 		compatible = "socket,mikrobus";
 		#gpio-cells = <2>;
 		gpio-map-mask = <0xffffffff 0xffffffc0>;
@@ -74,7 +74,7 @@
 		socket,uart = <&usart2>;
 	};
 
-	quail_sock3: connector_mikrobus_3 {
+	quail_sock3: mikrobus_3: connector_mikrobus_3 {
 		compatible = "socket,mikrobus";
 		#gpio-cells = <2>;
 		gpio-map-mask = <0xffffffff 0xffffffc0>;
@@ -96,7 +96,7 @@
 		socket,uart = <&usart6>;
 	};
 
-	quail_sock4: connector_mikrobus_4 {
+	quail_sock4: mikrobus_4: connector_mikrobus_4 {
 		compatible = "socket,mikrobus";
 		#gpio-cells = <2>;
 		gpio-map-mask = <0xffffffff 0xffffffc0>;
