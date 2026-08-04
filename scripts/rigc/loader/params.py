@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
+from ..deps import Deps, touch, union
 from ..diag import Diagnostic, SourceRef, error
 from ..dtsio import (MODULE_INC, check_include, is_int_literal,
                     resolve_token, zephyr_inc)
@@ -228,17 +229,25 @@ def check_restate(params_v: Val, prior_params: Dict[str, Dict[str, str]],
 def check_dt_includes(rig_name: str, dt_includes: List[str],
                       dt_includes_refs: List[SourceRef], workdir: str,
                       include_dirs: Optional[List[str]] = None,
-                      ) -> List[Diagnostic]:
+                      ) -> Tuple[List[Diagnostic], Deps]:
     """Rule 6: every declared dt-includes: header must exist and
     preprocess cleanly on its own, checked once per rig regardless of
     whether any parameter ends up resolving against it.
 
-    Returns one error per header that is missing or fails to
-    preprocess; empty when all resolve."""
+    Returns (diagnostics, deps): one diagnostic per header that is
+    missing or fails to preprocess, empty when all resolve; deps is the
+    UNION of every real file each declared header's own preprocess
+    opened (dtsio.check_include), recorded for EVERY header regardless
+    of whether its own check passed -- a rig's declared token vocabulary
+    is a real dependency of that rig even on the header that currently
+    fails, since that header is exactly the one an author is about to
+    edit. Inputs are read-only; the caller owns the returned Deps."""
     diags: List[Diagnostic] = []
+    deps: Deps = frozenset()
     searched = ", ".join([*(include_dirs or []), zephyr_inc(), MODULE_INC])
     for i, (header, ref) in enumerate(zip(dt_includes, dt_includes_refs)):
-        detail = check_include(header, workdir, f"{rig_name}_{i}", include_dirs)
+        detail, files = check_include(header, workdir, f"{rig_name}_{i}", include_dirs)
+        deps = union(deps, *(touch(f) for f in files))
         if detail is not None:
             diags.append(error(
                 "lang-dt-include",
@@ -246,4 +255,4 @@ def check_dt_includes(rig_name: str, dt_includes: List[str],
                 f"found or fails to preprocess (searched {searched})\n"
                 f"{detail}",
                 (ref,)))
-    return diags
+    return diags, deps

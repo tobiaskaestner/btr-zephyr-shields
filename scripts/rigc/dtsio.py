@@ -92,20 +92,34 @@ def run_cpp(dts_path: str, out_path: str,
     -I list; ZEPHYR_INC/MODULE_INC are always appended last, so a caller
     passing none sees exactly the two-directory search path.
 
-    Writes the preprocessed output to out_path and returns None;
-    raises LoadError (lang-cpp) when the preprocessor fails."""
+    Writes cpp's stdout to out_path OURSELVES (never gcc's own -o, which
+    writes nothing at all on a failing run) -- even a preprocess that
+    fails partway (a missing NESTED #include, a macro error) has already
+    emitted linemarkers for every file it opened up to that point, and
+    that partial text is what a caller recovering dependency data on the
+    failure path needs (see linemarker_files). Captured and written as
+    BYTES, never text: a preprocessed tree is whatever bytes its sources
+    hold, and decoding it through the ambient locale would make this
+    file's contents depend on the environment rather than on its inputs.
+    Byte-for-byte identical to what gcc's own -o produces. Returns None
+    on success; raises LoadError (lang-cpp) when the preprocessor
+    fails."""
     cmd = ["gcc", "-E", "-x", "assembler-with-cpp", "-nostdinc"]
     for d in include_dirs or []:
         cmd += ["-I", d]
     cmd += [
         "-I", zephyr_inc(), "-I", MODULE_INC,
-        "-undef", "-D__DTS__", dts_path, "-o", out_path,
+        "-undef", "-D__DTS__", dts_path,
     ]
     log.debug("cpp argv: %s", shlex.join(cmd))
-    res = subprocess.run(cmd, capture_output=True, text=True)
+    res = subprocess.run(cmd, capture_output=True)
+    with open(out_path, "wb") as f:
+        f.write(res.stdout)
     if res.returncode != 0:
         raise LoadError(error(
-            "lang-cpp", "preprocessing failed\n" + res.stderr.strip(),
+            "lang-cpp",
+            "preprocessing failed\n"
+            + res.stderr.decode("utf-8", "replace").strip(),
             (SourceRef(dts_path, 0),)))
 
 
@@ -192,6 +206,42 @@ def source_files(dt, exclude_dir: str) -> List[str]:
         and not os.path.realpath(name).startswith(exclude + os.sep))
 
 
+#: GNU cpp's own file-change record: `# <line> "<file>" [flags...]`,
+#: emitted whenever cpp opens or returns from a file (nested #includes
+#: included). Anchored at line start -- this is cpp's own line-oriented
+#: output convention, never indented.
+_LINEMARKER_RE = re.compile(r'^# \d+ "([^"]*)"', re.M)
+
+
+def linemarker_files(pre_text: str, exclude_dir: str) -> List[str]:
+    """source_files' sibling for callers that never get a parsed dtlib.DT
+    at all -- a preprocess that fails partway (dtlib itself rejects the
+    result, or a NESTED #include inside the named file is what actually
+    fails) still leaves linemarkers in pre_text for every file cpp opened
+    before the failure, and that is the dependency data such a caller
+    needs (a header that fails to preprocess is still a file the rig
+    depends on).
+
+    Synthetic names cpp invents for itself (`<built-in>`,
+    `<command-line>`, ...) are not real files and are skipped. EXCLUDES
+    exclude_dir (and anything under it), the same rule source_files
+    applies to the synthesized translation unit.
+
+    pre_text is the preprocessed output's own text -- reading it from
+    disk is the CALLER's concern (this function touches no filesystem);
+    returns the files sorted and deduplicated. The caller owns the
+    result."""
+    exclude = os.path.realpath(exclude_dir)
+    names = {
+        m.group(1) for m in _LINEMARKER_RE.finditer(pre_text)
+        if not m.group(1).startswith("<")
+    }
+    return sorted(
+        name for name in names
+        if os.path.realpath(name) != exclude
+        and not os.path.realpath(name).startswith(exclude + os.sep))
+
+
 def words(prop) -> List[int]:
     """Raw 32-bit cells of a property value. Only for
     Type.PHANDLES_AND_NUMS -- dtlib has no typed accessor for that shape;
@@ -237,19 +287,38 @@ def is_int_literal(text: str) -> bool:
 
 
 def check_include(header: str, workdir: str, tag: str,
-                  include_dirs: Optional[List[str]] = None) -> Optional[str]:
+                  include_dirs: Optional[List[str]] = None,
+                  ) -> Tuple[Optional[str], List[str]]:
     """Confirm one dt-includes: header is real and preprocesses cleanly on
-    its own (rule 6, "lang-dt-include"). Returns an error detail string on
-    failure, else None."""
+    its own (rule 6, "lang-dt-include").
+
+    Returns (detail, files): detail is an error detail string on failure,
+    else None; files is every real file this preprocess opened
+    (linemarker_files over the synthesized TU's own preprocessed output),
+    recovered WHETHER OR NOT this check passes -- a header that fails to
+    preprocess (its own nested #include is what actually failed) is still
+    a file the rig depends on, and is exactly the file an author is about
+    to edit. files is empty only when nothing beyond the synthesized TU
+    itself was ever opened (the named header could not be found at all).
+    The caller owns the returned list."""
     tu = os.path.join(workdir, f"rig-dt-include-{tag}.dts")
     with open(tu, "w") as f:
         f.write(f'/dts-v1/;\n#include "{header}"\n/ {{ }};\n')
     log.info("wrote %s", tu)
+    pre = os.path.join(workdir, os.path.basename(tu) + ".pre")
+    detail = None
     try:
         parse_dts(tu, workdir, include_dirs)
-        return None
     except LoadError as e:
-        return e.diags[-1].message
+        detail = e.diags[-1].message
+    files: List[str] = []
+    if os.path.isfile(pre):
+        # Only the linemarkers are wanted, and those are ASCII paths --
+        # decode leniently rather than let an undecodable byte somewhere
+        # in a preprocessed tree turn dependency recovery into a crash.
+        with open(pre, encoding="utf-8", errors="replace") as f:
+            files = linemarker_files(f.read(), workdir)
+    return detail, files
 
 
 def resolve_token(token: str, headers: List[str], workdir: str, tag: str,

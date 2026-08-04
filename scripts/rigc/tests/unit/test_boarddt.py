@@ -7,9 +7,10 @@ monkeypatch here rather than a real board .dts + cpp, exactly like
 cli.py's own `test_accept_path_refuses_rather_than_accepting` does: board
 reading invokes cpp, so it is integration-only by construction
 (rigc-r3-brief.md Sec 2's cpp/unit-test seam applies to the board side
-just as it does to the shield side) -- `_discover_board_dts` itself
-(zephyr's list_boards.py over a real MODULE_ROOT scan) is exercised only
-by the frozen suite's own unknown-board golden, never here.
+just as it does to the shield side) -- `_discover_board_dts` needs no
+cpp itself (zephyr's list_boards.py over a real MODULE_ROOT scan is
+plain YAML/filesystem reading), so its not-found path is exercised
+directly below too, alongside the frozen suite's unknown-board golden.
 
 Wording stays out of these tests (mission brief Sec 6); code, return
 shape, and which branch fired are what's asserted -- the hand-differential
@@ -125,3 +126,25 @@ def test_a_board_with_sockets_loads_clean(
     assert board is fake_board
     assert diags == []
     assert deps == frozenset({os.path.abspath(str(real_dts))})
+
+
+def test_unknown_board_message_is_cwd_independent(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The unknown-board diagnostic anchors MODULE_ROOT via the ratified
+    anchor_path renderer, not a bare os.path.relpath -- rendered from two
+    different process working directories, the message must come out
+    byte-identical. This is the control the CWD-relative wart existed for
+    want of: os.path.relpath would fail this assertion, since a relative
+    path computed against two different cwds differs."""
+    cwd_a = tmp_path / "a"
+    cwd_b = tmp_path / "elsewhere" / "b"
+    cwd_a.mkdir()
+    cwd_b.mkdir(parents=True)
+
+    monkeypatch.chdir(cwd_a)
+    _, diags_a = boarddt._discover_board_dts("nonexistent_board_xyz")
+    monkeypatch.chdir(cwd_b)
+    _, diags_b = boarddt._discover_board_dts("nonexistent_board_xyz")
+
+    assert len(diags_a) == 1 and len(diags_b) == 1
+    assert diags_a[0].message == diags_b[0].message

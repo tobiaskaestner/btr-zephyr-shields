@@ -20,8 +20,10 @@ Sec 7 explicitly distinguishes from hermeticity ("no Zephyr DATA" is not
 from __future__ import annotations
 
 import os
+from textwrap import dedent
 
-from rigc.dtsio import get_dtlib, is_int_literal, render_prop, src_of, words
+from rigc.dtsio import (get_dtlib, is_int_literal, linemarker_files,
+                       render_prop, src_of, words)
 
 # ---------------------------------------------------------------- is_int_literal
 
@@ -173,3 +175,90 @@ def test_module_root_is_the_repo_root() -> None:
     from rigc.dtsio import MODULE_ROOT
     assert os.path.isdir(os.path.join(MODULE_ROOT, "scripts", "rigc"))
     assert os.path.isdir(os.path.join(MODULE_ROOT, "boards", "shields"))
+
+
+# ---------------------------------------------------------------- linemarker_files
+
+
+def test_linemarker_files_recovers_a_real_included_header(tmp_path) -> None:
+    """A single #include's own linemarker is recovered as a real file --
+    source_files' sibling for a caller with no parsed dtlib.DT at all."""
+    header = tmp_path / "header.h"
+    pre_text = dedent(f"""\
+        # 0 "{tmp_path}/workdir/tu.dts"
+        # 0 "<built-in>"
+        # 0 "<command-line>"
+        # 1 "{tmp_path}/workdir/tu.dts"
+        # 1 "{header}" 1
+        # 3 "{tmp_path}/workdir/tu.dts" 2
+        """)
+    assert linemarker_files(pre_text, str(tmp_path / "workdir")) == [str(header)]
+
+
+def test_linemarker_files_excludes_synthetic_cpp_markers(tmp_path) -> None:
+    """<built-in> and <command-line> are cpp's own invented names, never
+    real files -- they must never surface as dependency data, even
+    alongside a real included header that DOES belong in the result."""
+    header = tmp_path / "header.h"
+    pre_text = dedent(f"""\
+        # 0 "{tmp_path}/workdir/tu.dts"
+        # 0 "<built-in>"
+        # 0 "<command-line>"
+        # 1 "{header}" 1
+        """)
+    assert linemarker_files(pre_text, str(tmp_path / "workdir")) == [str(header)]
+
+
+def test_linemarker_files_excludes_the_workdir(tmp_path) -> None:
+    """The workdir-exclusion rule, proven with a real negative control: a
+    helper that forgot to exclude exclude_dir would put the generated TU
+    itself into the result -- this asserts the TU is genuinely absent,
+    not merely that some other file is present."""
+    workdir = tmp_path / "workdir"
+    tu = workdir / "tu.dts"
+    pre_text = dedent(f"""\
+        # 1 "{tu}"
+        """)
+    assert linemarker_files(pre_text, str(workdir)) == []
+
+
+def test_linemarker_files_excludes_a_file_nested_under_the_workdir(tmp_path) -> None:
+    """Not just the workdir's own TU: anything living UNDER exclude_dir is
+    excluded too, matching source_files' own exclusion rule."""
+    workdir = tmp_path / "workdir"
+    nested = workdir / "nested" / "generated.dts"
+    pre_text = dedent(f"""\
+        # 1 "{nested}"
+        """)
+    assert linemarker_files(pre_text, str(workdir)) == []
+
+
+def test_linemarker_files_recovers_a_nested_include(tmp_path) -> None:
+    """A header that itself #includes another header leaves a linemarker
+    for BOTH -- cpp linemarkers name every file actually opened, nested
+    includes included, which is the whole point of reading them back
+    instead of predicting a search path in Python."""
+    outer = tmp_path / "outer.h"
+    inner = tmp_path / "inner.h"
+    pre_text = dedent(f"""\
+        # 1 "{tmp_path}/workdir/tu.dts"
+        # 1 "{outer}" 1
+        # 1 "{inner}" 1
+        # 3 "{inner}" 2
+        # 2 "{outer}" 2
+        """)
+    assert linemarker_files(pre_text, str(tmp_path / "workdir")) == sorted(
+        [str(outer), str(inner)])
+
+
+def test_linemarker_files_deduplicates_repeated_markers(tmp_path) -> None:
+    """cpp emits a fresh linemarker every time it RETURNS to a file too
+    (not only when it opens one) -- the same file appears more than once
+    in real output, and must surface exactly once here."""
+    header = tmp_path / "header.h"
+    pre_text = dedent(f"""\
+        # 1 "{header}" 1
+        # 5 "{header}"
+        # 6 "{header}"
+        """)
+    assert linemarker_files(pre_text, str(tmp_path / "workdir")) == [str(header)]

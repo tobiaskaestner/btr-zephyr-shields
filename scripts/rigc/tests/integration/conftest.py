@@ -291,9 +291,8 @@ def write_rerun_script(script_dir: Path, cwd: Path, cmd: List[str],
 
     cwd is recorded as an explicit cd line rather than left to whatever
     directory the script happens to be run from: a diagnostic that renders
-    a process-cwd-relative path (e.g. boarddt.py's unknown-board message,
-    a bare os.path.relpath) would otherwise reproduce DIFFERENTLY than the
-    original failure, defeating the point of a reproduction script.
+    a process-cwd-relative path would otherwise reproduce DIFFERENTLY than
+    the original failure, defeating the point of a reproduction script.
 
     Only the env entries this invocation's caller added on top of the
     inherited environment are exported -- recording every inherited
@@ -524,8 +523,7 @@ def run_expand(rig_yml: Path, out_dir: Path,
     this harness reuses a cached plain build's --build-info instead, per the
     cached-plain-build pattern — see plain_build_for) — a real subprocess,
     cwd pinned to the repo root so any process-cwd-relative path a
-    diagnostic renders (e.g. boarddt.py's unknown-board message, which uses a
-    bare os.path.relpath) is reproducible regardless of the caller's cwd.
+    diagnostic renders is reproducible regardless of the caller's cwd.
 
     include_dirs is the cpp -I side of the explicit recipe (cli.py
     --include-dir); a hermetic fixture board whose .dts #includes its own

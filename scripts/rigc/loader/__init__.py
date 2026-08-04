@@ -51,11 +51,11 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 from ..deps import Deps, touch, union
 from ..diag import Diagnostic, LoadError, SourceRef, anchor_path, error
-from ..model import Rig
+from ..model import ConnectorType, Rig
 from ..unimplemented import Unimplemented
 from . import axes, binding, fragments
 from .axes import revision_fragment_name, variant_fragment_name
@@ -194,11 +194,14 @@ def _gather_content(rig: Rig, rig_dir: str, workdir: str,
     boundary of its own (unlike phase 3, see `_build_topology`).
 
     Returns (result, diagnostics, deps): deps names the content file
-    itself plus whichever of the two qualifier delta fragments actually
-    exist -- the closure this phase owns of rigc-r5-brief.md Sec 2's
-    RIG_DEPENDS handoff (the fragments' own #include chains are not
-    opened here at all, since a delta fragment is parsed the same
-    mark-aware-YAML way the base content is, never cpp)."""
+    itself, whichever of the two qualifier delta fragments actually
+    exist, and every real file each declared dt-includes: header's own
+    preprocess opened (`check_dt_includes`, recorded whether or not that
+    header's own check passed) -- the closure this phase owns of
+    rigc-r5-brief.md Sec 2's RIG_DEPENDS handoff (the fragments' own
+    #include chains are not opened here at all, since a delta fragment is
+    parsed the same mark-aware-YAML way the base content is, never
+    cpp)."""
     assert rig.src is not None   # phase 1 always sets it before returning a Rig
     diags: List[Diagnostic] = []
     deps: Deps = frozenset()
@@ -259,8 +262,10 @@ def _gather_content(rig: Rig, rig_dir: str, workdir: str,
             dt_includes, dt_includes_refs,
             as_mapping(revision_delta_v, "revision delta").get("dt-includes"))
     if dt_includes:
-        diags += check_dt_includes(rig.name, dt_includes, dt_includes_refs,
-                                   workdir, include_dirs)
+        d, dt_deps = check_dt_includes(rig.name, dt_includes, dt_includes_refs,
+                                       workdir, include_dirs)
+        diags += d
+        deps = union(deps, dt_deps)
 
     return ContentResult(
         content_v=content_v,
@@ -357,7 +362,7 @@ def load(rig_path: str, workdir: str,
         shield_dirs: Optional[List[str]] = None,
         revision: Optional[str] = None,
         variant: Optional[str] = None,
-        types: Optional[dict] = None,
+        types: Optional[Dict[str, ConnectorType]] = None,
         include_dirs: Optional[List[str]] = None,
         ) -> Tuple[Optional[Rig], List[Diagnostic], Deps]:
     """Load rig_path (absolute) as far as rigc's loader reaches, returning

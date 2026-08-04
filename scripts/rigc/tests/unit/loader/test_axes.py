@@ -115,6 +115,11 @@ def test_default_not_a_member_is_rejected(tmp_path: Path) -> None:
 
 
 def test_empty_list_is_rejected(tmp_path: Path) -> None:
+    """Asserts the message text too, not just the code -- deliberately,
+    against this module's own general policy above: a code-only
+    assertion is exactly what let this wording go unfrozen with no
+    reject-corpus fixture pinning it (now added alongside the golden
+    fixture empty-revisions-list)."""
     rig_v = _rig(tmp_path, """\
         rig:
           name: r
@@ -125,6 +130,7 @@ def test_empty_list_is_rejected(tmp_path: Path) -> None:
     assert decl is None
     assert len(diags) == 1
     assert diags[0].code == "lang-schema"
+    assert diags[0].message == "rig revisions: 'list' must be a non-empty list"
 
 
 def test_mapping_entry_gated_to_variants_only(tmp_path: Path) -> None:

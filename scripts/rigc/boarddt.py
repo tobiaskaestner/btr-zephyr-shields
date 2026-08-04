@@ -140,7 +140,11 @@ def _discover_board_dts(name: str) -> Tuple[Optional[str], List[Diagnostic]]:
         return None, [error(
             "phys-board",
             f"unknown board '{name}'\n"
-            f"no such board directory under {os.path.relpath(MODULE_ROOT)}/boards\n"
+            # anchor_path, not relpath: a cwd-relative path renders
+            # differently depending on where the tool was invoked from, so a
+            # reproduction of the same failure would not reproduce the same
+            # text (see the rerun-script note in the integration conftest).
+            f"no such board directory under {anchor_path(MODULE_ROOT)}/boards\n"
             "this standalone lookup only searches that one root; every "
             "board this tooling can build today extends a base that lives "
             "elsewhere (a real Zephyr board, or another Zephyr module), so "

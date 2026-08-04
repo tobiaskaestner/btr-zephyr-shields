@@ -347,6 +347,27 @@ def test_no_such_axis_golden(tmp_path: Path) -> None:
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
 
 
+def test_empty_revisions_list_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: revisions: declared with list: [] --
+    axes.parse_axis_decl's own "'list' must be a non-empty list" guard
+    (lang-schema). The code path was already covered by a unit test that
+    asserted only the diagnostic CODE; this pins the WORDING itself, a
+    reject-corpus stderr.txt being the ratified place that happens (see
+    this file's own module docstring)."""
+    out_dir = tmp_path / "out"
+    rig_yml = FIXTURES_DIR / "boards" / "rigs" / "empty-revisions-list" / "rig.yml"
+    result = run_expand(rig_yml, out_dir)
+
+    assert result.returncode != 0, "an empty revisions: list must be rejected"
+    assert "[lang-schema]" in result.stderr, result.stderr
+    assert "'list' must be a non-empty list" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "empty-revisions-list"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
 # ---------------------------------------------------------------- V1b: delta engine rejects
 
 def test_revision_carries_board_golden(tmp_path: Path) -> None:

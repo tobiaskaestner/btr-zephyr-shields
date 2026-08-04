@@ -1,0 +1,9 @@
+# Synthetic fixture: revisions: declared with an explicitly EMPTY list --
+# axes.parse_axis_decl's own "'list' must be a non-empty list" guard
+# (lang-schema). The code path was already unit-tested; what was missing
+# is a reject-corpus fixture pinning the WORDING it renders.
+rig:
+  name: empty-revisions-list
+  board: nucleo_f401re/stm32f401xe/rig
+  revisions:
+    list: []
