@@ -1,6 +1,131 @@
 # Rigs — Session Handoff
 
-## RESUME (2026-08-04) — GROUP E CLEARED; hwmv2 BRIEF READY, RULED, SPLIT IN TWO
+## RESUME (2026-08-04b) — hwmv2 DONE (rig-side); BOARD-AS-COORDINATE UNDER WAY
+
+### STATE AT SESSION CLOSE (2026-08-04b)
+
+btr-shields HEAD **`1c2344e`**, tree clean. `main` is **ahead 11 of
+origin, NOT pushed** — the whole session's work is unpushed; that is the
+first decision next time.
+
+**Gate, driver-verified, FULL (never `CHECK_FAST`) after every slice:**
+mypy **86 files**, unit **568**, frozen **145**, coverage **90%** vs the
+88 floor. ALL GREEN.
+
+Eleven commits, six slices:
+
+| commit | slice |
+|---|---|
+| `c46fdc3` | lazy shield library — templates parse on first reference |
+| `d3eed8a` | the four real items in backlog group E |
+| `8dd24ec` | items 20 + 27 — refreeze the goldens' unread bytes |
+| `f549062` | hwmv2 dispatch A — one resolver for rig and shield axes |
+| `5ea1d69` | hwmv2 dispatch B — upstream revision shape + semantics |
+| `d47ec86` | conventional socket labels + alias-aware board lookup |
+| `e6423c0` | the empty-rig identity law (saferail 11) |
+| `1c2344e` | unique-by-type socket inference + stacking census fix |
+
+plus `1958ccc`, `6cc5406`, `43cc443` (docs).
+
+### WHERE TO PICK UP
+
+**`board-as-coordinate-brief.md` is the live document.** Its §7 status
+table is current. All three of its rulings are settled. State:
+
+- steps 1 (aliases + alias-aware lookup) and 2a (empty-rig law) LANDED;
+- **2b, the singleton identity law, is now UNBLOCKED** — `1c2344e`
+  delivered the §4.2 inference it needed — but still requires a shield
+  authored in BOTH worlds (a `.shield` template AND a plain upstream
+  `.overlay` as the oracle), because no shield in the tree exists in
+  upstream form. Precedent: the P2 S1-equivalence work did exactly that.
+- steps 3 (content migration), 4 (the coordinate change) and 5
+  (`--boards-for`) are all open. **Step 5 is fully independent and
+  shippable on its own** — Tobi's standing "ship it", and it reads the
+  same census step 1's lint already builds.
+
+Then the standing queue: **rig-schema.yaml** (backlog item 7 — hwmv2's
+hand-rolled diagnostics come first and it defers to them, not the
+reverse), **shield plurality**, **BRIDLE MIGRATION**.
+
+### RULINGS MADE THIS SESSION — all recorded in their briefs
+
+1. Diagnostic ORDER need not be preserved (rigexp is no longer a
+   reference); `stderr.txt` stays byte-exact.
+2. hwmv2: adopt upstream's list shape in full; classified reject refreeze
+   authorized, scoped to the revision/axis family; shields get hwmv2 too
+   (**later found unimplementable — see below**); no `exact: true` for
+   existing corpus rigs; two dispatches.
+3. Socket labels: `<type>` for a singleton, `<type>_<silkscreen>` for a
+   family.
+4. The `/rig` extension target stays EXPLICIT — no inference over board
+   names — expecting upstream boards to gain typed sockets so the variant
+   goes away by attrition.
+5. Per-board fragments for rigs ARE adopted, as shields have them today.
+6. Inference candidates are BOARD sockets only; inference then obeys the
+   existing stacking rule.
+
+### ONE RULING COULD NOT BE IMPLEMENTED — needs a decision
+
+**Shields do NOT get hwmv2 semantics.** The pinned zephyr tree's
+`shield-schema.yaml` constrains a shield's `revisions:` block to
+`{default:, list:}` with `additionalProperties: false`, and
+`list_shields.py` validates EVERY `shield.yml` under EVERY board root at
+`find_package(Zephyr)` time — so a migrated `shield.yml` breaks every
+configure in the workspace. Found by running a real cmake configure, not
+by reasoning.
+
+**The constraint is OUR OWN carried commit `8da5b3a0f60`, not upstream's**
+— verified: `origin/main`'s copy of that schema has no `revisions:` block
+at all. So this is reversible by extending a patch we already carry.
+Tobi's call, **DEFERRED 2026-08-04** to the bridle migration / upstreaming
+push, when all five carried commits get decided together. Recorded in
+`hwmv2-revision-semantics-brief.md` §0.5.
+
+Note the implementation is ready for either answer: hwmv2-vs-legacy is
+discriminated by `decl.format is not None`, a property of the DATA, so
+one resolver serves both and nothing in rigc changes the day that schema
+does.
+
+### THINGS FOUND THAT WERE NOT LOOKED FOR
+
+- **The stacking census could be bypassed** (`1c2344e`). Keyed by the raw
+  reference string, so after aliases landed two instances could name one
+  physical socket by two labels and slip past the non-stackable check.
+  Latent, not live — the only non-stackable type is `grove`, on the one
+  board that needed no aliases — but now fixed and regression-tested.
+- **`run_cpp` no longer uses gcc's `-o`** (`d3eed8a`). gcc writes nothing
+  there on a failing preprocess but still emits linemarkers, and item 19
+  needed deps on the failure path. It captures stdout and writes the file
+  itself, **as bytes** — the first implementation used `text=True`, which
+  made every preprocessed file in the tool locale-dependent.
+- **`list_rigs.py` re-reads rig.yml's axis independently** (`5ea1d69`),
+  before rigc runs, so hwmv2's key rename would have silently broken
+  every real qualified build. Nearest-lower there is a documented gap.
+- **The refreeze trap is closed** (`8dd24ec`). `RIGC_REFREEZE=1` rewrites
+  whole files, so every refreeze used to drag the banner rewrite into
+  unrelated diffs; two slices had to hand-revert 40–58 files. Gone now,
+  but **classify every refreeze diff before committing it** regardless.
+
+### PROCESS NOTES WORTH CARRYING
+
+- **Four of six dispatches stalled** ending their turn waiting on their
+  own background gate, and had to be killed and their work verified by
+  hand. Explicitly instructing against it did not help; the last dispatch,
+  which named the failure and its consequence directly, did not stall.
+  If it recurs, change the contract rather than the wording: let
+  implementors write code and hand off, and the driver does all gate
+  running and verification.
+- **Two of this session's briefs were wrong in ways checking caught**:
+  the design doc's "additive conformance" claim (a second DT label was
+  inert until `d47ec86` made it real), and a claimed live YAML float
+  hazard that does not reproduce in rigc's own parser. Treat a brief's
+  factual claims as checkable — including one's own.
+- **"Uncovered" has meant two different things** in the backlog: no code
+  path reaches it, versus nothing freezes its wording. Say which.
+- Every accepted slice this session was mutation-verified: the control
+  must fail for the named reason and nothing else.
+
+## RESUME (2026-08-04a, superseded) — GROUP E CLEARED; hwmv2 BRIEFED
 
 ### STATE AT SESSION CLOSE (2026-08-04)
 
