@@ -5,11 +5,16 @@ ported value-shaped from rigexp/loader_yml.py's `_parse_axis_decl`/
 (rigc-r2-brief.md Sec 3).
 
 **The hwmv2 seam**: this module is the ONLY place a `revisions:`/
-`variants:` declaration's raw YAML is read (`parse_axis_decl`) or a
-selection resolved against it (`resolve_axis`); `normalize_revision`
-applies ONLY at filename construction, never to a selected value. That
-ratified slice later replaces the declaration shape and the resolution
-semantics for rigs AND shields, in this one place -- nothing else in the
+`variants:` declaration's raw YAML is read (`parse_axis_decl`). The
+resolution of a selection against a declaration is a SINGLE shared
+decision, `resolve_axis_selection`, also defined here: a rig's own axis
+resolution (`resolve_axis`, below) and `ShieldLibrary.resolve`
+(`loader/library.py`) both delegate to it rather than each re-deriving
+the three failure shapes (not-declared-at-all / not-a-member /
+no-default) with their own wording. `normalize_revision` applies ONLY
+at filename construction, never to a selected value. That ratified
+slice later replaces the declaration shape and the resolution semantics
+for rigs AND shields, in this one function -- nothing else in the
 loader may inspect a declaration's raw YAML or re-derive resolution.
 """
 from __future__ import annotations
@@ -167,34 +172,53 @@ def check_axis_collision(rig_name: str, variants: Optional[AxisDecl],
     return diags
 
 
-def resolve_axis(rig_name: str, axis_kind: str, decl_key: str,
-                 decl: Optional[AxisDecl], selected: Optional[str],
-                 src: SourceRef) -> tuple[Optional[str], list[Diagnostic]]:
-    """Resolve ONE qualifier axis (`revision` or `variant`) to its final
-    SELECTED value. A `selected` value naming an UNDECLARED axis says so
-    by name ("this rig declares no revisions:") rather than the generic
-    not-a-member wording -- it points the author at the right place. A
-    selected value against a DECLARED axis must be one of its members. A
-    bare (unselected) axis takes the declared default; if the axis is
+def resolve_axis_selection(owner_kind: str, owner_name: str, axis_kind: str,
+                           decl_key: str, decl: Optional[AxisDecl],
+                           selected: Optional[str], src: SourceRef,
+                           ) -> tuple[Optional[str], list[Diagnostic]]:
+    """The three failure shapes a qualifier-axis resolution can hit, as
+    ONE decision over values -- shared by a rig's own axis resolution
+    (`resolve_axis`, below) and `ShieldLibrary.resolve`
+    (`loader/library.py`), which each re-derived this inline with
+    slightly different wording before this function existed. A
+    `selected` value naming an axis its owner does not declare AT ALL
+    says so by name ("this rig declares no revisions:" / "this shield
+    declares no revisions:") rather than the generic not-a-member
+    wording -- it points the author at the right place. A selected
+    value against a DECLARED axis must be one of its members. A bare
+    (unselected) axis takes the declared default; if the axis is
     declared but has none, that is an error.
+
+    `owner_kind` ("rig" or "shield") constructs both the quoted-name
+    prefix and the possessive ("this rig" / "this shield") -- the two
+    callers' wording differs in exactly that one word, nowhere else.
+    `axis_kind` ("revision" or "variant") and `decl_key` (the declaring
+    YAML key: "revisions" or "variants") construct the rest; a shield
+    always passes ("shield", name, "revision", "revisions"), since a
+    shield declares only that one axis. This function does no IO and
+    triggers no parsing -- callers that need to act on the resolved
+    value (constructing a fragment filename, parsing a shield revision's
+    template) do that themselves, around this decision.
 
     Returns (value, diagnostics): the selected axis value, or None
     either legitimately (no axis declared and nothing selected) or
     after a reported failure -- an error in the list is what
-    distinguishes them."""
+    distinguishes them. `decl` is read-only to this function."""
     code = "lang-rev" if axis_kind == "revision" else "lang-variant"
     if selected is not None:
         if decl is None:
             return None, [error(
                 code,
-                f"rig '{rig_name}' names a {axis_kind} ({selected!r}), but "
-                f"this rig declares no {decl_key}: at all",
+                f"{owner_kind} '{owner_name}' names a {axis_kind} "
+                f"({selected!r}), but this {owner_kind} declares no "
+                f"{decl_key}: at all",
                 (src,))]
         if selected not in decl.values:
             return None, [error(
                 code,
-                f"rig '{rig_name}': {axis_kind} '{selected}' is not "
-                f"declared -- known {axis_kind}s: {', '.join(decl.values)}",
+                f"{owner_kind} '{owner_name}': {axis_kind} '{selected}' is "
+                f"not declared -- known {axis_kind}s: "
+                f"{', '.join(decl.values)}",
                 (src,))]
         return selected, []
     if decl is None:
@@ -203,6 +227,22 @@ def resolve_axis(rig_name: str, axis_kind: str, decl_key: str,
         return decl.default, []
     return None, [error(
         code,
-        f"rig '{rig_name}': no {axis_kind} selected, and this rig declares "
-        f"no default {axis_kind} -- choose one of: {', '.join(decl.values)}",
+        f"{owner_kind} '{owner_name}': no {axis_kind} selected, and this "
+        f"{owner_kind} declares no default {axis_kind} -- choose one of: "
+        f"{', '.join(decl.values)}",
         (src,))]
+
+
+def resolve_axis(rig_name: str, axis_kind: str, decl_key: str,
+                 decl: Optional[AxisDecl], selected: Optional[str],
+                 src: SourceRef) -> tuple[Optional[str], list[Diagnostic]]:
+    """Resolve ONE of a rig's own qualifier axes (`revision` or
+    `variant`) to its final SELECTED value -- the rig-owned instance of
+    `resolve_axis_selection`'s shared decision (`owner_kind="rig"`).
+
+    Returns (value, diagnostics): the selected axis value, or None
+    either legitimately (no axis declared and nothing selected) or
+    after a reported failure -- an error in the list is what
+    distinguishes them."""
+    return resolve_axis_selection("rig", rig_name, axis_kind, decl_key,
+                                  decl, selected, src)

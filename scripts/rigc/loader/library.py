@@ -57,7 +57,7 @@ from ..dtsio import MODULE_ROOT, parse_tu, source_files
 from ..model import AxisDecl, ConnectorType, Shield
 from ..registry import load_types
 from ..shields import parse_shields
-from .axes import normalize_revision, parse_axis_decl
+from .axes import normalize_revision, parse_axis_decl, resolve_axis_selection
 from .documents import parse_marked
 
 log = logging.getLogger(__name__)
@@ -117,13 +117,13 @@ class ShieldLibrary:
         """`<name>` or `<name>@<rev>` (rule 13's identical @rev grammar)
         -> the Shield, parsing a not-yet-parsed template on first use --
         the base template of an axis-less shield exactly like a
-        revisioned shield's own selected revision. Mirrors
-        `resolve_axis`'s three failure shapes (not declared at all / not
-        a member / no default), reported as lang-rev -- the shield-side
-        analogue of a qualified rig target's own axis resolution -- plus
-        lang-instance-shield for a name this library never discovered at
-        all. `ctx` names the caller (e.g. "instance 'sensor_0'") for that
-        diagnostic's message.
+        revisioned shield's own selected revision. The three failure
+        shapes (not declared at all / not a member / no default) are
+        `loader.axes.resolve_axis_selection`'s shared decision, the same
+        one a rig's own qualified target resolves against -- reported as
+        lang-rev here -- plus lang-instance-shield for a name this
+        library never discovered at all. `ctx` names the caller (e.g.
+        "instance 'sensor_0'") for that diagnostic's message.
 
         Returns (shield, diagnostics, deps); shield is None when
         resolution failed (the diagnostics say why) or when this
@@ -144,24 +144,19 @@ class ShieldLibrary:
         # only on the metadata of shields it actually names.
         deps: Deps = touch(self.ymls[name]) if name in self.ymls else frozenset()
         decl = self.axes[name]
-        if sep:
-            if decl is None:
-                return None, [error(
-                    "lang-rev",
-                    f"shield '{name}' names a revision ({rev!r}), but "
-                    "this shield declares no revisions: at all",
-                    (src,))], deps
-            if rev not in decl.values:
-                return None, [error(
-                    "lang-rev",
-                    f"shield '{name}': revision '{rev}' is not declared "
-                    f"-- known revisions: {', '.join(decl.values)}",
-                    (src,))], deps
-            shield, d, rdeps = self._resolve_revision(name, rev, decl, src)
-            return shield, d, union(deps, rdeps)
-        if name in self.shields:
+        if not sep and name in self.shields:
             return self.shields[name], [], deps
-        if decl is None:
+        # The shared decision (loader.axes.resolve_axis_selection): which
+        # revision string applies, or None when this is a bare reference
+        # to an axis-less shield (nothing declared, nothing selected --
+        # legitimate, not a failure). It does no parsing; the branches
+        # below own turning that value into a Shield.
+        value, verdict = resolve_axis_selection(
+            "shield", name, "revision", "revisions", decl,
+            rev if sep else None, src)
+        if verdict:
+            return None, verdict, deps
+        if value is None:
             if name in self.failed:
                 return None, [], deps
             pending = self.pending[name]
@@ -175,15 +170,13 @@ class ShieldLibrary:
                 return None, parse_diags, deps
             self.shields[name] = shield
             return shield, parse_diags, deps
-        if decl.default is not None:
-            shield, d, rdeps = self._resolve_revision(name, decl.default, decl, src)
-            return shield, d, union(deps, rdeps)
-        return None, [error(
-            "lang-rev",
-            f"shield '{name}': no revision selected, and this shield "
-            "declares no default revision -- choose one of: "
-            f"{', '.join(decl.values)}",
-            (src,))], deps
+        # resolve_axis_selection only returns a non-None value when decl
+        # is itself not None (a selected member, or a declared default);
+        # narrow it explicitly since the shared decision's own return
+        # type can't express that invariant to mypy.
+        assert decl is not None
+        shield, d, rdeps = self._resolve_revision(name, value, decl, src)
+        return shield, d, union(deps, rdeps)
 
     def _resolve_revision(self, name: str, rev: str, decl: AxisDecl,
                           src: SourceRef,

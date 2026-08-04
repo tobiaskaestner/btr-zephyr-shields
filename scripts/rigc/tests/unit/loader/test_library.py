@@ -200,18 +200,35 @@ def test_resolve_at_rev_not_a_declared_member() -> None:
     shield, diags, deps = lib.resolve("fx@99", "instance 'x'", _SRC)
     assert shield is None
     assert diags[0].code == "lang-rev"
-    assert "not declared" in diags[0].message
-    assert "1, 2" in diags[0].message
+    # Full text, same reasoning as the no-default case below: the owner
+    # wording is a parameter this call site passes to the shared decision.
+    assert diags[0].message == (
+        "shield 'fx': revision '99' is not declared -- known revisions: 1, 2")
 
 
 def test_resolve_bare_name_with_a_declared_axis_but_no_default() -> None:
+    """Asserts the FULL message, not a substring, because this shape is
+    the one with no reject golden behind it: the other two shield shapes
+    are frozen by shield-undeclared-revision/ and
+    shield-no-revisions-declared/, so a wording regression there fails
+    the frozen suite, but a regression HERE would reach nothing else.
+
+    Naming the owner ("shield 'fx'", "this shield") is the load-bearing
+    part: resolution is `loader.axes.resolve_axis_selection`'s shared
+    decision now, and the owner wording is a PARAMETER this call site
+    passes. A substring like "no default revision" survives that
+    parameter being wrong -- it appears verbatim in the rig phrasing
+    too -- so it would pass while this call site emitted a diagnostic
+    calling the shield a rig."""
     decl = AxisDecl(values=["1", "2"], default=None)
     lib = ShieldLibrary(shields={}, axes={"fx": decl}, pending={}, ymls={},
                         types={}, workdir="/nonexistent")
     shield, diags, deps = lib.resolve("fx", "instance 'x'", _SRC)
     assert shield is None
     assert diags[0].code == "lang-rev"
-    assert "no default revision" in diags[0].message
+    assert diags[0].message == (
+        "shield 'fx': no revision selected, and this shield declares no "
+        "default revision -- choose one of: 1, 2")
 
 
 def test_resolve_memoizes_a_cached_revision_without_reparsing() -> None:

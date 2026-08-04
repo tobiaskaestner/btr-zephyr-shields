@@ -18,7 +18,8 @@ from pathlib import Path
 from rigc.diag import SourceRef
 from rigc.loader.axes import (check_axis_collision, normalize_revision,
                               revision_fragment_name, variant_fragment_name,
-                              parse_axis_decl, resolve_axis)
+                              parse_axis_decl, resolve_axis,
+                              resolve_axis_selection)
 from rigc.loader.documents import Val, parse_marked
 from rigc.model import AxisDecl
 
@@ -228,6 +229,122 @@ def test_resolve_bare_target_undeclared_axis_is_silent() -> None:
 def test_revision_kind_uses_lang_rev_code() -> None:
     _, diags = resolve_axis("r", "revision", "revisions", None, "9", _SRC)
     assert diags[0].code == "lang-rev"
+
+
+# ---------------------------------- shared decision: resolve_axis_selection
+#
+# `resolve_axis`, above, and `ShieldLibrary.resolve` (loader/library.py) both
+# delegate here. The SHAPE is already covered by the tests above (through
+# resolve_axis) and by loader/library.py's own tests (through
+# ShieldLibrary.resolve) -- what those tests do NOT prove is that the two
+# callers get the wording each frozen stderr.txt golden actually pins.
+# These assert full message TEXT, for both owner_kind values, so a caller
+# that started passing the wrong owner_kind (or the wrong axis_kind/decl_key)
+# would fail here even though the shape-only tests elsewhere would still
+# pass.
+
+def test_shared_decision_rig_selected_against_undeclared_axis_wording() -> None:
+    value, diags = resolve_axis_selection(
+        "rig", "r", "revision", "revisions", None, "9", _SRC)
+    assert value is None
+    assert len(diags) == 1
+    assert diags[0].code == "lang-rev"
+    assert diags[0].message == (
+        "rig 'r' names a revision ('9'), but this rig declares no "
+        "revisions: at all")
+
+
+def test_shared_decision_rig_selected_not_a_member_wording() -> None:
+    decl = AxisDecl(values=["1", "2"], default="1")
+    value, diags = resolve_axis_selection(
+        "rig", "r", "revision", "revisions", decl, "9", _SRC)
+    assert value is None
+    assert diags[0].message == (
+        "rig 'r': revision '9' is not declared -- known revisions: 1, 2")
+
+
+def test_shared_decision_rig_no_default_wording() -> None:
+    decl = AxisDecl(values=["1", "2"])
+    value, diags = resolve_axis_selection(
+        "rig", "r", "revision", "revisions", decl, None, _SRC)
+    assert value is None
+    assert diags[0].message == (
+        "rig 'r': no revision selected, and this rig declares no default "
+        "revision -- choose one of: 1, 2")
+
+
+def test_shared_decision_rig_variant_wording_pluralizes_variants() -> None:
+    """The rig side exercises BOTH axis kinds through the same function --
+    'variant'/'variants' must come out, not a 'revision' left over from
+    the other caller's defaults."""
+    value, diags = resolve_axis_selection(
+        "rig", "r", "variant", "variants", None, "x", _SRC)
+    assert value is None
+    assert diags[0].code == "lang-variant"
+    assert diags[0].message == (
+        "rig 'r' names a variant ('x'), but this rig declares no "
+        "variants: at all")
+
+
+def test_shared_decision_rig_bare_target_takes_default() -> None:
+    decl = AxisDecl(values=["1", "2"], default="1")
+    value, diags = resolve_axis_selection(
+        "rig", "r", "revision", "revisions", decl, None, _SRC)
+    assert value == "1"
+    assert diags == []
+
+
+def test_shared_decision_rig_no_axis_no_selection_is_silent() -> None:
+    value, diags = resolve_axis_selection(
+        "rig", "r", "revision", "revisions", None, None, _SRC)
+    assert value is None
+    assert diags == []
+
+
+def test_shared_decision_shield_selected_against_undeclared_axis_wording() -> None:
+    value, diags = resolve_axis_selection(
+        "shield", "fx", "revision", "revisions", None, "1", _SRC)
+    assert value is None
+    assert len(diags) == 1
+    assert diags[0].code == "lang-rev"
+    assert diags[0].message == (
+        "shield 'fx' names a revision ('1'), but this shield declares no "
+        "revisions: at all")
+
+
+def test_shared_decision_shield_selected_not_a_member_wording() -> None:
+    decl = AxisDecl(values=["1", "2"], default="1")
+    value, diags = resolve_axis_selection(
+        "shield", "fx", "revision", "revisions", decl, "99", _SRC)
+    assert value is None
+    assert diags[0].message == (
+        "shield 'fx': revision '99' is not declared -- known revisions: "
+        "1, 2")
+
+
+def test_shared_decision_shield_no_default_wording() -> None:
+    decl = AxisDecl(values=["1", "2"])
+    value, diags = resolve_axis_selection(
+        "shield", "fx", "revision", "revisions", decl, None, _SRC)
+    assert value is None
+    assert diags[0].message == (
+        "shield 'fx': no revision selected, and this shield declares no "
+        "default revision -- choose one of: 1, 2")
+
+
+def test_shared_decision_shield_bare_target_takes_default() -> None:
+    decl = AxisDecl(values=["1", "2"], default="1")
+    value, diags = resolve_axis_selection(
+        "shield", "fx", "revision", "revisions", decl, None, _SRC)
+    assert value == "1"
+    assert diags == []
+
+
+def test_shared_decision_shield_no_axis_no_selection_is_silent() -> None:
+    value, diags = resolve_axis_selection(
+        "shield", "fx", "revision", "revisions", None, None, _SRC)
+    assert value is None
+    assert diags == []
 
 
 # --------------------------------------------------- fragment-stem collision
