@@ -1,6 +1,147 @@
 # Rigs — Session Handoff
 
-## RESUME (2026-08-04b) — hwmv2 DONE (rig-side); BOARD-AS-COORDINATE UNDER WAY
+## RESUME (2026-08-05) — S1 LANDED: BOARD IS AN INDEPENDENT COORDINATE. NEXT = S2
+
+### STATE AT SESSION CLOSE (2026-08-05)
+
+btr-shields HEAD **`462e5c6`**, tree clean apart from the doc commit this
+block belongs to. `main` is **ahead 15 of origin, NOT pushed** — the 12
+carried in from 2026-08-04, plus this session's two slices, plus the doc
+commit this block ships in. Still Tobi's call.
+
+(The count INCLUDES this block's own commit. The 2026-08-04b block said
+"ahead 11" and was actually 12 for exactly this reason — a resume block
+written before its own commit lands undercounts by one. Read the number as
+what `git rev-list --count origin/main..main` reports after the handoff
+commit, not before.)
+
+**Gate, driver-verified, FULL (never `CHECK_FAST`), three times this
+session:** mypy **86 files**, unit **579**, frozen **148**, coverage **90%**
+vs the 88 floor. ALL GREEN. Goldens **byte-unchanged** — `git diff --stat`
+on `tests/goldens/` empty, which is S1's own acceptance criterion.
+
+| commit | what |
+|---|---|
+| `b578ccc` | board-as-coordinate rulings 4–8 + the S1 slice brief |
+| `462e5c6` | **S1 — BOARD as an independent coordinate with a per-rig default** |
+
+### THE SESSION'S REAL WORK WAS THE RESEQUENCING, NOT THE CODE
+
+`board-as-coordinate-brief.md` **§9 is the live section** (its §7 is marked
+SUPERSEDED, kept for per-step detail; §8 renumbered to §10). Five rulings,
+all Tobi's, all recorded there. The two that matter most next time:
+
+- **The singleton identity law is INTERNAL now** (ruling 4). Not `--board b
+  --shield s` vs a rig — that comparison was the wrong instrument, and
+  `P2-S1-equivalence.md` had already measured why: 129/134 nodes identical
+  with three by-design divergences that are all artifacts of comparing
+  against UPSTREAM's mechanism on a DIFFERENT board. The law is now
+  `--rig <shield-name>` ≡ `--rig <checked-in rig with one socket-less
+  instance of it>`, both through rigc on the same board, so it is
+  byte-equality of the emitted artifacts and needs NO new comparator.
+  **Tobi claims `a → [a]` for OUR `.shield` shields only, never for legacy
+  `.overlay` shields** — that restriction is what makes it cheap.
+- **Board symmetry is STAGED, strict form is the TARGET** (ruling 7). Tobi's
+  argument reordered everything: a promoted shield has no board, so out of
+  symmetry a persisted rig should not declare one either. Measured cost of
+  going strict now: 17 rig.yml files, 19 `RIG_BOARD` goldens, and one of
+  S2's five frozen-wording rules. Hence mechanism now, corpus later — and
+  **`--boards-for` was promoted from "shippable any time" to PREREQUISITE**,
+  because it is what enumeration BECOMES once declaration is gone.
+
+### NEXT, in order — §9.5's sequence
+
+1. **S2 — `--boards-for`.** Design doc §5, "Tobi: ship it". Reads the same
+   census step 1's lint already builds. Do it BEFORE enumeration is at risk.
+2. **S3 — the `--rig <shield>` promotion** + the §9.2 namespace ruling (rig
+   folder wins, shield name is the fallback, a name that is BOTH is an
+   error naming both paths) + **`--explain`** (ruling 6). This is where
+   carried commit `3f205005b99`'s `template: true` finally becomes
+   load-bearing — **it is declared and NOTHING reads it today**, not
+   `list_shields.py`, not upstream `shields.cmake`, not rigc, which uses the
+   marker FILE instead.
+3. **S4 — the singleton identity law**, authored FAILING-FIRST.
+4. **S5 — content migration to conventional labels** (old §7.3). Now
+   properly motivated: under a free board, `nucleo_ard` in content is a
+   portability bug, not a style question.
+5. **S6 — strict symmetry.** `board:` out of rig.yml, variants collapse to
+   topology-only, `RIG_BOARD` + the 19 goldens refreeze as a classified step.
+6. Then the standing queue: **rig-schema.yaml** (backlog item 7), **shield
+   plurality**, **BRIDLE MIGRATION**.
+
+**§9.6 is OPEN and NOT RULED: the ad-hoc params grammar.** Two findings
+constrain it. `params:` already exists, so `--rig name:...` is SUGAR over an
+existing feature — but it is keyed by the shield's **DEVICE label**, so a
+bare `param1=` addresses nothing (`adafruit_data_logger` has five devices);
+the CLI form needs `<device>.<prop>=<value>`, and must compose with `@`,
+already taken by shield revisions. And the value is a **cpp token** whose
+vocabulary header lives in the RIG today (`lotus_buttons.yml`'s
+`input-event-codes.h`; **no shield template includes it**), which an ad-hoc
+rig has no way to supply. Three exits in §9.6; the driver recommends (3),
+letting the shield that declares `shield,params` carry the `#include` too.
+
+### TWO STALE CLAIMS IN THE BRIEF, BOTH CORRECTED — the standing rule again
+
+§5's two recorded blockers for the singleton law were both dead:
+§4.2 inference landed in `1c2344e`, and "no shield in the tree exists in
+upstream form" was **simply wrong** — `adafruit_data_logger`,
+`adafruit_winc1500` and `arduino_uno_click` all exist in the pinned zephyr
+tree with real `.overlay` files beside our same-named `.shield` templates.
+That is exactly the collision `dts.cmake:612-664`'s marker preference
+already resolves. **A brief's factual claims are checkable, including the
+driver's own** — see below, where two of S1's were wrong.
+
+### THINGS FOUND THAT WERE NOT LOOKED FOR
+
+- **`zephyr_check_cache` does NOT reject a changed value — it WARNS and
+  silently REVERTS** to the cached one (its own docstring says so). This
+  killed the driver's own review suggestion to narrow the rig-swap guard:
+  narrowing it would have built the OLD board under the NEW rig's name with
+  nothing but a warning. The guard stays unconditional; the message
+  differentiates instead. A comment asserting the opposite was written in
+  the same slice and had to be removed — two comments in one file
+  contradicted each other.
+- **`west build-rig -b <board> <rig>` needed no code at all.** `rig.py`
+  already passed `args.board` through untouched; only its comment block,
+  which asserted the exclusivity as a design rule, was wrong.
+- **The board target loses `BOARD_REVISION` if you rejoin only two parts.**
+  `parse_board_components` splits THREE (`<board>@<rev>/<quals>`). Rejoining
+  `${BOARD}/${BOARD_QUALIFIERS}` — which is what upstream itself does at
+  `boards.cmake:300` — still silently drops `@rev` from `RIG_BOARD` and
+  `build_info.yml`. Verified against `nrf9160dk@0.14.0/nrf9160`.
+
+### PROCESS NOTES WORTH CARRYING
+
+- **`CHECK_FAST` checks NO goldens at all since the flip**, so an
+  implementor held to the fast gate STRUCTURALLY cannot catch a
+  golden-churning bug. This dispatch found the dropped-qualifiers bug only
+  by exceeding its contract and running the build tests itself. Last
+  session's note said "change the contract rather than the wording" if
+  dispatches keep mishandling gates — this is the evidence for doing it:
+  **either the implementor runs build tests, or the driver must run them
+  before believing any zero-churn claim.**
+- **A negative control can need a SECOND assertion nobody predicted.** The
+  no-board control asserted only `returncode != 0`, because both content
+  assertions were satisfied by `render_argv`'s own argv (it contains
+  `-DRIG=<rig>`, and `-DBOARD_ROOT=` lowercases to contain `-dboard`).
+  Worse, the obvious fix — assert OUR wording — is STILL vacuous: a
+  `message(STATUS)` prints the same text and the configure dies moments
+  later at zephyr's own `BOARD REQUIRED` check with our phrase present. The
+  live discriminator is that the GENERIC DOWNSTREAM message must be ABSENT.
+  **Never interpolate `render_argv` into a string you then assert `in`.**
+- **NEVER restore a mutation with `git checkout <file>` when that file has
+  uncommitted changes.** The driver did, and it reverted `boards.cmake` to
+  HEAD, discarding the whole slice's work in that one file. Recovered
+  faithfully from the implementor's transcript and verified against an
+  independent verbatim record of the region (character-for-character, one
+  intended difference), then re-gated to identical numbers. **Copy the file
+  first; hash BEFORE mutating; restore from the copy.** The existing memory
+  covers the stale-`.pyc` half of this; this is the other half.
+- Every accepted slice this session was mutation-verified, twice over for
+  the one control that mattered — driver and implementor independently, with
+  matching results (`1 failed, 13 passed`, on the named assertion).
+
+## RESUME (2026-08-04b, superseded) — hwmv2 DONE (rig-side); BOARD-AS-COORDINATE UNDER WAY
 
 ### STATE AT SESSION CLOSE (2026-08-04b)
 
