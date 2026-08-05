@@ -5,21 +5,25 @@ stays what it is: the design exploration record (Tobi + driver,
 2026-07-29). This file is the actionable half, written 2026-08-04 after
 reading that document against the current tree.
 
-**Headline: the architectural prerequisite is DONE and intact. All three
-rulings are now settled (2026-08-04). Steps 1 and 2 of §7 have landed;
-the remaining blocker is the singleton identity law, which needs a
-feature that does not exist yet (§5).**
+**Headline: the architectural prerequisite is DONE and intact. §7's
+ORIGINAL sequencing is SUPERSEDED by §9 (Tobi, 2026-08-05): the singleton
+identity law is downstream of the coordinate change, not upstream of it,
+and the law's oracle is our own promoted shield rather than an upstream
+legacy `--shield` build. Read §9 before §7.**
 
-Status of §7's steps:
+Status:
 
 | step | state |
 |---|---|
-| 1. aliases + alias-aware lookup | LANDED `d47ec86` |
-| 2a. empty-rig identity law | LANDED `e6423c0` — the law HOLDS |
-| 2b. singleton identity law | **BLOCKED**, see §5 |
-| 3. content migration | ready, not started |
-| 4. the coordinate change | ready once rulings applied |
-| 5. `--boards-for` | independent, shippable any time |
+| aliases + alias-aware lookup (old §7.1) | LANDED `d47ec86` |
+| empty-rig identity law (old §7.2a) | LANDED `e6423c0` — the law HOLDS |
+| §4.2 unique-by-type socket inference | LANDED `1c2344e` |
+| S1 coordinate change, mechanism only | see §9, `board-coordinate-s1-brief.md` |
+| S2 `--boards-for` | now a PREREQUISITE, not optional (§9) |
+| S3 `--rig <shield>` promotion + `--explain` | ruled, not started (§9) |
+| S4 singleton identity law (old §7.2b) | authored failing-first, after S3 (§9) |
+| S5 content migration (old §7.3) | ready, not started |
+| S6 strict symmetry — `board:` out of rig.yml | the stated TARGET (§9) |
 
 ## 1. What is already in place — verified, not assumed
 
@@ -213,24 +217,16 @@ the tree:
 
 - **Empty rig ≡ plain board** (saferail 11): `--board b --rig <empty>`
   produces byte-equal `zephyr.dts` to `--board b`. No test anywhere.
-- **Singleton rig ≡ upstream shield** (new): `--board b --shield s` ≡
-  `--board b --rig <one default-placed instance of s>`.
-  **BLOCKED, and not on cost.** "Default-placed" is load-bearing —
-  upstream `--shield` names no socket — but `loader/delta.py::
-  parse_instance` does `require(item, "socket", "instance")`, so every
-  instance MUST name its socket. Omission is exactly §4.2 of the design
-  doc's unique-by-type inference, which that doc says exists "to make the
-  singleton identity law hold", and which is unimplemented. So the law
-  cannot be written in its stated form today. Three ways forward, in
-  preference order: implement §4.2 first (a small, self-contained loader
-  feature the design doc already rules is sugar-only, not the general
-  mechanism); write a weakened version naming the socket explicitly (still
-  a real equivalence, but it drops the half the law exists for); or defer.
-  A SECOND cost applies either way: no shield in the tree exists in
-  upstream form — every one is a `.shield` template with no plain
-  `.overlay` — so the law needs a shield authored in both worlds, with the
-  hand-written overlay as the oracle. Known-feasible: the P2 S1-equivalence
-  work did exactly that against the legacy `--shield` build.
+- **Singleton rig ≡ upstream shield** (new): as originally stated,
+  `--board b --shield s` ≡ `--board b --rig <one default-placed instance
+  of s>`. **This statement is RETIRED — see §9.1.** Both of its recorded
+  blockers are also now stale: §4.2 unique-by-type inference LANDED in
+  `1c2344e` (`socket:` is optional in `parse_instance`, `delta.py:77-81`),
+  and the "no shield in the tree exists in upstream form" cost was wrong —
+  `adafruit_data_logger`, `adafruit_winc1500` and `arduino_uno_click` all
+  exist in the pinned zephyr tree with real `.overlay` files alongside our
+  same-named `.shield` templates, which is exactly the collision
+  `dts.cmake:612-664`'s marker preference already resolves.
 
 **Write both BEFORE the coordinate change, not after.** They are the only
 things that would catch a regression in what the product coordinate is
@@ -287,7 +283,7 @@ provider rule and change not at all.
 Instance-scoped sockets (`mux_1.ch0`) are already board-agnostic by the
 provider rule and change not at all.
 
-## 7. Sequencing
+## 7. Sequencing — SUPERSEDED by §9.5 (kept for its per-step detail)
 
 1. **Aliases + alias-aware lookup** (ruling 1 settled). Two halves, one
    commit, because neither is useful alone (§2.1): the board reader gains
@@ -322,8 +318,181 @@ Steps 1, 2 and 5 are each independently valuable and safe to land even if
 the coordinate change never happens. Step 3 is only worth doing as part
 of this direction.
 
-## 8. Not in scope here
+## 9. RULINGS 4–8 and the REVISED sequence (Tobi, 2026-08-05)
+
+§7 below is superseded by §9.5. These rulings came out of reading §5 and
+§6 against the tree; every factual claim here was checked, not reasoned.
+
+### 9.1 RULING 4 — the natural mapping holds for OUR shields; the law is INTERNAL
+
+`a → [a]` — a single shield instance canonically promoted to a rig —
+**holds, and is claimed for `.shield` template shields only.** It is NOT
+claimed for legacy `.overlay` shields.
+
+Consequence: the singleton identity law's oracle is **our own promoted
+shield**, not an upstream `--shield` build:
+
+> **`--board b --rig <shield-name>` ≡ `--board b --rig <checked-in rig
+> with one socket-less instance of that shield>`**
+
+Both sides go through rigc on the same board target, so the law is
+**byte-equality of the emitted artifact set** — the standard the frozen
+suite already applies. No new comparator, no oracle to hand-author.
+
+This retires the three divergences `P2-S1-equivalence.md` measured
+(129/134 nodes identical): `+/connector_arduino_r3`, `int1-gpios`/
+`cs-gpios` retargeted to the typed socket with IDENTICAL cell values, and
+upstream's shield repointing the `/aliases rtc` while ours deliberately
+does not (Conv. 8). All three were artifacts of comparing against
+*upstream's mechanism* on a *different board*, and none of them is a gap.
+The legacy comparison keeps its existing status: a classified-divergence
+audit, useful, **not a gate**.
+
+Why the law may be authored AFTER the coordinate change, against §7.2's
+"write both first": the two laws are different kinds. **2a is a
+conservation law** — it must hold before and after, which is why it landed
+first and why it polices the change. **The singleton law is
+constitutive** — it defines what the new coordinate MEANS, so it cannot
+predate the coordinate. The guard against it encoding whatever the code
+ends up doing is the project's own red-proof discipline: author the
+fixture and the law FIRST, require it to fail for the named reason, then
+implement.
+
+### 9.2 RULING 5 — an ad-hoc rig: a shield name is a valid `--rig` argument
+
+Rigs being persistable and version-controllable is a designed merit and is
+not being weakened. But an ad-hoc / on-the-fly rig has its own virtues, so
+a **shield name is recognizable as a `--rig` argument** in the sense of the
+natural mapping, its socket resolved canonically by the §4.2 inference that
+`1c2344e` landed.
+
+Two things this needs, both driver-flagged during the ruling:
+
+- **Namespace.** `-DRIG=` resolves a rig FOLDER via `list_rigs.py` today.
+  Reuse the precedent rather than invent one: `dts.cmake:612-664` resolves
+  a shield-name collision by preferring the folder carrying the
+  `<name>.shield` marker, warning when ambiguous. Rule: **rig folder wins,
+  shield name is the fallback, a name that is BOTH is an error naming both
+  paths.**
+- **`template: true` becomes load-bearing.** It is declared in our carried
+  commit `3f205005b99` ("its `<name>.overlay` is replaced by a
+  `<name>.shield` template") and **nothing reads it** — not
+  `list_shields.py`, not upstream `shields.cmake`, not rigc, which uses the
+  marker FILE instead. If a shield name becomes a `--rig` argument, that
+  flag is the natural authority for "promotable".
+
+### 9.3 RULING 6 — `--explain`, and desugaring as the anti-erosion property
+
+**Adopted.** The ad-hoc form must desugar to the persisted form and be
+able to PRINT it — `west rigs --explain <expr>` emitting the rig.yml +
+content file it stands for. Three properties earn it:
+
+1. the singleton law becomes checkable at the MODEL level, not only the
+   artifacts;
+2. ad-hoc → checked-in is a copy-paste promotion, so the on-the-fly path
+   FEEDS the version-controlled one instead of competing with it;
+3. if it cannot be printed it cannot be built — which structurally forbids
+   the ad-hoc form from ever expressing something the persisted form
+   cannot.
+
+It gets MORE load-bearing under §9.4's target state: with no `board:` in
+rig.yml, `--explain` is where "what would this actually build" is answered.
+
+### 9.4 RULING 7 — board symmetry: STAGED, with the strict form as the target
+
+Tobi's symmetry argument, which reordered the whole queue: when
+`--rig some_shield` names a promoted shield the board is necessarily
+absent, so **out of symmetry the board should also be absent for
+`--rig some_persisted_rig`**. Two things in `cmake/boards.cmake` make the
+promotion impossible before this is addressed — step 1 INFERS `BOARD` from
+the rig (a shield declares none), and `-DBOARD` + `-DRIG` is a hard FATAL
+**even when the values match** (`boards.cmake:97`). The promoted form's
+only possible invocation is precisely the forbidden one.
+
+Measured cost of the strict form (board leaves rig.yml entirely): **17
+rig.yml files declare `board:`** (`ard_datalogger` three times, via
+variants), **19 goldens carry `RIG_BOARD`**, `list_rigs.py`'s board column
+and `west rigs` enumeration go, and `binding.resolve_board`'s "a board per
+variant or once at the top level, **never neither**" is one of S2's five
+rules with frozen wording (goldens `no-board-declared`,
+`variant-board-partial`). A corpus + diagnostic-family migration, not a
+flag flip.
+
+**RULED: stage it** — the same mechanism/data split that made §7.1
+reviewable. Mechanism now, corpus migration as its own classified step.
+**The strict form is the stated TARGET**, recorded here so the
+intermediate cannot calcify. Its payoff is the argument that motivated the
+whole direction: `ard_datalogger`'s dual-host variants collapse to one
+variant-less rig built twice, and `variants:` returns to topology
+alternates only.
+
+Note the mechanism change is smaller than "delete step 1". It is
+**inverting step 1's authority**: keep the inference as a FALLBACK, drop
+the exclusivity FATAL, let a user-passed `BOARD` win over the rig's
+declared board, which becomes a DEFAULT rather than a derivation.
+
+**`--boards-for` is promoted from "independent, shippable any time" to a
+PREREQUISITE** — it is what enumeration becomes once declaration is gone,
+so it must exist before enumeration is at risk.
+
+### 9.5 RULING 8 — the revised sequence
+
+1. **S1 — coordinate change, MECHANISM ONLY.** Invert step 1's authority;
+   `resolve_board` accepts an injected board ("never neither" relaxes to
+   "never neither unless injected"); board column optional in
+   `list_rigs.py`. **Zero golden churn is the acceptance criterion.**
+   Spec: `board-coordinate-s1-brief.md`.
+2. **S2 — `--boards-for`**, before enumeration is ever at risk.
+3. **S3 — the `--rig <shield>` promotion** + the §9.2 namespace ruling +
+   `--explain`. Params-on-the-CLI slots in here once §9.6's token exit is
+   ruled.
+4. **S4 — the singleton identity law**, authored failing-first (§9.1).
+5. **S5 — content migration to conventional labels** (old §7.3). Now
+   properly motivated: under a free board, `nucleo_ard` in content is a
+   portability bug, not a style question.
+6. **S6 — strict symmetry.** `board:` out of rig.yml, variants collapse to
+   topology-only, `RIG_BOARD` + the 19 goldens refreeze as a classified
+   step.
+
+### 9.6 OPEN — the ad-hoc params token exit
+
+`--rig adafruit_data_logger:param1=0x87:param2="foo"` was proposed. Two
+findings against the tree:
+
+- **`params:` already exists** (`delta.py:106`, `loader/params.py`), so the
+  CLI form is SUGAR over an existing feature, not a new one. But it is
+  **two-level, keyed by the shield's DEVICE label**, validated against
+  that device's `shield,params` declaration:
+  ```yaml
+  - name: btn_start
+    shield: grove_btn
+    params:
+      gb_key:
+        zephyr,code: INPUT_KEY_0
+  ```
+  So a bare `param1=` cannot address anything —
+  `adafruit_data_logger` has five devices (`dl_rtc`, `dl_sd`, `dl_led1`,
+  `dl_led2`, `dl_sq`). The CLI form needs the device coordinate:
+  `<device>.<prop>=<value>`. The grammar must also compose with `@`,
+  already taken by shield revisions (`i2c_sensor@2`).
+- **The value is a cpp token, not a literal.** `params.py:147` sends any
+  non-int-literal through `check_param_token` against the RIG's
+  `dt-includes:`. Verified: the vocabulary header lives in the rig
+  (`lotus_buttons.yml:20`, `input-event-codes.h`) and **no shield template
+  includes it**. An ad-hoc rig has no content file, hence no
+  `dt-includes:`, and `grove_btn`'s *required* param is exactly such a
+  token.
+
+Three exits: (1) int literals only ad-hoc — harsh, excludes the corpus's
+own required param; (2) a companion CLI input (`--rig-include`); (3)
+**make the shield declare its param vocabulary** — a shield saying
+`shield,params = "zephyr,code"` already claims to know what it needs, so
+letting it carry the `#include` puts the vocabulary with the declaration.
+Driver recommendation: **(3)** — the only exit that makes the ad-hoc form
+self-sufficient, and it improves the persisted form too. NOT YET RULED.
+
+## 10. Not in scope here (was §8)
 
 Rewriting ontology §7. The design doc is its input, and the singleton
-identity law (§5 above) is its instrument — so the rewrite wants both to
+identity law (§9.1) is its instrument — so the rewrite wants both to
 exist first.
