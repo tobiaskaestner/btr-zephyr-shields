@@ -1,13 +1,17 @@
 """rigc CLI -- the frozen front door.
 
 The argv surface is fixed by the frozen suite itself (rigc-mission-brief.md
-Sec 2): `expand <rig_yml>` with --shield-dir* --board-dts --build-info
---bindings-dir* --include-dir* --connector-dir* --revision --variant
---out-dir (* = repeatable). Every option is PARSED here from day one; as
-of R4 (rigc-r4-brief.md) every one of them is LIVE -- --board-dts/
+Sec 2): `expand <rig_yml>` with --shield-dir* --board --board-dts
+--build-info --bindings-dir* --include-dir* --connector-dir* --revision
+--variant --out-dir (* = repeatable). Every option is PARSED here from day
+one; as of R4 (rigc-r4-brief.md) every one of them is LIVE -- --board-dts/
 --build-info/--bindings-dir feed the board reader (boarddt/board_edt/
 edt_build), the same way --shield-dir/--include-dir/--connector-dir/
---revision/--variant feed the loader (R2/R3). As of R5
+--revision/--variant feed the loader (R2/R3). --board
+(board-coordinate-s1-brief.md Sec 4) feeds the loader too: given, it wins
+over whatever rig.yml (or the selected variant) declares as the rig's
+board, unconditionally; absent, the loader resolves the board exactly as
+before --board existed. As of R5
 (rigc-r5-brief.md) the accept path is complete: a clean analysis emits
 the rig artifacts (`emitter.emit`) plus the build-glue handoff
 (`emitter.context.render`) through the one writer (`emitter.write_
@@ -148,6 +152,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="a shield-library root; repeatable",
     )
+    p.add_argument(
+        "--board", default=None, metavar="NAME",
+        help="the board to build against, overriding rig.yml's board: "
+        "(or the selected variant's) unconditionally; omit to resolve "
+        "the board from the rig exactly as without this option",
+    )
     p.add_argument("--board-dts", default=None, help="the rig's board's own .dts")
     p.add_argument(
         "--include-dir",
@@ -257,6 +267,7 @@ def _expand(args: argparse.Namespace) -> int:
                 shield_dirs=shield_dirs,
                 revision=args.revision,
                 variant=args.variant,
+                board=args.board,
                 types=types,
                 include_dirs=header_dirs,
             )

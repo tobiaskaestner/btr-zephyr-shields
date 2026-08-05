@@ -193,6 +193,29 @@ def test_resolve_metadata_per_variant_board_resolves_the_selected_ones(
     assert meta.binding.get("ard") == "nucleo_ard"
 
 
+def test_resolve_metadata_board_param_overrides_the_declared_board(
+        tmp_path: Path) -> None:
+    """`board` is `_resolve_metadata`'s own plumbing of the CLI's --board
+    (S1) straight into `binding.resolve_board`'s `injected_board` -- this
+    proves the THREADING, not resolve_board's own rules (test_binding.py
+    owns those)."""
+    doc = _parsed(tmp_path, "rig.yml", "rig:\n  name: r\n  board: b/s/rig\n")
+    meta, diags = _resolve_metadata(doc, None, None, board="given/s/rig")
+    assert diags == []
+    assert meta.rig is not None
+    assert meta.rig.board == "given/s/rig"
+
+
+def test_resolve_metadata_board_param_absent_keeps_todays_behaviour(
+        tmp_path: Path) -> None:
+    doc = _parsed(tmp_path, "rig.yml", "rig:\n  name: r\n")
+    meta, diags = _resolve_metadata(doc, None, None)
+    assert meta.rig is not None
+    assert meta.rig.board == ""
+    assert len(diags) == 1
+    assert diags[0].code == "lang-schema"
+
+
 # ---------------------------------------------------------------- _gather_content
 
 

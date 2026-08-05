@@ -385,9 +385,47 @@ else()
   set(_rig_debug_env
     "PYTHONPATH=${RIG_EXPAND_PYTHONPATH}"
     "ZEPHYR_BASE=${ZEPHYR_BASE}")
+  # --board <target> is passed ALWAYS, not only when the user gave
+  # -DBOARD themselves (board-coordinate-s1-brief.md Sec 4): by this point
+  # BOARD is cmake's own final answer, given or inferred by boards.cmake's
+  # fork -- cmake is the single authority on which board is actually being
+  # built, so RIG_BOARD (context.cmake, read by the message(STATUS ...)
+  # and build_info() calls below) always reports the board this build
+  # used, matching whatever rig.board resolves to whether that came from
+  # rig.yml or from -DBOARD.
+  #
+  # <target> is BOARD[@BOARD_REVISION][/BOARD_QUALIFIERS] -- the SAME
+  # "board[@revision]/soc/variant" shape rig.yml's own board: declares and
+  # a user may pass to -DBOARD, reassembled in the exact order upstream's
+  # own parse_board_components() (zephyr cmake/modules/boards.cmake:67-83)
+  # splits it apart. Plain ${BOARD} alone is the WRONG value here, and
+  # ${BOARD}/${BOARD_QUALIFIERS} alone is STILL wrong: by the time this
+  # file runs, the real boards.cmake module (step 2, included above) has
+  # already SPLIT a full target given via -DBOARD into THREE separate
+  # variables -- bare ${BOARD}, ${BOARD_REVISION}, ${BOARD_QUALIFIERS} --
+  # so reassembling only two of them silently drops the revision from
+  # RIG_BOARD for any revisioned board target -- verified against a real
+  # configure: -DRIG=<a boardless rig> -DBOARD=nrf9160dk@0.14.0/nrf9160
+  # (upstream's own revisioned board, reachable via ${ZEPHYR_BASE}'s
+  # default BOARD_ROOT entry) renders the expand command with
+  # `--board nrf9160dk@0.14.0/nrf9160` intact, and the phys-board
+  # rejection that follows (nrf9160dk declares no socket,* node -- no rig
+  # shield mates it, so the rig itself never accepts) echoes the same
+  # string back verbatim in its own diagnostic. Confirms the JOIN; the
+  # rig's own accept path was not and could not be exercised with a
+  # revisioned board this way, since no board in any BOARD_ROOT this
+  # workspace carries both a socket,* node and a revisions: axis.
+  set(_rig_board_target "${BOARD}")
+  if(BOARD_REVISION)
+    set(_rig_board_target "${_rig_board_target}@${BOARD_REVISION}")
+  endif()
+  if(BOARD_QUALIFIERS)
+    set(_rig_board_target "${_rig_board_target}/${BOARD_QUALIFIERS}")
+  endif()
   set(_rig_debug_argv
     "${PYTHON_EXECUTABLE}" -m ${RIG_EXPAND_COMPILE} expand "${_rig_yml}"
     ${_rig_shield_dir_args}
+    --board "${_rig_board_target}"
     --board-dts "${_rig_board_dts}"
     ${_rig_include_dir_args}
     ${_rig_bindings_dir_args}

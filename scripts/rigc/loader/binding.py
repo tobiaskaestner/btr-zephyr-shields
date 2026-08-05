@@ -36,19 +36,35 @@ def resolve_board(rig_name: str, variants: Optional[AxisDecl],
                   selected_variant: Optional[str],
                   board_v: Optional[Val], sockets_v: Optional[Val],
                   src: SourceRef,
+                  injected_board: Optional[str] = None,
                   ) -> tuple[str, SocketBinding, list[Diagnostic]]:
     """The board this rig actually builds, and the SocketBinding its
-    content resolves socket: references through. Two legal shapes, and
-    mixing them is an error (S2's five rules, rigexp/loader_yml.py
-    `_resolve_board`, ported unchanged): a single top-level `board:`
-    (optionally paired with a top-level `sockets:` map), or a `board:`
-    declared beside EVERY `variants:` list entry (each with its own
-    optional `sockets:`) -- never both, never partial, never a
-    top-level `sockets:` alongside per-variant boards, never neither.
+    content resolves socket: references through. Two legal declaration
+    shapes, and mixing them is an error (S2's five rules, rigexp/
+    loader_yml.py `_resolve_board`, ported unchanged): a single top-level
+    `board:` (optionally paired with a top-level `sockets:` map), or a
+    `board:` declared beside EVERY `variants:` list entry (each with its
+    own optional `sockets:`) -- never both, never partial, never a
+    top-level `sockets:` alongside per-variant boards. These coherence
+    rules fire on the DECLARATION alone and are unaffected by
+    `injected_board`.
 
-    Returns (rig.board, the binding to apply while parsing this rig's
-    topology, diagnostics). On any rejection here board is "" and the
-    binding is empty; neither is read again once a diagnostic exists,
+    `injected_board` is the board the invocation actually supplies
+    (board-as-coordinate-brief.md Sec 9.4/board-coordinate-s1-brief.md):
+    when given, it is the returned board UNCONDITIONALLY, whatever this
+    rig declares -- rig.yml's own board: (or the selected variant's)
+    becomes a DEFAULT rather than the only source. It never changes which
+    SocketBinding applies: a variant's own `sockets:` map still applies
+    to its own declared board being overridden, since the map is a
+    property of the declaration, not of what got built. The one rule
+    `injected_board` DOES relax is "never neither": a rig declaring no
+    board at all (no top-level board:, no per-variant one) is legal when
+    `injected_board` is given, since the invocation itself supplies what
+    the declaration omitted.
+
+    Returns (the board to build, the binding to apply while parsing this
+    rig's topology, diagnostics). On any rejection here board is "" and
+    the binding is empty; neither is read again once a diagnostic exists,
     matching the continuation shape the rest of the loader reproduces
     (rigc-r2-brief.md Sec 6): the caller keeps going regardless, since a
     later diagnostic must not be dropped just because this one fired."""
@@ -80,17 +96,22 @@ def resolve_board(rig_name: str, variants: Optional[AxisDecl],
                 (sockets_v.src,))]
         if selected_variant is None:
             return "", SocketBinding(), []   # an earlier axis error already said why
-        board = per_variant_boards[selected_variant]
-        return (board,
-               SocketBinding(dict(variants.sockets.get(selected_variant, {}))),
-               [])
+        declared_board = per_variant_boards[selected_variant]
+        binding = SocketBinding(dict(variants.sockets.get(selected_variant, {})))
+        board = injected_board if injected_board is not None else declared_board
+        return board, binding, []
     if board_v is None:
-        return "", SocketBinding(), [error(
-            "lang-schema",
-            f"rig '{rig_name}' declares no board: -- add a top-level "
-            "board:, or give every declared variant its own",
-            (src,))]
-    board = board_v.value
+        if injected_board is None:
+            return "", SocketBinding(), [error(
+                "lang-schema",
+                f"rig '{rig_name}' declares no board: -- add a top-level "
+                "board:, or give every declared variant its own",
+                (src,))]
+        binding = (SocketBinding({k: v.value for k, v in sockets_v.value.items()})
+                  if sockets_v is not None else SocketBinding())
+        return injected_board, binding, []
+    declared_board = board_v.value
+    board = injected_board if injected_board is not None else declared_board
     if sockets_v is None:
         return board, SocketBinding(), []
     return board, SocketBinding({k: v.value for k, v in sockets_v.value.items()}), []

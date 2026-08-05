@@ -228,14 +228,25 @@ def _resolve_axis(rig_name, axis_kind, decl_key, declared, selected):
 
 
 def _resolve_board(rig, resolved_variant):
-    """The board a resolved rig target actually builds: the per-variant
-    board declared beside the SELECTED variant, or the rig's own
-    top-level board: in the degenerate single-board shape. Mirrors
-    rigc.loader.binding's own two-shape mixing rule closely
-    enough that cmake never constructs a fragment filename from a board
-    that rule would have rejected -- the loader stays the canonical
-    validator with the fuller diagnostic (naming every offending variant,
-    not just the one selected here)."""
+    """The board a resolved rig target DECLARES: the per-variant board
+    beside the SELECTED variant, or the rig's own top-level board: in the
+    degenerate single-board shape. Mirrors rigc.loader.binding's own
+    two-shape mixing rule closely enough that cmake never constructs a
+    fragment filename from a board that rule would have rejected -- the
+    loader stays the canonical validator with the fuller diagnostic
+    (naming every offending variant, not just the one selected here).
+
+    A rig declaring no board anywhere (no top-level board:, no board for
+    the selected variant) is no longer this function's failure mode
+    (board-coordinate-s1-brief.md Sec 3): it returns None, same as a
+    rig.yml this permissive about `board:` always could in principle,
+    and the caller (dump_rig_target's `notfound`) renders it NOTFOUND --
+    boards.cmake's fork decides whether that is fatal, since a
+    user-supplied -DBOARD (which this module never sees) can now answer
+    for a rig that declares none. The two DECLARATION-coherence errors
+    below (board declared twice; a partial per-variant declaration)
+    stay sys.exit: they are schema violations independent of whether
+    -DBOARD was also given."""
     per_variant = variant_boards(rig.variants)
     if per_variant:
         if rig.board is not None:
@@ -250,11 +261,6 @@ def _resolve_board(rig, resolved_variant):
                 "declares no board:, but at least one other variant does "
                 "-- every variant must declare a board, or none should.")
         return per_variant[resolved_variant]
-    if rig.board is None:
-        sys.exit(
-            f"ERROR: rig '{rig.name}' ({(rig.dir / RIG_YML).as_posix()}) "
-            "declares no board -- neither a top-level board: nor one for "
-            "every declared variant.")
     return rig.board
 
 

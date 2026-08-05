@@ -101,6 +101,7 @@ class MetadataResult:
 
 
 def _resolve_metadata(doc: Val, revision: Optional[str], variant: Optional[str],
+                      board: Optional[str] = None,
                       ) -> Tuple[MetadataResult, List[Diagnostic]]:
     """Steps 2-5 of the blueprint's load(): the rig shell, its qualifier
     axes (declaration, collision, resolution), and the board +
@@ -109,7 +110,11 @@ def _resolve_metadata(doc: Val, revision: Optional[str], variant: Optional[str],
     synthetic Val tree exercises every branch here with no shield
     library, no ZEPHYR_BASE, no file on disk (this is the side benefit
     the brief calls out: the future hwmv2 revision-semantics seam lands
-    entirely inside this one function)."""
+    entirely inside this one function).
+
+    `board`, when given, is the invocation's injected board
+    (board-coordinate-s1-brief.md Sec 4): it wins over whatever this rig
+    declares, unconditionally -- see binding.resolve_board."""
     diags: List[Diagnostic] = []
     rig_v, d = require(doc, "rig", "top level")
     diags += d
@@ -147,7 +152,8 @@ def _resolve_metadata(doc: Val, revision: Optional[str], variant: Optional[str],
     board_v = rig_map.get("board")
     sockets_v = rig_map.get("sockets")
     rig.board, sock_binding, d = binding.resolve_board(
-        rig.name, variants, rig.variant, board_v, sockets_v, rig_v.src)
+        rig.name, variants, rig.variant, board_v, sockets_v, rig_v.src,
+        injected_board=board)
     diags += d
     log.debug("rig '%s': board=%r socket binding=%r", rig.name, rig.board, sock_binding)
 
@@ -366,6 +372,7 @@ def load(rig_path: str, workdir: str,
         shield_dirs: Optional[List[str]] = None,
         revision: Optional[str] = None,
         variant: Optional[str] = None,
+        board: Optional[str] = None,
         types: Optional[Dict[str, ConnectorType]] = None,
         include_dirs: Optional[List[str]] = None,
         ) -> Tuple[Optional[Rig], List[Diagnostic], Deps]:
@@ -377,6 +384,12 @@ def load(rig_path: str, workdir: str,
 
     `workdir` is where every `.shield` translation unit and dt-includes
     probe gets synthesized (cli.py's responsibility to create/clean up).
+
+    `board`, when given, is the invocation's injected board (the cmake
+    seam always supplies one; the standalone CLI passes None to keep
+    today's rig.yml-derived behaviour) -- threaded straight to
+    `_resolve_metadata`/`binding.resolve_board`, which is the only place
+    it changes anything.
 
     Returns (rig, diagnostics, deps): deps is the UNION of every real
     source-tree file this load touched -- rig_path itself, the shield
@@ -406,7 +419,7 @@ def load(rig_path: str, workdir: str,
         doc = parse_marked(rig_path)
 
         log.info("load(): resolving metadata")
-        meta, d = _resolve_metadata(doc, revision, variant)
+        meta, d = _resolve_metadata(doc, revision, variant, board)
         diags += d
         if meta.rig is None:
             return None, diags, deps

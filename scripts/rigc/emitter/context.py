@@ -45,7 +45,13 @@ def render(rig: Rig, deps: Deps) -> bytes:
     than depending on a locale). `rig`/`deps` are read-only; returns a
     fresh bytes value the caller owns.
 
-    RIG_NAME/RIG_BOARD/RIG_SHIELDS always appear. RIG_SHIELD_REVISIONS/
+    RIG_NAME/RIG_BOARD/RIG_SHIELDS always appear. RIG_BOARD is `rig.board`
+    verbatim, which since the board coordinate landed
+    (board-coordinate-s1-brief.md) is the board this build actually used
+    -- the CLI's `--board`, when the invocation gave one, or the rig's own
+    declared board otherwise; this function has no injection logic of its
+    own, it only ever echoes what the loader already resolved.
+    RIG_SHIELD_REVISIONS/
     RIG_REVISION/RIG_VARIANT appear only when the rig actually declares
     the corresponding axis/shield-revision -- the "no declaration, no
     artifact" rule that keeps an axis-less rig's context.cmake

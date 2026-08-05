@@ -63,6 +63,7 @@ def test_positional_rig_and_out_dir() -> None:
 def test_defaults_are_none() -> None:
     args = _parse([])
     assert args.shield_dirs is None
+    assert args.board is None
     assert args.board_dts is None
     assert args.build_info is None
     assert args.bindings_dirs is None
@@ -85,8 +86,10 @@ def test_repeatable_options_accumulate_in_order() -> None:
 
 
 def test_single_valued_options() -> None:
-    args = _parse(["--board-dts", "b.dts", "--build-info", "bi.yml",
-                   "--revision", "2", "--variant", "b"])
+    args = _parse(["--board", "some_board/soc/rig", "--board-dts", "b.dts",
+                   "--build-info", "bi.yml", "--revision", "2",
+                   "--variant", "b"])
+    assert args.board == "some_board/soc/rig"
     assert args.board_dts == "b.dts"
     assert args.build_info == "bi.yml"
     assert args.revision == "2"
@@ -157,6 +160,54 @@ def test_board_reading_options_are_now_live(tmp_path: Path) -> None:
                "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path),
                "--board-dts", str(tmp_path / "no-such-board.dts")])
     assert ret == 1
+
+
+def test_board_option_overrides_rig_ymls_declared_board(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """--board (S1) must reach `rig.board` unconditionally, whatever
+    rig.yml declares -- proven the same way as the option above (a
+    --board-dts that does not exist forces a phys-board rejection), but
+    checking WHICH name the rejection carries: the GIVEN board, never the
+    declared one, since boarddt.load_board's own diagnostic embeds the
+    board name it was asked to read."""
+    (tmp_path / "rig.yml").write_text(
+        dedent("""\
+        rig:
+          name: r
+          board: declared_board/soc/rig
+        """))
+    (tmp_path / "r.yml").write_text(dedent("""\
+        instances: []
+        """))
+    ret = main(["expand", str(tmp_path / "rig.yml"),
+               "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path),
+               "--board", "given_board/soc/rig",
+               "--board-dts", str(tmp_path / "no-such-board.dts")])
+    assert ret == 1
+    err = capsys.readouterr().err
+    assert "given_board/soc/rig" in err
+    assert "declared_board/soc/rig" not in err
+
+
+def test_board_option_absent_keeps_todays_behaviour(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    """The companion negative control: omitting --board must still name
+    the DECLARED board, unchanged (today's behaviour, byte-inert)."""
+    (tmp_path / "rig.yml").write_text(
+        dedent("""\
+        rig:
+          name: r
+          board: declared_board/soc/rig
+        """))
+    (tmp_path / "r.yml").write_text(dedent("""\
+        instances: []
+        """))
+    ret = main(["expand", str(tmp_path / "rig.yml"),
+               "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path),
+               "--board-dts", str(tmp_path / "no-such-board.dts")])
+    assert ret == 1
+    err = capsys.readouterr().err
+    assert "declared_board/soc/rig" in err
 
 
 def test_recipe_resolved_lazily(tmp_path: Path) -> None:

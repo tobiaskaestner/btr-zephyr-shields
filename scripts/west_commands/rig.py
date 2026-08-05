@@ -14,14 +14,19 @@
 # a board — cmake's own boards.cmake fork resolves -DRIG to a board target
 # itself (the cmake-alone rig entry slice), the same way a bare
 # `cmake -DRIG=<name>` (west absent) would. `args.board`/`args.shields` are
-# deliberately left completely untouched by this command: RIG is MUTUALLY
-# EXCLUSIVE with both BOARD (design rule 3) and SHIELD (design rule 4,
-# amended/added 2026-07-24) — if the user ALSO passes `-b`/`--board` or
-# `--shield` to `build-rig`, Zephyr's own Build machinery folds them into
-# `-DBOARD=...`/`-DSHIELD=...` alongside our `-DRIG=...`, and cmake's
-# boards.cmake/shields.cmake forks FATAL on that combination unconditionally
-# (even a matching value), teaching "drop -DBOARD/-DSHIELD, the rig owns
-# it" — this command passes NO board or shield of its own, ever.
+# left completely untouched by this command: it forwards `-DRIG=...` and
+# nothing else of its own, and whatever the user ALSO passed (`-b`/`--board`,
+# `--shield`) rides along through Zephyr's own Build machinery exactly as
+# for a plain `west build` (`-DBOARD=...`/`-DSHIELD=...` alongside our
+# `-DRIG=...`) — this command adds no board/shield opinion, first or last
+# word. BOARD is now an independent coordinate with a per-rig default
+# (board-coordinate-s1-brief.md): a given `-DBOARD` wins in cmake's
+# boards.cmake fork, absent it is inferred from the rig exactly as before.
+# SHIELD keeps its own, separate exclusion (design rule 4, amended/added
+# 2026-07-24, unchanged by the board coordinate change): cmake's
+# shields.cmake fork still FATALs on `-DSHIELD` alongside `-DRIG`
+# unconditionally, since the rig's own instances are the sole source of
+# SHIELD_AS_LIST for a rig build.
 #
 # EMPIRICAL (recorded in the cmake-alone-rig-entry-brief.md handoff): a fresh
 # `west build` build dir with no -b/--board given does NOT refuse to run
@@ -111,11 +116,13 @@ class BuildRig(Build):
         parser.add_argument(
             '--rig', metavar='NAME',
             help='rig to build (by rig.yml `rig.name`): forwarded verbatim '
-                 'as -DRIG=<NAME>. The board comes back from cmake\'s own '
-                 'rig->board resolution (boards.cmake), not from this '
-                 'command -- do NOT also pass -b/--board (or --shield): RIG '
-                 'and BOARD/SHIELD are mutually exclusive, even a matching '
-                 'value is a configure-time FATAL_ERROR. The app source dir '
+                 'as -DRIG=<NAME>. The board defaults to the rig\'s own '
+                 '(cmake\'s boards.cmake fork resolves it), or pass '
+                 '-b/--board yourself to override it -- given wins, '
+                 'whatever the rig declares. --shield keeps its own '
+                 'exclusion: do NOT pass --shield here, cmake FATALs on '
+                 'that combination (the rig\'s own instances are the sole '
+                 'source of shields for a rig build). The app source dir '
                  'is still required (positional or -s).')
         parser.add_argument(
             '--zephyr-base', metavar='DIR',

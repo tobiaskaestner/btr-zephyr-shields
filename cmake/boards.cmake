@@ -7,14 +7,16 @@
 # resolves to THIS file, shadowing ${ZEPHYR_BASE}/cmake/modules/boards.cmake.
 #
 #
-#   1. -DRIG rig->board inference + the RIG/BOARD exclusivity guard: RIG
-#      and BOARD are MUTUALLY EXCLUSIVE — BOARD is DERIVED data of the rig
-#      coordinate, so a user-passed BOARD is a category error even when it
-#      happens to match. If RIG is defined and BOARD is not, ask the resolver
-#      (scripts/list_rigs.py's query mode) for the FULL, verbatim ${RIG}
-#      target string and set(BOARD ...) from its answer — the real module
-#      below needs BOARD defined before its own
-#      zephyr_check_cache(BOARD REQUIRED).
+#   1. -DRIG rig->board resolution + the rig-swap guard: BOARD is an
+#      INDEPENDENT coordinate with a per-rig DEFAULT (board-coordinate-
+#      s1-brief.md) — a user-passed -DBOARD wins unconditionally; absent,
+#      it is inferred from the rig exactly as before this existed. If RIG
+#      is defined and BOARD is not, ask the resolver (scripts/list_rigs.py's
+#      query mode) for the FULL, verbatim ${RIG} target string and
+#      set(BOARD ...) from its answer — the real module below needs BOARD
+#      defined before its own zephyr_check_cache(BOARD REQUIRED). A rig
+#      declaring no board at all with no -DBOARD given has nothing to
+#      fall back to and is a configure-time FATAL_ERROR.
 #   2. the REAL boards module, unconditionally (rig build or plain), reached
 #      by absolute path — include(boards) would recurse back into this file
 #      via the prepended module path.
@@ -33,10 +35,10 @@ include_guard(GLOBAL)
 include(extensions)
 
 # ---------------------------------------------------------------------------
-# Step 1: -DRIG rig->board inference + the RIG/BOARD exclusivity guard. One
-# resolver call serves both outcomes below (the exclusivity check when BOARD
-# is already given, the CACHE assignment when it is not), so -DRIG resolves
-# via list_rigs.py exactly once per configure.
+# Step 1: -DRIG rig->board resolution + the rig-swap guard. One resolver
+# call serves both outcomes below (the rig-swap comparison, the CACHE
+# assignment when BOARD is not given), so -DRIG resolves via list_rigs.py
+# exactly once per configure.
 if(DEFINED RIG)
   list(TRANSFORM BOARD_ROOT PREPEND "--board-root=" OUTPUT_VARIABLE _rig_broot_args)
   execute_process(
@@ -63,53 +65,96 @@ if(DEFINED RIG)
   if(_RIG_RESOLVED_VARIANT STREQUAL "NOTFOUND")
     set(_RIG_RESOLVED_VARIANT "")
   endif()
-
-  # RIG and BOARD are mutually exclusive, it asks "did the USER pass
-  # BOARD", which is not the same question as "is BOARD defined": BOARD is
-  # legitimately in the CACHE on a reconfigure of an existing rig build dir,
-  # re-supplied by cmake itself from the FIRST configure's own inference
-  # below, with no -DBOARD on the command line at all. RIG_INFERRED_BOARD
-  # (a CACHE INTERNAL marker set alongside BOARD, below) records exactly the
-  # value WE inferred, so "BOARD is defined but does not equal the marker" is
-  # the precise test for "a user gave BOARD" that survives reconfigures:
-  #   - fresh dir, both given: BOARD defined, no marker yet -> FATAL.
-  #   - fresh dir, RIG only: BOARD undefined -> infer + set the marker.
-  #   - reconfigure, no -DBOARD repeated: BOARD defined FROM THE CACHE, equal
-  #     to the marker (both are our own old inferred value) -> passes.
-  #   - reconfigure, user repeats the SAME -DBOARD value: indistinguishable
-  #     from the cache case above -- accepted residual, not fixed.
-  #   - reconfigure with a CONFLICTING -DBOARD: BOARD differs from the
-  #     marker -> the both-given FATAL below.
-  #   - reconfigure with a CHANGED -DRIG: the rig-swap guard just below.
-
-  # Rig-swap guard: the marker also pins the BUILD DIR to the rig's board.
-  # zephyr_check_cache(BOARD) makes BOARD immutable per build dir, but RIG
-  # is not cache-watched
-  if(DEFINED RIG_INFERRED_BOARD
-     AND NOT "${_RIG_RESOLVED_BOARD}" STREQUAL "${RIG_INFERRED_BOARD}")
-    message(FATAL_ERROR
-      "Rig: -DRIG=${RIG} resolves to board '${_RIG_RESOLVED_BOARD}', but "
-      "this build directory was configured for '${RIG_INFERRED_BOARD}'. "
-      "Changing to a rig on a different board requires a pristine build "
-      "(-p always).")
+  # BOARD is the one RESOLVED key that can legitimately come back NOTFOUND
+  # now (board-coordinate-s1-brief.md Sec 3): a rig declaring no board:
+  # anywhere (no top-level, none for the selected variant) is no longer a
+  # list_rigs.py failure -- it renders empty here, same as an unselected
+  # REVISION/VARIANT above, and this file alone decides whether that is
+  # fatal (below), since only THIS file knows whether -DBOARD filled in
+  # for it.
+  if(_RIG_RESOLVED_BOARD STREQUAL "NOTFOUND")
+    set(_RIG_RESOLVED_BOARD "")
   endif()
 
-  if(DEFINED BOARD)
-    if(NOT DEFINED RIG_INFERRED_BOARD OR NOT "${BOARD}" STREQUAL "${RIG_INFERRED_BOARD}")
+  # Rig-swap guard: the marker pins the BUILD DIR to the board we INFERRED
+  # for this rig. zephyr_check_cache(BOARD) makes BOARD immutable per build
+  # dir, but RIG is not cache-watched, so swapping -DRIG to a rig that
+  # infers a DIFFERENT board must be caught here -- left unguarded, the
+  # stale cache-carried BOARD would pass through unchanged and the
+  # expander would read the OLD board's dts under the NEW rig's name.
+  # Fires only when RIG_INFERRED_BOARD is defined: an INJECTED build (BOARD
+  # given, nothing inferred, no marker set below) sets no marker, so a rig
+  # swap there is judged only by the given-vs-declared comparison below,
+  # same as any other -DBOARD build -- there is no "board this build dir
+  # was pinned to" to protect.
+  #
+  # This ALSO fires when the user gives a fresh -DBOARD alongside the
+  # rig-swap, even a matching one -- verified empirically: cmake applies a
+  # -D override to the BOARD cache entry before this file ever runs, so
+  # "${BOARD}" already reads the FRESH value here (upstream's own
+  # zephyr_check_cache(BOARD), which would otherwise warn and silently
+  # discard it back to the pinned one, has not run yet -- that is step 2,
+  # below). Giving -DBOARD does not make this dir's board mutable: without
+  # this guard, upstream's own mechanism would silently keep building the
+  # OLD board and only WARN, never stop -- exactly the wrong-hardware
+  # footgun this guard exists to prevent, so it is intentionally NOT
+  # narrowed to skip when a fresh -DBOARD is present. Comparing "${BOARD}"
+  # (not just "${RIG}") against the marker is what lets the message below
+  # name the ACTUAL reason in that case instead of blaming inference for
+  # a board change the user tried to make directly.
+  if(DEFINED RIG_INFERRED_BOARD
+     AND NOT "${_RIG_RESOLVED_BOARD}" STREQUAL "${RIG_INFERRED_BOARD}")
+    if(NOT "${BOARD}" STREQUAL "${RIG_INFERRED_BOARD}")
       message(FATAL_ERROR
-        "Rig: -DRIG=${RIG} and -DBOARD=${BOARD} were both given. BOARD is "
-        "derived data of the rig, not a separate one you can pass "
-        "yourself -- even a MATCHING value is rejected. Drop -DBOARD; the "
-        "rig owns the board (it resolves to '${_RIG_RESOLVED_BOARD}' here).")
+        "Rig: -DRIG=${RIG} resolves to board '${_RIG_RESOLVED_BOARD}', and "
+        "-DBOARD=${BOARD} was also given -- neither changes anything: "
+        "this build directory's board ('${RIG_INFERRED_BOARD}') is "
+        "immutable once configured, whether a rig or a board is trying to "
+        "change it. A pristine build (-p always) is required either way.")
+    else()
+      message(FATAL_ERROR
+        "Rig: -DRIG=${RIG} resolves to board '${_RIG_RESOLVED_BOARD}', but "
+        "this build directory was configured for '${RIG_INFERRED_BOARD}'. "
+        "Changing to a rig on a different board requires a pristine build "
+        "(-p always).")
     endif()
-  else()
+  endif()
+
+  # BOARD given -> it wins, unconditionally, whatever the rig declares (or
+  # declares none of); no marker is set for it, since a user-supplied value
+  # is never our own inference (kept out of RIG_INFERRED_BOARD so the
+  # rig-swap guard above never mistakes it for one). BOARD absent -> infer
+  # from the rig exactly as before -DBOARD existed, and record the marker;
+  # a rig with nothing to infer (_RIG_RESOLVED_BOARD empty) then has
+  # nothing left to fall back to, so it is a FATAL naming both the rig and
+  # the missing flag.
+  #   - fresh dir, both given: BOARD defined, no marker set -> BOARD wins.
+  #   - fresh dir, RIG only: BOARD undefined -> infer + set the marker.
+  #   - reconfigure, no -DBOARD repeated: BOARD defined FROM THE CACHE,
+  #     equal to the marker (both are our own old inference) -> re-infers
+  #     the same value, passes silently.
+  #   - reconfigure, user repeats the SAME -DBOARD value: indistinguishable
+  #     from the cache case above -- accepted residual, not fixed.
+  #   - reconfigure with a CHANGED -DRIG: the rig-swap guard above.
+  if(DEFINED BOARD)
+    if(_RIG_RESOLVED_BOARD AND NOT "${BOARD}" STREQUAL "${_RIG_RESOLVED_BOARD}")
+      message(STATUS
+        "Rig: -DBOARD=${BOARD} given for -DRIG=${RIG}, overriding its own "
+        "board '${_RIG_RESOLVED_BOARD}'")
+    endif()
+  elseif(_RIG_RESOLVED_BOARD)
     set(BOARD "${_RIG_RESOLVED_BOARD}" CACHE STRING
       "Board inferred from -DRIG=${RIG} (rig.yml's board:, no -DBOARD given)")
     set(RIG_INFERRED_BOARD "${_RIG_RESOLVED_BOARD}" CACHE INTERNAL
-      "Exclusivity-guard marker: the board value this fork inferred from \
+      "Rig-swap-guard marker: the board value this fork inferred from \
 -DRIG=${RIG}. Compared against a later cache-carried BOARD so a \
 reconfigure of the SAME build dir is not mistaken for a user-passed \
 -DBOARD")
+  else()
+    message(FATAL_ERROR
+      "Rig: -DRIG=${RIG} declares no board: (neither a top-level one nor "
+      "one for its selected variant) and no -DBOARD was given -- this rig "
+      "has no board of its own to fall back to; pass -DBOARD=<name>.")
   endif()
 
   set(_rig_boards_qualifiers_desc "")

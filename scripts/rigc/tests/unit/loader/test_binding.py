@@ -117,3 +117,90 @@ def test_per_variant_board_with_no_variant_selected_is_silent() -> None:
     board, binding, diags = resolve_board("r", variants, None, None, None, _SRC)
     assert board == ""
     assert diags == []
+
+
+# ------------------------------------------------- injected board (S1)
+
+def test_injection_overrides_a_top_level_board() -> None:
+    board, binding, diags = resolve_board(
+        "r", None, None, _val("declared/s/rig"), None, _SRC,
+        injected_board="given/s/rig")
+    assert diags == []
+    assert board == "given/s/rig"
+
+
+def test_injection_overrides_a_per_variant_board_while_its_sockets_still_apply() -> None:
+    """The variant's OWN sockets: map still applies to its board being
+    overridden (board-coordinate-s1-brief.md Sec 4) -- asserting the
+    binding, not just the returned board, is the point: a wrong
+    implementation could return the injected board while silently
+    dropping or swapping the socket map."""
+    variants = AxisDecl(
+        values=["a", "b"], default="a",
+        boards={"a": "va/s/rig", "b": "vb/s/rig"},
+        sockets={"b": {"ard": "nucleo_ard"}})
+    board, binding, diags = resolve_board(
+        "r", variants, "b", None, None, _SRC, injected_board="given/s/rig")
+    assert diags == []
+    assert board == "given/s/rig"
+    assert binding.get("ard") == "nucleo_ard"
+    assert binding.get("other") == "other"
+
+
+def test_injection_satisfies_never_neither() -> None:
+    """A rig declaring no board: anywhere is legal once a board is
+    injected -- the one rule injection relaxes."""
+    board, binding, diags = resolve_board(
+        "r", None, None, None, None, _SRC, injected_board="given/s/rig")
+    assert diags == []
+    assert board == "given/s/rig"
+    assert binding.get("x") == "x"
+
+
+def test_injection_satisfies_never_neither_with_a_top_level_sockets_map() -> None:
+    """The board-agnostic shape a free-board rig actually wants: no
+    board: at all, but a top-level sockets: map naming the abstract
+    sockets its content uses -- the shape S5/S6 lean on. Only board_v is
+    None here; sockets_v is not, so this is the other half of the branch
+    test_injection_satisfies_never_neither leaves uncovered."""
+    board, binding, diags = resolve_board(
+        "r", None, None, None, _val({"ard": _val("nucleo_ard")}), _SRC,
+        injected_board="given/s/rig")
+    assert diags == []
+    assert board == "given/s/rig"
+    assert binding.get("ard") == "nucleo_ard"
+    assert binding.get("other") == "other"
+
+
+def test_no_injection_and_no_board_declared_still_rejects() -> None:
+    """The negative control for the one relaxed rule: omitting
+    injected_board must reproduce today's exact rejection, unchanged."""
+    board, binding, diags = resolve_board("r", None, None, None, None, _SRC)
+    assert board == ""
+    assert binding.get("x") == "x"
+    assert len(diags) == 1
+    assert diags[0].code == "lang-schema"
+    assert "declares no board" in diags[0].message
+
+
+def test_board_declared_twice_still_rejects_under_injection() -> None:
+    """The declaration-coherence rules fire on the DECLARATION alone and
+    are unaffected by injection -- a board declared twice is still an
+    error even though a board was also given on the command line."""
+    variants = AxisDecl(values=["a"], default="a", boards={"a": "va/s/rig"})
+    board, binding, diags = resolve_board(
+        "r", variants, "a", _val("b/s/rig"), None, _SRC,
+        injected_board="given/s/rig")
+    assert board == ""
+    assert len(diags) == 1
+    assert diags[0].code == "lang-schema"
+
+
+def test_partial_per_variant_board_still_rejects_under_injection() -> None:
+    variants = AxisDecl(values=["a", "b"], default="a",
+                        boards={"a": "va/s/rig"})   # b declares none
+    board, binding, diags = resolve_board(
+        "r", variants, "a", None, None, _SRC, injected_board="given/s/rig")
+    assert board == ""
+    assert len(diags) == 1
+    assert diags[0].code == "lang-schema"

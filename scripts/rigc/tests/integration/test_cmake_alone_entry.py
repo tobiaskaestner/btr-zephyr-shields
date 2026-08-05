@@ -1,8 +1,9 @@
 """cmake-alone rig entry: cmake -B <dir> -S <app> -DRIG=<name> with NO
 -DBOARD and west absent entirely must configure a build equivalent to the
-west build-rig path — the rig is the primary build coordinate, BOARD (and
-SHIELD) are derived from it (cmake/boards.cmake / cmake/shields.cmake's
-forks), never a separate coordinate the user also supplies.
+west build-rig path — the rig is the primary build coordinate; BOARD has a
+per-rig DEFAULT inferred from it when not given (cmake/boards.cmake's
+fork), and SHIELD is derived from the rig's own instances
+(cmake/shields.cmake's fork).
 
 This file covers the properties exercised entirely through direct cmake
 invocations (no west subprocess at all):
@@ -11,17 +12,26 @@ invocations (no west subprocess at all):
     structurally-equivalent zephyr.dts, and the same rig provenance in
     build_info.yml (modulo the build directory itself) as west
     build-rig.
-  * RIG and BOARD are mutually exclusive: a fresh configure with BOTH given
-    is a configure-time FATAL_ERROR regardless of whether the values agree
-    (BOARD is derived data, never a separate coordinate the user may also
-    supply); a RECONFIGURE of an existing rig build dir (BOARD
-    cache-carried from our own earlier inference, not user-passed) proceeds.
+  * BOARD is an independent coordinate with a per-rig default
+    (board-coordinate-s1-brief.md): a fresh configure with BOTH -DRIG and
+    -DBOARD given configures, and the GIVEN board is the one built, even
+    when it differs from the rig's own declared board; a RECONFIGURE of an
+    existing rig build dir (BOARD cache-carried from our own earlier
+    inference, not user-passed) proceeds unchanged.
+  * a rig declaring no board: anywhere requires -DBOARD -- given, it
+    builds; absent, a configure-time FATAL_ERROR names both the rig and
+    the missing flag.
+  * the rig-swap guard still fires for INFERRED builds: swapping -DRIG to
+    a different-board rig in an existing build dir is a configure-time
+    FATAL_ERROR (a build dir is pinned to the board it inferred, not to
+    one a user separately supplied).
   * a qualified rig target (name@rev / name/variant) gets a loud
     not-yet-supported diagnostic from the resolver — a placeholder until rig
     variants/revisions land, never silent/partial resolution.
-  * SHIELD gets the same exclusion as BOARD: -DSHIELD alongside -DRIG on
-    a fresh configure is a FATAL_ERROR (never a silent no-op); a plain
-    --shield build (no RIG) is untouched.
+  * SHIELD keeps its OWN exclusion, unaffected by the board coordinate
+    change: -DSHIELD alongside -DRIG on a fresh configure is a
+    FATAL_ERROR (never a silent no-op); a plain --shield build (no RIG)
+    is untouched.
 
 All run a real CMake configure -- marked @pytest.mark.build;
 CHECK_FAST=1 (scripts/check.sh) deselects them via pytest -m "not build".
@@ -40,6 +50,7 @@ import yaml
 
 from conftest import (
     DTS_EQUIV,
+    FIXTURES_DIR,
     WEST_EXE,
     WEST_TOPDIR,
     board_extra_defines,
@@ -186,23 +197,135 @@ def test_cmake_alone_entry_equivalent_to_build_rig(tmp_path: Path) -> None:
         f"the build-rig reference (dts_equiv.py):\n--- argv ---\n{render_argv(check)}\n{check.stdout}\n{check.stderr}")
 
 
-def test_cmake_alone_board_rig_both_given_is_fatal(tmp_path: Path) -> None:
-    """RIG and BOARD are mutually exclusive on a FRESH configure -- FATAL
-    even when the value MATCHES the rig's own board exactly
-    (nucleo_datalogger's board is nucleo_f401re/stm32f401xe/rig, passed back
-    verbatim here), because BOARD is derived data of the rig coordinate, not
-    a separate one the user may also supply."""
+def test_cmake_alone_board_rig_both_given_configures_with_given_board(
+        tmp_path: Path) -> None:
+    """BOARD is an independent coordinate with a per-rig default
+    (board-coordinate-s1-brief.md): -DBOARD + -DRIG on a fresh configure
+    now CONFIGURES, and the GIVEN board is the one built -- inverts the
+    old exclusivity FATAL this test used to assert. The value here
+    MATCHES the rig's own declared board (nucleo_datalogger's is
+    nucleo_f401re/stm32f401xe/rig, passed back verbatim), which is
+    exactly the byte-inert case the slice's own acceptance criterion
+    rests on: today's inferred board already equals the rig's declared
+    one, so this must be indistinguishable from a bare -DRIG configure."""
     build_dir = tmp_path / "both-given"
     result = _run_cmake_alone(build_dir, [
         f"-DRIG={_RIG}", "-DBOARD=nucleo_f401re/stm32f401xe/rig",
     ])
+    assert result.returncode == 0, (
+        f"expected -DBOARD + -DRIG on a fresh configure to succeed\n"
+        f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
+        f"--- stderr ---\n{result.stderr}")
+    with open(build_dir / "build_info.yml") as f:
+        info = yaml.safe_load(f)
+    assert info["cmake"]["board"]["name"] == "nucleo_f401re"
+    assert info["cmake"]["board"]["qualifiers"] == "stm32f401xe/rig"
+    assert (info["cmake"]["vendor-specific"]["rig"]["board"]
+            == "nucleo_f401re/stm32f401xe/rig")
+
+
+# no_board_datalogger declares NO board: at all -- the real corpus
+# (boards/rigs/) has no such rig (test_corpus_complete requires every
+# registered corpus rig to resolve a board, an invariant this fixture is
+# specifically here to violate), so it lives in its OWN board_root
+# instead, added via -DBOARD_ROOT alongside the module's default one
+# (BOARD_ROOT is a zephyr_get(... MERGE ...) list -- verified empirically
+# that an extra -DBOARD_ROOT augments rather than replaces the module's
+# own, so the rig resolves from the fixture root while its shield
+# (adafruit_data_logger) and both boards still resolve from btr-shields'
+# own default root). Its content names the shared arduino_r3 socket alias
+# (Ruling 1, board-as-invocation-coordinate-brief.md Sec 2 -- already
+# landed on both real boards' own devicetree) rather than a board-
+# prefixed label, so the SAME rig resolves on either real board.
+#
+# Deviation from the brief's own suggestion (reuse ard_datalogger, the
+# corpus's dual-host rig, for the cross-board falsifier): ard_datalogger's
+# per-variant sockets: maps are board-prefixed (nucleo_ard/frdm_ard), so
+# crossing its OWN two declared variants to each OTHER's board fails at
+# socket resolution (a real content/board mismatch per Sec 4's "sockets:
+# handling is unchanged in every case" rule, not a mechanism bug) -- it
+# would make the falsifier assert a rejection instead of a clean build.
+# Building the SAME boardless rig against two DIFFERENT real boards and
+# asserting each build actually used the one it was given is at least as
+# strong a falsifier as crossing a rig's own declared board would be.
+_EXTRA_BOARD_ROOT = str(FIXTURES_DIR / "extra_board_root")
+_NO_BOARD_RIG = "no_board_datalogger"
+
+
+def test_cmake_alone_no_board_declared_without_injection_is_fatal(
+        tmp_path: Path) -> None:
+    """The "never neither unless injected" rule's negative half: with no
+    -DBOARD given and no board declared, there is nothing to fall back
+    to, so this is a configure-time FATAL_ERROR naming both the rig and
+    the missing flag."""
+    build_dir = tmp_path / "no-board-no-injection"
+    result = _run_cmake_alone(build_dir, [
+        f"-DRIG={_NO_BOARD_RIG}", f"-DBOARD_ROOT={_EXTRA_BOARD_ROOT}",
+    ])
     assert result.returncode != 0, (
-        "expected -DBOARD + -DRIG on a fresh configure to FATAL (even a "
-        "matching value), but configure succeeded")
-    combined = f"{render_argv(result)}\n" + result.stdout + result.stderr
-    assert "both given" in combined, combined
-    assert _RIG in combined, combined
-    assert "drop -dboard" in combined.lower(), combined
+        f"expected -DRIG={_NO_BOARD_RIG} with no -DBOARD to FATAL, but "
+        f"configure succeeded\n--- argv ---\n{render_argv(result)}")
+    # Asserted against cmake's own OUTPUT only, never the argv: the argv
+    # already contains -DRIG=no_board_datalogger and -DBOARD_ROOT=... (which
+    # itself lowercases to a string containing "-dboard"), so a check
+    # against `render_argv(result) + stdout + stderr` would pass even if
+    # the FATAL never fired at all. "no board of its own to fall back to"
+    # is OUR wording (no argv could ever contain it), but that alone is
+    # STILL not enough: message(STATUS ...) prints the identical text
+    # without stopping the configure, and cmake fails moments later anyway
+    # at zephyr's own zephyr_check_cache(BOARD REQUIRED) ("BOARD is not
+    # being defined ...") -- verified by replacing the FATAL_ERROR in
+    # boards.cmake with a STATUS of the same wording: this rejection still
+    # exits nonzero and still contains our phrase. The second assertion is
+    # the actual discriminator: our FATAL_ERROR halts the configure before
+    # that later, generic check ever runs, so its own wording must be
+    # ABSENT -- confirmed empirically both ways (present under the STATUS
+    # mutation, absent with the real FATAL_ERROR restored).
+    output = result.stdout + result.stderr
+    assert "no board of its own to fall back to" in output, output
+    assert "BOARD is not being defined" not in output, output
+
+
+def test_cmake_alone_board_injection_is_read_not_ignored(tmp_path: Path) -> None:
+    """The real falsifier (board-coordinate-s1-brief.md Sec 5): building
+    the SAME boardless rig with two DIFFERENT real -DBOARD values must
+    configure BOTH times, and each build must have actually used the
+    board it was given, not a constant or an ignored one -- proven by
+    checking build_info.yml's own board fields diverge between the two
+    runs exactly as the two -DBOARD values did. A no-op/ignored injection
+    would either FATAL both times (nothing to fall back to) or use the
+    SAME board regardless of which value was given; neither is
+    consistent with what is asserted below."""
+    nucleo_dir = tmp_path / "nucleo"
+    nucleo = _run_cmake_alone(nucleo_dir, [
+        f"-DRIG={_NO_BOARD_RIG}", f"-DBOARD_ROOT={_EXTRA_BOARD_ROOT}",
+        "-DBOARD=nucleo_f401re/stm32f401xe/rig",
+    ])
+    assert nucleo.returncode == 0, (
+        f"-DBOARD=nucleo_f401re/stm32f401xe/rig must configure\n"
+        f"--- argv ---\n{render_argv(nucleo)}\n--- stdout ---\n{nucleo.stdout}\n"
+        f"--- stderr ---\n{nucleo.stderr}")
+    with open(nucleo_dir / "build_info.yml") as f:
+        nucleo_info = yaml.safe_load(f)
+
+    frdm_dir = tmp_path / "frdm"
+    frdm = _run_cmake_alone(frdm_dir, [
+        f"-DRIG={_NO_BOARD_RIG}", f"-DBOARD_ROOT={_EXTRA_BOARD_ROOT}",
+        "-DBOARD=frdm_k64f/mk64f12/rig",
+    ])
+    assert frdm.returncode == 0, (
+        f"-DBOARD=frdm_k64f/mk64f12/rig must configure\n"
+        f"--- argv ---\n{render_argv(frdm)}\n--- stdout ---\n{frdm.stdout}\n"
+        f"--- stderr ---\n{frdm.stderr}")
+    with open(frdm_dir / "build_info.yml") as f:
+        frdm_info = yaml.safe_load(f)
+
+    assert nucleo_info["cmake"]["board"]["name"] == "nucleo_f401re"
+    assert frdm_info["cmake"]["board"]["name"] == "frdm_k64f"
+    assert (nucleo_info["cmake"]["vendor-specific"]["rig"]["board"]
+            == "nucleo_f401re/stm32f401xe/rig")
+    assert (frdm_info["cmake"]["vendor-specific"]["rig"]["board"]
+            == "frdm_k64f/mk64f12/rig")
 
 
 def test_cmake_alone_reconfigure_of_rig_build_dir_proceeds(tmp_path: Path) -> None:
@@ -365,6 +488,41 @@ def test_cmake_alone_rig_swap_to_other_board_is_fatal(tmp_path: Path) -> None:
     combined = f"{render_argv(second)}\n" + second.stdout + second.stderr
     assert "seeeduino_lotus/samd21g18a/rig" in combined, combined
     assert "pristine" in combined, combined
+
+
+def test_cmake_alone_rig_swap_with_explicit_board_still_fatal(
+        tmp_path: Path) -> None:
+    """The rig-swap guard fires even when the SECOND configure ALSO gives
+    an explicit -DBOARD (here, matching the new rig's own declared board
+    exactly) -- giving -DBOARD does not make an existing build dir's
+    board mutable. Without this, upstream's own zephyr_check_cache(BOARD)
+    would only WARN and silently revert to the ORIGINAL board, so the
+    build would proceed against the WRONG hardware under the new rig's
+    name -- worse than this guard's FATAL, not an alternative to it. This
+    is the scenario the message differentiates: naming the -DBOARD given
+    this time rather than blaming inference for a board change the user
+    tried to make directly (verified empirically that cmake applies a -D
+    override to BOARD before this file runs, so the value compared here
+    is the FRESH one, not the stale cached one)."""
+    build_dir = tmp_path / "rig-swap-explicit-board"
+    first = _run_cmake_alone(build_dir, [f"-DRIG={_RIG}"])
+    assert first.returncode == 0, (
+        f"initial cmake -DRIG={_RIG} configure failed\n"
+        f"--- argv ---\n{render_argv(first)}\n--- stdout ---\n{first.stdout}\n--- stderr ---\n{first.stderr}")
+
+    env = _cmake_alone_env()
+    second = subprocess.run(
+        ["cmake", "-DRIG=lotus_buttons",
+         "-DBOARD=seeeduino_lotus/samd21g18a/rig", str(build_dir)],
+        cwd=str(WEST_TOPDIR), env=env,
+        capture_output=True, text=True, timeout=subprocess_timeout(300))
+    assert second.returncode != 0, (
+        "expected swapping -DRIG with an explicit, matching -DBOARD in an "
+        "existing build dir to STILL FATAL, but configure succeeded")
+    output = second.stdout + second.stderr
+    assert "seeeduino_lotus/samd21g18a/rig" in output, output
+    assert "was also given" in output, output
+    assert "pristine" in output, output
 
 
 def test_cmake_alone_rig_swap_same_board_proceeds(tmp_path: Path) -> None:
