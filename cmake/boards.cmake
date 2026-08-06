@@ -14,9 +14,14 @@
 #      is defined and BOARD is not, ask the resolver (scripts/list_rigs.py's
 #      query mode) for the FULL, verbatim ${RIG} target string and
 #      set(BOARD ...) from its answer — the real module below needs BOARD
-#      defined before its own zephyr_check_cache(BOARD REQUIRED). A rig
-#      declaring no board at all with no -DBOARD given has nothing to
-#      fall back to and is a configure-time FATAL_ERROR.
+#      defined before its own zephyr_check_cache(BOARD REQUIRED). RIG may
+#      also resolve to a PROMOTED SHIELD (board-coordinate-s3b-brief.md)
+#      rather than a persisted rig — the resolver's {PROMOTED} key says
+#      so, and a shield has no board axis to infer from at ALL, so it
+#      always needs -DBOARD, never just "a rig that happens to declare
+#      none". Either way, nothing to fall back to and no -DBOARD given is
+#      a configure-time FATAL_ERROR, worded to name which of the two it
+#      was.
 #   2. the REAL boards module, unconditionally (rig build or plain), reached
 #      by absolute path — include(boards) would recurse back into this file
 #      via the prepended module path.
@@ -44,7 +49,7 @@ if(DEFINED RIG)
   execute_process(
     COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/../scripts/list_rigs.py
       ${_rig_broot_args} --rig=${RIG}
-      --cmakeformat={NAME}\;{DIR}\;{BOARD}\;{REVISION}\;{VARIANT}
+      --cmakeformat={NAME}\;{DIR}\;{BOARD}\;{REVISION}\;{VARIANT}\;{PROMOTED}
     OUTPUT_VARIABLE _rig_resolve_out
     ERROR_VARIABLE _rig_resolve_err
     RESULT_VARIABLE _rig_resolve_rv)
@@ -58,12 +63,28 @@ if(DEFINED RIG)
   # rig's own declarations and applied defaults for a bare target, so what
   # comes back here is either NOTFOUND (axis undeclared / not selected) or
   # the concrete string every fragment filename downstream is built from.
-  cmake_parse_arguments(_RIG_RESOLVED "" "NAME;DIR;BOARD;REVISION;VARIANT" "" ${_rig_resolve_out})
+  cmake_parse_arguments(_RIG_RESOLVED "" "NAME;DIR;BOARD;REVISION;VARIANT;PROMOTED" "" ${_rig_resolve_out})
   if(_RIG_RESOLVED_REVISION STREQUAL "NOTFOUND")
     set(_RIG_RESOLVED_REVISION "")
   endif()
   if(_RIG_RESOLVED_VARIANT STREQUAL "NOTFOUND")
     set(_RIG_RESOLVED_VARIANT "")
+  endif()
+  # PROMOTED is the shield name when ${RIG} resolved as a promoted shield
+  # (board-coordinate-s3b-brief.md ruling 3) rather than a persisted rig,
+  # empty otherwise -- the ONLY key this file uses to tell the two apart,
+  # since DIR/BOARD are both legitimately empty for either a promoted
+  # shield OR (DIR excepted) a boardless rig.
+  if(_RIG_RESOLVED_PROMOTED STREQUAL "NOTFOUND")
+    set(_RIG_RESOLVED_PROMOTED "")
+  endif()
+  # DIR is NOTFOUND for a promoted shield (no rig folder exists at all) --
+  # normalized to empty the same way BOARD/REVISION/VARIANT already are,
+  # even though THIS file never itself constructs a path from it (dts.cmake
+  # does); left un-normalized here, "NOTFOUND" would read as a real,
+  # non-empty DIR to anything checking "was the stash populated".
+  if(_RIG_RESOLVED_DIR STREQUAL "NOTFOUND")
+    set(_RIG_RESOLVED_DIR "")
   endif()
   # BOARD is the one RESOLVED key that can legitimately come back NOTFOUND
   # now (board-coordinate-s1-brief.md Sec 3): a rig declaring no board:
@@ -71,7 +92,10 @@ if(DEFINED RIG)
   # list_rigs.py failure -- it renders empty here, same as an unselected
   # REVISION/VARIANT above, and this file alone decides whether that is
   # fatal (below), since only THIS file knows whether -DBOARD filled in
-  # for it.
+  # for it. A promoted shield's BOARD is unconditionally empty too
+  # (board-coordinate-s3b-brief.md) -- it never has one to declare;
+  # PROMOTED above is what lets the FATAL wording below tell the two
+  # apart.
   if(_RIG_RESOLVED_BOARD STREQUAL "NOTFOUND")
     set(_RIG_RESOLVED_BOARD "")
   endif()
@@ -121,13 +145,15 @@ if(DEFINED RIG)
   endif()
 
   # BOARD given -> it wins, unconditionally, whatever the rig declares (or
-  # declares none of); no marker is set for it, since a user-supplied value
-  # is never our own inference (kept out of RIG_INFERRED_BOARD so the
-  # rig-swap guard above never mistakes it for one). BOARD absent -> infer
-  # from the rig exactly as before -DBOARD existed, and record the marker;
-  # a rig with nothing to infer (_RIG_RESOLVED_BOARD empty) then has
-  # nothing left to fall back to, so it is a FATAL naming both the rig and
-  # the missing flag.
+  # declares none of, including a promoted shield, which never declares
+  # one); no marker is set for it, since a user-supplied value is never
+  # our own inference (kept out of RIG_INFERRED_BOARD so the rig-swap
+  # guard above never mistakes it for one). BOARD absent -> infer from
+  # the rig exactly as before -DBOARD existed, and record the marker; a
+  # target with nothing to infer (_RIG_RESOLVED_BOARD empty -- a
+  # boardless rig OR a promoted shield, which is ALWAYS in this state)
+  # then has nothing left to fall back to, so it is a FATAL naming both
+  # the target and the missing flag.
   #   - fresh dir, both given: BOARD defined, no marker set -> BOARD wins.
   #   - fresh dir, RIG only: BOARD undefined -> infer + set the marker.
   #   - reconfigure, no -DBOARD repeated: BOARD defined FROM THE CACHE,
@@ -136,6 +162,15 @@ if(DEFINED RIG)
   #   - reconfigure, user repeats the SAME -DBOARD value: indistinguishable
   #     from the cache case above -- accepted residual, not fixed.
   #   - reconfigure with a CHANGED -DRIG: the rig-swap guard above.
+  #   - a PROMOTED SHIELD target: _RIG_RESOLVED_BOARD is always empty, so
+  #     this is always either "BOARD given -> wins, no marker" or the
+  #     FATAL below -- a shield never has a board to infer, so it never
+  #     sets a marker either. Swapping FROM a rig build dir (a marker
+  #     already set) TO a promoted shield still trips the rig-swap guard
+  #     above (an empty resolved board can never equal a real marker) --
+  #     safe (it still FATALs rather than silently misbuilding), but that
+  #     FATAL's own board-name field reads empty in that direction; not
+  #     disambiguated further here.
   if(DEFINED BOARD)
     if(_RIG_RESOLVED_BOARD AND NOT "${BOARD}" STREQUAL "${_RIG_RESOLVED_BOARD}")
       message(STATUS
@@ -150,6 +185,12 @@ if(DEFINED RIG)
 -DRIG=${RIG}. Compared against a later cache-carried BOARD so a \
 reconfigure of the SAME build dir is not mistaken for a user-passed \
 -DBOARD")
+  elseif(_RIG_RESOLVED_PROMOTED)
+    message(FATAL_ERROR
+      "Rig: -DRIG=${RIG} names the shield '${_RIG_RESOLVED_PROMOTED}', "
+      "which declares no board of its own (a promoted shield has no "
+      "board axis to fall back to, unlike a rig, which might) and no "
+      "-DBOARD was given -- pass -DBOARD=<name>.")
   else()
     message(FATAL_ERROR
       "Rig: -DRIG=${RIG} declares no board: (neither a top-level one nor "
@@ -164,7 +205,11 @@ reconfigure of the SAME build dir is not mistaken for a user-passed \
   if(_RIG_RESOLVED_VARIANT)
     string(APPEND _rig_boards_qualifiers_desc " variant: ${_RIG_RESOLVED_VARIANT}")
   endif()
-  message(STATUS "Rig: ${_RIG_RESOLVED_NAME} (${_RIG_RESOLVED_DIR}/rig.yml), board: ${_RIG_RESOLVED_BOARD}${_rig_boards_qualifiers_desc}")
+  if(_RIG_RESOLVED_PROMOTED)
+    message(STATUS "Rig: '${_RIG_RESOLVED_NAME}' (promoted shield), board: ${_RIG_RESOLVED_BOARD}${_rig_boards_qualifiers_desc}")
+  else()
+    message(STATUS "Rig: ${_RIG_RESOLVED_NAME} (${_RIG_RESOLVED_DIR}/rig.yml), board: ${_RIG_RESOLVED_BOARD}${_rig_boards_qualifiers_desc}")
+  endif()
 endif()
 # ---------------------------------------------------------------------------
 

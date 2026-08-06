@@ -615,3 +615,71 @@ def test_cmake_alone_lotus_with_bridle_module_configures(tmp_path: Path) -> None
     assert check.returncode == 0, (
         "cmake-alone lotus_pwm's zephyr.dts is not structurally equivalent "
         f"to the build-rig reference (dts_equiv.py):\n--- argv ---\n{render_argv(check)}\n{check.stdout}\n{check.stderr}")
+
+
+# ---------------------------------------------------------- promoted shield (S3b)
+#
+# board-coordinate-s3b-brief.md's own criteria 2.2 and 2.3. The slice's
+# headline capability is a -DRIG that names a SHIELD rather than a rig
+# folder, and without these two it is guarded by nothing: every other test
+# in this file names a real rig, so a regression that broke promotion
+# alone would leave the whole suite green.
+
+
+@pytest.mark.build
+def test_cmake_alone_promoted_shield_configures_with_a_given_board(
+        tmp_path: Path) -> None:
+    """Criterion 2.2: -DRIG naming a SHIELD configures, given a board.
+    adafruit_data_logger plugs arduino-r3 and nucleo's rig extension
+    declares exactly one socket of that type, so the socket resolves by
+    inference with nothing named -- the promoted form has no socket: to
+    name (S3a).
+
+    Asserted through build_info rather than the exit code alone: a
+    configure that succeeded while silently building something else is
+    the failure this is really guarding against, so the board actually
+    built and the promoted-shield provenance key are both checked."""
+    build_dir = tmp_path / "promoted"
+    result = _run_cmake_alone(build_dir, [
+        "-DRIG=adafruit_data_logger",
+        "-DBOARD=nucleo_f401re/stm32f401xe/rig",
+    ])
+    assert result.returncode == 0, (
+        "expected -DRIG=<shield> + -DBOARD to configure\n"
+        f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
+        f"--- stderr ---\n{result.stderr}")
+
+    with open(build_dir / "build_info.yml") as f:
+        info = yaml.safe_load(f)
+    rig_info = info["cmake"]["vendor-specific"]["rig"]
+    assert rig_info["promoted-shield"] == "adafruit_data_logger"
+    assert rig_info["board"] == "nucleo_f401re/stm32f401xe/rig"
+    assert "adafruit_data_logger" in rig_info["shields"]
+    # No rig folder exists, so neither rig-folder provenance key is
+    # recorded -- the discriminator between a promoted target and a
+    # same-named rig that happened to resolve.
+    assert "yml" not in rig_info
+    assert "content-yml" not in rig_info
+
+
+@pytest.mark.build
+def test_cmake_alone_promoted_shield_without_a_board_is_fatal(
+        tmp_path: Path) -> None:
+    """Criterion 2.3: a promoted shield declares no board and has no axis
+    to fall back to, so omitting -DBOARD must FATAL rather than guess.
+
+    The assertion names the SHIELD wording specifically, not just any
+    failure: a boardless RIG reaches a differently-worded FATAL two
+    branches away in the same if/elseif chain, and a test satisfied by
+    either would not notice the two collapsing into one."""
+    build_dir = tmp_path / "promoted-no-board"
+    result = _run_cmake_alone(build_dir, ["-DRIG=adafruit_data_logger"])
+    assert result.returncode != 0, (
+        "expected -DRIG=<shield> with no -DBOARD to fail\n"
+        f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}")
+    combined = result.stdout + result.stderr
+    assert "names the shield 'adafruit_data_logger'" in combined, (
+        "the FATAL did not identify the target as a shield -- a boardless "
+        "rig's own wording would be wrong here\n"
+        f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+    assert "no -DBOARD was given" in combined

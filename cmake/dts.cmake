@@ -25,13 +25,15 @@
 #                                  (step 1's output) + BOARD_DIRECTORIES;
 #                                  board dts via _rig_resolve_board_dts()
 #                                  (boards.cmake fork)
-#   3. run the expander        -- rig->folder + qualifier-axis resolution
-#                                  (reuses the boards.cmake fork's
-#                                  _RIG_RESOLVED_DIR/REVISION/VARIANT stash,
-#                                  avoiding a second resolution of the same
-#                                  rig; falls back to its own list_rigs.py
-#                                  --rig= run if that stash is absent),
-#                                  VERBOSE render, rerun-expand.sh,
+#   3. run the expander        -- rig->folder + qualifier-axis resolution,
+#                                  OR a promoted shield (no folder at all --
+#                                  board-coordinate-s3b-brief.md), reuses the
+#                                  boards.cmake fork's
+#                                  _RIG_RESOLVED_DIR/REVISION/VARIANT/PROMOTED
+#                                  stash, avoiding a second resolution of the
+#                                  same target; falls back to its own
+#                                  list_rigs.py --rig= run if that stash is
+#                                  absent), VERBOSE render, rerun-expand.sh,
 #                                  RIG_EXPAND_COMMAND knob, error reporting
 #   4. context.cmake handoff   -- RIG_NAME/RIG_BOARD/RIG_SHIELDS/
 #                                  RIG_REVISION/RIG_VARIANT, RIG_DEPENDS +
@@ -232,24 +234,32 @@ endif()
 
 # Resolve -DRIG=<target> to a rig folder + its SELECTED qualifier axes
 # (rig-variants-revisions.md V1a: @rev/variant, or the declared defaults
-# for a bare target). THE TRAP: every fragment filename built below derives
-# from _rig_name/_rig_revision/_rig_variant, NEVER from ${RIG} itself, which
-# from this slice on genuinely carries "name@rev/variant" — using it
-# directly would silently look for the wrong (nonexistent) fragment files.
+# for a bare target) -- OR to a PROMOTED SHIELD (board-coordinate-s3b-
+# brief.md ruling 3), which has no folder at all. THE TRAP: every fragment
+# filename built below derives from _rig_name/_rig_revision/_rig_variant,
+# NEVER from ${RIG} itself, which from this slice on genuinely carries
+# "name@rev/variant" — using it directly would silently look for the
+# wrong (nonexistent) fragment files.
 #
 # Fall back to a fresh list_rigs.py --rig= resolution only if the
 # boards.cmake fork's stash is absent — e.g. a standalone SUB_COMPONENTS
 # configure that reaches dts without ever loading boards. Same resolver,
 # same --cmakeformat keys as boards.cmake's Step 1: this file must never
 # re-derive rig->folder/axis resolution by hand (design rule 1).
-if(DEFINED _RIG_RESOLVED_DIR AND NOT "${_RIG_RESOLVED_DIR}" STREQUAL "")
+#
+# _RIG_RESOLVED_NAME (never _RIG_RESOLVED_DIR) is the "did the stash
+# actually run" sentinel: DIR is now legitimately EMPTY for a promoted
+# shield even though the stash DID run, whereas NAME is always a real,
+# non-empty string for either outcome of a successful resolution.
+if(DEFINED _RIG_RESOLVED_NAME)
   set(_rig_dir "${_RIG_RESOLVED_DIR}")
   set(_rig_name "${_RIG_RESOLVED_NAME}")
   set(_rig_revision "${_RIG_RESOLVED_REVISION}")
   set(_rig_variant "${_RIG_RESOLVED_VARIANT}")
+  set(_rig_promoted "${_RIG_RESOLVED_PROMOTED}")
 else()
   message(VERBOSE
-    "Rig: _RIG_RESOLVED_DIR is unset -- boards.cmake's fork did not run "
+    "Rig: _RIG_RESOLVED_NAME is unset -- boards.cmake's fork did not run "
     "before this file in this configure; resolving -DRIG=${RIG} again via "
     "list_rigs.py --rig=.")
 
@@ -258,7 +268,7 @@ else()
   execute_process(
     COMMAND ${PYTHON_EXECUTABLE} ${_RIG_BTR_ROOT}/scripts/list_rigs.py
       ${_rig_board_root_args} --rig=${RIG}
-      --cmakeformat={NAME}\;{DIR}\;{BOARD}\;{REVISION}\;{VARIANT}
+      --cmakeformat={NAME}\;{DIR}\;{BOARD}\;{REVISION}\;{VARIANT}\;{PROMOTED}
     OUTPUT_VARIABLE _rig_fallback_out
     ERROR_VARIABLE _rig_fallback_err
     RESULT_VARIABLE _rig_fallback_rv)
@@ -266,12 +276,13 @@ else()
     message(FATAL_ERROR "Rig: -DRIG=${RIG} did not resolve:\n${_rig_fallback_err}")
   endif()
   string(STRIP "${_rig_fallback_out}" _rig_fallback_out)
-  cmake_parse_arguments(_RIG_FALLBACK "" "NAME;DIR;BOARD;REVISION;VARIANT" "" ${_rig_fallback_out})
+  cmake_parse_arguments(_RIG_FALLBACK "" "NAME;DIR;BOARD;REVISION;VARIANT;PROMOTED" "" ${_rig_fallback_out})
 
   set(_rig_dir "${_RIG_FALLBACK_DIR}")
   set(_rig_name "${_RIG_FALLBACK_NAME}")
   set(_rig_revision "${_RIG_FALLBACK_REVISION}")
   set(_rig_variant "${_RIG_FALLBACK_VARIANT}")
+  set(_rig_promoted "${_RIG_FALLBACK_PROMOTED}")
 endif()
 if(_rig_revision STREQUAL "NOTFOUND")
   set(_rig_revision "")
@@ -279,30 +290,113 @@ endif()
 if(_rig_variant STREQUAL "NOTFOUND")
   set(_rig_variant "")
 endif()
-
-set(_rig_yml "${_rig_dir}/rig.yml")
-if(NOT EXISTS "${_rig_yml}")
-  message(FATAL_ERROR
-    "Rig: -DRIG=${RIG} resolved to '${_rig_dir}' but it has no rig.yml:\n"
-    "  Expected: ${_rig_yml}")
+if(_rig_promoted STREQUAL "NOTFOUND")
+  set(_rig_promoted "")
+endif()
+if(_rig_dir STREQUAL "NOTFOUND")
+  set(_rig_dir "")
 endif()
 
-# The rig's REQUIRED content file (metadata/content split: rig.yml is
-# metadata-only, instances:/wires:/dt-includes: live in <rigname>.yml).
-# Its name depends on the RESOLVED rig name, already in hand above (from
-# either boards.cmake's stash or the list_rigs.py fallback) -- never
-# parsed from rig.yml itself, per THE TRAP note on the axis fragments
-# below. No EXISTS check here: an absent content file is the loader's own
-# lang-content diagnostic (it names the file it looked for), not a
-# cmake-level FATAL_ERROR -- cmake only needs the constructed PATH, added
-# to the static CMAKE_CONFIGURE_DEPENDS set alongside rig.yml (step 4).
-# That static registration is the ordering fix this file needs: a content
-# file broken enough that expansion fails never reaches the point of
-# writing RIG_DEPENDS, so relying solely on the expander's own dynamic
-# report would leave editing a MISSING or malformed content file unable to
-# ever retrigger configure -- the exact failure mode CMAKE_CONFIGURE_DEPENDS
-# exists to close for rig.yml itself already.
-set(_rig_content_yml "${_rig_dir}/${_rig_name}.yml")
+# A promoted shield has no rig folder at all: rig.yml, the content file
+# and every hand-authored overlay/defconfig fragment below are all empty
+# rather than constructed from an empty _rig_dir, which would otherwise
+# silently concatenate into a bogus absolute path (e.g. "/rig.yml",
+# EXISTS'd against the filesystem root). EXISTS on an empty string is
+# FALSE (verified against this cmake), so every EXISTS-guarded consumer of
+# these further down (steps 6-8: overlay/defconfig application, build_info
+# provenance) already skips cleanly with no extra guard needed there --
+# this is the ONE place that has to know the difference.
+if(_rig_promoted)
+  set(_rig_yml "")
+  set(_rig_content_yml "")
+  set(_rig_user_overlay "")
+  set(_rig_conf_file "")
+  set(_rig_revision_norm "")
+  if(_rig_revision)
+    string(REPLACE "." "_" _rig_revision_norm "${_rig_revision}")
+  endif()
+  set(_rig_variant_overlay "")
+  set(_rig_variant_conf_file "")
+  # A promoted shield's REVISION is the SHIELD's own (S3a) -- baked
+  # directly into the synthesized content file's `shield:` reference by
+  # --promote below, never a `<rigname>_<rev>_defconfig`-shaped fragment
+  # file this rig folder does not have, so _rig_rev_conf_file stays empty
+  # even though _rig_revision itself may be non-empty.
+  set(_rig_rev_conf_file "")
+  set(_rig_combined_overlay "")
+  set(_rig_combined_conf_file "")
+else()
+  set(_rig_yml "${_rig_dir}/rig.yml")
+  if(NOT EXISTS "${_rig_yml}")
+    message(FATAL_ERROR
+      "Rig: -DRIG=${RIG} resolved to '${_rig_dir}' but it has no rig.yml:\n"
+      "  Expected: ${_rig_yml}")
+  endif()
+
+  # The rig's REQUIRED content file (metadata/content split: rig.yml is
+  # metadata-only, instances:/wires:/dt-includes: live in <rigname>.yml).
+  # Its name depends on the RESOLVED rig name, already in hand above (from
+  # either boards.cmake's stash or the list_rigs.py fallback) -- never
+  # parsed from rig.yml itself, per THE TRAP note on the axis fragments
+  # below. No EXISTS check here: an absent content file is the loader's own
+  # lang-content diagnostic (it names the file it looked for), not a
+  # cmake-level FATAL_ERROR -- cmake only needs the constructed PATH, added
+  # to the static CMAKE_CONFIGURE_DEPENDS set alongside rig.yml (step 4).
+  # That static registration is the ordering fix this file needs: a content
+  # file broken enough that expansion fails never reaches the point of
+  # writing RIG_DEPENDS, so relying solely on the expander's own dynamic
+  # report would leave editing a MISSING or malformed content file unable to
+  # ever retrigger configure -- the exact failure mode CMAKE_CONFIGURE_DEPENDS
+  # exists to close for rig.yml itself already.
+  set(_rig_content_yml "${_rig_dir}/${_rig_name}.yml")
+
+  set(_rig_user_overlay "${_rig_dir}/${_rig_name}.overlay")
+  set(_rig_conf_file "${_rig_dir}/${_rig_name}_defconfig")
+
+  # Per-axis fragment filenames (rig-variants-revisions.md Q6: constructed by
+  # _-joining the resolved name + selected axis, never parsed) -- built from
+  # _rig_name/_rig_revision/_rig_variant, per THE TRAP note above. Empty
+  # string (axis not selected / not declared) means no fragment of that kind
+  # exists to look for.
+  #
+  # _rig_revision_norm: hwmv2's own revision normalization
+  # (zephyr_build_string, extensions.cmake:1772) -- a dotted revision id
+  # becomes underscores in the constructed filename (1.2 -> 1_2). Applied
+  # everywhere a revision segment joins into a fragment filename; _rig_revision
+  # itself (the SELECTED value used for validation/provenance) stays
+  # unnormalized.
+  set(_rig_revision_norm "")
+  if(_rig_revision)
+    string(REPLACE "." "_" _rig_revision_norm "${_rig_revision}")
+  endif()
+
+  set(_rig_variant_overlay "")
+  set(_rig_variant_conf_file "")
+  set(_rig_rev_conf_file "")
+  if(_rig_variant)
+    set(_rig_variant_overlay "${_rig_dir}/${_rig_name}_${_rig_variant}.overlay")
+    set(_rig_variant_conf_file "${_rig_dir}/${_rig_name}_${_rig_variant}_defconfig")
+  endif()
+  if(_rig_revision)
+    set(_rig_rev_conf_file "${_rig_dir}/${_rig_name}_${_rig_revision_norm}_defconfig")
+  endif()
+
+  # Combined per-(variant, revision) fragments (V1b, design-log 2026-07-26d):
+  # ORDER IS REVISION LAST (<rigname>_<variant>_<rev>...), matching hwmv2
+  # exactly -- zephyr_build_string() (extensions.cmake:1774) joins
+  # board -> qualifiers (soc/cpucluster/variant) -> revision, confirmed
+  # against nrf9160dk_nrf9160_ns_0_14_0.overlay. Upstream deliberately does
+  # NOT mirror its own selection grammar (which puts revision first); this
+  # is not "fixed" here. Collected only when BOTH axes are selected.
+  set(_rig_combined_overlay "")
+  set(_rig_combined_conf_file "")
+  if(_rig_variant AND _rig_revision)
+    set(_rig_combined_overlay
+      "${_rig_dir}/${_rig_name}_${_rig_variant}_${_rig_revision_norm}.overlay")
+    set(_rig_combined_conf_file
+      "${_rig_dir}/${_rig_name}_${_rig_variant}_${_rig_revision_norm}_defconfig")
+  endif()
+endif()
 
 set(_rig_out_dir "${CMAKE_BINARY_DIR}/rig")
 file(MAKE_DIRECTORY "${_rig_out_dir}")
@@ -311,53 +405,6 @@ file(MAKE_DIRECTORY "${_rig_out_dir}")
 # of the rig folder's own hand-authored <RIG>_defconfig/<RIG>.overlay).
 set(_rig_overlay "${_rig_out_dir}/rig-gen.overlay")
 set(_rig_conf "${_rig_out_dir}/rig-gen.conf")
-
-set(_rig_user_overlay "${_rig_dir}/${_rig_name}.overlay")
-set(_rig_conf_file "${_rig_dir}/${_rig_name}_defconfig")
-
-# Per-axis fragment filenames (rig-variants-revisions.md Q6: constructed by
-# _-joining the resolved name + selected axis, never parsed) -- built from
-# _rig_name/_rig_revision/_rig_variant, per THE TRAP note above. Empty
-# string (axis not selected / not declared) means no fragment of that kind
-# exists to look for.
-#
-# _rig_revision_norm: hwmv2's own revision normalization
-# (zephyr_build_string, extensions.cmake:1772) -- a dotted revision id
-# becomes underscores in the constructed filename (1.2 -> 1_2). Applied
-# everywhere a revision segment joins into a fragment filename; _rig_revision
-# itself (the SELECTED value used for validation/provenance) stays
-# unnormalized.
-set(_rig_revision_norm "")
-if(_rig_revision)
-  string(REPLACE "." "_" _rig_revision_norm "${_rig_revision}")
-endif()
-
-set(_rig_variant_overlay "")
-set(_rig_variant_conf_file "")
-set(_rig_rev_conf_file "")
-if(_rig_variant)
-  set(_rig_variant_overlay "${_rig_dir}/${_rig_name}_${_rig_variant}.overlay")
-  set(_rig_variant_conf_file "${_rig_dir}/${_rig_name}_${_rig_variant}_defconfig")
-endif()
-if(_rig_revision)
-  set(_rig_rev_conf_file "${_rig_dir}/${_rig_name}_${_rig_revision_norm}_defconfig")
-endif()
-
-# Combined per-(variant, revision) fragments (V1b, design-log 2026-07-26d):
-# ORDER IS REVISION LAST (<rigname>_<variant>_<rev>...), matching hwmv2
-# exactly -- zephyr_build_string() (extensions.cmake:1774) joins
-# board -> qualifiers (soc/cpucluster/variant) -> revision, confirmed
-# against nrf9160dk_nrf9160_ns_0_14_0.overlay. Upstream deliberately does
-# NOT mirror its own selection grammar (which puts revision first); this
-# is not "fixed" here. Collected only when BOTH axes are selected.
-set(_rig_combined_overlay "")
-set(_rig_combined_conf_file "")
-if(_rig_variant AND _rig_revision)
-  set(_rig_combined_overlay
-    "${_rig_dir}/${_rig_name}_${_rig_variant}_${_rig_revision_norm}.overlay")
-  set(_rig_combined_conf_file
-    "${_rig_dir}/${_rig_name}_${_rig_variant}_${_rig_revision_norm}_defconfig")
-endif()
 
 # Shield-library roots: every board_root's boards/shields, mirroring how
 # list_shields.py itself discovers shields (root/boards/shields). The expander
@@ -423,7 +470,17 @@ else()
     set(_rig_board_target "${_rig_board_target}/${BOARD_QUALIFIERS}")
   endif()
   set(_rig_debug_argv
-    "${PYTHON_EXECUTABLE}" -m ${RIG_EXPAND_COMPILE} expand "${_rig_yml}"
+    "${PYTHON_EXECUTABLE}" -m ${RIG_EXPAND_COMPILE} expand)
+  # A promoted shield has no rig.yml on disk (board-coordinate-s3b-
+  # brief.md): --promote takes its place as the expander's positional
+  # slot, and rigc synthesizes the pair itself, into its OWN workdir,
+  # rather than cmake ever writing one into the source tree.
+  if(_rig_promoted)
+    list(APPEND _rig_debug_argv --promote "${_rig_promoted}")
+  else()
+    list(APPEND _rig_debug_argv "${_rig_yml}")
+  endif()
+  list(APPEND _rig_debug_argv
     ${_rig_shield_dir_args}
     --board "${_rig_board_target}"
     --board-dts "${_rig_board_dts}"
@@ -435,7 +492,11 @@ else()
   # declarations and applies defaults exactly as list_rigs.py already did
   # for cmake's own filename construction above -- omitted entirely rather
   # than passed empty, so the loader sees "bare target" (None), not a
-  # selected empty-string axis.
+  # selected empty-string axis. For a promoted shield, --revision means
+  # something else entirely to the expander (the SHIELD's own revision,
+  # per S3a) -- _rig_variant is always empty there (S3a already refuses
+  # one before this point is ever reached), so only --revision can carry
+  # anything in that case.
   if(_rig_revision)
     list(APPEND _rig_debug_argv --revision "${_rig_revision}")
   endif()
@@ -486,7 +547,11 @@ file(CHMOD "${_rig_rerun_script}" PERMISSIONS
   GROUP_READ GROUP_EXECUTE
   WORLD_READ WORLD_EXECUTE)
 
-message(STATUS "Rig: expanding ${_rig_yml} -> ${_rig_out_dir}")
+if(_rig_promoted)
+  message(STATUS "Rig: expanding promoted shield '${_rig_promoted}' -> ${_rig_out_dir}")
+else()
+  message(STATUS "Rig: expanding ${_rig_yml} -> ${_rig_out_dir}")
+endif()
 execute_process(
   COMMAND ${_rig_cmd}
   RESULT_VARIABLE _rig_result
@@ -510,11 +575,23 @@ endif()
 
 # ---------------------------------------------------------------------------
 # Step 4: context.cmake handoff.
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_rig_yml}")
+#
+# _rig_yml/_rig_content_yml are both empty for a promoted shield (no rig
+# folder exists to hold either), so these two are skipped rather than
+# registering a bogus concatenated path -- its equivalent STATIC
+# dependency is the shield's own <name>.shield template and shield.yml,
+# which RIG_DEPENDS below already records dynamically through the SAME
+# shield-library scan the expander's --promote path still runs (the
+# expander opens them regardless of which positional slot it was given).
+if(_rig_yml)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_rig_yml}")
+endif()
 # The content file (see its own comment above): registered unconditionally,
 # same as rig.yml, regardless of whether it currently EXISTS -- the whole
 # point is to retrigger configure once a missing/broken one gets fixed.
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_rig_content_yml}")
+if(_rig_content_yml)
+  set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_rig_content_yml}")
+endif()
 if(EXISTS "${_rig_conf_file}")
   set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS "${_rig_conf_file}")
 endif()
@@ -914,8 +991,18 @@ list(JOIN _rig_applied_fragments ", " _rig_fragments_joined)
 
 build_info(vendor-specific rig name VALUE "${RIG_NAME}")
 build_info(vendor-specific rig board VALUE "${RIG_BOARD}")
-build_info(vendor-specific rig yml VALUE "${_rig_yml}")
-build_info(vendor-specific rig content-yml VALUE "${_rig_content_yml}")
+# Both empty for a promoted shield (no rig folder, see step 3) -- guarded
+# rather than recorded as an empty VALUE, same convention as revision/
+# variant below.
+if(_rig_yml)
+  build_info(vendor-specific rig yml VALUE "${_rig_yml}")
+endif()
+if(_rig_content_yml)
+  build_info(vendor-specific rig content-yml VALUE "${_rig_content_yml}")
+endif()
+if(_rig_promoted)
+  build_info(vendor-specific rig promoted-shield VALUE "${_rig_promoted}")
+endif()
 build_info(vendor-specific rig board-dts VALUE "${_rig_board_dts}")
 build_info(vendor-specific rig shields VALUE "${_rig_shields_joined}")
 build_info(vendor-specific rig shield-dirs VALUE "${_rig_shield_dirs_joined}")

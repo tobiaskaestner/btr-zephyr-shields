@@ -72,6 +72,29 @@ def test_defaults_are_none() -> None:
     assert args.revision is None
     assert args.variant is None
     assert args.verbose == 0
+    assert args.promote is None
+
+
+# ------------------------------------------- --promote / positional exclusion
+
+def test_promote_and_positional_rig_are_mutually_exclusive() -> None:
+    with pytest.raises(SystemExit) as e:
+        build_parser().parse_args(
+            ["expand", "rig.yml", "--promote", "some_shield", "--out-dir", "out"])
+    assert e.value.code == 2
+
+
+def test_neither_rig_nor_promote_given_is_a_usage_error() -> None:
+    with pytest.raises(SystemExit) as e:
+        build_parser().parse_args(["expand", "--out-dir", "out"])
+    assert e.value.code == 2
+
+
+def test_promote_alone_parses() -> None:
+    args = build_parser().parse_args(
+        ["expand", "--promote", "adafruit_data_logger", "--out-dir", "out"])
+    assert args.rig is None
+    assert args.promote == "adafruit_data_logger"
 
 
 def test_repeatable_options_accumulate_in_order() -> None:
@@ -401,6 +424,59 @@ def test_rigc_keep_workdir_env_overrides_the_accept_path_deletion(
     assert ret == 0
     assert len(created) == 1
     assert Path(created[0]).is_dir()
+
+
+# --------------------------------------------------------------- --promote
+
+def test_promote_writes_promote_shields_own_documents_verbatim(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """The pin that there is exactly ONE desugaring (board-coordinate-
+    s3b-brief.md Sec 5): --promote's materialized rig.yml/content pair is
+    byte-identical to promote.promote_shield's own return, for the exact
+    name/filename it chose. No --board is given, so the loader rejects at
+    its own "no board anywhere" diagnostic (the S1 relaxation is
+    conditional on an INJECTED board, and this run supplies none) -- D10
+    keeps the workdir on that reject, which is what lets this test read
+    the two files back off disk."""
+    from rigc.promote import promote_shield
+
+    created = _spy_mkdtemp(monkeypatch, tmp_path)
+    ret, err = _run(capsys, ["expand", "--promote", "adafruit_data_logger",
+                            "--out-dir", str(tmp_path / "out"),
+                            *_no_shields(tmp_path)])
+
+    assert ret == 1
+    assert len(created) == 1
+    workdir = Path(created[0])
+    expected = promote_shield("adafruit_data_logger")
+    assert (workdir / "rig.yml").read_text() == expected.rig_yml
+    assert (workdir / expected.content_name).read_text() == expected.content
+
+
+def test_promote_with_revision_bakes_the_shields_own_revision(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """--revision alongside --promote means the SHIELD's own revision
+    (Sec 3's `@rev` rule) -- baked into the synthesized content file's
+    `shield:` reference, never forwarded to loader.load as a rig-level
+    axis selection (a promoted rig declares no revisions: of its own).
+    Reused promote_shield directly as the oracle, same as the test
+    above."""
+    from rigc.promote import promote_shield
+
+    created = _spy_mkdtemp(monkeypatch, tmp_path)
+    ret, err = _run(capsys, ["expand", "--promote", "i2c_sensor",
+                            "--revision", "2",
+                            "--out-dir", str(tmp_path / "out"),
+                            *_no_shields(tmp_path)])
+
+    assert ret == 1
+    workdir = Path(created[0])
+    expected = promote_shield("i2c_sensor", revision="2")
+    assert (workdir / "rig.yml").read_text() == expected.rig_yml
+    assert (workdir / expected.content_name).read_text() == expected.content
+    assert "shield: i2c_sensor@2" in expected.content
 
 
 # --------------------------------------------------- logging (rigc-r45-brief.md Part B)

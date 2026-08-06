@@ -20,6 +20,16 @@ longer fires on any input the frozen corpus contains.
 main(argv) -> int is callable in-process, so the argv contract has
 subprocess-free unit tests.
 
+The positional `rig` and `--promote <shield-name>` are mutually exclusive
+alternatives for the SAME slot (board-coordinate-s3b-brief.md Sec 5): a
+promoted shield has no rig.yml on disk, so `--promote` makes `_expand`
+synthesize `promote.promote_shield`'s own pair straight into this run's
+workdir and load THAT by path -- the loader, deps, diagnostics and
+emitter never learn the difference. `--revision` alongside `--promote`
+means the SHIELD's own revision (baked into the synthesized content
+file), never a rig-level axis -- a promoted rig declares no revisions:
+of its own, so it is never forwarded to `loader.load`.
+
 Exit vocabulary (rigc-r1-brief.md Sec 1): 0 accept, 1 rejected input,
 2 usage error (argparse's own), 3 not implemented (see unimplemented.py).
 
@@ -52,7 +62,7 @@ import sys
 import tempfile
 from typing import List, Optional
 
-from . import analyzer, boarddt, loader
+from . import analyzer, boarddt, loader, promote
 from .deps import union as deps_union
 from .diag import Diagnostic, LoadError, has_errors, render
 from .edt_build import BuildRecipe, recipe_from_build_info
@@ -143,7 +153,18 @@ def build_parser() -> argparse.ArgumentParser:
         "expand",
         help="run one rig through the pipeline and write the outputs to --out-dir",
     )
-    p.add_argument("rig", help="path to the rig's metadata file, rig.yml")
+    rig_or_promote = p.add_mutually_exclusive_group(required=True)
+    rig_or_promote.add_argument(
+        "rig", nargs="?", default=None,
+        help="path to the rig's metadata file, rig.yml",
+    )
+    rig_or_promote.add_argument(
+        "--promote", default=None, metavar="SHIELD",
+        help="a shield name to promote in place of a real rig.yml: "
+        "synthesizes promote.promote_shield's own rig.yml/content pair "
+        "into this run's workdir and loads that -- mutually exclusive "
+        "with the positional rig",
+    )
     p.add_argument(
         "--shield-dir",
         dest="shield_dirs",
@@ -227,9 +248,11 @@ def _reject(diags: List[Diagnostic]) -> int:
 def _expand(args: argparse.Namespace) -> int:
     # Absolute up front, like the whole pipeline expects: the cmake seam
     # runs this CLI from the build dir, so inputs must be cwd-independent
-    # -- and the diagnostics' message paths are spec'd absolute.
+    # -- and the diagnostics' message paths are spec'd absolute. A
+    # --promote target has no path yet (it is materialized into the
+    # workdir below, once one exists), so this stays None until then.
     # breakpoint()
-    rig_path = os.path.abspath(args.rig)
+    rig_path = os.path.abspath(args.rig) if args.rig is not None else None
     shield_dirs = (
         [os.path.abspath(d) for d in args.shield_dirs] if args.shield_dirs else None
     )
@@ -260,12 +283,35 @@ def _expand(args: argparse.Namespace) -> int:
     log.info("workdir: %s", workdir)
     accepted = False
     try:
+        # --promote materializes promote.promote_shield's own two
+        # documents into THIS run's workdir and loads them by path --
+        # everything past this point (loader, deps, diagnostics, emitter)
+        # runs on a real rig.yml on a real path, exactly as for an
+        # authored one. D10 keeps the workdir on a reject, so a rejected
+        # promoted shield leaves the synthesized pair on disk: the
+        # evidence a user needs to look at, at a path inside the workdir
+        # the rendered diagnostic itself names.
+        revision = args.revision
+        if args.promote is not None:
+            promoted = promote.promote_shield(args.promote, args.revision)
+            rig_path = os.path.join(workdir, "rig.yml")
+            with open(rig_path, "w") as f:
+                f.write(promoted.rig_yml)
+            with open(os.path.join(workdir, promoted.content_name), "w") as f:
+                f.write(promoted.content)
+            # The SHIELD's own revision is already baked into
+            # promoted.content's `shield:` reference above; a promoted
+            # rig declares no revisions: axis of its own, so this is
+            # never also passed to loader.load as a rig-level selection.
+            revision = None
+        assert rig_path is not None  # argparse's mutually exclusive group guarantees one of rig/--promote
+
         try:
             rig, diags, rig_deps = loader.load(
                 rig_path,
                 workdir,
                 shield_dirs=shield_dirs,
-                revision=args.revision,
+                revision=revision,
                 variant=args.variant,
                 board=args.board,
                 types=types,

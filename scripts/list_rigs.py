@@ -308,6 +308,74 @@ def resolve_rig_target(target, args):
               f"  available rigs: {available}")
 
 
+@dataclass(frozen=True)
+class PromotedTarget:
+    """A `-DRIG=<target>` that resolved as a promoted SHIELD rather than a
+    persisted rig (board-coordinate-s3b-brief.md ruling 3) -- `resolve_
+    target`'s other possible return value, alongside `Rig`. `name`/
+    `revision` are exactly `rigc.promote.promote_shield`'s own two
+    arguments; a promoted shield has no variant axis (S3a already refuses
+    one), so there is nothing to carry for it. `dump_rig_target` tells
+    this apart from a `Rig` by type and renders `{PROMOTED}=name`,
+    `{DIR}=NOTFOUND` (no rig folder exists), `{BOARD}=NOTFOUND` (a shield
+    declares none), `{VARIANT}=NOTFOUND`."""
+    name: str
+    revision: str | None = None
+
+
+def resolve_target(target, args):
+    """The actual `-DRIG=<target>` entry point for cmake/boards.cmake's
+    and cmake/dts.cmake's forks (board-coordinate-s3b-brief.md ruling 3),
+    superseding a bare `resolve_rig_target` call: resolves `target`
+    against BOTH namespaces -- a persisted rig (this module's own `find_
+    rigs`) wins, a discoverable, PROMOTABLE shield (`rigc.promote`,
+    reusing `loader/library.py`'s own scan) is the fallback, and a name
+    that is both is an error naming both paths, via the SAME `rigc.
+    promote.both_paths_error` `west rigs --explain` already renders --
+    one namespace rule, never two independently-worded ones.
+
+    Shield discovery is scanned at the SAME breadth `find_rigs` uses
+    (every board_root's own boards/shields) -- `rigc.promote.discover_
+    shields`'s own default (the vendored library alone) is narrower, and
+    using it here would make a shield in another module invisible to
+    `-DRIG` AND silently uncollidable with a same-named rig: the
+    namespace rule failing open rather than erroring, exactly the trap
+    S3a's own review already caught once for `--explain`.
+
+    A neither-rig-nor-shield target, and a plain rig target (axis
+    resolution, the rig-swap comparison inputs), fall through to `resolve_
+    rig_target` UNCHANGED -- reused rather than re-derived, per design
+    rule 1 (cmake/rig resolution semantics live in exactly one place).
+
+    Returns the resolved `Rig` (identical to a bare `resolve_rig_target`
+    call) or a `PromotedTarget` the caller owns; `dump_rig_target` tells
+    them apart by `isinstance`. Exits via `sys.exit` on every failure
+    mode (unresolved target, both-paths collision, an unpromotable or
+    `/variant`-qualified shield), matching every other resolution failure
+    in this module, so a cmake `execute_process` caller sees a clean
+    nonzero exit + stderr with no traceback."""
+    from rigc import promote  # local: a bare `--list`/`--json` listing
+    # (this module's OTHER entry point) never needs rigc's own import
+    # graph, so it stays untouched by anything importable here.
+
+    name, revision, variant = parse_rig_target(target)
+    rigs = find_rigs(args)
+    rig = next((r for r in rigs if r.name == name), None)
+    shields = promote.discover_shields(
+        [str(Path(root) / 'boards' / 'shields') for root in args.board_roots])
+
+    if rig is not None and name in shields:
+        sys.exit(f'ERROR: {promote.both_paths_error(name, rig.dir, shields[name].dir)}')
+
+    if rig is None and name in shields:
+        err = promote.check_promotable(name, shields[name], variant)
+        if err is not None:
+            sys.exit(f'ERROR: {err}')
+        return PromotedTarget(name=name, revision=revision)
+
+    return resolve_rig_target(target, args)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(allow_abbrev=False)
     add_args(parser)
@@ -333,7 +401,10 @@ def add_args_formatting(parser):
                          help='CMake format string for --rig (mirrors '
                               "list_boards.py's --board query mode); "
                               'available keys: {NAME}, {DIR}, {BOARD}, '
-                              '{REVISION}, {VARIANT}')
+                              '{REVISION}, {VARIANT}, {PROMOTED} (the '
+                              'shield name when --rig resolved as a '
+                              'promoted shield rather than a persisted '
+                              'rig, NOTFOUND otherwise)')
 
 
 def dump_rigs(rigs, args):
@@ -352,25 +423,44 @@ def dump_rigs(rigs, args):
             print(f'  {rig.name}')
 
 
-def dump_rig_target(rig, args):
+def dump_rig_target(resolved, args):
+    """Renders a `resolve_target` answer -- either a `Rig` (unchanged
+    from before promoted shields existed) or a `PromotedTarget` -- via
+    `--cmakeformat`, or just the resolved name without it. A
+    `PromotedTarget` has no folder, no board and no variant of its own by
+    construction (Sec 3/Sec 5), so those three keys are unconditionally
+    NOTFOUND for one; `{PROMOTED}` is the shield name for one and NOTFOUND
+    for an ordinary `Rig`, so a cmake caller tells the two apart on that
+    key alone without needing to special-case DIR being empty."""
     if args.cmakeformat is not None:
         def notfound(x):
             return x or 'NOTFOUND'
-        info = args.cmakeformat.format(
-            NAME='NAME;' + rig.name,
-            DIR='DIR;' + rig.dir.as_posix(),
-            BOARD='BOARD;' + notfound(rig.board),
-            REVISION='REVISION;' + notfound(rig.revision),
-            VARIANT='VARIANT;' + notfound(rig.variant),
-        )
+        if isinstance(resolved, PromotedTarget):
+            info = args.cmakeformat.format(
+                NAME='NAME;' + resolved.name,
+                DIR='DIR;NOTFOUND',
+                BOARD='BOARD;NOTFOUND',
+                REVISION='REVISION;' + notfound(resolved.revision),
+                VARIANT='VARIANT;NOTFOUND',
+                PROMOTED='PROMOTED;' + resolved.name,
+            )
+        else:
+            info = args.cmakeformat.format(
+                NAME='NAME;' + resolved.name,
+                DIR='DIR;' + resolved.dir.as_posix(),
+                BOARD='BOARD;' + notfound(resolved.board),
+                REVISION='REVISION;' + notfound(resolved.revision),
+                VARIANT='VARIANT;' + notfound(resolved.variant),
+                PROMOTED='PROMOTED;NOTFOUND',
+            )
         print(info)
     else:
-        print(rig.name)
+        print(resolved.name)
 
 
 if __name__ == '__main__':
     args = parse_args()
     if args.rig is not None:
-        dump_rig_target(resolve_rig_target(args.rig, args), args)
+        dump_rig_target(resolve_target(args.rig, args), args)
     else:
         dump_rigs(find_rigs(args), args)
