@@ -488,8 +488,28 @@ own required param; (2) a companion CLI input (`--rig-include`); (3)
 **make the shield declare its param vocabulary** — a shield saying
 `shield,params = "zephyr,code"` already claims to know what it needs, so
 letting it carry the `#include` puts the vocabulary with the declaration.
-Driver recommendation: **(3)** — the only exit that makes the ad-hoc form
-self-sufficient, and it improves the persisted form too. NOT YET RULED.
+
+**RULED 2026-08-06 (Tobi): exit (3).** The shield that declares a
+parameter declares the vocabulary that parameter is drawn from. Two
+consequences to design against when this is sliced:
+
+- it is **not** ad-hoc-only. A persisted rig's `dt-includes:` stops being
+  the only place a param token can resolve from, so `params.py`'s
+  `check_param_token` gains a second source — the union of the rig's
+  declared headers and those the referenced shields declare. Whether
+  `dt-includes:` then becomes optional for a rig whose every param is
+  shield-declared is a follow-on question, not settled here.
+- `lotus_buttons` is the live case: its `dt-includes:` carries
+  `input-event-codes.h` purely for `grove_btn`'s required `zephyr,code`,
+  and **no shield template includes it today**. Moving that include to
+  `grove_btn` is the migration, and it should leave the rig's own emitted
+  artifacts unchanged — a classified check, since `RIG_DEPENDS` records
+  which files were read and the header would move from the rig's closure
+  to the shield's.
+
+The CLI grammar itself (`<device>.<prop>=<value>`, composing with `@`)
+is still unwritten; this ruling only settles where the token vocabulary
+comes from, which was the blocker.
 
 ## 10. Not in scope here (was §8)
 
