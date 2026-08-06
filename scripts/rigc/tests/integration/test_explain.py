@@ -1,0 +1,99 @@
+"""`west rigs --explain` driven as a subprocess (board-coordinate-
+s3-brief.md, S3a). NOT build-marked: this command touches no cmake, no
+cpp, no board -- a promoted shield's two documents are pure text and a
+persisted rig's are read verbatim off disk.
+"""
+from __future__ import annotations
+
+import os
+import subprocess
+import textwrap
+
+import yaml
+
+from conftest import REPO_ROOT, WEST_EXE, WEST_TOPDIR, subprocess_timeout
+
+
+def _run(*args: str) -> "subprocess.CompletedProcess[str]":
+    env = dict(os.environ)
+    return subprocess.run(
+        [WEST_EXE, "rigs", *args], cwd=str(WEST_TOPDIR), env=env,
+        capture_output=True, text=True, timeout=subprocess_timeout(60))
+
+
+def test_explain_a_promoted_shield_prints_the_desugared_pair() -> None:
+    """Criterion 2: the synthesized rig.yml has no board:, the content
+    file has exactly one instance named after the shield, no socket:."""
+    result = _run("--explain", "adafruit_data_logger")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == textwrap.dedent("""\
+        # rig.yml
+        rig:
+          name: adafruit_data_logger
+
+        # adafruit_data_logger.yml
+        instances:
+          - name: adafruit_data_logger
+            shield: adafruit_data_logger
+        """)
+
+
+def test_explain_a_persisted_rig_prints_its_two_files_verbatim() -> None:
+    """Criterion 3."""
+    rig_dir = REPO_ROOT / "boards" / "rigs" / "nucleo_datalogger"
+    rig_yml_text = (rig_dir / "rig.yml").read_text().rstrip("\n")
+    content_text = (rig_dir / "nucleo_datalogger.yml").read_text().rstrip("\n")
+
+    result = _run("--explain", "nucleo_datalogger")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == (
+        f"# rig.yml\n{rig_yml_text}\n"
+        "\n"
+        f"# nucleo_datalogger.yml\n{content_text}\n")
+
+
+def test_explain_a_name_that_is_neither_a_rig_nor_a_shield_reuses_the_existing_message() -> None:
+    """Criterion 4, the "neither" branch: the message list_rigs.
+    resolve_rig_target already owns for an unresolved -DRIG target, never
+    a second one invented for --explain."""
+    result = _run("--explain", "no_such_target_at_all")
+    assert result.returncode != 0
+    assert "does not resolve to a rig" in result.stderr
+
+
+def test_explain_a_name_that_is_both_a_rig_and_a_shield_is_an_error_naming_both(
+        tmp_path) -> None:
+    """Criterion 4, the "both" branch. No natural collision exists in the
+    tree, so this constructs one: a scratch --board-root carrying a rig
+    folder named after a REAL shield (adafruit_data_logger) -- additive
+    only, never a mutation of tracked content, so no restore is needed."""
+    rig_dir = tmp_path / "boards" / "rigs" / "adafruit_data_logger"
+    rig_dir.mkdir(parents=True)
+    (rig_dir / "rig.yml").write_text("rig:\n  name: adafruit_data_logger\n")
+
+    result = _run("--explain", "adafruit_data_logger",
+                  "--board-root", str(tmp_path))
+    assert result.returncode != 0
+    assert "adafruit_data_logger" in result.stderr
+    assert "both" in result.stderr
+    assert str(rig_dir) in result.stderr
+
+
+def test_explain_a_variant_on_a_promoted_shield_is_refused() -> None:
+    result = _run("--explain", "adafruit_data_logger/some_variant")
+    assert result.returncode != 0
+    assert "variant" in result.stderr
+
+
+def test_west_rigs_with_no_flag_is_unaffected_by_explain_landing() -> None:
+    """Criterion 5, the cheap half: plain `west rigs` still lists every
+    corpus rig's own rig.yml name, one per line -- --boards-for's own
+    test already covers this in depth; this is --explain's own
+    confirmation that adding a THIRD short-circuiting flag changed
+    nothing about the default path."""
+    result = _run()
+    assert result.returncode == 0
+    expected = sorted(
+        yaml.safe_load(p.read_text())["rig"]["name"]
+        for p in (REPO_ROOT / "boards" / "rigs").glob("*/rig.yml"))
+    assert sorted(result.stdout.split()) == expected

@@ -111,6 +111,21 @@ class Rigs(WestCommand):
                  analysis need the board's real devicetree, which this
                  census cannot see. Short-circuits the listing: -f/-n do
                  not apply.''')
+        parser.add_argument(
+            '--explain', metavar='TARGET', default=None,
+            help='''instead of listing rigs, print the rig.yml and content
+                 file TARGET (name[@rev][/variant]) stands for: verbatim
+                 from disk for a persisted rig, or the synthesized pair a
+                 shield name desugars to when TARGET names a discoverable
+                 shield instead (board-as-coordinate-brief.md Sec 9.2/9.3)
+                 -- printed AS AUTHORED, with no axis resolved into the
+                 text (a variant's fragment folded in, a revision
+                 selected). A name that is both a rig folder and a shield
+                 is an error naming both paths; a promoted shield takes
+                 only "@rev" (the shield's own revision) -- "/variant"
+                 on one is refused, since a promoted shield has no
+                 variant axis. Short-circuits the listing like
+                 --boards-for: -f/-n do not apply.''')
         list_rigs.add_args(parser)
 
         return parser
@@ -132,6 +147,10 @@ class Rigs(WestCommand):
 
         if args.boards_for is not None:
             self._boards_for(args)
+            return
+
+        if args.explain is not None:
+            self._explain(args)
             return
 
         for rig in list_rigs.find_rigs(args):
@@ -205,3 +224,76 @@ class Rigs(WestCommand):
                               key=lambda v: v.target):
             if verdict.conforms:
                 self.inf(verdict.target)
+
+    def _explain(self, args):
+        """`--explain`'s implementation (board-coordinate-s3-brief.md Sec
+        6): resolve TARGET against BOTH namespaces -- a persisted rig
+        (list_rigs.find_rigs, keyed by rig.yml's own name:) and a
+        discoverable shield (rigc.promote.discover_shields, the SAME
+        scan loader/library.py's own resolve() uses) -- per the Sec 5
+        namespace rule: a rig folder wins, a shield name is the
+        fallback, a name that is BOTH is an error naming both paths.
+        "Neither" is never a message of this method's own: it falls
+        through to list_rigs.resolve_rig_target, reusing its existing
+        "does not resolve" exit rather than inventing a second one.
+
+        No cmake, no cpp, no board here: a promoted shield's two
+        documents are pure text (promote.promote_shield never touches a
+        filesystem); a persisted rig's are read verbatim off disk.
+        --explain never applies a fragment or resolves an axis into the
+        printed text (Sec 6's own scope line) -- unlike --boards-for,
+        this needs no $ZEPHYR_BASE pin and no workdir at all."""
+        from rigc import promote
+        from rigc.loader.documents import content_file_name
+
+        name, revision, variant = list_rigs.parse_rig_target(args.explain)
+        rigs = list_rigs.find_rigs(args)
+        rig = next((r for r in rigs if r.name == name), None)
+        # BOTH namespaces at the SAME breadth. find_rigs walks every module
+        # board root (do_run appends them above), so the shield scan must
+        # too -- discover_shields' own default is the vendored library
+        # alone, and using it here would make a shield in another module
+        # invisible to --explain AND silently uncollidable, which is the
+        # namespace rule failing open rather than erroring.
+        shields = promote.discover_shields(
+            [str(Path(root) / 'boards' / 'shields') for root in args.board_roots])
+
+        if rig is not None and name in shields:
+            sys.exit(f'ERROR: {promote.both_paths_error(name, rig.dir, shields[name].dir)}')
+
+        if name in shields:
+            err = promote.check_promotable(name, shields[name], variant)
+            if err is not None:
+                sys.exit(f'ERROR: {err}')
+            promoted = promote.promote_shield(name, revision)
+            self._print_pair(('rig.yml', promoted.rig_yml),
+                             (promoted.content_name, promoted.content))
+            return
+
+        # Not a shield name at all: an ordinary rig target, including the
+        # "does not resolve" exit list_rigs.resolve_rig_target already
+        # owns -- reused verbatim rather than a second message. Axes
+        # given in TARGET are validated (the rig's own declared
+        # revisions:/variants:) but never applied to the printed text --
+        # --explain prints the base rig.yml/content file AS AUTHORED
+        # (Sec 6's out-of-scope line), regardless of which axis value
+        # was resolved.
+        rig_target = list_rigs.resolve_rig_target(args.explain, args)
+        rig_yml_path = rig_target.dir / list_rigs.RIG_YML
+        content_path = rig_target.dir / content_file_name(rig_target.name)
+        self._print_pair(('rig.yml', rig_yml_path.read_text()),
+                         (content_path.name, content_path.read_text()))
+
+    def _print_pair(self, first, second):
+        """One --explain answer: two (filename, text) pairs, each headed
+        by its own bare filename -- never a full path -- so a promoted
+        shield's output and a persisted rig's are diffable line for line
+        (Sec 6's property 1: the singleton law checkable at this level).
+        Separated by one blank line; neither text needs its own trailing
+        newline duplicated by self.inf's own."""
+        pairs = (first, second)
+        for i, (name, text) in enumerate(pairs):
+            self.inf(f'# {name}')
+            self.inf(text.rstrip('\n'))
+            if i < len(pairs) - 1:
+                self.inf('')
