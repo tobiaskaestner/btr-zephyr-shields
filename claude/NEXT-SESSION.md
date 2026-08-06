@@ -1,6 +1,203 @@
 # Rigs — Session Handoff
 
-## RESUME (2026-08-06) — S2 LANDED: `--boards-for`. NEXT = S3. AND THE DISPATCH CONTRACT CHANGED.
+## RESUME (2026-08-06b) — S3 LANDED (BOTH HALVES). §9.6 RULED. NEXT = S4, AND ITS BRIEF IS WRITTEN.
+
+### STATE AT SESSION CLOSE (2026-08-06b)
+
+btr-shields HEAD is the doc commit this block ships in, on top of
+**`61e7be9`**. Tree clean apart from an **untracked `doc/`** — see below,
+it is deliberate and it is yours to review. `main` is **ahead 19+1 of
+origin, NOT pushed** — the 16 carried in from this morning plus this
+session's four. Still Tobi's call, and now carried since 2026-08-04.
+
+**Gate, driver-verified, FULL, once per slice:** mypy **93 files**, unit
+**614**, non-build integration **82**, frozen **170**, coverage **92%** vs
+the 88 floor. ALL GREEN. Goldens **byte-unchanged** across all three
+slices — each one's own acceptance criterion.
+
+| commit | what |
+|---|---|
+| `7af1fc9` | **S3a** — the shield promotion desugaring, namespace rule, `west rigs --explain` |
+| `805b7b8` | **S3b** — build a promoted shield, `--rig <shield>` end to end |
+| `61e7be9` | doc: rule the ad-hoc params token exit (§9.6) |
+
+The gate moved 89→93 files, 597→614 unit, 157→170 frozen, 90%→92% across
+the session.
+
+### S3 WAS SPLIT IN TWO, AND THE SPLIT PAID OFF TWICE
+
+§9.5 lists S3 as one item. Read against the tree it is two, and **ruling
+6 says which comes first**: *"if it cannot be printed it cannot be built"*
+makes the printer a prerequisite for the builder, not a companion.
+
+- **S3a** — `scripts/rigc/promote.py`: `discover_shields`,
+  `promote_shield` (pure), `check_promotable`, `both_paths_error`, plus
+  `west rigs --explain <expr>`. No build path at all.
+- **S3b** — `rigc expand --promote <shield>`, `list_rigs.py` resolving
+  both namespaces, cmake's `{PROMOTED}` key, `west build-rig -b <board>
+  --rig <shield>` end to end.
+
+It paid off twice: S3a's `--explain` was the oracle S3b was checked
+against, and **S4's law is now a diff of two `expand` runs rather than a
+new comparator** (see below — "rather than a new comparator" turned out to
+be not quite free, but close).
+
+**The desugared form is now FIXED and S4 compares against it. Do not
+adjust it:** a rig.yml with `name:` and **no `board:`** (the first such
+file in the tree; legal only because S1 relaxed "never neither" to "never
+neither unless injected"), and one **socket-less** instance **named after
+the shield** (instance names reach `config-sheet.md`, a C2b-compared
+fact). `@rev` selects the SHIELD's revision; `/variant` is an error.
+
+### RULINGS MADE THIS SESSION
+
+1. **§9.6 RULED — exit (3)** (Tobi): the shield that declares a parameter
+   declares the vocabulary that parameter is drawn from. **Not ad-hoc-only**
+   — `check_param_token` gains a second source, so a persisted rig's
+   `dt-includes:` stops being the only place a token can resolve from.
+   `lotus_buttons` is the live migration case: its `input-event-codes.h`
+   exists purely for `grove_btn`'s required `zephyr,code`, and no shield
+   template includes it today. **The CLI grammar itself is still
+   unwritten** — this ruling settled only where the vocabulary comes from,
+   which was the blocker.
+2. **`list_rigs.py` becomes the resolver for BOTH namespaces** (driver),
+   delegating the shield half to `rigc.promote`. Rejected: a second
+   resolver script (two places axis resolution can drift), and "try
+   `list_rigs`, fall back on failure" — `list_rigs` exits identically for
+   "no such rig" and "malformed rig.yml", so a fallback would silently
+   promote a shield whenever a same-named rig was merely BROKEN, turning
+   an authoring error into a different build.
+3. **Five rulings correcting §9.1's method for S4** — see the next block.
+
+### S4 IS BRIEFED: `board-coordinate-s4-brief.md`, AND IT CORRECTS §9.1
+
+§9.1 says the law is byte-equality of the emitted artifacts, "**no new
+comparator, no oracle to hand-author**", authored **failing-first**.
+**Neither half is reachable as written**, and S3 is part of why. The brief
+supersedes §9.1's METHOD; its CLAIM stands. Five findings, each checked
+against the tree:
+
+1. **The two sides cannot share a name through normal resolution** — the
+   rig name is in `rig-gen.overlay`, `config-sheet.md`, `expectations.yml`
+   and `context.cmake`'s `RIG_NAME`, so byte-equality needs identical
+   names, but S3a's namespace rule makes a name that is both a rig and a
+   shield a hard error. **Escape: `expand <path>` does no namespace
+   resolution**, so the law lives at expand level with the fixture given
+   by path. Latent caveat, verified not-yet-live: nothing currently passes
+   the fixtures board root to `find_rigs` alongside the real shield dirs.
+2. **`RIG_DEPENDS` cannot match** — it records resolution HISTORY, so each
+   side lists its own two rig documents. **One explicit exemption**,
+   compared as a set minus those, stated in the test docstring, never a
+   silent filter. Everything else in it must be identical, and that is a
+   large part of the law's value.
+3. **The domain is not all shields.** Measured: 14 shields, all
+   `template: true`; **two declare a required param with no authored
+   default** — `grove_btn` and `pilot_alt_button`, both `zephyr,code`.
+   Domain = promotable shields with no required parameter, DERIVED from
+   the census, with the excluded set **asserted explicitly** so it shrinks
+   visibly when §9.6's grammar lands. 12 eligible today, parametrized —
+   a census, not one example.
+4. **Failing-first is no longer available** — S3b already made the law
+   pass. Replaced by **mutation-verification**: changing the desugared
+   instance name must fail on `config-sheet.md`; dropping socket-less-ness
+   must fail on inference.
+5. **One build-marked cross-check** via `dts_equiv` — expand equality does
+   not prove the cmake path feeds the same thing, and S3b's `dts.cmake`
+   branch is new. This half WANTS different names and may have them:
+   `zephyr.dts` carries no rig name.
+
+Net shape: **a parametrized expand-level census, one documented exemption,
+mutation-verified, plus a single build-marked `dts_equiv` cross-check.**
+A small comparator, not none — which is the correction §9.1 needed either
+way.
+
+### FOUR DEFECTS FOUND IN REVIEW, ALL DRIVER-FIXED
+
+1. **The namespace rule failed OPEN across modules** (S3a).
+   `discover_shields()` was called with no arguments, so it saw only the
+   vendored `boards/shields` while `find_rigs` walks every module board
+   root. A cross-module shield was invisible to `--explain` **and silently
+   uncollidable** — the collision check could not see the thing it exists
+   to catch. Blind spot verified before fixing, then confirmed end to end
+   with a real cross-module shield. **Do not reintroduce the narrow
+   default**; `resolve_rig_target` has `args.board_roots` in hand.
+2. **`both_paths_error` FABRICATED the shield path** (S3a), building
+   `boards/shields/{name}/` from the name instead of reporting where the
+   shield was found — wrong for exactly the cross-module case that makes
+   names collide. The test asserted the constructed string, so it would
+   have passed forever; it now uses a shield dir that deliberately is not
+   the conventional path.
+3. **S3b's report omitted a required deliverable.** The brief's §6 called
+   the build-marked tests "the real falsifier, and this slice needs it"
+   and named criteria 2.2 and 2.3 explicitly. `test_cmake_alone_entry.py`
+   was untouched — all 14 tests it ran were pre-existing, none mentioning
+   promotion. **The slice's headline capability shipped verified only by
+   hand.** Driver wrote the two tests. The lesson is not new but it is
+   sharper: **check the file list, not just the gate output** — every
+   other test in that module names a real rig, so a regression breaking
+   promotion alone would have left the whole suite green.
+4. An implementor caught **a factual error in the driver's own brief** —
+   §6 described a verification step that contradicted §3, claiming a
+   boardless rig.yml loads without a board. It does not (`lang-schema`);
+   S1 relaxed "never neither" only when a board is INJECTED. Verified
+   independently and corrected in the brief rather than patched around.
+   **The deviations section was the best of the session** — the same
+   dispatch that omitted the tests caught this.
+
+### A DOC TREE RODE ALONG — untracked, deliberate, yours to review
+
+`doc/` is a Sphinx site: six tutorials plus mechanics, four Diátaxis
+quadrants, rST only, **`sphinx-build -W` clean** (the same gate firmhold
+holds itself to). Staged in the scratchpad while an agent was live in the
+checkout, then transplanted — it is **not committed**, and `doc/.gitignore`
+covers `_build/` so the tree stays clean.
+
+Two adaptations worth carrying: intersphinx points at Zephyr with misses
+non-fatal so the build works offline (internal refs still fail hard), and
+DTS blocks use Pygments' `devicetree` lexer — the `c` lexer chokes on
+`shield,plugs`.
+
+**Tutorial 4 opens with a bold "This tutorial does not work yet."** — and
+S3 has since shipped what it needed. The guidelines page states the rule:
+**the warning is deleted in the same change that ships the feature, and
+the outputs re-captured from a real run.** That is now an open task.
+
+Build it:
+
+```
+sphinx-build -W --keep-going -b html doc doc/_build/html
+```
+
+`doc/howto/build-the-docs.rst` has the permanent recipe.
+
+### NEXT, in order — §9.5's sequence, unchanged
+
+1. **S4 — the singleton identity law.** Brief written:
+   `board-coordinate-s4-brief.md`. **Its §2 supersedes §9.1's method** —
+   dispatch against the brief, not against §9.1.
+2. **S5 — content migration to conventional labels.** Two payoffs now:
+   under a free board `nucleo_ard` in content is a portability bug, and it
+   is what gives `--boards-for` a corpus rig answering more than one board
+   — the integration tier's first real falsifier.
+3. **S6 — strict symmetry.** `board:` out of rig.yml, variants collapse to
+   topology-only, `RIG_BOARD` + the 19 goldens refreeze as a classified step.
+4. Then the standing queue: **rig-schema.yaml** (backlog item 7), **shield
+   plurality**, **BRIDLE MIGRATION**.
+
+Off-sequence but now unblocked: **§9.6's params CLI grammar**
+(`<device>.<prop>=<value>`, composing with `@`) — the vocabulary blocker
+is ruled, the grammar is not written, and S4 records its absence as an
+asserted exclusion set. And **the `doc/` decisions**: commit it, and
+retire tutorial 4's not-yet warning.
+
+**The dispatch contract from 2026-08-06a still stands** — implementor runs
+mypy + unit + non-build integration + ONE named build module; the driver
+runs the full gate once. It worked three more times today. `rig-implementor.md`
+still says "run `check.sh`" and still points at the stale
+`/wrk/z/ws-up/claude/rigs/`; **correct both in every prompt** until
+someone edits that file.
+
+## RESUME (2026-08-06a, superseded) — S2 LANDED: `--boards-for`. NEXT = S3. AND THE DISPATCH CONTRACT CHANGED.
 
 ### STATE AT SESSION CLOSE (2026-08-06)
 

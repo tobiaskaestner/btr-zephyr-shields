@@ -325,6 +325,16 @@ of this direction.
 
 ### 9.1 RULING 4 — the natural mapping holds for OUR shields; the law is INTERNAL
 
+> **METHOD SUPERSEDED by `board-coordinate-s4-brief.md` §2 (2026-08-06).**
+> The CLAIM below stands unchanged. What does not survive contact with the
+> tree is *how* it gets checked: "no new comparator" (`RIG_DEPENDS` needs
+> one documented exemption), "no oracle to hand-author" (the fixture must
+> be given by PATH, since the namespace rule forbids one name resolving
+> both ways), the implied domain (two shields declare a required param and
+> are excluded until §9.6's grammar lands), and **failing-first**, which
+> S3b retired by making the law pass on arrival — mutation-verification
+> replaces it. Read the S4 brief, not this paragraph, before implementing.
+
 `a → [a]` — a single shield instance canonically promoted to a rig —
 **holds, and is claimed for `.shield` template shields only.** It is NOT
 claimed for legacy `.overlay` shields.
@@ -446,7 +456,9 @@ so it must exist before enumeration is at risk.
 3. **S3 — the `--rig <shield>` promotion** + the §9.2 namespace ruling +
    `--explain`. Params-on-the-CLI slots in here once §9.6's token exit is
    ruled.
-4. **S4 — the singleton identity law**, authored failing-first (§9.1).
+4. **S4 — the singleton identity law.** Spec:
+   `board-coordinate-s4-brief.md`, whose §2 supersedes §9.1's method
+   (failing-first is retired; see the note there).
 5. **S5 — content migration to conventional labels** (old §7.3). Now
    properly motivated: under a free board, `nucleo_ard` in content is a
    portability bug, not a style question.
