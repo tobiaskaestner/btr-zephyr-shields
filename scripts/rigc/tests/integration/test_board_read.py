@@ -23,6 +23,15 @@ layer that projects a real board's own devicetree onto model.Board.
     resolution wrapper over board_edt, and this pins that the wrapping
     introduces no divergence.
 
+  * the census-vs-DT-truth guard (board-coordinate-s2-brief.md Sec 6):
+    board_census's text-only scan of a board rig-extension's *.dts/*.dtsi
+    fragments -- what `west rigs --boards-for` runs against, since a real
+    per-board read costs a cmake configure per candidate -- must agree
+    with board_edt's own projection of the REAL edtlib.EDT, on every field
+    the census actually populates (defining label, DASHED type_name,
+    sorted bus KINDS, alias map). This is the only guard keeping a text
+    scanner honest against the devicetree it stands in for.
+
 A pure-function unit test of edt_build.recipe_from_build_info itself lives
 in tests/unit/test_edt_build.py instead -- it has no rigc product
 dependency at all, so it travels with the BSD-3 reader layer rather than
@@ -39,7 +48,7 @@ import pytest
 from conftest import BOARD_DTS, BOARDS, REPO_ROOT, PlainBuild, plain_build_for
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-from rigc import board_edt, boarddt, edt_build  # noqa: E402
+from rigc import board_census, board_edt, boarddt, edt_build  # noqa: E402
 from rigc.diag import render  # noqa: E402
 
 # ---------------------------------------------------------------- plain-build fixture
@@ -79,6 +88,14 @@ def test_edt_pickle_cross_check(plain_build: PlainBuild, tmp_path: Path) -> None
     never actually sees -- exercises the wired-up production entry point,
     complementing the narrower guard in test_production_matches_direct_read
     below."""
+    # pickle.load needs devicetree.edtlib importable to unpickle an
+    # edtlib.EDT -- board_edt.py's own runtime reference triggers this as
+    # a side effect when the full suite runs, but this module never
+    # imports edtlib itself, so a standalone run of this file alone
+    # (board-coordinate-s2-brief.md Sec 5.4's verification contract runs
+    # exactly that) needs it put on sys.path explicitly, same as
+    # board_edt.py already does before its own one edtlib reference.
+    edt_build.ensure_devicetree_on_path()
     with open(plain_build.edt_pickle, "rb") as f:
         pass2_edt = pickle.load(f)
     pass2_board = board_edt.project_edt(pass2_edt, plain_build.board)
@@ -133,3 +150,44 @@ def test_production_matches_direct_read(plain_build: PlainBuild,
         plain_build.board, dts_path, recipe, str(tmp_path / "direct"))
 
     assert production == direct
+
+
+# ---------------------------------------------------------------- census-vs-DT-truth
+
+
+@pytest.mark.build
+def test_census_matches_real_board_devicetree(plain_build: PlainBuild) -> None:
+    """board_census's text-only scan is what `west rigs --boards-for`
+    runs against (board-coordinate-s2-brief.md Sec 3: a real per-board
+    read costs a cmake configure per candidate, which is not a query) --
+    this is the guard that keeps it honest against the board's REAL
+    devicetree, compared only on the fields the census actually populates
+    (Sec 4.1): defining label, DASHED type_name, and the sorted set of bus
+    KINDS a socket offers (never a bus's resolved target, which the
+    census cannot see), plus the alias map."""
+    edt_build.ensure_devicetree_on_path()
+    with open(plain_build.edt_pickle, "rb") as f:
+        pass2_edt = pickle.load(f)
+    pass2_board = board_edt.project_edt(pass2_edt, plain_build.board)
+
+    censused = [cb for cb in board_census.census_boards()
+               if cb.target == plain_build.board]
+    assert len(censused) == 1, (
+        f"expected exactly one census entry for board {plain_build.board!r}, "
+        f"got targets {[cb.target for cb in censused]}")
+    census_board = censused[0].board
+
+    assert set(census_board.sockets) == set(pass2_board.sockets), (
+        f"{plain_build.board}: census sockets {sorted(census_board.sockets)} "
+        f"!= real sockets {sorted(pass2_board.sockets)}")
+    for label, socket in census_board.sockets.items():
+        real = pass2_board.sockets[label]
+        assert socket.type_name == real.type_name, (
+            f"{plain_build.board}/{label}: census type_name "
+            f"{socket.type_name!r} != real {real.type_name!r}")
+        assert sorted(socket.buses) == sorted(real.buses), (
+            f"{plain_build.board}/{label}: census bus kinds "
+            f"{sorted(socket.buses)} != real {sorted(real.buses)}")
+    assert census_board.aliases == pass2_board.aliases, (
+        f"{plain_build.board}: census aliases {census_board.aliases} != "
+        f"real aliases {pass2_board.aliases}")

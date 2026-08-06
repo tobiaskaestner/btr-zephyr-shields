@@ -1,6 +1,183 @@
 # Rigs — Session Handoff
 
-## RESUME (2026-08-05) — S1 LANDED: BOARD IS AN INDEPENDENT COORDINATE. NEXT = S2
+## RESUME (2026-08-06) — S2 LANDED: `--boards-for`. NEXT = S3. AND THE DISPATCH CONTRACT CHANGED.
+
+### STATE AT SESSION CLOSE (2026-08-06)
+
+btr-shields HEAD is the S2 commit this block ships in; tree clean. `main`
+is **ahead 16 of origin, NOT pushed** — the 15 carried in from 2026-08-05
+plus this one. Still Tobi's call.
+
+**Gate, driver-verified, FULL, once:** mypy **89 files**, unit **597**,
+frozen **157**, coverage **90%** vs the 88 floor. ALL GREEN. Goldens
+**byte-unchanged** — `git diff --stat` on `tests/goldens/` empty, S2's own
+acceptance criterion.
+
+The frozen count moved 148 → 157: five `test_boards_for.py` cases (three
+of them parametrized) and the four board parametrizations of one new
+build-marked cross-check. No golden moved.
+
+### THE DISPATCH CONTRACT CHANGED — read this before dispatching anything
+
+**Tobi, 2026-08-06: running the full suite dominated every task and had to
+come back under control.** The new split, used for the first time this
+session and it worked:
+
+> the implementor runs the cheap tiers plus ONLY the named build module its
+> change touches; the DRIVER runs the full gate once, after review.
+
+The measurements that make it safe, taken before dispatching:
+
+| tier | count | wall time |
+|---|---|---|
+| mypy | 89 files | ~5s |
+| unit | 597 | **1.9s** |
+| integration `-m "not build"` | 69 | **5.3s** |
+| integration, build-marked | 88 | **~3m40s** |
+| full gate (`check.sh`) | — | 3m44s |
+
+**Essentially 100% of the cost is the build-marked tier** — real `west
+build --cmake-only` configures. The non-build gate is FIVE SECONDS. So
+there was never anything to trim: the fix is which build tests a dispatch
+runs, not how many tests exist. S2's implementor ran ~25 seconds total.
+
+This supersedes `rig-implementor.md`'s "run `check.sh` and get it fully
+green" for scoped slices — say so explicitly in the dispatch prompt, since
+the agent definition still says otherwise. **The agent definition also
+still points at the stale `/wrk/z/ws-up/claude/rigs/`; the papers are at
+`btr-shields/claude/`.** Correct both in every prompt until someone edits
+the file.
+
+Last session's note asked for exactly this: "either the implementor runs
+build tests, or the driver must run them before believing any zero-churn
+claim." The answer is BOTH, narrowly — the implementor runs the one build
+module that could falsify its own change, the driver runs everything.
+
+### WHAT LANDED — S2, `board-coordinate-s2-brief.md`
+
+`west rigs --boards-for <rig-target>` prints the boards whose typed
+sockets satisfy a rig. New unit `scripts/rigc/board_census.py`.
+
+**The design decision that matters:** conformance is not a comparison loop.
+The census builds a PARTIAL `model.Board` from board rig-extension SOURCES
+and runs the real `analyzer/sockets.py::resolve_sockets` against it —
+mating, bus subset, alias-aware resolution, carrier composition,
+stackability, all through the one existing rule. There is no second
+implementation to drift.
+
+**Why a text census and not a real DT read**, settled by measurement, not
+preference: `boarddt._discover_board_dts`'s own docstring records that the
+standalone board catalog is ALWAYS EMPTY for every board this tooling can
+build (all hwmv2 extensions whose base lives outside `MODULE_ROOT`), and
+reading a real board DT needs cpp + edtlib + a `BuildRecipe`. A real
+per-board read therefore costs a cmake configure per candidate. That is
+not a query.
+
+**So the command's claim is BOUNDED and the help text says so:** it answers
+which boards' SOCKETS fit, never that the rig builds there. GPIO routing,
+CS-pool allocation, address domains and net analysis all need the real
+devicetree. Visible consequence, and it is correct: every reject rig in the
+corpus (`frdm_cs_clash`, `nucleo_mux_clash`, `lotus_pwm_clash`,
+`quail_dup_th`) CONFORMS, because their clashes are not socket-level.
+
+The guard that keeps a text scanner honest is one build-marked test:
+census vs `board_edt`'s projection of the REAL EDT, per board, on every
+field the census populates. It is the only build test the slice added.
+
+### THE INTEGRATION TIER CANNOT FALSIFY `boards_for` — the unit tests carry it
+
+All 17 corpus rigs answer **exactly their declared board**, so a stub
+returning `[rig.board]` passes every integration assertion. This is D4's
+shape again, one layer up. The discrimination lives entirely in
+`tests/unit/test_board_census.py`, and it has to: **no corpus rig omits
+`socket:`** (checked — all 41 instance socket references are explicit), so
+alias resolution and unique-by-type inference are exercised NOWHERE else in
+the tree. S5's content migration is what will finally give the integration
+tier something to distinguish.
+
+Driver-verified by mutation, not assumed: gutting `boards_for` to
+`conforms=True` fails 5 unit + 3 integration tests.
+
+### A SHARED-INFRASTRUCTURE CHANGE RODE ALONG — flagged, verified, kept
+
+`test_layer_discipline.py`'s build-reaching guard treated ANY argv headed
+by `west`/`WEST_EXE` as a configure. A non-configuring `west rigs` test
+therefore had to be marked `build` or the guard failed — so the implementor
+**narrowed the guard**: west counts only for `{build, build-rig}`.
+
+That is a real weakening of a guard, made outside the brief's file list,
+and the implementor flagged it rather than burying it. Kept, because
+`{build, build-rig}` is every configuring west invocation in the tree
+(audited: the only other one is `rigs`), and because the alternative —
+marking a query test `build` — would have put a 0.5s test into the 3m40s
+tier, which is the exact cost this session set out to control.
+
+**Driver mutation-verified that the narrowed guard still enforces:**
+deleting the module-level `pytestmark = pytest.mark.build` from
+`test_cmake_alone_entry.py` fails exactly
+`test_every_build_reaching_integration_test_is_marked_build`, naming the
+now-unmarked tests. Restore hash-checked, `__pycache__` purged.
+
+### FOUR REVIEW FINDINGS, ALL DRIVER-APPLIED
+
+1. **The census read 2837 files (5.6 MiB) per invocation and threw away
+   1071 boards' worth.** `census_boards` globbed and read every sibling
+   `.dts`/`.dtsi` BEFORE deciding whether the board.yml was even in scope.
+   `board_targets` is now its own pure function so the edge short-circuits
+   on the small YAML first.
+2. **A count assertion masquerading as a content assertion.** "Same 17
+   rigs" asserted `len(...) == 17`, which holds just as well if the listing
+   starts printing board targets. Now asserts the `rig.name` values, read
+   from rig.yml — the expectation comes from OUTSIDE the thing under test.
+3. **A test docstring that overclaimed, written by the driver.** A new test
+   said lotus's `adc0: &adc {};` exercised the no-compatible branch. It does
+   not: `&` is not a word character, so the node pattern never matches it
+   and that branch stayed uncovered. The test now asserts both shapes and
+   says why they fail differently. Same failure mode this project keeps
+   finding, and the author being the driver is exactly why the rule is
+   "check the claims, including your own."
+4. Import ordering in `rigs.py`.
+
+### A LATENT TEST-HARNESS BUG THE NEW WORKFLOW EXPOSED
+
+`test_board_read.py::test_edt_pickle_cross_check` **could not be run
+standalone**: `pickle.load` needs `devicetree` importable, and nothing in
+that module puts it on `sys.path` — 4/12 failed alone, 12/12 in a full run,
+12/12 alone with `PYTHONPATH` exported. Fixed with
+`edt_build.ensure_devicetree_on_path()`, the production idiom.
+
+Worth generalizing: **the reduced contract makes every build module
+individually runnable a requirement, and it was not true before.** Expect
+more of these as other modules get run alone for the first time.
+
+### NEXT, in order — §9.5's sequence, unchanged
+
+1. **S3 — the `--rig <shield>` promotion** + the §9.2 namespace ruling (rig
+   folder wins, shield name is the fallback, a name that is BOTH is an
+   error naming both paths) + **`--explain`** (ruling 6). This is where
+   carried commit `3f205005b99`'s `template: true` finally becomes
+   load-bearing — **it is declared and NOTHING reads it today.**
+   `boards_for` already returns its diagnostics rather than a bare boolean,
+   so `--explain`'s "why not this board" has its input waiting.
+2. **S4 — the singleton identity law**, authored FAILING-FIRST.
+3. **S5 — content migration to conventional labels.** Note it now has a
+   second payoff: it is what gives `--boards-for` a corpus rig that answers
+   more than one board, and therefore the integration tier its first real
+   falsifier (see above).
+4. **S6 — strict symmetry.** `board:` out of rig.yml, variants collapse to
+   topology-only, `RIG_BOARD` + the 19 goldens refreeze as a classified step.
+5. Then the standing queue: **rig-schema.yaml** (backlog item 7), **shield
+   plurality**, **BRIDLE MIGRATION**.
+
+**§9.6 is still OPEN and NOT RULED: the ad-hoc params grammar.** Unchanged
+from last session; the driver recommends exit (3).
+
+**`--rigs-for <board>` is deliberately NOT implemented** — the same census
+read backwards, but it needs every rig loaded and it is not on the critical
+path. Recorded in `board_census.py`'s own docstring as a considered
+non-implementation, so nobody files it as an oversight.
+
+## RESUME (2026-08-05, superseded) — S1 LANDED: BOARD IS AN INDEPENDENT COORDINATE. NEXT = S2
 
 ### STATE AT SESSION CLOSE (2026-08-05)
 

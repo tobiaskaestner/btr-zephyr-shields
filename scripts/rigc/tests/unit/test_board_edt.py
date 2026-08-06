@@ -37,13 +37,13 @@ a real board file), never by editing its own assertion.
 """
 from __future__ import annotations
 
-import re
 from pathlib import Path
-from typing import Iterator, List, Tuple
+from typing import List
 
 import textwrap
 
 from rigc import board_edt
+from rigc.board_census import scan_socket_nodes
 from rigc.dtsio import MODULE_ROOT
 from rigc.edt_build import ensure_devicetree_on_path
 from rigc.tests.conftest import FIXTURES_DIR, assert_fixture_local
@@ -225,27 +225,14 @@ def test_gpio_map_controller_label_is_the_defining_label() -> None:
 # for a family -- ALONGSIDE whatever board-prefixed label it already had.
 # That is the fact Board.resolve() depends on: an alias only resolves if
 # board_edt actually saw it declared in the board's own devicetree.
-
-_SOCKET_NODE_RE = re.compile(
-    r"(?P<labels>(?:\w+\s*:\s*)+)(?P<name>\w+)\s*\{(?P<body>[^{}]*)\}")
-_COMPAT_RE = re.compile(r'compatible\s*=\s*"socket,([\w-]+)"')
-
-
-def _socket_nodes(text: str) -> Iterator[Tuple[List[str], str]]:
-    """Every socket,*-compatible node .dtsi TEXT declares, as (labels in
-    declaration order, type_name with dashes as underscores -- the same
-    shape model.BoardSocket.type_name uses). Regex, not dtlib: a board
-    rig-extension fragment may reference a node its OWN file never
-    defines (lotus's `adc0: &adc {};`), so it is not standalone-parseable
-    outside a real board build; every socket node in this tree is a
-    childless leaf (properties only, no nested node), so a brace-balanced
-    regex is exact for that shape."""
-    for m in _SOCKET_NODE_RE.finditer(text):
-        compat = _COMPAT_RE.search(m.group("body"))
-        if compat is None:
-            continue
-        labels = [lbl.strip() for lbl in m.group("labels").split(":") if lbl.strip()]
-        yield labels, compat.group(1).replace("-", "_")
+#
+# The node scan itself is board_census.scan_socket_nodes -- production
+# code (board-coordinate-s2-brief.md Sec 5.3), shared rather than
+# restated here. It reports type_name DASHED, exactly as compatible =
+# "socket,<type>" spells it (the census's own mating-facing value); the
+# label convention below compares against a LABEL, which uses
+# underscores, so the underscoring happens HERE, once, for this one
+# comparison only -- never inside the shared scanner.
 
 
 def _conventional_label_offenders(text: str) -> List[str]:
@@ -253,10 +240,11 @@ def _conventional_label_offenders(text: str) -> List[str]:
     carries NO label matching its type's convention -- "<type>" or
     "<type>_<anything>". Empty when every node conforms."""
     offenders = []
-    for labels, type_name in _socket_nodes(text):
+    for node in scan_socket_nodes("<test>", text):
+        type_name = node.type_name.replace("-", "_")
         if not any(label == type_name or label.startswith(type_name + "_")
-                  for label in labels):
-            offenders.append(labels[0] if labels else "<unlabeled>")
+                  for label in node.labels):
+            offenders.append(node.labels[0] if node.labels else "<unlabeled>")
     return offenders
 
 

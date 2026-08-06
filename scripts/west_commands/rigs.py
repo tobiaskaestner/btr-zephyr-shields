@@ -10,8 +10,11 @@
 # found wherever a module puts boards/rigs — no path needed for the common case.
 
 import argparse
+import os
 import re
+import shutil
 import sys
+import tempfile
 import textwrap
 from pathlib import Path
 
@@ -96,6 +99,18 @@ class Rigs(WestCommand):
         parser.add_argument('-n', '--name', dest='name_re',
                             help='''a regular expression; only rigs whose names
                             match NAME_RE will be listed''')
+        parser.add_argument(
+            '--boards-for', metavar='RIG_TARGET', default=None,
+            help='''instead of listing rigs, print the boards whose typed
+                 sockets satisfy RIG_TARGET (name[@rev][/variant]): mating,
+                 bus-subset exposure, alias-aware reference resolution and
+                 stackability, censused from board rig-extension SOURCES
+                 (no cmake configure). This is NOT a promise the rig
+                 actually builds on a listed board -- GPIO position
+                 routing, CS-pool allocation, address domains and net
+                 analysis need the board's real devicetree, which this
+                 census cannot see. Short-circuits the listing: -f/-n do
+                 not apply.''')
         list_rigs.add_args(parser)
 
         return parser
@@ -114,6 +129,10 @@ class Rigs(WestCommand):
                 modules_board_roots.append(Path(module.project) / board_root)
 
         args.board_roots += modules_board_roots
+
+        if args.boards_for is not None:
+            self._boards_for(args)
+            return
 
         for rig in list_rigs.find_rigs(args):
             if name_re is not None and not name_re.search(rig.name):
@@ -135,3 +154,54 @@ class Rigs(WestCommand):
                                    list_rigs.variant_names(rig.variants))
                 if rig.variants else '',
             ))
+
+    def _boards_for(self, args):
+        """`--boards-for`'s implementation: resolve RIG_TARGET exactly as
+        the cmake seam does (list_rigs.resolve_rig_target, which itself
+        sys.exit()s with its own message on an unresolved target -- never
+        re-derived here), load it standalone (no --board, no
+        --include-dir: rigc.loader.load runs this way unassisted, and the
+        connector-type registry finds its own bindings by default), then
+        run board_census.boards_for against every censused board rig-
+        extension. Prints one conforming target per line, sorted;
+        nothing at all, exit 0, when none conform -- an empty answer is a
+        fact, not an error. A rig that fails to LOAD renders its own
+        diagnostics to stderr and exits 1, same convention rigc's own CLI
+        uses."""
+        # rigc reads $ZEPHYR_BASE at call time (its own header/index
+        # parsing needs zephyr's include dir); pin it to west's OWN
+        # resolution rather than trust the ambient shell, exactly as
+        # build-rig (rig.py) already does for the same reason.
+        os.environ['ZEPHYR_BASE'] = str(ZEPHYR_BASE)
+
+        # rigc lives beside list_rigs under _SCRIPTS, already on sys.path
+        # (module top, above) for that import -- nothing further to add.
+        from rigc import board_census, loader
+        from rigc.diag import has_errors, render
+        from rigc.registry import load_types
+
+        rig_target = list_rigs.resolve_rig_target(args.boards_for, args)
+        rig_yml = rig_target.dir / list_rigs.RIG_YML
+
+        types, _types_deps = load_types()
+        workdir = tempfile.mkdtemp(prefix='rigs-boards-for-')
+        try:
+            rig, diags, _rig_deps = loader.load(
+                str(rig_yml), workdir, types=types,
+                revision=rig_target.revision, variant=rig_target.variant)
+        finally:
+            # D10's rule: this command never leaves a workdir behind,
+            # accept or reject alike -- unlike rigc's own CLI, a query has
+            # no reject-path evidence worth keeping.
+            shutil.rmtree(workdir, ignore_errors=True)
+
+        if rig is None or has_errors(diags):
+            print(render(diags), file=sys.stderr)
+            sys.exit(1)
+
+        boards = board_census.census_boards(
+            [str(root) for root in args.board_roots])
+        for verdict in sorted(board_census.boards_for(rig, types, boards),
+                              key=lambda v: v.target):
+            if verdict.conforms:
+                self.inf(verdict.target)

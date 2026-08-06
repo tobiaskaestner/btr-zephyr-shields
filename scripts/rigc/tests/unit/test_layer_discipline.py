@@ -31,7 +31,7 @@ from __future__ import annotations
 import ast
 import textwrap
 from pathlib import Path
-from typing import Dict, Iterator, List, Union
+from typing import Dict, Iterator, List, Optional, Union
 
 import rigc
 
@@ -161,8 +161,18 @@ _BUILD_HELPERS = frozenset({
 #: written; several tests run `subprocess.run(["cmake", ...])` inline with
 #: no helper at all, and those must not be invisible just because nobody
 #: named them. Recognising the command itself closes the class rather than
-#: the instance.
+#: the instance. "cmake" is unconditionally a configure; "west"/WEST_EXE is
+#: not -- west also fronts non-configuring subcommands (`west rigs`,
+#: board-coordinate-s2-brief.md's `--boards-for` census), so an argv headed
+#: by one of these two needs its SUBCOMMAND checked too (see
+#: _WEST_BUILD_SUBCOMMANDS below) rather than being treated as a build on
+#: sight.
 _BUILD_COMMANDS = frozenset({"cmake", "WEST_EXE", "west"})
+
+#: The west subcommands that actually configure cmake -- an argv headed by
+#: "west"/WEST_EXE only counts as a build launch when elts[1] is one of
+#: these; every other west subcommand (a listing, a query) is not.
+_WEST_BUILD_SUBCOMMANDS = frozenset({"build", "build-rig"})
 
 #: ast.parse never yields an AsyncFunctionDef for a `def`, but the isinstance
 #: check in _defs_by_name asks for both, so the dict value type must too.
@@ -184,12 +194,25 @@ def _call_targets(node: ast.AST) -> Iterator[str]:
                 yield func.attr
 
 
+def _argv_head_name(elt: ast.expr) -> Optional[str]:
+    """The bare identifier an argv element names, however it is spelled --
+    a string literal ("cmake") or a Name (WEST_EXE). None for anything
+    else (an f-string, a variable holding something other than a bare
+    command name, ...)."""
+    if isinstance(elt, ast.Constant) and isinstance(elt.value, str):
+        return elt.value
+    if isinstance(elt, ast.Name):
+        return elt.id
+    return None
+
+
 def _launches_build_inline(node: ast.AST) -> bool:
     """Whether node's own body launches a build WITHOUT going through a
     named helper -- a subprocess call whose argv list opens with a build
-    command (a "cmake" literal, or the WEST_EXE constant). Without this a
-    test can run the slowest configure in the tree and stay invisible to
-    the guard simply by not naming a function."""
+    command (a "cmake" literal, or the WEST_EXE constant/"west" literal
+    FOLLOWED BY a configuring subcommand -- see _WEST_BUILD_SUBCOMMANDS).
+    Without this a test can run the slowest configure in the tree and stay
+    invisible to the guard simply by not naming a function."""
     # Any argv-shaped literal whose first element is a build command, not
     # just one passed directly as a call argument: the prevailing idiom here
     # binds it first (cmd = ["cmake", ...]) and calls subprocess.run(cmd),
@@ -197,10 +220,17 @@ def _launches_build_inline(node: ast.AST) -> bool:
     for child in ast.walk(node):
         if not isinstance(child, (ast.List, ast.Tuple)) or not child.elts:
             continue
-        head = child.elts[0]
-        if isinstance(head, ast.Constant) and head.value in _BUILD_COMMANDS:
+        head_name = _argv_head_name(child.elts[0])
+        if head_name not in _BUILD_COMMANDS:
+            continue
+        if head_name == "cmake":
             return True
-        if isinstance(head, ast.Name) and head.id in _BUILD_COMMANDS:
+        # west / WEST_EXE: a configure only when the SUBCOMMAND says so.
+        # An argv with no second element (bare "west"/WEST_EXE) names no
+        # subcommand to check, so it cannot be a configure launch either.
+        if len(child.elts) < 2:
+            continue
+        if _argv_head_name(child.elts[1]) in _WEST_BUILD_SUBCOMMANDS:
             return True
     return False
 
@@ -400,6 +430,37 @@ def test_an_inline_cmake_launch_counts_as_a_build() -> None:
         """))
     defs2 = _defs_by_name(free)
     assert not _reaches_build_helper("test_rejects_cleanly", defs2, {})
+
+
+def test_an_inline_west_launch_only_counts_as_a_build_for_a_configuring_subcommand() -> None:
+    """west fronts non-configuring subcommands too (`west rigs
+    --boards-for`, board-coordinate-s2-brief.md) -- an inline WEST_EXE
+    argv only counts as a build when its SECOND element names one of
+    _WEST_BUILD_SUBCOMMANDS. A bare WEST_EXE with no subcommand at all is
+    unknown, never a build (it cannot configure anything by itself)."""
+    configures = ast.parse(textwrap.dedent("""
+        def test_configures_clean():
+            cmd = [WEST_EXE, "build-rig", "--rig", "x", "app"]
+            subprocess.run(cmd, capture_output=True)
+        """))
+    defs = _defs_by_name(configures)
+    assert _reaches_build_helper("test_configures_clean", defs, {})
+
+    queries = ast.parse(textwrap.dedent("""
+        def test_lists_boards():
+            cmd = [WEST_EXE, "rigs", "--boards-for", "x"]
+            subprocess.run(cmd, capture_output=True)
+        """))
+    defs2 = _defs_by_name(queries)
+    assert not _reaches_build_helper("test_lists_boards", defs2, {})
+
+    bare = ast.parse(textwrap.dedent("""
+        def test_bare_west():
+            cmd = [WEST_EXE]
+            subprocess.run(cmd, capture_output=True)
+        """))
+    defs3 = _defs_by_name(bare)
+    assert not _reaches_build_helper("test_bare_west", defs3, {})
 
 
 def test_build_reaching_guard_detects_an_unmarked_build_test() -> None:

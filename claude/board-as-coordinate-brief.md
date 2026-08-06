@@ -19,7 +19,7 @@ Status:
 | empty-rig identity law (old §7.2a) | LANDED `e6423c0` — the law HOLDS |
 | §4.2 unique-by-type socket inference | LANDED `1c2344e` |
 | S1 coordinate change, mechanism only | see §9, `board-coordinate-s1-brief.md` |
-| S2 `--boards-for` | now a PREREQUISITE, not optional (§9) |
+| S2 `--boards-for` | LANDED 2026-08-06 — `board-coordinate-s2-brief.md` |
 | S3 `--rig <shield>` promotion + `--explain` | ruled, not started (§9) |
 | S4 singleton identity law (old §7.2b) | authored failing-first, after S3 (§9) |
 | S5 content migration (old §7.3) | ready, not started |
