@@ -461,10 +461,17 @@ so it must exist before enumeration is at risk.
    (failing-first is retired; see the note there).
 5. **S5 — content migration to conventional labels** (old §7.3). Now
    properly motivated: under a free board, `nucleo_ard` in content is a
-   portability bug, not a style question.
+   portability bug, not a style question. Spec:
+   `board-coordinate-s5-brief.md`, which carries five rulings (Tobi,
+   2026-08-06) — notably that `ard_datalogger` is NOT touched here, so
+   S5 orphans nothing.
 6. **S6 — strict symmetry.** `board:` out of rig.yml, variants collapse to
    topology-only, `RIG_BOARD` + the 19 goldens refreeze as a classified
-   step.
+   step. **`ard_datalogger`'s collapse belongs HERE** (ruled 2026-08-06):
+   its `sockets:` map is dead the moment S5 lands, but retiring the map
+   vocabulary, collapsing its dual-host variants to one variant-less rig
+   built twice, and deciding whether an inert map is an error are all one
+   piece of work, and it is this one.
 
 ### 9.6 OPEN — the ad-hoc params token exit
 
