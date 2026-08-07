@@ -1,0 +1,12 @@
+/* Wide tables (socket censuses, position maps) should scroll inside their
+   own box rather than forcing the page to scroll horizontally. */
+.wy-table-responsive table td,
+.wy-table-responsive table th {
+    white-space: normal;
+}
+
+/* Devicetree and YAML blocks in the tutorials are wide by nature; keep them
+   readable rather than wrapping them mid-token. */
+.highlight pre {
+    overflow-x: auto;
+}
