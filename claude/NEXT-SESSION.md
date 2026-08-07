@@ -1,18 +1,16 @@
 # Rigs — Session Handoff
 
-## RESUME (2026-08-06c) — S4 LANDED. S5 BRIEFED AND DISPATCHED. THE DOC TREE IS IN.
+## RESUME (2026-08-06c) — S4 AND S5 LANDED. NEXT = S6, THE LAST STEP OF §9.5.
 
 ### STATE AT SESSION CLOSE (2026-08-06c)
 
-btr-shields HEAD **`7ba3cf4`** plus the doc commit this block ships in.
-`main` is **ahead 23+1 of origin, NOT pushed** — carried since 2026-08-04
-and still Tobi's call. **An S5 dispatch was live in this checkout when
-this block was written**; whatever it produced is uncommitted and
-unreviewed, so read the tree before trusting any of it.
+btr-shields HEAD **`03a6928`** plus the doc commit this block ships in.
+`main` is **ahead 25+1 of origin, NOT pushed** — carried since 2026-08-04
+and still Tobi's call. Tree clean.
 
-**Gate, driver-verified, FULL, twice (before and after the review
-fixes):** mypy **94 files**, unit **617**, integration **186**, coverage
-**92%** vs the 88 floor, goldens **byte-unchanged**.
+**Gate, driver-verified, FULL, three times this session:** mypy **94
+files**, unit **617**, integration **187**, coverage **92%** vs the 88
+floor.
 
 | commit | what |
 |---|---|
@@ -20,11 +18,13 @@ fixes):** mypy **94 files**, unit **617**, integration **186**, coverage
 | `6d743a3` | doc: the tutorial series, tutorial 4's not-yet warning retired |
 | `0cbfbed` | **S4 — the singleton identity law, as a census** |
 | `7ba3cf4` | doc: the S5 brief, with the collapse ruled into S6 |
+| `0d0e275` | doc: this handoff block |
+| `03a6928` | **S5 — content migration to conventional socket labels** |
 
-The 186 reconciles as 172 + 13 + 1. **Note the 170 recorded in the
-2026-08-06b block was the gate number, not the total** — that session
-added two tests after its gate ran. Read a count as what the FULL
-integration run reports.
+Counts reconcile: 172 (post-S3b) + 13 + 1 = 186 after S4, then +1 +1 −1
+= 187 after S5. **Note the 170 recorded in the 2026-08-06b block was that
+session's gate number, not its total** — two tests landed after it ran.
+Read a count as what the FULL integration run reports.
 
 ### WHAT LANDED — S4, `board-coordinate-s4-brief.md`
 
@@ -103,7 +103,44 @@ commands cannot be run as written and their outputs are not captured.
 Tutorials 1 and 2 quote real runs. Creating that playground for real is
 the next docs task.
 
-### S5 IS BRIEFED AND WAS DISPATCHED — `board-coordinate-s5-brief.md`
+### WHAT LANDED — S5, `board-coordinate-s5-brief.md` (`03a6928`)
+
+22 references migrated across 13 content files, exactly the predicted
+census. **No production module changed** — the premise held.
+
+**The payoff is now a test, not an argument:** `nucleo_datalogger`'s
+`--boards-for` answer went from one board to two. `frdm_k64f`'s own
+`arduino_r3` socket always offered the identical i2c/spi subset
+`adafruit_data_logger` needs; only the content's insistence on naming
+`nucleo_ard` kept it from being a legal host. **That is the integration
+tier's first real falsifier for socket conformance** — S2's own recorded
+gap, closed.
+
+**The refreeze was 14 files, ALL `config-sheet.md`, 23/23 symmetric.** §3's
+tracing held: no `stderr.txt` or `exit_code` moved, because all four
+diagnostic sites render `socket.label` (the board's DEFINING label), never
+the content string.
+
+**The goldens were HAND-EDITED, not refrozen — `RIGC_REFREEZE=1` is
+BLOCKED by the harness permission classifier in this environment.** Expect
+to hit the same block. The dispatch worked from the exhaustive
+non-refreeze failure list instead. Driver-verified two ways rather than
+trusted, and BOTH are needed: `test_emitted_corpus.py` passes (goldens
+match what the tool emits), AND applying only the label rename to HEAD's
+version of each file reproduces the working tree exactly (nothing
+semantic slipped in). The first alone would pass against a golden edited
+to match a wrong output; the second alone would not prove the tool agrees.
+
+**A correction to S5's own §7, and S6 must not inherit it.** The reduced
+contract named `test_resolved_corpus.py` as the one build-marked module —
+but the `config-sheet.md` churn the brief itself demands be classified is
+observable ONLY through `test_emitted_corpus.py`. An implementor
+following §7 literally would have classified a refreeze it could not see.
+The general rule, now stated in that brief: **the reduced contract must
+name the module that OBSERVES the slice's acceptance criteria**, which is
+not always the module its code lives nearest.
+
+### S5's BRIEF, for reference — `board-coordinate-s5-brief.md`
 
 A DATA slice: ruling 1 fixed the convention, `d47ec86` shipped the
 mechanism. **If it appears to need production code, the premise is
@@ -141,14 +178,13 @@ refreeze.
 
 ### NEXT, in order
 
-1. **Review the S5 dispatch** (see STATE — it was live at close). Then
-   S5's own commit.
-2. **S6 — strict symmetry**, and it now carries an extra piece:
+1. **S6 — strict symmetry**, and it now carries an extra piece:
    `board:` out of rig.yml, variants collapse to topology-only,
    `RIG_BOARD` + the 19 goldens refreeze as a classified step, **plus
    `ard_datalogger`'s collapse and the `sockets:` map vocabulary's
-   retirement** (ruled 2026-08-06, recorded in §9.5 step 6).
-3. Then the standing queue: **rig-schema.yaml** (backlog item 7),
+   retirement** (ruled 2026-08-06, recorded in §9.5 step 6). **This is the
+   last step of §9.5** — with it, board-as-coordinate is done.
+2. Then the standing queue: **rig-schema.yaml** (backlog item 7),
    **shield plurality**, **BRIDLE MIGRATION**.
 
 Off-sequence and unblocked: **§9.6's params CLI grammar**
