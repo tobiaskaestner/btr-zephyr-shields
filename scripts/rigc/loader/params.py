@@ -19,8 +19,22 @@ from ..deps import Deps, touch, union
 from ..diag import Diagnostic, SourceRef, error
 from ..dtsio import (MODULE_INC, check_include, is_int_literal,
                     resolve_token, zephyr_inc)
-from ..model import Shield, Strap
+from ..model import Device, Shield, Strap
 from .documents import Val
+
+
+def device_required_params(dev: Device) -> List[str]:
+    """The subset of `dev.declared_params` (`shield,params` names) with NO
+    authored default -- i.e. no matching entry in `dev.extra_props` -- the
+    exact per-device rule `check_param_invariant` applies to every
+    instance's effective shield. Factored out so a caller holding only a
+    SHIELD (no instance, no assignment in play -- the S4 singleton-law
+    census, board-coordinate-s4-brief.md Sec 2.3/promote.py's
+    `shield_declares_required_params`) can ask the identical question
+    without re-deriving "declared, no default" a second time. Pure; dev
+    is read-only, returns a fresh list the caller owns."""
+    return [pname for pname in dev.declared_params
+            if not any(name == pname for name, _ in dev.extra_props)]
 
 
 def check_param_invariant(instances) -> List[Diagnostic]:
@@ -41,11 +55,9 @@ def check_param_invariant(instances) -> List[Diagnostic]:
         refs = (inst.src,) if inst.src is not None else ()
         for dev in shield.devices:
             pset = assigned.get(dev.label, {})
-            for pname in dev.declared_params:
+            for pname in device_required_params(dev):
                 if pname in pset:
                     continue
-                if any(name == pname for name, _ in dev.extra_props):
-                    continue      # shield authored a default; may be omitted
                 diags.append(error(
                     "lang-param",
                     f"instance '{inst.name}': device '{dev.label}' of "

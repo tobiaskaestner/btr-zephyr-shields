@@ -38,6 +38,8 @@ from typing import Dict, List, Optional
 import yaml
 
 from .loader.library import load_shield_library
+from .loader.params import device_required_params
+from .model import Shield
 
 
 @dataclass(frozen=True)
@@ -185,6 +187,26 @@ def check_promotable(name: str, info: ShieldInfo, variant: Optional[str],
         return (f"shield '{name}' is discoverable but not promotable to "
                 f"a rig -- {missing}")
     return None
+
+
+def shield_declares_required_params(shield: Shield) -> bool:
+    """Whether ANY device of `shield` declares a `shield,params` name with
+    no authored default -- `params.device_required_params` applied across
+    every device, never re-derived a second time (a second hand-rolled
+    copy of "declared, no default" is a review finding). This is the S4
+    singleton-law census's own eligibility predicate (board-coordinate-
+    s4-brief.md Sec 2.3): a shield this returns True for can never be
+    promoted, because a promoted rig's content file has no `params:` slot
+    to satisfy `params.check_param_invariant` with (Sec 9.6's CLI grammar,
+    still unruled) -- `check_promotable` does not itself gate on this (it
+    only gates on `template:`/`@variant`, ruling 5), so a caller building
+    the LAW's own domain applies this separately, over an already-resolved
+    Shield (not a bare name -- resolving one needs the shield library's
+    own lazy parse, `ShieldLibrary.resolve`, which this module's `promote_
+    shield` deliberately never touches).
+
+    Pure: makes no filesystem call of its own; shield is read-only."""
+    return any(device_required_params(dev) for dev in shield.devices)
 
 
 def both_paths_error(name: str, rig_dir: Path, shield_dir: str) -> str:

@@ -11,12 +11,15 @@ import os
 import shutil
 import textwrap
 from pathlib import Path
+from typing import List, Tuple
 
 from rigc import loader
 from rigc.diag import has_errors
 from rigc.dtsio import MODULE_ROOT
+from rigc.model import Device, Shield
 from rigc.promote import (ShieldInfo, both_paths_error, check_promotable,
-                          discover_shields, promote_shield)
+                          discover_shields, promote_shield,
+                          shield_declares_required_params)
 from rigc.registry import load_types
 
 # ---------------------------------------------------------------- promote_shield
@@ -181,6 +184,43 @@ def test_promoted_shield_round_trips_through_the_loader_with_no_diagnostics(
     assert [inst.name for inst in rig.instances] == ["adafruit_data_logger"]
     assert rig.instances[0].shield.name == "adafruit_data_logger"
     assert rig.instances[0].socket is None
+
+
+# ---------------------------------------------------------------- census predicate (Sec 2.3)
+
+def _device(label: str, declared_params: List[str],
+           extra_props: List[Tuple[str, str]]) -> Device:
+    return Device(name=label, label=label, compatible="vnd,fixture",
+                  bus=None, group=None, reg=None, addr_from=None,
+                  cs_position=None, declared_params=declared_params,
+                  extra_props=extra_props)
+
+
+def _shield(*devices: Device) -> Shield:
+    return Shield(name="fixture_shield", label="fixture_shield",
+                 plugs="grove", devices=list(devices))
+
+
+def test_a_device_with_a_required_param_makes_the_shield_ineligible() -> None:
+    """Mirrors params.check_param_invariant's own rule: a declared param
+    with no authored default (no matching extra_props entry) is
+    required -- the shield is not eligible for the singleton law."""
+    dev = _device("d0", declared_params=["zephyr,code"], extra_props=[])
+    assert shield_declares_required_params(_shield(dev)) is True
+
+
+def test_a_device_with_an_authored_default_is_not_required() -> None:
+    """The SAME declared param name, but with an extra_props entry (the
+    shield authored a default) -- check_param_invariant's own "may be
+    omitted" branch -- so the shield stays eligible."""
+    dev = _device("d0", declared_params=["zephyr,code"],
+                 extra_props=[("zephyr,code", "0")])
+    assert shield_declares_required_params(_shield(dev)) is False
+
+
+def test_a_device_with_no_params_at_all_is_not_required() -> None:
+    dev = _device("d0", declared_params=[], extra_props=[])
+    assert shield_declares_required_params(_shield(dev)) is False
 
 
 def test_a_revved_promoted_shield_round_trips_to_the_named_revision(

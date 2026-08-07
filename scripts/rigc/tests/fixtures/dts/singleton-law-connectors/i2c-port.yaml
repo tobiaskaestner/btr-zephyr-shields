@@ -1,0 +1,69 @@
+# Copyright (c) 2026 btr-shields
+# SPDX-License-Identifier: Apache-2.0
+#
+# FIXTURE COPY for test_singleton_identity_law.py, not the production
+# binding (dts/bindings/connectors/i2c-port.yaml) -- that one's own
+# docstring says plainly: "no real board socket node is ever compiled
+# with this compatible... this binding's own properties are schema
+# decoration no real node ever exercises." i2c_sensor's SINGLETON form
+# (S4) is exactly the first thing that DOES need a real, edtlib-parsed
+# board-level "socket,i2c-port" node (unique-by-type inference only ever
+# considers board.sockets, never a carrier's own exported socket --
+# analyzer/sockets.py's infer_socket), and edtlib's strict undeclared-
+# property check rejects `socket,i2c` on that compatible because the
+# production binding never declares it (i2c_mux.shield's own ch0..ch3
+# channel nodes set the identical property today, but are parsed via bare
+# dtlib -- loader/library.py's _parse_shield_template -- which never
+# schema-checks anything, so the gap has never been exercised until now).
+#
+# This copy adds exactly the one missing property (`socket,i2c`) the
+# production type's own docstring already implies every i2c-port socket
+# needs a bus to reach; every other line is byte-identical to the real
+# binding. Threaded via --bindings-dir alongside fixture copies of the
+# other three real types (arduino-r3.yaml, mikrobus.yaml, grove.yaml,
+# copied verbatim) so this test's board reading never touches the
+# production dts/bindings/connectors/ directory at all -- editing it would
+# be changing shared registry content for every other consumer, not this
+# slice's fixture. The --connector-dir (rigc's OWN plug-matching/position
+# registry, used by shield-side parsing) is left at its REAL default
+# throughout -- only edtlib's schema needs this patch.
+
+description: |
+  I2C-port connector, unified socket + plug contract — a bare I2C consumer
+  (no gpio positions), for a module that just needs a bus (a sensor behind
+  an I2C-mux channel, say).
+
+  socket,i2c is the one property this fixture copy adds over the
+  production binding: the phandle to the I2C controller this socket
+  reaches — every OTHER type (arduino-r3, mikrobus, grove) already
+  declares it, and i2c_sensor's own singleton form needs it resolved the
+  identical way.
+
+  socket,stackable is present (an I2C bus hosts many devices — N modules
+  may share the port); socket,cs-pool defaults to empty (an I2C port
+  doesn't allocate chip-selects).
+
+  Shield side (`plug,*` extension keys — opaque to edtlib's own model,
+  preserved in Binding.raw under the vendor-namespaced top-level key
+  exemption, carried commit 1a657124349): plug,bus-proxies names the one
+  proxy node a shield may declare (i2c); plug,positions is empty — this
+  type claims no gpio positions.
+
+compatible: "socket,i2c-port"
+
+include: [base.yaml]
+
+properties:
+  socket,i2c:
+    type: phandle
+    description: I2C controller reachable through this socket
+  socket,stackable:
+    type: boolean
+    description: present on every i2c-port socket (type-level fact) — an I2C bus may host many devices
+  socket,cs-pool:
+    type: array
+    default: []
+    description: empty — an I2C port doesn't allocate chip-selects
+
+plug,bus-proxies: [i2c]
+plug,positions: {}

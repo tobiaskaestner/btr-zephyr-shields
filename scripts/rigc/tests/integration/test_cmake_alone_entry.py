@@ -683,3 +683,101 @@ def test_cmake_alone_promoted_shield_without_a_board_is_fatal(
         "rig's own wording would be wrong here\n"
         f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
     assert "no -DBOARD was given" in combined
+
+
+# ---------------------------------------------------------- singleton identity law (S4)
+#
+# board-coordinate-s4-brief.md Sec 2.5: the ONE build-marked cross-check
+# the singleton law needs -- expand-level equality (test_singleton_
+# identity_law.py) does not prove the cmake/dts.cmake path feeds the
+# analyzer the same thing, and the promoted branch through dts.cmake is
+# brand new (S3b). One shield is enough here; the census belongs at
+# expand level, where it is cheap.
+
+_SINGLETON_LAW_BOARD_ROOT = str(FIXTURES_DIR / "singleton_law_board_root")
+_SINGLETON_LAW_RIG = "singleton_law_check"
+_SINGLETON_LAW_SHIELD = "adafruit_data_logger"
+_SINGLETON_LAW_BOARD = "nucleo_f401re/stm32f401xe/rig"
+
+
+@pytest.mark.build
+def test_cmake_alone_singleton_law_promoted_matches_fixture_rig_build(
+        tmp_path: Path) -> None:
+    """A promoted adafruit_data_logger build and a fixture rig build
+    containing the IDENTICAL topology (one socket-less instance named
+    after the shield, board-coordinate-s3-brief.md Sec 3's own
+    convention) must produce a structurally equivalent zephyr.dts.
+    Deliberately DIFFERENT rig names (Sec 2.5: zephyr.dts carries no rig
+    name at all, so unlike the expand-level law this half needs no path
+    trick to dodge the both-paths namespace rule -- naming the fixture
+    rig 'adafruit_data_logger' would collide with the real shield of that
+    name in this module's own default board root once
+    _SINGLETON_LAW_BOARD_ROOT is added alongside it via -DBOARD_ROOT)."""
+    promoted_dir = tmp_path / "promoted"
+    promoted = _run_cmake_alone(promoted_dir, [
+        f"-DRIG={_SINGLETON_LAW_SHIELD}", f"-DBOARD={_SINGLETON_LAW_BOARD}",
+    ])
+    assert promoted.returncode == 0, (
+        f"promoted {_SINGLETON_LAW_SHIELD} build failed to configure\n"
+        f"--- argv ---\n{render_argv(promoted)}\n--- stdout ---\n{promoted.stdout}\n"
+        f"--- stderr ---\n{promoted.stderr}")
+
+    fixture_dir = tmp_path / "fixture"
+    fixture = _run_cmake_alone(fixture_dir, [
+        f"-DRIG={_SINGLETON_LAW_RIG}",
+        f"-DBOARD_ROOT={_SINGLETON_LAW_BOARD_ROOT}",
+        f"-DBOARD={_SINGLETON_LAW_BOARD}",
+    ])
+    assert fixture.returncode == 0, (
+        f"fixture rig {_SINGLETON_LAW_RIG} build failed to configure\n"
+        f"--- argv ---\n{render_argv(fixture)}\n--- stdout ---\n{fixture.stdout}\n"
+        f"--- stderr ---\n{fixture.stderr}")
+
+    promoted_dts = promoted_dir / "zephyr" / "zephyr.dts"
+    fixture_dts = fixture_dir / "zephyr" / "zephyr.dts"
+    assert promoted_dts.is_file(), f"no zephyr.dts at {promoted_dts}"
+    assert fixture_dts.is_file(), f"no zephyr.dts at {fixture_dts}"
+
+    zb = zephyr_base()
+    check = subprocess.run(
+        [sys.executable, str(DTS_EQUIV), str(fixture_dts), str(promoted_dts)],
+        env={**os.environ, "ZEPHYR_BASE": zb},
+        capture_output=True, text=True)
+    assert check.returncode == 0, (
+        "the singleton identity law's build-marked cross-check failed: "
+        f"promoted {_SINGLETON_LAW_SHIELD} is not structurally equivalent "
+        f"to the fixture rig's own build (dts_equiv.py):\n--- argv ---\n"
+        f"{render_argv(check)}\n{check.stdout}\n{check.stderr}")
+
+    # NEGATIVE CONTROL, and it costs no extra configure -- it perturbs the
+    # zephyr.dts already built above. Without it this test would pass
+    # identically against a dts_equiv that had stopped discriminating (an
+    # unreadable file, a comparator gutted to return 0), which is the one
+    # failure mode a pure equality assertion structurally cannot see: the
+    # project has found that shape -- "a guard that passes while enforcing
+    # less than it claims" -- in every review round it ran.
+    #
+    # The perturbation must be a real devicetree fact on a NON-ROOT node.
+    # dts_equiv ignores comments, formatting, labels, phandle numbering
+    # and node ordering by design, and its own docstring excludes the root
+    # node outright -- an added root property is invisible to it, verified,
+    # so a control built on one would itself prove nothing. Disabling the
+    # first enabled node is a fact it does compare.
+    perturbed = tmp_path / "perturbed.dts"
+    promoted_text = promoted_dts.read_text()
+    assert 'status = "okay";' in promoted_text, (
+        "no enabled node in the promoted zephyr.dts to perturb -- this "
+        "control needs a real devicetree fact to change; pick another "
+        "rather than dropping it")
+    perturbed.write_text(
+        promoted_text.replace('status = "okay";', 'status = "disabled";', 1))
+    control = subprocess.run(
+        [sys.executable, str(DTS_EQUIV), str(fixture_dts), str(perturbed)],
+        env={**os.environ, "ZEPHYR_BASE": zb},
+        capture_output=True, text=True)
+    assert control.returncode != 0, (
+        "dts_equiv.py reported a perturbed zephyr.dts (first enabled node "
+        "disabled) as EQUIVALENT to the fixture rig's build -- so the "
+        "equality assertion above proves nothing about this input. Fix the "
+        f"comparator, never this control.\n--- argv ---\n"
+        f"{render_argv(control)}\n{control.stdout}\n{control.stderr}")
