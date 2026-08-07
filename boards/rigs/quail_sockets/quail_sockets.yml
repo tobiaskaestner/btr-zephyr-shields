@@ -11,10 +11,10 @@
 instances:
   - name: flash_1
     shield: flash_click
-    socket: quail_sock1            # -> spi1, CS = socket-1 CS pin
+    socket: mikrobus_1              # -> spi1, CS = socket-1 CS pin
   - name: flash_3
     shield: flash_click
-    socket: quail_sock3            # -> spi3, CS = socket-3 CS pin (different controller)
+    socket: mikrobus_3              # -> spi3, CS = socket-3 CS pin (different controller)
   - name: th_2
     shield: temp_hum_click
-    socket: quail_sock2            # -> i2c1 @0x5f
+    socket: mikrobus_2              # -> i2c1 @0x5f

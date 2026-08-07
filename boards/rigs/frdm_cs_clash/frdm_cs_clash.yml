@@ -14,10 +14,10 @@
 instances:
   - name: adapter_1
     shield: arduino_uno_click
-    socket: frdm_ard
+    socket: arduino_r3
   - name: eth_1
     shield: eth_click
     socket: adapter_1.mb1          # CS -> D10 -> PTD0
   - name: logger_1
     shield: adafruit_data_logger
-    socket: frdm_ard               # stacked on the host Arduino; SD CS copper-fixed D10 -> PTD0
+    socket: arduino_r3             # stacked on the host Arduino; SD CS copper-fixed D10 -> PTD0

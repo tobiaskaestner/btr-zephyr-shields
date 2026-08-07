@@ -6,7 +6,7 @@
 instances:
   - name: th_2
     shield: temp_hum_click
-    socket: quail_sock2            # -> i2c1 @0x5f
+    socket: mikrobus_2              # -> i2c1 @0x5f
   - name: th_4
     shield: temp_hum_click
-    socket: quail_sock4            # -> i2c1 @0x5f  (same bus, same fixed address)
+    socket: mikrobus_4              # -> i2c1 @0x5f  (same bus, same fixed address)

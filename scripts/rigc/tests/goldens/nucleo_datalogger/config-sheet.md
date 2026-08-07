@@ -8,7 +8,7 @@ Board: **nucleo_f401re/stm32f401xe/rig**
 
 | instance | shield | socket |
 |---|---|---|
-| logger | adafruit_data_logger | nucleo_ard |
+| logger | adafruit_data_logger | arduino_r3 |
 
 ## Chip-selects
 

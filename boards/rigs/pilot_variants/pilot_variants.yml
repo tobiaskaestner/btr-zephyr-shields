@@ -26,4 +26,4 @@
 instances:
   - name: logger
     shield: adafruit_data_logger
-    socket: nucleo_ard
+    socket: arduino_r3

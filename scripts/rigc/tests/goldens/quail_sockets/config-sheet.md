@@ -8,9 +8,9 @@ Board: **mikroe_quail/stm32f427xx/rig**
 
 | instance | shield | socket |
 |---|---|---|
-| flash_1 | flash_click | quail_sock1 |
-| flash_3 | flash_click | quail_sock3 |
-| th_2 | temp_hum_click | quail_sock2 |
+| flash_1 | flash_click | mikrobus_1 |
+| flash_3 | flash_click | mikrobus_3 |
+| th_2 | temp_hum_click | mikrobus_2 |
 
 ## Chip-selects
 

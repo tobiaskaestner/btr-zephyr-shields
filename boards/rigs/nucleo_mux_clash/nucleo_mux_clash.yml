@@ -8,7 +8,7 @@
 instances:
   - name: mux_1
     shield: i2c_mux
-    socket: nucleo_ard
+    socket: arduino_r3
   - name: sensor_a
     shield: i2c_sensor
     socket: mux_1.ch0             # 0x48 in channel-0 scope

@@ -188,12 +188,22 @@ $PY -m mypy scripts/rigc
 $PY -m pytest scripts/rigc/tests/unit -q
 $PY -m pytest -m "not build" scripts/rigc/tests/integration -q
 $PY -m pytest scripts/rigc/tests/integration/test_resolved_corpus.py -q
+$PY -m pytest scripts/rigc/tests/integration/test_emitted_corpus.py -q
 git diff --stat -- scripts/rigc/tests/goldens/     # CLASSIFY, do not clear
 ```
 
-`test_resolved_corpus.py` is the ONE build-marked module here — unlike
-every prior slice in this sequence, it is the module that would show a
-migration breaking a real build.
+**CORRECTED 2026-08-06, and the correction is the point:** this slice
+needs TWO build-marked modules, not the usual one.
+`test_resolved_corpus.py` is what would show a migration breaking a real
+build — but **`test_emitted_corpus.py` is the only place the
+`config-sheet.md` churn this brief demands be classified is observable at
+all.** The first draft named only the former, so an implementor following
+it literally would have classified a refreeze it could not see. Caught by
+the S5 dispatch, which ran both anyway.
+
+The general rule this is an instance of: **the reduced contract must name
+the module that observes the slice's own acceptance criteria**, which is
+not always the module its code lives nearest.
 
 - **Do NOT background a command and end your turn waiting on it.**
 - Never `cmd | tail; echo $?` — that reports tail's status.

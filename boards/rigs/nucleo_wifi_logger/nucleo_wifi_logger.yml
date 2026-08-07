@@ -14,9 +14,9 @@
 instances:
   - name: logger_1
     shield: adafruit_data_logger
-    socket: nucleo_ard
+    socket: arduino_r3
   - name: wifi_1
     shield: adafruit_winc1500
-    socket: nucleo_ard             # stacked mating (arduino-r3 stackable)
+    socket: arduino_r3             # stacked mating (arduino-r3 stackable)
     pin:
       irq_jmp: D7                  # default position — collides with the RTC INT

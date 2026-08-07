@@ -13,7 +13,7 @@
 instances:
   - name: mux_1
     shield: i2c_mux
-    socket: nucleo_ard
+    socket: arduino_r3
   - name: sensor_0
     shield: i2c_sensor@1
     socket: mux_1.ch0

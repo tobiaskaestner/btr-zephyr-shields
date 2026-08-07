@@ -8,5 +8,5 @@ Board: **nucleo_f401re/stm32f401xe/rig**
 
 | instance | shield | socket |
 |---|---|---|
-| mux_1 | i2c_mux | nucleo_ard |
+| mux_1 | i2c_mux | arduino_r3 |
 | sensor_0 | i2c_sensor | mux_1.ch0 |

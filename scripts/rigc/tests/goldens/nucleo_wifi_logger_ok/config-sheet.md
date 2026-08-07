@@ -8,12 +8,12 @@ Board: **nucleo_f401re/stm32f401xe/rig**
 
 | instance | shield | socket |
 |---|---|---|
-| logger_1 | adafruit_data_logger | nucleo_ard |
-| wifi_1 | adafruit_winc1500 | nucleo_ard |
+| logger_1 | adafruit_data_logger | arduino_r3 |
+| wifi_1 | adafruit_winc1500 | arduino_r3 |
 
 ## Straps / jumpers
 
-- **wifi_1** (nucleo_ard): set **IRQ select (SJ2)** to state 1 → routed to pin D2
+- **wifi_1** (arduino_r3): set **IRQ select (SJ2)** to state 1 → routed to pin D2
 
 ## Chip-selects
 

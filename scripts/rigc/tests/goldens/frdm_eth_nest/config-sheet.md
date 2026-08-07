@@ -8,7 +8,7 @@ Board: **frdm_k64f/mk64f12/rig**
 
 | instance | shield | socket |
 |---|---|---|
-| adapter_1 | arduino_uno_click | frdm_ard |
+| adapter_1 | arduino_uno_click | arduino_r3 |
 | eth_1 | eth_click | adapter_1.mb1 |
 | eth_2 | eth_click | adapter_1.mb2 |
 

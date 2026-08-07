@@ -8,15 +8,15 @@ Board: **mikroe_quail/stm32f427xx/rig**
 
 | instance | shield | socket |
 |---|---|---|
-| flash_a | flash_click | quail_sock1 |
-| flash_b | flash_click | quail_sock2 |
-| temp_a | temp_click | quail_sock3 |
-| temp_b | temp_click | quail_sock4 |
+| flash_a | flash_click | mikrobus_1 |
+| flash_b | flash_click | mikrobus_2 |
+| temp_a | temp_click | mikrobus_3 |
+| temp_b | temp_click | mikrobus_4 |
 
 ## Straps / jumpers
 
-- **temp_a** (quail_sock3): set **ADDR jumper** to state 0 → device address 0x48
-- **temp_b** (quail_sock4): set **ADDR jumper** to state 1 → device address 0x49
+- **temp_a** (mikrobus_3): set **ADDR jumper** to state 0 → device address 0x48
+- **temp_b** (mikrobus_4): set **ADDR jumper** to state 1 → device address 0x49
 
 ## Chip-selects
 

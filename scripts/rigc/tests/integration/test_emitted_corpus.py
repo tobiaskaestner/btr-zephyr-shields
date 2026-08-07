@@ -39,6 +39,7 @@ must reflect an INTENTIONAL, understood behavior change, never silent drift.
 """
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
@@ -64,6 +65,9 @@ from conftest import (
     zephyr_base,
 )
 
+sys.path.insert(0, str(REPO_ROOT / "scripts"))
+from rigc import board_census  # noqa: E402
+
 
 @pytest.mark.parametrize("case", ALL_CASES, ids=lambda c: c.name)
 def test_corpus_rig_identity(case: RigCase) -> None:
@@ -81,6 +85,59 @@ def test_corpus_complete() -> None:
     newly added rig must be frozen into the goldens, never silently skipped."""
     live = {d.name for d in RIGS_DIR.iterdir() if (d / "rig.yml").is_file()}
     assert live == {c.name for c in ALL_CASES}
+
+
+def test_no_rig_content_names_a_board_prefixed_socket() -> None:
+    """S5 acceptance criterion 5 (board-coordinate-s5-brief.md Sec 6): once
+    a board's socket carries a CONVENTIONAL alias (Ruling 1, parent brief
+    Sec 2), a rig's own content naming the board-prefixed DEFINING label
+    directly is a portability bug, not a style choice -- it can only ever
+    build against that one board, exactly what board-as-coordinate exists
+    to undo.
+
+    "board-prefixed" is derived, not hardcoded: board_census.census_boards
+    builds each real board's Board.aliases as {conventional_alias:
+    defining_label}, so the set of defining labels that have at least one
+    alias pointing to them is exactly what content must not name. A board
+    whose socket carries only ONE label that is already conventional
+    (seeeduino_lotus's grove_d2/d4/...) contributes nothing to this set --
+    Board.aliases only ever holds a node's SECOND-and-later labels -- so
+    lotus's own content is never flagged, matching Sec 2's census that
+    lotus already conforms.
+
+    ard_datalogger is the one ruled exception (Sec 5.1): its content names
+    the ABSTRACT `ard`, resolved per-variant through rig.yml's own
+    sockets: map rather than a board-side alias at all, and its collapse
+    to a real conventional reference is S6's work, explicitly deferred --
+    so its directory is excluded outright, not merely un-flagged.
+
+    Census-style: falsified by mutating the WORLD it observes -- add a
+    board-prefixed socket: to any OTHER rig's content file -- never by
+    editing this assertion."""
+    forbidden = {defining
+                 for cb in board_census.census_boards()
+                 for defining in cb.board.aliases.values()}
+
+    offenders = []
+    for content_path in sorted(RIGS_DIR.glob("*/*.yml")):
+        if content_path.name == "rig.yml":
+            continue
+        if content_path.parent.name == "ard_datalogger":
+            continue
+        doc = yaml.safe_load(content_path.read_text()) or {}
+        for inst in doc.get("instances") or []:
+            if not isinstance(inst, dict):
+                continue
+            socket = inst.get("socket")
+            if not isinstance(socket, str):
+                continue
+            base = socket.split(".", 1)[0]
+            if base in forbidden:
+                offenders.append(
+                    f"{content_path.relative_to(RIGS_DIR)}: socket: {socket}")
+    assert not offenders, (
+        "content names a board-prefixed socket label directly -- migrate "
+        f"to the connector type's conventional alias instead: {offenders}")
 
 
 def test_every_overlay_golden_has_semantic_coverage() -> None:

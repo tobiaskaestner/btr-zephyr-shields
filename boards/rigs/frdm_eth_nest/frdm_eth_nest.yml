@@ -12,7 +12,7 @@
 instances:
   - name: adapter_1
     shield: arduino_uno_click
-    socket: frdm_ard               # the carrier plugs the host Arduino socket
+    socket: arduino_r3             # the carrier plugs the host Arduino socket
   - name: eth_1
     shield: eth_click
     socket: adapter_1.mb1          # nested: carrier instance . exposed socket

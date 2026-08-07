@@ -8,7 +8,7 @@ Board: **nucleo_f401re/stm32f401xe/rig**
 
 | instance | shield | socket |
 |---|---|---|
-| logger | pilot_alt_button | nucleo_ard |
+| logger | pilot_alt_button | arduino_r3 |
 
 ## Parameters
 

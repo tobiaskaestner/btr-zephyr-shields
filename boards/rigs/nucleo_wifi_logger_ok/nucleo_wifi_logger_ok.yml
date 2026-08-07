@@ -10,9 +10,9 @@
 instances:
   - name: logger_1
     shield: adafruit_data_logger
-    socket: nucleo_ard
+    socket: arduino_r3
   - name: wifi_1
     shield: adafruit_winc1500
-    socket: nucleo_ard
+    socket: arduino_r3
     pin:
       irq_jmp: D2                  # move IRQ off the RTC's D7
