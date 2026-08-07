@@ -1,6 +1,170 @@
 # Rigs — Session Handoff
 
-## RESUME (2026-08-06b) — S3 LANDED (BOTH HALVES). §9.6 RULED. NEXT = S4, AND ITS BRIEF IS WRITTEN.
+## RESUME (2026-08-06c) — S4 LANDED. S5 BRIEFED AND DISPATCHED. THE DOC TREE IS IN.
+
+### STATE AT SESSION CLOSE (2026-08-06c)
+
+btr-shields HEAD **`7ba3cf4`** plus the doc commit this block ships in.
+`main` is **ahead 23+1 of origin, NOT pushed** — carried since 2026-08-04
+and still Tobi's call. **An S5 dispatch was live in this checkout when
+this block was written**; whatever it produced is uncommitted and
+unreviewed, so read the tree before trusting any of it.
+
+**Gate, driver-verified, FULL, twice (before and after the review
+fixes):** mypy **94 files**, unit **617**, integration **186**, coverage
+**92%** vs the 88 floor, goldens **byte-unchanged**.
+
+| commit | what |
+|---|---|
+| `5040297` | doc: the S4 brief + the correction it makes to §9.1 |
+| `6d743a3` | doc: the tutorial series, tutorial 4's not-yet warning retired |
+| `0cbfbed` | **S4 — the singleton identity law, as a census** |
+| `7ba3cf4` | doc: the S5 brief, with the collapse ruled into S6 |
+
+The 186 reconciles as 172 + 13 + 1. **Note the 170 recorded in the
+2026-08-06b block was the gate number, not the total** — that session
+added two tests after its gate ran. Read a count as what the FULL
+integration run reports.
+
+### WHAT LANDED — S4, `board-coordinate-s4-brief.md`
+
+The law, at expand level, both sides named identically with the fixture
+given by PATH (`expand <path>` does no namespace resolution — the only
+way one name resolves both ways without tripping S3a's both-paths rule).
+Parametrized over a DERIVED domain: 12 eligible shields, `grove_btn` and
+`pilot_alt_button` excluded and asserted as such so the set visibly
+shrinks when §9.6's grammar lands. One declared `RIG_DEPENDS` exemption.
+One build-marked `dts_equiv` cross-check.
+
+**Verified, not assumed:** the exemption absorbs nothing else — for
+`adafruit_data_logger` the two sides differ by exactly their own two rig
+documents and share 11 dependencies exactly.
+
+### FOUR REVIEW FINDINGS, ALL DRIVER-APPLIED — and the pattern is the same one again
+
+1. **The census leaked a `mkdtemp` per collection.** D10 was its own
+   slice and /tmp is tmpfs here, so it was charged to RAM. 15 leaked
+   dirs had already accumulated in one session. `TemporaryDirectory` now.
+2. **The reject branch was unpinned.** Both sides rejecting identically
+   satisfies the law but compares stderr and NO artifact. 11 of 12
+   compare artifacts today and nothing said so — the census could have
+   drifted wholesale into the branch that checks nothing.
+   `EXPECTED_REJECTING` pins the partition per shield.
+3. **`discover_shields()` called with the implicit narrow default** —
+   literally the shape of the S3a defect that made the namespace rule
+   fail open. Same scope, now passed explicitly with the reason.
+4. **The build-marked cross-check had no negative control.**
+
+**Finding 4's first fix was itself vacuous, and that is the lesson worth
+carrying: `dts_equiv` EXCLUDES THE ROOT NODE** (its own docstring says
+so). The control perturbed a root property and passed while proving
+nothing — the exact trap it existed to catch. It disables the first
+enabled node instead; gutting `dts_equiv` to exit 0 now fails precisely
+that test. **Any future control built on a root-level fact is vacuous.**
+
+### THE BRIEF'S OWN MUTATION 2 IS A PARTIAL CONTROL — recorded so nobody re-derives it
+
+§2.4 said dropping socket-less-ness "must fail on inference". Driver-run,
+it fails **8 of 12**. The four arduino-r3 shields pass, because there the
+explicit socket IS the one inference picks, so both sides emit identical
+artifacts. **The law is RIGHT to pass** — it compares outputs, not source
+text. The brief overstated what that mutation can prove; the dispatch
+found the shape of this and reported the result as a clean catch, which
+is why the driver ran it independently.
+
+Mutation 1 also corrected the brief: the instance name reaches
+device-label prefixes, so `rig-gen.overlay` diverges before
+`config-sheet.md` does.
+
+### OPEN, AND IT IS A PRODUCT DECISION — the i2c-port binding
+
+**Production `dts/bindings/connectors/i2c-port.yaml` never declares
+`socket,i2c`**, so edtlib rejects any real board-level i2c-port socket
+node. `i2c_mux.shield` sets that property today but is parsed via bare
+dtlib, which never schema-checks — so the gap had never been exercised
+until S4 needed a real one. The S4 fixture board carries a local copy
+with the one property added (the other three connector YAMLs
+byte-identical to production) rather than patching a production binding
+from a test slice. **Fixing it upstream of the fixture is Tobi's call.**
+
+### THE DOC TREE IS COMMITTED — `6d743a3`
+
+Six cumulative tutorials plus mechanics, four Diátaxis quadrants, rST
+only, `sphinx-build -W` clean. Tutorial 4's **"This tutorial does not
+work yet."** warning is retired, per the rule its own guidelines page
+states — verified before deleting it, not assumed: `--explain` prints the
+shape the page shows, `--rig adafruit_data_logger` links (16068 B), and
+the ambiguity refusal fires as described (`grove_led` on lotus, nine
+grove sockets, `phys-socket` listing all nine).
+
+**REMAINING HONESTY DEBT, series-wide:** the `acme-rigs` playground that
+tutorials 2/3/5/6 build on is NARRATIVE, not tree content — those pages'
+commands cannot be run as written and their outputs are not captured.
+Tutorials 1 and 2 quote real runs. Creating that playground for real is
+the next docs task.
+
+### S5 IS BRIEFED AND WAS DISPATCHED — `board-coordinate-s5-brief.md`
+
+A DATA slice: ruling 1 fixed the convention, `d47ec86` shipped the
+mechanism. **If it appears to need production code, the premise is
+wrong.** Scope counted, not estimated: **22 references migrate**
+(`nucleo_ard` 10, `quail_sock1..4` 9, `frdm_ard` 3), 19 do not (lotus
+already conforms; instance-scoped sockets are board-agnostic by the
+provider rule; plus `ard_datalogger`'s abstract `ard`).
+
+Five rulings (Tobi, 2026-08-06), the first of which shapes the slice:
+
+1. **`ard_datalogger` is NOT touched — its collapse is S6's.** It is the
+   only user of the abstract socket map, which exists solely because
+   nucleo and frdm spell the same connector differently, so the map dies
+   the moment both carry `arduino_r3`. Leaving it alone means **S5
+   orphans nothing**, and "is an inert map an error?" moves to S6 with
+   the collapse instead of being owed here.
+2. The refreeze is **CLASSIFIED**: only `config-sheet.md`'s
+   instance/socket tuples may move. First churning slice in the sequence.
+3. A corpus rig answering **more than one board** via `--boards-for` is
+   an acceptance criterion, not a note — the integration tier's first
+   real falsifier for socket conformance.
+4. **Do NOT flip the defining label.** `labels[0]` stays board-specific.
+5. No new production code.
+
+**A §6 gap found while briefing:** §6 traced the golden impact for the
+two emitted artifacts but never considered **reject `stderr.txt`**, and
+two reject goldens DO carry board-prefixed labels (`frdm_cs_clash`,
+`nucleo_wifi_logger`). Traced rather than assumed: all four sites that
+print a socket in a diagnostic (`analyzer/addresses.py:243,245`,
+`analyzer/gpio.py:241,249`) render `socket.label` — the board's DEFINING
+label — never the content's string, so they are insulated for the same
+reason the overlay is. This matters because `stderr.txt` is byte-exact
+PERMANENTLY by ruling: a churn there is a product decision, not a
+refreeze.
+
+### NEXT, in order
+
+1. **Review the S5 dispatch** (see STATE — it was live at close). Then
+   S5's own commit.
+2. **S6 — strict symmetry**, and it now carries an extra piece:
+   `board:` out of rig.yml, variants collapse to topology-only,
+   `RIG_BOARD` + the 19 goldens refreeze as a classified step, **plus
+   `ard_datalogger`'s collapse and the `sockets:` map vocabulary's
+   retirement** (ruled 2026-08-06, recorded in §9.5 step 6).
+3. Then the standing queue: **rig-schema.yaml** (backlog item 7),
+   **shield plurality**, **BRIDLE MIGRATION**.
+
+Off-sequence and unblocked: **§9.6's params CLI grammar**
+(`<device>.<prop>=<value>`, composing with `@`) — the vocabulary blocker
+is ruled, the grammar is unwritten, and S4 records its absence as an
+asserted exclusion set that shrinks when it lands. Plus **the i2c-port
+binding decision** above, and **the tutorial playground**.
+
+**The dispatch contract from 2026-08-06a still stands** and worked twice
+more today. `rig-implementor.md` still says "run `check.sh`" and still
+points at the stale `/wrk/z/ws-up/claude/rigs/`; correct both in every
+prompt. **Note it is also not loaded as an agent type from this project
+root** — it lives in `btr-shields/.claude/agents/`, so dispatches run as
+`general-purpose` on sonnet with a self-contained prompt.
+
+## RESUME (2026-08-06b, superseded) — S3 LANDED (BOTH HALVES). §9.6 RULED. NEXT = S4, AND ITS BRIEF IS WRITTEN.
 
 ### STATE AT SESSION CLOSE (2026-08-06b)
 
