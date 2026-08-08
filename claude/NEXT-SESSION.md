@@ -1,6 +1,215 @@
 # Rigs — Session Handoff
 
-## RESUME (2026-08-06d) — §9.5 IS COMPLETE. S6 LANDED. NEXT = RETIRE THE BOARD GRAMMAR.
+## RESUME (2026-08-08) — BOARD-AS-COORDINATE IS **DONE**. TWISTER IS IN. NEXT = §9.6 PART 1, ALREADY BRIEFED.
+
+### STATE AT SESSION CLOSE (2026-08-08)
+
+btr-shields HEAD **`4a6c701`**. Tree clean.
+
+**`main` is ahead 7 of origin, NOT pushed — and the previous block's
+"ahead 27+1" was STALE.** `origin/main` had moved to `7a9d760` since:
+those 27 got pushed at some point outside a session. **Read the number
+from `git rev-list --count origin/main..main`, never from a prior
+handoff.** Today's seven are the only unpushed commits.
+
+**Gate, driver-verified, FULL, after every slice:** mypy **94**, unit
+**599**, integration **187**, coverage **92%** vs the 88 floor.
+
+The unit/integration counts went 617→627→599 and 184→194→187 across the
+day: the socket grammar ADDED tests, the board-grammar retirement deleted
+41 test functions whose subjects ceased to exist. **A falling count is
+correct here** — read it against what was deleted, not as a regression.
+
+| commit | what |
+|---|---|
+| `6c8e14e` | twister: rig board targets loadable + first shield suite |
+| `8b6a1f1` | twister: the remaining promotable shields, and why only two |
+| `8887163` | `--boards-for` resolves promoted shields |
+| `12e91e7` | rigc's workdir moves into `--out-dir`, out of /tmp |
+| `bde0b0a` | **`--rig <shield>:socket=<label>`** + four mikrobus suites |
+| `7c724bd` | **the board declaration grammar is RETIRED** |
+| `4a6c701` | doc: the param-vocabulary brief + backlog corrections |
+
+### THE DIRECTION IS FINISHED — backlog item 10 is DONE
+
+"The board is no longer part of the rig definition" is now literally
+true. §9.5's six slices made it an independent coordinate and emptied the
+corpus; `7c724bd` retired the grammar itself. **Nothing in rig.yml names
+a board.** `resolve_board`'s five S2 coherence rules, `reject_metadata_
+keys`, `variant_metadata_differs`, list_rigs' whole board-resolution half
+and the `--boards-for` placeholder wart are all gone.
+
+### TWISTER INTEGRATION TESTING EXISTS NOW — `tests/shields/`, 7 suites
+
+New top-level `tests/` (twister territory — the python tests stay in
+`scripts/rigc/tests`). Run it:
+
+```
+west twister -p frdm_k64f/mk64f12/rig -p nucleo_f401re/stm32f401xe/rig \
+             -p mikroe_quail/stm32f427xx/rig -T btr-shields/tests
+=> 7 scenarios (21 configurations), 10 built (not run), 11 filtered
+```
+
+**The bug that blocked it, and it fails SILENTLY:** twister's legacy
+board-yaml loader resolves each file by looking its `identifier` up in the
+board-target alias table (`platform.py:322-329`) and `continue`s on a
+miss. That table only holds SLASH-form targets. All four rig extension
+yamls spelled it with underscores (`frdm_k64f_mk64f12_rig`), so every
+`/rig` platform was dropped without a word — the only symptom was a
+downstream "unrecognized platform". Every one of zephyr's 843
+slash-carrying board yamls uses the target form. **Nothing else was
+missing**: `board.yml`'s extend/variants was correct, and the module's
+`board_root` IS honoured by twister (`environment.py:436-442`).
+
+**`seeeduino_lotus` is NOT a twister platform here** and that is not a
+twister problem: its base board lives in `bridle`, which this workspace's
+`west.yml` does not import. The cmake side finds bridle by another route
+(the build log says "Loading Bridle default modules"), which is why
+`--boards-for lotus_buttons` still answers.
+
+### WHY ONLY 7 SUITES — the census, probed not reasoned
+
+3 of 14 shields were promotable when the day started; 7 by the end. Each
+exclusion was probed with `west build-rig --cmake-only`:
+
+- **`grove_btn`, `pilot_alt_button`** — required `shield,params`. §9.6.
+- **`eth_click`, `flash_click`, `temp_click`, `temp_hum_click`** — plug
+  mikrobus, quail offers FOUR. **A THIRD category nobody had named: blocked
+  by socket AMBIGUITY, not params** — and the params grammar would never
+  have unblocked them. `:socket=` did, same day.
+- **`grove_led`, `grove_light`, `grove_servo`** — plug grove; only lotus
+  has grove sockets, and it has NINE, so the ambiguity refusal would apply
+  even if bridle were in the manifest. Two independent blockers.
+- **`i2c_sensor`** — plugs `i2c-port`, which no BOARD offers; only
+  `i2c_mux` does, as a carrier. Not promotable standalone anywhere.
+- **`adafruit_winc1500`** — `error[phys-position]` on `wifi: irq-gpios`.
+  Already S4's one `EXPECTED_REJECTING` shield.
+
+`i2c_mux` needs `CONFIG_I2C_TCA954X=n`: promoted alone the mux has NO
+channel nodes (its four channels are SOCKETS with nothing plugged in), and
+zephyr's `i2c_tca954x.c` cannot compile against a childless mux
+(`tca954x_channel_init` is referenced only from `TCA954x_CHILD_DEFINE` →
+`-Werror=unused-function`). No application Kconfig fixes it. Behind that
+wall is a second: both its init priorities default to `I2C_INIT_PRIORITY`
+while the driver `BUILD_ASSERT`s a strict channel > root, so a TCA954x
+never builds on stock defaults at all.
+
+### RULINGS (Tobi, 2026-08-08)
+
+1. **Promotion options are PROMOTION-ONLY.** A persisted rig has N
+   instances, so `socket=` could not say which. Refused by `list_rigs` so
+   the cmake seam and both query surfaces share one message.
+2. **`socket` alone to start**, everything else later. `_PROMOTION_OPTS`
+   is a closed tuple.
+3. **Explicit `key=value`, no bare-word shorthand.**
+   `flash_click:quail_sock1` is an error naming the known keys.
+4. **`dt-includes:` retires WHOLESALE** — §9.6's "gains a second source"
+   widened to "the source MOVES". See below.
+5. **Keep the `phys-board` move** for the no-board-anywhere diagnostic.
+6. **A stray retired key is SILENTLY IGNORED for now.** Schema tightening
+   for rig.yml AND shield.yml is queued as its own slice (backlog item 7,
+   which grew to hold this debt).
+
+### NEXT — §9.6 PART 1 IS BRIEFED AND READY TO DISPATCH
+
+**`claude/param-vocabulary-brief.md`.** The parameter vocabulary moves to
+the shield that declares the parameter:
+
+```dts
+shield,params = "zephyr,code";
+shield,param-includes = "zephyr/dt-bindings/input/input-event-codes.h";
+```
+
+**Ruling 4 came from a measurement, and it is worth re-reading before
+touching this:** under the narrow "second source" reading, rig-level
+`dt-includes:` would have had **ZERO live users** — exactly one corpus rig
+declares it (`lotus_buttons`, for the very case this moves), and the only
+other param assignment in the corpus is a bare integer literal that
+`is_int_literal` short-circuits. Three of six fixture users exist only to
+test the grammar. Same shape as `board:`.
+
+**The rejected alternative fails SILENTLY, which is why the brief records
+it:** recovering the shield's own `#include`s via `source_files()` would
+never find `input-event-codes.h`, because a macro-only header contributes
+no node and no property. `linemarker_files()` does see it but drags in
+every transitively opened header — `zephyr,code: GPIO_ACTIVE_HIGH` would
+then resolve, weakening the exact rules the machinery enforces.
+
+**Its load-bearing criterion:** `goldens/lotus_buttons/context.cmake`
+byte-UNCHANGED. `RIG_DEPENDS` reaches that header through the RIG today
+and must reach it through the SHIELD after, or editing a keycode header
+stops retriggering configure.
+
+Then **part 2**: the `<device>.<prop>=<value>` CLI surface. Its slot
+exists — `_PROMOTION_OPTS` is the closed set it joins, and `:` is already
+the separator PRECISELY because `zephyr,code` contains a comma. Part 2's
+acceptance criterion is S4's `EXCLUDED` assertion
+(`test_singleton_identity_law.py:177`) SHRINKING; it must not shrink in
+part 1.
+
+Then the standing queue: **rig-schema.yaml** (item 7, now carrying the
+unknown-key debt for two retired grammars), **shield plurality**,
+**BRIDLE MIGRATION**.
+
+### LESSONS THIS SESSION, each paid for
+
+- **The brief's scope list was INCOMPLETE AGAIN** — six modules
+  (`loader/axes.py`, `loader/fragments.py`, `loader/documents.py`,
+  `cli.py`, `promote.py`, `cmake/boards.cmake`) were invalidated and none
+  were named. The dispatch found them by RUNNING mypy/pytest, not reading
+  the diff. The rule holds; the discipline is to run.
+- **A test can pass for the wrong reason and only mutation shows it.** The
+  new `:socket` variant-refusal test asserted `returncode != 0` and
+  `"variant" in stderr` — which still passed with `check_promotable`
+  deleted, because the LOADER rejects a variant anyway, later and for an
+  unrelated reason. It now asserts `check_promotable`'s own sentence.
+- **An existing whole-line golden test caught a real bug in new code.**
+  `{PROMOTED}` first rendered the revision too; since `{REVISION}` already
+  travels as `--revision`, that desugared to `shield: i2c_sensor@2@2`.
+  `test_cmakeformat_line_for_a_revved_promoted_shield` failed because it
+  pins the WHOLE line, not just the key under test.
+- **A reused build dir gives a FALSE NEGATIVE.** Four "failures" of the
+  socket grammar were a stale `-d` directory keeping the old cached `RIG`.
+  Remove the build dir at the START of a probe loop, not the end.
+- **The /tmp pile was NOT a leak.** D10 keeps the workdir on every
+  non-zero exit ON PURPOSE (a cpp failure's diagnostic quotes a path
+  inside it). `test_emitted_rejects.py` alone creates exactly 39 per run.
+  The defect was that it ESCAPED pytest's `tmp_path`; it now lives at
+  `<--out-dir>/rigc-generated` and is reaped by whatever owns the build
+  dir. Verified: full integration run, `/tmp/rigc-*` 331 → 331.
+- **Counting files vs counting lines, a third time.** The S6 brief's "36
+  fixture rigs declare `board:`" was a repeated VALUE line; the truth was
+  45 files + 2. Re-derive every count and cite the command.
+
+### DISPATCH CONTRACT — one correction to the old note
+
+**`rig-implementor` IS available as an agent type from this project root**
+(the previous block said it is not, and dispatches run as
+`general-purpose`). It was used successfully today with an explicit
+`model: sonnet`. Its definition still says "run `check.sh`" and still
+points at the stale `/wrk/z/ws-up/claude/rigs/` — **correct both in every
+prompt** until someone edits the file. The reduced contract (implementor
+runs mypy + unit + non-build integration + the named build modules; the
+driver runs the full gate once, after review) worked again.
+
+`RIGC_REFREEZE=1` is still BLOCKED by the harness permission classifier.
+
+### OPEN, CARRIED
+
+- **`AxisDecl.boards`/`.sockets`** are dead fields kept under the
+  `model.py` freeze. **`{BOARD}`** stays in the cmakeformat contract,
+  unconditionally `NOTFOUND`, with a test pinning it.
+- **331 stale `/tmp/rigc-*` directories** from before `12e91e7`. Harmless,
+  never cleaned — say so before deleting.
+- **The i2c-port binding decision** (production
+  `dts/bindings/connectors/i2c-port.yaml` never declares `socket,i2c`; the
+  S4 fixture board carries a patched local copy). Still Tobi's call.
+- **The tutorial playground honesty debt** — `acme-rigs` in tutorials
+  2/3/5/6 is narrative, not tree content.
+- `doc/tutorials/give-a-board-a-socket.rst` is still accurate but does not
+  mention that `--boards-for` takes a shield name now.
+
+## RESUME (2026-08-06d, superseded) — §9.5 IS COMPLETE. S6 LANDED. NEXT = RETIRE THE BOARD GRAMMAR.
 
 ### STATE AT SESSION CLOSE (2026-08-06d)
 
