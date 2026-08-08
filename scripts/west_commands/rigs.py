@@ -112,12 +112,16 @@ class Rigs(WestCommand):
                             help='''a regular expression; only rigs whose names
                             match NAME_RE will be listed''')
         parser.add_argument(
-            '--boards-for', metavar='RIG_TARGET', default=None,
+            '--boards-for', metavar='TARGET', default=None,
             help='''instead of listing rigs, print the boards whose typed
-                 sockets satisfy RIG_TARGET (name[@rev][/variant]): mating,
+                 sockets satisfy TARGET (name[@rev][/variant]): mating,
                  bus-subset exposure, alias-aware reference resolution and
                  stackability, censused from board rig-extension SOURCES
-                 (no cmake configure). This is NOT a promise the rig
+                 (no cmake configure). TARGET is resolved against BOTH
+                 namespaces, exactly as --explain resolves it: a persisted
+                 rig, or a discoverable shield promoted to one -- so
+                 "which boards can host this shield?" is askable without a
+                 rig existing for it. This is NOT a promise the rig
                  actually builds on a listed board -- GPIO position
                  routing, CS-pool allocation, address domains and net
                  analysis need the board's real devicetree, which this
@@ -184,11 +188,58 @@ class Rigs(WestCommand):
                 if rig.variants else '',
             ))
 
+    def _shield_dirs(self, args):
+        """The shield namespace at the SAME breadth as the rig namespace:
+        `<root>/boards/shields` for every board root do_run resolved,
+        never `discover_shields`' own vendored-library default. That
+        default was the S3a defect (a cross-module shield invisible to
+        --explain and therefore silently uncollidable), so both callers
+        below pass this explicitly. A root with no `boards/shields`
+        contributes nothing."""
+        return [str(Path(root) / 'boards' / 'shields')
+                for root in args.board_roots]
+
+    def _resolve_both_namespaces(self, args, target):
+        """The board-coordinate-s3-brief.md Sec 5 namespace rule, shared
+        by --explain and --boards-for: a rig FOLDER wins, a shield name is
+        the fallback, a name that is BOTH is an error naming both paths.
+        Returns (name, revision, variant, shield_info-or-None); a None
+        shield means the caller should fall through to
+        list_rigs.resolve_rig_target, which owns the "neither" exit.
+
+        Shared rather than written twice on purpose. Sec 5's rule is a
+        property of the TARGET GRAMMAR, not of either flag, so two copies
+        could disagree about which namespace wins or whether a collision
+        is an error -- and `west rigs --explain X` succeeding while
+        `--boards-for X` reported "does not resolve to a rig" was exactly
+        the divergence this method was extracted to end.
+
+        Exits non-zero (never returns) on a collision or on a shield that
+        cannot be promoted -- `check_promotable` is what refuses
+        "/variant" on a shield, which has no variant axis to select."""
+        from rigc import promote
+
+        name, revision, variant = list_rigs.parse_rig_target(target)
+        rig = next((r for r in list_rigs.find_rigs(args) if r.name == name),
+                   None)
+        shields = promote.discover_shields(self._shield_dirs(args))
+
+        if rig is not None and name in shields:
+            sys.exit('ERROR: ' + promote.both_paths_error(
+                name, rig.dir, shields[name].dir))
+
+        if name in shields:
+            err = promote.check_promotable(name, shields[name], variant)
+            if err is not None:
+                sys.exit(f'ERROR: {err}')
+            return name, revision, variant, shields[name]
+
+        return name, revision, variant, None
+
     def _boards_for(self, args):
-        """`--boards-for`'s implementation: resolve RIG_TARGET exactly as
-        the cmake seam does (list_rigs.resolve_rig_target, which itself
-        sys.exit()s with its own message on an unresolved target -- never
-        re-derived here), load it standalone (no --include-dir: rigc.
+        """`--boards-for`'s implementation: resolve TARGET against
+        BOTH namespaces (_resolve_both_namespaces, the same Sec 5 rule
+        --explain applies), load it standalone (no --include-dir: rigc.
         loader.load runs this way unassisted, and the connector-type
         registry finds its own bindings by default), then run board_
         census.boards_for against every censused board rig-extension.
@@ -196,6 +247,21 @@ class Rigs(WestCommand):
         exit 0, when none conform -- an empty answer is a fact, not an
         error. A rig that fails to LOAD renders its own diagnostics to
         stderr and exits 1, same convention rigc's own CLI uses.
+
+        A PROMOTED SHIELD is materialized the way `rigc expand --promote`
+        materializes it (cli.py): promote.promote_shield's two synthesized
+        documents are written into this run's workdir and loaded by path,
+        so everything downstream runs on a real rig.yml at a real path and
+        the census cannot tell the two namespaces apart. The shield's own
+        revision is baked into the content's `shield:` reference there, so
+        it is never ALSO passed to loader.load as a rig-level selection --
+        a promoted rig declares no revisions: axis of its own.
+
+        Answering a promoted shield is the point of the flag, not an
+        extra: a shield is exactly the case where "which boards can host
+        this?" has no other way to be asked. Until this landed, every
+        shield name exited 1 with list_rigs' "does not resolve to a rig",
+        which read as "no such thing" rather than "wrong namespace".
 
         board IS injected, as of S6 (board-coordinate-s6-brief.md Sec 3):
         no corpus rig declares one any more, so loader.load would
@@ -218,19 +284,38 @@ class Rigs(WestCommand):
 
         # rigc lives beside list_rigs under _SCRIPTS, already on sys.path
         # (module top, above) for that import -- nothing further to add.
-        from rigc import board_census, loader
+        from rigc import board_census, loader, promote
         from rigc.diag import has_errors, render
         from rigc.registry import load_types
 
-        rig_target = list_rigs.resolve_rig_target(args.boards_for, args)
-        rig_yml = rig_target.dir / list_rigs.RIG_YML
+        name, revision, variant, shield = self._resolve_both_namespaces(
+            args, args.boards_for)
 
         types, _types_deps = load_types()
         workdir = tempfile.mkdtemp(prefix='rigs-boards-for-')
         try:
+            if shield is not None:
+                promoted = promote.promote_shield(name, revision)
+                rig_yml = os.path.join(workdir, list_rigs.RIG_YML)
+                with open(rig_yml, 'w') as f:
+                    f.write(promoted.rig_yml)
+                with open(os.path.join(workdir, promoted.content_name),
+                          'w') as f:
+                    f.write(promoted.content)
+                revision = None
+            else:
+                # Not a shield name at all: an ordinary rig target,
+                # including the "does not resolve" exit
+                # list_rigs.resolve_rig_target already owns -- reused
+                # verbatim rather than a second message.
+                rig_target = list_rigs.resolve_rig_target(args.boards_for, args)
+                rig_yml = str(rig_target.dir / list_rigs.RIG_YML)
+                revision, variant = rig_target.revision, rig_target.variant
+
             rig, diags, _rig_deps = loader.load(
-                str(rig_yml), workdir, types=types,
-                revision=rig_target.revision, variant=rig_target.variant,
+                rig_yml, workdir, types=types,
+                shield_dirs=self._shield_dirs(args),
+                revision=revision, variant=variant,
                 board=_BOARDS_FOR_PLACEHOLDER_BOARD)
         finally:
             # D10's rule: this command never leaves a workdir behind,
@@ -251,15 +336,12 @@ class Rigs(WestCommand):
 
     def _explain(self, args):
         """`--explain`'s implementation (board-coordinate-s3-brief.md Sec
-        6): resolve TARGET against BOTH namespaces -- a persisted rig
-        (list_rigs.find_rigs, keyed by rig.yml's own name:) and a
-        discoverable shield (rigc.promote.discover_shields, the SAME
-        scan loader/library.py's own resolve() uses) -- per the Sec 5
-        namespace rule: a rig folder wins, a shield name is the
-        fallback, a name that is BOTH is an error naming both paths.
-        "Neither" is never a message of this method's own: it falls
-        through to list_rigs.resolve_rig_target, reusing its existing
-        "does not resolve" exit rather than inventing a second one.
+        6): resolve TARGET against BOTH namespaces via
+        _resolve_both_namespaces (the Sec 5 rule, shared with
+        --boards-for). "Neither" is never a message of this method's own:
+        it falls through to list_rigs.resolve_rig_target, reusing its
+        existing "does not resolve" exit rather than inventing a second
+        one.
 
         No cmake, no cpp, no board here: a promoted shield's two
         documents are pure text (promote.promote_shield never touches a
@@ -270,25 +352,10 @@ class Rigs(WestCommand):
         from rigc import promote
         from rigc.loader.documents import content_file_name
 
-        name, revision, variant = list_rigs.parse_rig_target(args.explain)
-        rigs = list_rigs.find_rigs(args)
-        rig = next((r for r in rigs if r.name == name), None)
-        # BOTH namespaces at the SAME breadth. find_rigs walks every module
-        # board root (do_run appends them above), so the shield scan must
-        # too -- discover_shields' own default is the vendored library
-        # alone, and using it here would make a shield in another module
-        # invisible to --explain AND silently uncollidable, which is the
-        # namespace rule failing open rather than erroring.
-        shields = promote.discover_shields(
-            [str(Path(root) / 'boards' / 'shields') for root in args.board_roots])
+        name, revision, _variant, shield = self._resolve_both_namespaces(
+            args, args.explain)
 
-        if rig is not None and name in shields:
-            sys.exit(f'ERROR: {promote.both_paths_error(name, rig.dir, shields[name].dir)}')
-
-        if name in shields:
-            err = promote.check_promotable(name, shields[name], variant)
-            if err is not None:
-                sys.exit(f'ERROR: {err}')
+        if shield is not None:
             promoted = promote.promote_shield(name, revision)
             self._print_pair(('rig.yml', promoted.rig_yml),
                              (promoted.content_name, promoted.content))

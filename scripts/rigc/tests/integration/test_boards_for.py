@@ -72,6 +72,97 @@ def test_boards_for_an_unresolved_rig_target_is_a_nonzero_exit_with_list_rigs_ow
     assert "does not resolve to a rig" in result.stderr
 
 
+def test_boards_for_a_promoted_shield_answers_the_same_boards_as_the_rig_it_stands_for() -> None:
+    """--boards-for resolves BOTH namespaces (the Sec 5 rule --explain
+    already applied), and the expectation comes from OUTSIDE this query:
+    `ard_datalogger` is the corpus rig that is one adafruit_data_logger on
+    an arduino_r3 socket, so the promoted shield -- one SOCKET-LESS
+    instance of the same shield, inferring that socket -- must answer
+    exactly the same boards. This is the singleton identity law's shape
+    at query level: asserting a hand-written board list instead would
+    pass just as well against a promotion that silently resolved
+    something else, and would have to be re-edited every time a board
+    gains an arduino_r3 socket.
+
+    Both answers are also asserted NON-EMPTY: "" == "" is what this
+    comparison degrades to the moment promotion stops resolving at all,
+    which is precisely the regression it exists to catch."""
+    promoted = _run("--boards-for", "adafruit_data_logger")
+    assert promoted.returncode == 0, (
+        f"--boards-for adafruit_data_logger: exit {promoted.returncode}\n"
+        f"{promoted.stderr}")
+
+    persisted = _run("--boards-for", "ard_datalogger")
+    assert persisted.returncode == 0, persisted.stderr
+
+    assert promoted.stdout.split(), (
+        "the promoted shield answered NO board -- the comparison below "
+        f"would be vacuous\n--- stderr ---\n{promoted.stderr}")
+    assert promoted.stdout.split() == persisted.stdout.split()
+
+
+def test_boards_for_a_promoted_shield_whose_socket_is_ambiguous_answers_nothing() -> None:
+    """An empty answer is a fact, not an error -- and it must stay
+    reachable for a SHIELD, not just a rig. flash_click plugs mikrobus;
+    the only mikrobus board (mikroe_quail) offers FOUR such sockets, and a
+    promotion desugars to a socket-less instance, so the existing
+    unique-by-type inference rule correctly refuses to pick one.
+
+    The control is what makes this mean anything: quail must be censused
+    and answering in the same run, or an empty answer would prove only
+    that the board went missing. quail_temp_farm (a persisted mikrobus
+    rig, socket named explicitly) is that control."""
+    result = _run("--boards-for", "flash_click")
+    assert result.returncode == 0, (
+        f"--boards-for flash_click: exit {result.returncode}\n{result.stderr}")
+    assert result.stdout.strip() == ""
+
+    control = _run("--boards-for", "quail_temp_farm")
+    assert control.stdout.strip() == "mikroe_quail/stm32f427xx/rig", (
+        "the mikrobus board is not being censused at all, so flash_click's "
+        f"empty answer proves nothing\n--- stdout ---\n{control.stdout}")
+
+
+def test_boards_for_a_variant_on_a_promoted_shield_is_refused() -> None:
+    """A promoted shield has no variant axis to select, and --boards-for
+    refuses one for the same reason --explain does -- the SAME
+    check_promotable call, reached through the shared namespace
+    resolution rather than a second copy of the rule.
+
+    Asserting only `returncode != 0` and the word "variant" would be
+    VACUOUS here, and mutation-checking showed it: delete the
+    check_promotable call and this path still exits non-zero with
+    "variant" in stderr, because the LOADER then rejects a variant
+    selection on a rig that declares no variants: axis. Two different
+    refusals, one of which is the wrong one -- the loader's fires only
+    after a workdir, a shield-library scan and a full parse, and says
+    nothing about promotion. So the assertion is check_promotable's own
+    sentence, which no other code path in the tree emits."""
+    result = _run("--boards-for", "adafruit_data_logger/some_variant")
+    assert result.returncode != 0
+    assert "a promoted shield has no variant axis to select from" in result.stderr, (
+        "refused, but not by check_promotable -- see this test's docstring"
+        f"\n--- stderr ---\n{result.stderr}")
+
+
+def test_boards_for_a_name_that_is_both_a_rig_and_a_shield_is_an_error_naming_both(
+        tmp_path) -> None:
+    """The Sec 5 collision, now that --boards-for resolves both
+    namespaces: it must ERROR rather than silently pick one. Constructed
+    the same way test_explain.py constructs it -- a scratch --board-root
+    carrying a rig folder named after a REAL shield, additive only, never
+    a mutation of tracked content."""
+    rig_dir = tmp_path / "boards" / "rigs" / "adafruit_data_logger"
+    rig_dir.mkdir(parents=True)
+    (rig_dir / "rig.yml").write_text("rig:\n  name: adafruit_data_logger\n")
+
+    result = _run("--boards-for", "adafruit_data_logger",
+                  "--board-root", str(tmp_path))
+    assert result.returncode != 0
+    assert "both" in result.stderr
+    assert str(rig_dir) in result.stderr
+
+
 def test_west_rigs_with_no_flag_still_lists_every_rig_unchanged() -> None:
     """Acceptance criterion 2: --boards-for absent behaves exactly as
     today -- the same rig NAMES, one per line. Asserting the count alone

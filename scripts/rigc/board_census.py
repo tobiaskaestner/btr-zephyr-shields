@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: Apache-2.0
 """A text-only census of board rig-extensions, and the query it answers:
-`west rigs --boards-for <rig-target>` (board-coordinate-s2-brief.md).
+`west rigs --boards-for <target>` (board-coordinate-s2-brief.md).
+
+This module is namespace-agnostic and stays that way: `boards_for` takes a
+loaded `Rig`, so whether the caller got that Rig from a persisted rig.yml
+or from a promoted shield's synthesized pair is settled entirely in
+rigs.py before anything here runs. Nothing below needs to learn the
+difference.
 
 **The claim, bounded** (brief Sec 3): reading a board's REAL devicetree
 needs cpp + edtlib + a BuildRecipe, and every board this tooling can build
