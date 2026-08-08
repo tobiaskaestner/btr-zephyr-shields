@@ -1,17 +1,15 @@
 # Dual-host rig: two BOARDS (nucleo_f401re, frdm_k64f) build the SAME
-# board-agnostic content file below, each supplying its own board and
-# socket map under its own variant entry rather than a single top-level
-# board: -- the shape this metadata/content split exists to enable. The
-# folder deliberately breaks the corpus's own <board>_<purpose> naming
-# convention: this rig has no single board to name.
+# board-agnostic content file below, neither one declared here -- board
+# leaves rig.yml entirely (board-coordinate-s6-brief.md Sec 5), so this
+# rig has no variants: axis at all, just like every other rig in the
+# corpus. What used to distinguish "nucleo" from "frdm" was two boards'
+# own spelling of the same connector (sockets: {ard: nucleo_ard} vs
+# {ard: frdm_ard}); S5 gave both boards the SAME conventional alias
+# (arduino_r3), so content.yml below now names that directly and the
+# per-variant sockets: map has nothing left to translate. The folder
+# deliberately breaks the corpus's own <board>_<purpose> naming
+# convention: this rig has no single board to name -- the invocation
+# supplies one, exactly like every other rig, but this is the one case
+# in the corpus actually exercised on two different real boards.
 rig:
   name: ard_datalogger
-  variants:
-    default: nucleo
-    list:
-      - name: nucleo
-        board: nucleo_f401re/stm32f401xe/rig
-        sockets: {ard: nucleo_ard}
-      - name: frdm
-        board: frdm_k64f/mk64f12/rig
-        sockets: {ard: frdm_ard}

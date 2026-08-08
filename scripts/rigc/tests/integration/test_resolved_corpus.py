@@ -40,12 +40,14 @@ import yaml
 
 from conftest import (
     ACCEPT_CASES,
+    ARD_DATALOGGER_FRDM_BOARD,
     DTS_EQUIV,
     FIXTURES_DIR,
     GOLDENS_DIR,
     REFREEZE,
     REJECT_CASES,
     REPO_ROOT,
+    RIG_BOARD,
     RigCase,
     WEST_EXE,
     WEST_TOPDIR,
@@ -53,7 +55,6 @@ from conftest import (
     normalize_dts_provenance,
     plain_build_for,
     render_argv,
-    rig_board_name,
     subprocess_timeout,
     zephyr_base,
 )
@@ -75,15 +76,29 @@ _APP = "zephyr/samples/hello_world"
 
 
 def _run_build(rig_name: str, build_dir: Path,
-                extra_defines: Optional[List[str]] = None) -> "subprocess.CompletedProcess[str]":
+                extra_defines: Optional[List[str]] = None,
+                board: Optional[str] = None) -> "subprocess.CompletedProcess[str]":
     """west build-rig --cmake-only for one rig — a temp build dir; -p
     always wipes it, so nothing durable may be read back from build_dir
     beyond this one process's own output. extra_defines is threaded after
     -- -- empty for every rig except the lotus ones, whose board needs
-    -DEXTRA_ZEPHYR_MODULES=<bridle_root>."""
+    -DEXTRA_ZEPHYR_MODULES=<bridle_root>.
+
+    board threads west's own -b/--board (rig.py: "the board defaults to
+    the rig's own ... or pass -b/--board yourself to override it -- given
+    wins, whatever the rig declares"). Since S6
+    (board-coordinate-s6-brief.md Sec 3) no corpus rig declares one at
+    all any more, every corpus call site now passes this -- the harness
+    IS the invocation supplying what the declaration used to. Omitted
+    (None) only for a fixture rig that still declares its own board
+    (outside boards/rigs/, untouched by S6's census)."""
     cmd = [
-        WEST_EXE, "build-rig", "--rig", rig_name, _APP,
-        "--cmake-only", "-p", "always", "-d", str(build_dir),
+        WEST_EXE, "build-rig", "--rig", rig_name,
+    ]
+    if board is not None:
+        cmd += ["-b", board]
+    cmd += [
+        _APP, "--cmake-only", "-p", "always", "-d", str(build_dir),
     ]
     if extra_defines:
         cmd += ["--", *extra_defines]
@@ -95,8 +110,8 @@ def _run_build(rig_name: str, build_dir: Path,
 @pytest.mark.parametrize("case", ACCEPT_CASES, ids=lambda c: c.name)
 def test_resolved_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
     build_dir = tmp_path / "build"
-    extra = board_extra_defines(rig_board_name(case.name))
-    result = _run_build(case.name, build_dir, extra)
+    extra = board_extra_defines(case.board)
+    result = _run_build(case.name, build_dir, extra, board=case.board)
     assert result.returncode == 0, (
         f"{case.name}: expected `west build-rig --cmake-only` to configure "
         f"clean (an ACCEPT rig)\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
@@ -127,7 +142,7 @@ def test_resolved_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
 
 # ---------------------------------------------------------------- V1a: qualified pilot builds
 
-def _build_and_freeze_dts(rig_target: str, golden_name: str,
+def _build_and_freeze_dts(rig_target: str, golden_name: str, board: str,
                           tmp_path: Path) -> Path:
     """Shared body for the pilot family's three NON-default qualified tuples
     (the bare tuple already rides test_resolved_accept_zephyr_dts via
@@ -135,9 +150,17 @@ def _build_and_freeze_dts(rig_target: str, golden_name: str,
     accepts a FULL qualified target string verbatim (rig.py forwards it,
     zero rig knowledge), so no cmake/west-command change was needed for
     this to work. Returns the build dir for callers that need to inspect
-    more than zephyr.dts (e.g. .config)."""
+    more than zephyr.dts (e.g. .config).
+
+    board is required, not defaulted: since S6 no corpus rig declares one
+    (board-coordinate-s6-brief.md Sec 3), every qualified pilot/
+    shield-revision target below needs it injected explicitly -- every
+    caller here happens to share RIG_BOARD["pilot_variants"], since
+    qualifying a rig's revision/variant axis never changes which board it
+    builds against, but that is a fact about THIS corpus, not something
+    this helper should assume silently."""
     build_dir = tmp_path / "build"
-    result = _run_build(rig_target, build_dir)
+    result = _run_build(rig_target, build_dir, board=board)
     assert result.returncode == 0, (
         f"{rig_target}: expected `west build-rig --cmake-only` to configure "
         f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
@@ -171,12 +194,14 @@ def test_resolved_pilot_variant_b(tmp_path: Path) -> None:
     reach the real build (dts_equiv.py's structural comparison is what
     proves it, not just a text diff on the generated overlay)."""
     _build_and_freeze_dts("pilot_variants/variant_b",
-                          "pilot_variants_variant_b", tmp_path)
+                          "pilot_variants_variant_b",
+                          RIG_BOARD["pilot_variants"], tmp_path)
 
 
 def test_resolved_pilot_revision_2(tmp_path: Path) -> None:
     """variant_a (default) @ revision 2."""
-    _build_and_freeze_dts("pilot_variants@2", "pilot_variants_2", tmp_path)
+    _build_and_freeze_dts("pilot_variants@2", "pilot_variants_2",
+                          RIG_BOARD["pilot_variants"], tmp_path)
 
 
 def test_resolved_pilot_variant_b_revision_2(tmp_path: Path) -> None:
@@ -193,7 +218,8 @@ def test_resolved_pilot_variant_b_revision_2(tmp_path: Path) -> None:
     variant_b's own overlay marker node AND the combined fragment's own
     marker node must be visible in the generated zephyr.dts."""
     build_dir = _build_and_freeze_dts(
-        "pilot_variants@2/variant_b", "pilot_variants_variant_b_2", tmp_path)
+        "pilot_variants@2/variant_b", "pilot_variants_variant_b_2",
+        RIG_BOARD["pilot_variants"], tmp_path)
 
     dotconfig = (build_dir / "zephyr" / ".config").read_text()
     assert "CONFIG_MAIN_STACK_SIZE=2222" in dotconfig, (
@@ -226,7 +252,8 @@ def test_resolved_shield_rev_family_revision_2(tmp_path: Path) -> None:
     reports the resolved shield revision through context.cmake, dts.cmake
     turns that into a collected <name>_<rev>.conf), not just the loader."""
     build_dir = _build_and_freeze_dts(
-        "shield_rev_family@2", "shield_rev_family_2", tmp_path)
+        "shield_rev_family@2", "shield_rev_family_2",
+        RIG_BOARD["shield_rev_family"], tmp_path)
 
     zephyr_dts = (build_dir / "zephyr" / "zephyr.dts").read_text()
     assert "vnd,temp0x48v2" in zephyr_dts, (
@@ -249,7 +276,8 @@ def test_resolved_pilot_variant_c_shield_substitution(tmp_path: Path) -> None:
     the SUBSTITUTED shield's own node/property must be present, and the
     ORIGINAL shield's devices must be completely gone."""
     build_dir = _build_and_freeze_dts(
-        "pilot_variants/variant_c", "pilot_variants_variant_c", tmp_path)
+        "pilot_variants/variant_c", "pilot_variants_variant_c",
+        RIG_BOARD["pilot_variants"], tmp_path)
 
     zephyr_dts = (build_dir / "zephyr" / "zephyr.dts").read_text()
     assert "logger_pab_key" in zephyr_dts, (
@@ -275,7 +303,8 @@ def test_resolved_pilot_build_info_provenance(tmp_path: Path) -> None:
     same assertion shape as test_resolved_build_info_rig_provenance above,
     the established pattern for inspecting this block."""
     build_dir = tmp_path / "build"
-    result = _run_build("pilot_variants@2/variant_b", build_dir)
+    result = _run_build("pilot_variants@2/variant_b", build_dir,
+                        board=RIG_BOARD["pilot_variants"])
     assert result.returncode == 0, (
         f"pilot_variants@2/variant_b: expected `west build-rig --cmake-only` "
         f"to configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
@@ -305,7 +334,8 @@ def test_resolved_shield_revision_conf_collected(tmp_path: Path) -> None:
     revision after, matching the DT layering) -- distinguishable from any
     rig-level fragment's own MAIN_STACK_SIZE choice by its value alone."""
     build_dir = tmp_path / "build"
-    result = _run_build("shield_rev_pilot", build_dir)
+    result = _run_build("shield_rev_pilot", build_dir,
+                        board=RIG_BOARD["shield_rev_pilot"])
     assert result.returncode == 0, (
         f"shield_rev_pilot: expected `west build-rig --cmake-only` to "
         f"configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
@@ -328,8 +358,8 @@ def test_resolved_shield_revision_conf_collected(tmp_path: Path) -> None:
 @pytest.mark.parametrize("case", REJECT_CASES, ids=lambda c: c.name)
 def test_resolved_reject_configure_fails(case: RigCase, tmp_path: Path) -> None:
     build_dir = tmp_path / "build"
-    extra = board_extra_defines(rig_board_name(case.name))
-    result = _run_build(case.name, build_dir, extra)
+    extra = board_extra_defines(case.board)
+    result = _run_build(case.name, build_dir, extra, board=case.board)
     assert result.returncode != 0, (
         f"{case.name}: expected `west build-rig --cmake-only` to FAIL (a "
         f"REJECT rig) but it exited 0")
@@ -361,7 +391,8 @@ def test_resolved_user_extra_conf_wins_over_rig(tmp_path: Path) -> None:
 
     build_dir = tmp_path / "build"
     result = _run_build("nucleo_mux_farm", build_dir,
-                        [f"-DEXTRA_CONF_FILE={user_conf}"])
+                        [f"-DEXTRA_CONF_FILE={user_conf}"],
+                        board=RIG_BOARD["nucleo_mux_farm"])
     assert result.returncode == 0, (
         f"nucleo_mux_farm: expected `west build-rig --cmake-only` with a "
         f"user -DEXTRA_CONF_FILE to configure clean\n--- stdout ---\n"
@@ -390,8 +421,8 @@ def test_resolved_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
     pwms/io-channels line could pass even if the nexus itself were
     unresolvable."""
     build_dir = tmp_path / "build"
-    extra = board_extra_defines(rig_board_name("lotus_pwm"))
-    result = _run_build("lotus_pwm", build_dir, extra)
+    extra = board_extra_defines(RIG_BOARD["lotus_pwm"])
+    result = _run_build("lotus_pwm", build_dir, extra, board=RIG_BOARD["lotus_pwm"])
     assert result.returncode == 0, (
         f"lotus_pwm: expected `west build-rig --cmake-only` to configure "
         f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
@@ -433,7 +464,7 @@ def test_resolved_build_info_rig_provenance(tmp_path: Path) -> None:
     its first entry unless pre-JOINed -- a single-shield rig would not catch
     a regression in that join."""
     build_dir = tmp_path / "build"
-    result = _run_build("frdm_eth_nest", build_dir)
+    result = _run_build("frdm_eth_nest", build_dir, board=RIG_BOARD["frdm_eth_nest"])
     assert result.returncode == 0, (
         f"frdm_eth_nest: expected `west build-rig --cmake-only` to configure "
         f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
@@ -483,7 +514,7 @@ def test_resolved_build_info_shield_dir_collision(tmp_path: Path) -> None:
     list_shields.py happened to sort last. nucleo_datalogger is the
     corpus rig naming adafruit_data_logger, so it's the collision witness."""
     build_dir = tmp_path / "build"
-    result = _run_build("nucleo_datalogger", build_dir)
+    result = _run_build("nucleo_datalogger", build_dir, board=RIG_BOARD["nucleo_datalogger"])
     assert result.returncode == 0, (
         f"nucleo_datalogger: expected `west build-rig --cmake-only` to "
         f"configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
@@ -529,8 +560,8 @@ def test_resolved_rig_depends_provenance(tmp_path: Path) -> None:
     set_property(... APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ...) in
     dts.cmake is the whole of our contribution."""
     build_dir = tmp_path / "build"
-    extra = board_extra_defines(rig_board_name("lotus_pwm"))
-    result = _run_build("lotus_pwm", build_dir, extra)
+    extra = board_extra_defines(RIG_BOARD["lotus_pwm"])
+    result = _run_build("lotus_pwm", build_dir, extra, board=RIG_BOARD["lotus_pwm"])
     assert result.returncode == 0, (
         f"lotus_pwm: expected `west build-rig --cmake-only` to configure "
         f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
@@ -550,16 +581,19 @@ def test_resolved_rig_depends_provenance(tmp_path: Path) -> None:
             "seeeduino_lotus_samd21g18a_rig.dts") in depends_line
 
 
-# ---------------------------------------------------------------- board-per-variant
+# ---------------------------------------------------------------- dual-host (S6 collapse)
 
 
 def test_resolved_ard_datalogger_frdm(tmp_path: Path) -> None:
-    """ard_datalogger's frdm variant, through a REAL build: the bare/
-    default (nucleo) tuple already rides test_resolved_accept_zephyr_dts via
-    ACCEPT_CASES; this proves the SAME content also configures clean
-    through the OTHER declared board, with no fragment file collected for
+    """ard_datalogger on its SECOND board, through a REAL build: the
+    primary (nucleo) tuple already rides test_resolved_accept_zephyr_dts
+    via ACCEPT_CASES; this proves the SAME rig.yml/content pair also
+    configures clean through the OTHER board (S6's collapse retired the
+    variants: axis entirely -- this is now just a different --board on
+    the identical, variant-less rig), with no fragment file collected for
     it at all (there is none to collect)."""
-    _build_and_freeze_dts("ard_datalogger/frdm", "ard_datalogger_frdm", tmp_path)
+    _build_and_freeze_dts("ard_datalogger", "ard_datalogger_frdm",
+                          ARD_DATALOGGER_FRDM_BOARD, tmp_path)
 
 
 def test_resolved_ard_datalogger_dual_host_d10(tmp_path: Path) -> None:
@@ -574,17 +608,20 @@ def test_resolved_ard_datalogger_dual_host_d10(tmp_path: Path) -> None:
     via each build's own edt.pickle (pass-2 ground truth), not the
     generated overlay's text."""
     nucleo_dir = tmp_path / "build-nucleo"
-    result = _run_build("ard_datalogger", nucleo_dir)
+    result = _run_build("ard_datalogger", nucleo_dir,
+                        board=RIG_BOARD["ard_datalogger"])
     assert result.returncode == 0, (
         f"ard_datalogger: expected `west build-rig --cmake-only` to "
         f"configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}")
 
     frdm_dir = tmp_path / "build-frdm"
-    result = _run_build("ard_datalogger/frdm", frdm_dir)
+    result = _run_build("ard_datalogger", frdm_dir,
+                        board=ARD_DATALOGGER_FRDM_BOARD)
     assert result.returncode == 0, (
-        f"ard_datalogger/frdm: expected `west build-rig --cmake-only` to "
-        f"configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
+        f"ard_datalogger@{ARD_DATALOGGER_FRDM_BOARD}: expected `west "
+        f"build-rig --cmake-only` to configure clean\n--- argv ---\n"
+        f"{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}")
 
     def cs_pin(build_dir: Path):
@@ -645,7 +682,13 @@ def test_resolved_empty_rig_equals_plain_board(
     board_root: .), so BOARD_ROOT gains an entry rather than losing one."""
     build_dir = tmp_path / "build"
     extra = board_extra_defines(_EMPTY_RIG_BOARD) + [f"-DBOARD_ROOT={FIXTURES_DIR}"]
-    result = _run_build("empty_rig", build_dir, extra)
+    # The board is passed explicitly like every corpus call site, even
+    # though this FIXTURE (unlike the corpus) still spells `board:` in its
+    # own rig.yml: S6 deleted cmake/boards.cmake's inference outright, so a
+    # declared board is read by nothing and the invocation is the only
+    # source. This call omitted it while inference still existed, which is
+    # what made it the one test the inference deletion broke.
+    result = _run_build("empty_rig", build_dir, extra, board=_EMPTY_RIG_BOARD)
     assert result.returncode == 0, (
         f"empty_rig: expected `west build-rig --cmake-only` to configure "
         f"clean (an empty rig is a valid, ACCEPT rig)\n--- argv ---\n"

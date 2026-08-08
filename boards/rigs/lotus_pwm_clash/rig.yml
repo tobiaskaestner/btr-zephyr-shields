@@ -1,3 +1,2 @@
 rig:
   name: lotus_pwm_clash
-  board: seeeduino_lotus/samd21g18a/rig

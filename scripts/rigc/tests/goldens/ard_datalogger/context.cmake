@@ -2,5 +2,4 @@
 set(RIG_NAME "ard_datalogger")
 set(RIG_BOARD "nucleo_f401re/stm32f401xe/rig")
 set(RIG_SHIELDS "adafruit_data_logger")
-set(RIG_VARIANT "nucleo")
 set(RIG_DEPENDS "<REPO_ROOT>/boards/extend/st/nucleo_f401re/nucleo_f401re_stm32f401xe_rig.dts;<REPO_ROOT>/boards/rigs/ard_datalogger/ard_datalogger.yml;<REPO_ROOT>/boards/rigs/ard_datalogger/rig.yml;<REPO_ROOT>/boards/shields/adafruit_data_logger/adafruit_data_logger.shield;<REPO_ROOT>/boards/shields/adafruit_data_logger/shield.yml;<REPO_ROOT>/dts/bindings/connectors/arduino-r3.yaml;<REPO_ROOT>/dts/bindings/connectors/grove.yaml;<REPO_ROOT>/dts/bindings/connectors/i2c-port.yaml;<REPO_ROOT>/dts/bindings/connectors/mikrobus.yaml;<REPO_ROOT>/include/dt-bindings/connector/arduino-r3.h;<REPO_ROOT>/include/dt-bindings/connector/grove.h;<REPO_ROOT>/include/dt-bindings/connector/i2c-port.h;<REPO_ROOT>/include/dt-bindings/connector/mikrobus.h")

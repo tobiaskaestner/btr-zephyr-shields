@@ -41,17 +41,20 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import List
 
 import pytest
 import yaml
 
 from conftest import (
     ALL_CASES,
+    ARD_DATALOGGER_FRDM_BOARD,
     BOARD_DTS,
     EMITTED_FILES,
     FIXTURES_DIR,
     GOLDENS_DIR,
     REPO_ROOT,
+    RIG_BOARD,
     RIGS_DIR,
     RigCase,
     SHIELD_DIR,
@@ -60,7 +63,6 @@ from conftest import (
     normalize,
     overlay_is_byte_compared,
     plain_build_for,
-    rig_board_name,
     run_expand,
     zephyr_base,
 )
@@ -87,6 +89,50 @@ def test_corpus_complete() -> None:
     assert live == {c.name for c in ALL_CASES}
 
 
+def test_no_rig_declares_a_board() -> None:
+    """S6 acceptance criterion 1 (board-coordinate-s6-brief.md Sec 8):
+    board leaves rig.yml entirely -- a rig describes a topology; the
+    invocation supplies the board. Scans every rig.yml under boards/
+    rigs/ for a literal `board` key in EITHER legal declaration shape
+    binding.resolve_board still accepts (a top-level rig.board:, or one
+    beside each variants: list: entry) -- walked generically over the
+    whole parsed document, not keyed to either shape specifically, so a
+    THIRD shape (or a board: nested somewhere unexpected) would still be
+    caught rather than silently missed.
+
+    binding.resolve_board itself still ACCEPTS a declared board (S1's
+    inversion made it a default, never removed the grammar) -- this test
+    is a fact about what the CORPUS currently declares, not a schema-
+    level prohibition the loader enforces.
+
+    Census-style: falsified by mutating the WORLD it observes -- add a
+    board: key back to any rig's rig.yml -- never by editing this
+    assertion (S5's test_no_rig_content_names_a_board_prefixed_socket,
+    just below, is the shape this follows)."""
+    def _board_key_paths(node: object, path: str) -> List[str]:
+        found: List[str] = []
+        if isinstance(node, dict):
+            for key, value in node.items():
+                sub_path = f"{path}.{key}" if path else str(key)
+                if key == "board":
+                    found.append(sub_path)
+                found.extend(_board_key_paths(value, sub_path))
+        elif isinstance(node, list):
+            for i, item in enumerate(node):
+                found.extend(_board_key_paths(item, f"{path}[{i}]"))
+        return found
+
+    offenders = []
+    for rig_yml in sorted(RIGS_DIR.glob("*/rig.yml")):
+        doc = yaml.safe_load(rig_yml.read_text()) or {}
+        keys = _board_key_paths(doc, "")
+        if keys:
+            offenders.append(f"{rig_yml.relative_to(RIGS_DIR)}: {', '.join(keys)}")
+    assert not offenders, (
+        "board: leaves rig.yml entirely (board-coordinate-s6-brief.md) -- "
+        f"the invocation supplies it, never the declaration: {offenders}")
+
+
 def test_no_rig_content_names_a_board_prefixed_socket() -> None:
     """S5 acceptance criterion 5 (board-coordinate-s5-brief.md Sec 6): once
     a board's socket carries a CONVENTIONAL alias (Ruling 1, parent brief
@@ -105,11 +151,14 @@ def test_no_rig_content_names_a_board_prefixed_socket() -> None:
     lotus's own content is never flagged, matching Sec 2's census that
     lotus already conforms.
 
-    ard_datalogger is the one ruled exception (Sec 5.1): its content names
-    the ABSTRACT `ard`, resolved per-variant through rig.yml's own
-    sockets: map rather than a board-side alias at all, and its collapse
-    to a real conventional reference is S6's work, explicitly deferred --
-    so its directory is excluded outright, not merely un-flagged.
+    ard_datalogger was the one ruled exception (Sec 5.1) before S6: its
+    content named the ABSTRACT `ard`, resolved per-variant through
+    rig.yml's own sockets: map rather than a board-side alias at all.
+    board-coordinate-s6-brief.md Sec 5 collapsed that map (both boards
+    already carried the SAME conventional alias, arduino_r3, since S5)
+    and migrated the content to name it directly -- so this rig is no
+    longer excluded, and IS now covered by the same census as every
+    other rig's content.
 
     Census-style: falsified by mutating the WORLD it observes -- add a
     board-prefixed socket: to any OTHER rig's content file -- never by
@@ -121,8 +170,6 @@ def test_no_rig_content_names_a_board_prefixed_socket() -> None:
     offenders = []
     for content_path in sorted(RIGS_DIR.glob("*/*.yml")):
         if content_path.name == "rig.yml":
-            continue
-        if content_path.parent.name == "ard_datalogger":
             continue
         doc = yaml.safe_load(content_path.read_text()) or {}
         for inst in doc.get("instances") or []:
@@ -169,11 +216,12 @@ def test_every_overlay_golden_has_semantic_coverage() -> None:
 @pytest.mark.parametrize("case", ALL_CASES, ids=lambda c: c.name)
 def test_emitted_golden(case: RigCase, tmp_path: Path,
                       tmp_path_factory: "pytest.TempPathFactory") -> None:
-    board = rig_board_name(case.name)
+    board = case.board
     plain_build = plain_build_for(board, tmp_path_factory)
     out_dir = tmp_path / "out"
     result = run_expand(
         RIGS_DIR / case.name / "rig.yml", out_dir,
+        board=board,
         board_dts=REPO_ROOT / BOARD_DTS[board],
         build_info=plain_build.build_info)
 
@@ -292,11 +340,12 @@ def _pilot_golden(tmp_path, tmp_path_factory, golden_name, revision, variant):
     test_emitted_golden via ACCEPT_CASES's pilot_variants entry, above) --
     same board/build for every tuple, since variants/revisions carry no
     delta engine yet (V1a) and never change the board."""
-    board = rig_board_name("pilot_variants")
+    board = RIG_BOARD["pilot_variants"]
     plain_build = plain_build_for(board, tmp_path_factory)
     out_dir = tmp_path / "out"
     result = run_expand(
         RIGS_DIR / "pilot_variants" / "rig.yml", out_dir,
+        board=board,
         board_dts=REPO_ROOT / BOARD_DTS[board],
         build_info=plain_build.build_info,
         revision=revision, variant=variant)
@@ -348,11 +397,12 @@ def test_shield_rev_family_revision_2_golden(
     carries the base one. Nothing in V1c was written for this -- an
     instance patch's shield: resolves through the same resolver a base
     reference does -- so the point of the golden is to keep that true."""
-    board = rig_board_name("shield_rev_family")
+    board = RIG_BOARD["shield_rev_family"]
     plain_build = plain_build_for(board, tmp_path_factory)
     out_dir = tmp_path / "out"
     result = run_expand(
         RIGS_DIR / "shield_rev_family" / "rig.yml", out_dir,
+        board=board,
         board_dts=REPO_ROOT / BOARD_DTS[board],
         build_info=plain_build.build_info,
         revision="2")
@@ -406,22 +456,25 @@ def test_pilot_variant_c_golden(tmp_path: Path,
 @pytest.mark.build
 def test_ard_datalogger_frdm_golden(tmp_path: Path,
                                     tmp_path_factory: "pytest.TempPathFactory") -> None:
-    """ard_datalogger's frdm variant: a DIFFERENT host board than the bare/
-    default nucleo tuple (ACCEPT_CASES's ard_datalogger entry rides the
-    standard machinery for that one), the SAME content file, and NO
-    fragment of any kind on disk for frdm -- the evidence that content is
-    genuinely reused across hosts rather than merely declared reusable."""
-    board = rig_board_name("ard_datalogger", variant="frdm")
+    """ard_datalogger on its SECOND board: after S6's collapse
+    (board-coordinate-s6-brief.md Sec 5) this is no longer a variant --
+    ard_datalogger declares no variants: axis at all any more, just a
+    DIFFERENT --board injected against the identical rig.yml/content
+    pair ACCEPT_CASES's ard_datalogger entry already builds on its
+    primary (nucleo) board. NO fragment of any kind on disk for frdm --
+    the evidence that content is genuinely reused across hosts rather
+    than merely declared reusable."""
+    board = ARD_DATALOGGER_FRDM_BOARD
     plain_build = plain_build_for(board, tmp_path_factory)
     out_dir = tmp_path / "out"
     result = run_expand(
         RIGS_DIR / "ard_datalogger" / "rig.yml", out_dir,
+        board=board,
         board_dts=REPO_ROOT / BOARD_DTS[board],
-        build_info=plain_build.build_info,
-        variant="frdm")
+        build_info=plain_build.build_info)
 
     assert result.returncode == 0, (
-        f"ard_datalogger/frdm: expected accept\n--- stderr ---\n{result.stderr}")
+        f"ard_datalogger@frdm-board: expected accept\n--- stderr ---\n{result.stderr}")
 
     zb = zephyr_base()
     golden_dir = GOLDENS_DIR / "ard_datalogger_frdm"

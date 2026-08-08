@@ -54,6 +54,14 @@ _add_zephyr_scripts()
 from zephyr_ext_common import ZEPHYR_BASE  # noqa: E402
 import zephyr_module  # noqa: E402
 
+# `--boards-for` (Rigs._boards_for, below) needs SOME board to satisfy
+# loader.load's schema now that no rig declares one (board-coordinate-
+# s6-brief.md Sec 3) -- inert by construction (see _boards_for's own
+# docstring for why its exact spelling never matters), so it is spelled
+# to read as a placeholder rather than a real hwmv2 target if it ever
+# does leak into a diagnostic somehow.
+_BOARDS_FOR_PLACEHOLDER_BOARD = '(boards-for census: no board selected)'
+
 
 class Rigs(WestCommand):
 
@@ -84,12 +92,16 @@ class Rigs(WestCommand):
             The following arguments are available:
 
             - name: rig name (the rig.yml `rig.name` field, the rig's identity)
-            - board: the board the rig targets
             - dir: directory that contains the rig definition
             - revisions: declared revision axis values (rig-variants-
               revisions.md V1a), comma-separated, empty if undeclared
             - variants: declared variant axis values, comma-separated,
               empty if undeclared
+
+            No `board` column (board-coordinate-s6-brief.md Sec 8
+            criterion 6): a rig no longer declares one, so this listing
+            has nothing of its own to print -- use --boards-for to ask
+            which real boards a rig's typed sockets are satisfiable on.
             '''))
 
         # Remember to update west-commands.yml help if you add or remove flags.
@@ -156,17 +168,15 @@ class Rigs(WestCommand):
         for rig in list_rigs.find_rigs(args):
             if name_re is not None and not name_re.search(rig.name):
                 continue
-            # board: default_board falls back to the DECLARED DEFAULT
-            # variant's board for a per-variant rig (rig.board itself is
-            # None there) -- printing nothing would read as a broken
-            # entry. variants: variant_names extracts the bare NAME out of
-            # each list: entry, which may be a {name:, board:, sockets:}
+            # No board column any more (Sec 8 criterion 6): a rig no
+            # longer declares one, so this listing has nothing of its own
+            # to print for it -- --boards-for is the enumeration answer.
+            # variants: variant_names extracts the bare NAME out of each
+            # list: entry, which may be a {name:, board:, sockets:}
             # mapping rather than a scalar in that same shape.
-            board = list_rigs.default_board(rig)
             self.inf(args.format.format(
                 name=rig.name,
                 dir=rig.dir,
-                board=board if board is not None else '',
                 revisions=', '.join(str(v) for v in rig.revisions['list'])
                 if rig.revisions else '',
                 variants=', '.join(str(v) for v in
@@ -178,15 +188,28 @@ class Rigs(WestCommand):
         """`--boards-for`'s implementation: resolve RIG_TARGET exactly as
         the cmake seam does (list_rigs.resolve_rig_target, which itself
         sys.exit()s with its own message on an unresolved target -- never
-        re-derived here), load it standalone (no --board, no
-        --include-dir: rigc.loader.load runs this way unassisted, and the
-        connector-type registry finds its own bindings by default), then
-        run board_census.boards_for against every censused board rig-
-        extension. Prints one conforming target per line, sorted;
-        nothing at all, exit 0, when none conform -- an empty answer is a
-        fact, not an error. A rig that fails to LOAD renders its own
-        diagnostics to stderr and exits 1, same convention rigc's own CLI
-        uses."""
+        re-derived here), load it standalone (no --include-dir: rigc.
+        loader.load runs this way unassisted, and the connector-type
+        registry finds its own bindings by default), then run board_
+        census.boards_for against every censused board rig-extension.
+        Prints one conforming target per line, sorted; nothing at all,
+        exit 0, when none conform -- an empty answer is a fact, not an
+        error. A rig that fails to LOAD renders its own diagnostics to
+        stderr and exits 1, same convention rigc's own CLI uses.
+
+        board IS injected, as of S6 (board-coordinate-s6-brief.md Sec 3):
+        no corpus rig declares one any more, so loader.load would
+        otherwise hit binding.resolve_board's "declares no board:"
+        rejection for every target this command is asked about -- the
+        opposite of "an empty answer is a fact, not an error" above. The
+        injected value is _BOARDS_FOR_PLACEHOLDER_BOARD, an inert
+        constant: this command's own claim is bounded to socket
+        conformance against EVERY censused board (board_census.boards_for
+        iterates cb.board for each CensusBoard, never rig.board), so which
+        placeholder string satisfies the loader's schema is immaterial --
+        it is never rendered (no emitter call on this path at all) and
+        never reaches boarddt (no --board-dts either, so pass-1 board
+        reading never runs here)."""
         # rigc reads $ZEPHYR_BASE at call time (its own header/index
         # parsing needs zephyr's include dir); pin it to west's OWN
         # resolution rather than trust the ambient shell, exactly as
@@ -207,7 +230,8 @@ class Rigs(WestCommand):
         try:
             rig, diags, _rig_deps = loader.load(
                 str(rig_yml), workdir, types=types,
-                revision=rig_target.revision, variant=rig_target.variant)
+                revision=rig_target.revision, variant=rig_target.variant,
+                board=_BOARDS_FOR_PLACEHOLDER_BOARD)
         finally:
             # D10's rule: this command never leaves a workdir behind,
             # accept or reject alike -- unlike rigc's own CLI, a query has

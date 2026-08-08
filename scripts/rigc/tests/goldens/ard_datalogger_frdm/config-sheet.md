@@ -8,7 +8,7 @@ Board: **frdm_k64f/mk64f12/rig**
 
 | instance | shield | socket |
 |---|---|---|
-| logger | adafruit_data_logger | frdm_ard |
+| logger | adafruit_data_logger | arduino_r3 |
 
 ## Chip-selects
 

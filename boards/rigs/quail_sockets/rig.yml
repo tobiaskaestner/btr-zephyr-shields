@@ -1,3 +1,2 @@
 rig:
   name: quail_sockets
-  board: mikroe_quail/stm32f427xx/rig

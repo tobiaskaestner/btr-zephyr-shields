@@ -47,16 +47,26 @@ def test_cmakeformat_line_for_a_revved_promoted_shield() -> None:
 
 
 def test_cmakeformat_line_for_a_persisted_rig_is_unchanged() -> None:
-    """Criterion 4: a real rig's own line carries PROMOTED;NOTFOUND and is
-    otherwise byte-identical to what this same CLI printed before
-    promoted shields existed."""
+    """Criterion 4 (board-coordinate-s3b-brief.md): a real rig's own line
+    carries PROMOTED;NOTFOUND and is otherwise byte-identical to what this
+    same CLI printed before promoted shields existed -- true of NAME/DIR/
+    REVISION/VARIANT/PROMOTED, all still resolved from rig.yml alone.
+
+    BOARD is the one field this changed UNDER (board-coordinate-
+    s6-brief.md Sec 3, RULED): nucleo_datalogger no longer declares a
+    board at all, so this bare `list_rigs.py --rig=` query (no --board
+    injection -- it has none to give) now reads it back the same way it
+    already does for a promoted shield: NOTFOUND. This is the same fact
+    boards.cmake's own fork now hits for every persisted rig, which is
+    what makes its "no board of its own to fall back to" FATAL fire for a
+    real rig, not just a promoted shield (Sec 8 criterion 7)."""
     result = _run("--rig=nucleo_datalogger", f"--cmakeformat={_CMAKEFORMAT}")
     assert result.returncode == 0, result.stderr
     line = result.stdout.strip()
     assert line.endswith(";PROMOTED;NOTFOUND")
     assert line.startswith("NAME;nucleo_datalogger;DIR;")
     assert "DIR;NOTFOUND" not in line
-    assert ";BOARD;nucleo_f401re/stm32f401xe/rig;" in line
+    assert ";BOARD;NOTFOUND;" in line
 
 
 def test_a_variant_qualified_shield_target_is_refused() -> None:

@@ -7,21 +7,24 @@
 # resolves to THIS file, shadowing ${ZEPHYR_BASE}/cmake/modules/boards.cmake.
 #
 #
-#   1. -DRIG rig->board resolution + the rig-swap guard: BOARD is an
-#      INDEPENDENT coordinate with a per-rig DEFAULT (board-coordinate-
-#      s1-brief.md) — a user-passed -DBOARD wins unconditionally; absent,
-#      it is inferred from the rig exactly as before this existed. If RIG
-#      is defined and BOARD is not, ask the resolver (scripts/list_rigs.py's
-#      query mode) for the FULL, verbatim ${RIG} target string and
-#      set(BOARD ...) from its answer — the real module below needs BOARD
-#      defined before its own zephyr_check_cache(BOARD REQUIRED). RIG may
-#      also resolve to a PROMOTED SHIELD (board-coordinate-s3b-brief.md)
-#      rather than a persisted rig — the resolver's {PROMOTED} key says
-#      so, and a shield has no board axis to infer from at ALL, so it
-#      always needs -DBOARD, never just "a rig that happens to declare
-#      none". Either way, nothing to fall back to and no -DBOARD given is
-#      a configure-time FATAL_ERROR, worded to name which of the two it
-#      was.
+#   1. -DRIG target resolution: BOARD is an INDEPENDENT coordinate and,
+#      since S6 (board-coordinate-s6-brief.md), its ONLY source is the
+#      invocation. A rig names a TOPOLOGY; it has no board to fall back
+#      to, so -DRIG without -DBOARD is a configure-time FATAL_ERROR —
+#      worded to name whether the target was a persisted rig or a
+#      PROMOTED SHIELD (the resolver's {PROMOTED} key says which), since
+#      a shield never had a board axis at all while a rig merely stopped
+#      having one. The resolver (scripts/list_rigs.py's query mode) is
+#      still asked for the FULL, verbatim ${RIG} target string, because
+#      the rig's own NAME/DIR/revision/variant are still needed
+#      downstream — only its board answer stopped being consumed.
+#
+#      GONE with S6, and worth knowing when reading the git history:
+#      the rig->board INFERENCE, the RIG_INFERRED_BOARD marker and the
+#      RIG-SWAP GUARD. See the block at step 1 for why the guard's own
+#      failure mode ceased to exist rather than merely stopped being
+#      tested, and what that hands back to upstream's
+#      zephyr_check_cache(BOARD).
 #   2. the REAL boards module, unconditionally (rig build or plain), reached
 #      by absolute path — include(boards) would recurse back into this file
 #      via the prepended module path.
@@ -40,10 +43,10 @@ include_guard(GLOBAL)
 include(extensions)
 
 # ---------------------------------------------------------------------------
-# Step 1: -DRIG rig->board resolution + the rig-swap guard. One resolver
-# call serves both outcomes below (the rig-swap comparison, the CACHE
-# assignment when BOARD is not given), so -DRIG resolves via list_rigs.py
-# exactly once per configure.
+# Step 1: -DRIG target resolution. One resolver call per configure, whose
+# answer supplies the rig's NAME/DIR/revision/variant (and {PROMOTED}) to
+# everything downstream. Its board answer is no longer consumed: since S6
+# the invocation is the only source of BOARD.
 if(DEFINED RIG)
   list(TRANSFORM BOARD_ROOT PREPEND "--board-root=" OUTPUT_VARIABLE _rig_broot_args)
   execute_process(
@@ -100,102 +103,51 @@ if(DEFINED RIG)
     set(_RIG_RESOLVED_BOARD "")
   endif()
 
-  # Rig-swap guard: the marker pins the BUILD DIR to the board we INFERRED
-  # for this rig. zephyr_check_cache(BOARD) makes BOARD immutable per build
-  # dir, but RIG is not cache-watched, so swapping -DRIG to a rig that
-  # infers a DIFFERENT board must be caught here -- left unguarded, the
-  # stale cache-carried BOARD would pass through unchanged and the
-  # expander would read the OLD board's dts under the NEW rig's name.
-  # Fires only when RIG_INFERRED_BOARD is defined: an INJECTED build (BOARD
-  # given, nothing inferred, no marker set below) sets no marker, so a rig
-  # swap there is judged only by the given-vs-declared comparison below,
-  # same as any other -DBOARD build -- there is no "board this build dir
-  # was pinned to" to protect.
+  # BOARD is the ONLY source of a rig build's board. S6
+  # (board-coordinate-s6-brief.md) took `board:` out of every corpus
+  # rig.yml, and this fork's rig->board INFERENCE went with it: a rig
+  # describes a topology, the invocation supplies the board.
   #
-  # This ALSO fires when the user gives a fresh -DBOARD alongside the
-  # rig-swap, even a matching one -- verified empirically: cmake applies a
-  # -D override to the BOARD cache entry before this file ever runs, so
-  # "${BOARD}" already reads the FRESH value here (upstream's own
-  # zephyr_check_cache(BOARD), which would otherwise warn and silently
-  # discard it back to the pinned one, has not run yet -- that is step 2,
-  # below). Giving -DBOARD does not make this dir's board mutable: without
-  # this guard, upstream's own mechanism would silently keep building the
-  # OLD board and only WARN, never stop -- exactly the wrong-hardware
-  # footgun this guard exists to prevent, so it is intentionally NOT
-  # narrowed to skip when a fresh -DBOARD is present. Comparing "${BOARD}"
-  # (not just "${RIG}") against the marker is what lets the message below
-  # name the ACTUAL reason in that case instead of blaming inference for
-  # a board change the user tried to make directly.
-  if(DEFINED RIG_INFERRED_BOARD
-     AND NOT "${_RIG_RESOLVED_BOARD}" STREQUAL "${RIG_INFERRED_BOARD}")
-    if(NOT "${BOARD}" STREQUAL "${RIG_INFERRED_BOARD}")
+  # Deleted here along with the inference, deliberately and together:
+  #   - the RIG_INFERRED_BOARD marker, and
+  #   - the RIG-SWAP GUARD it drove. That guard existed because a stale
+  #     cache-carried BOARD (our OWN earlier inference) would otherwise
+  #     let the expander read the OLD board's dts under the NEW rig's
+  #     DECLARED board name. A rig has no declared board now, so swapping
+  #     -DRIG cannot change the board at all: the failure mode is GONE,
+  #     not merely untested.
+  #
+  # What that hands back to upstream, stated rather than discovered
+  # later: zephyr_check_cache(BOARD) only WARNS on a changed BOARD in an
+  # existing build dir and silently REVERTS to the cached value. That
+  # footgun is not fixed here -- it stops being RIG-specific, and a rig
+  # build is now exactly as exposed to it as any other Zephyr build.
+  # Special-casing it for rigs is precisely what the guard was, and the
+  # guard's own premise no longer holds.
+  if(NOT DEFINED BOARD)
+    if(_RIG_RESOLVED_PROMOTED)
       message(FATAL_ERROR
-        "Rig: -DRIG=${RIG} resolves to board '${_RIG_RESOLVED_BOARD}', and "
-        "-DBOARD=${BOARD} was also given -- neither changes anything: "
-        "this build directory's board ('${RIG_INFERRED_BOARD}') is "
-        "immutable once configured, whether a rig or a board is trying to "
-        "change it. A pristine build (-p always) is required either way.")
+        "Rig: -DRIG=${RIG} names the shield '${_RIG_RESOLVED_PROMOTED}', "
+        "which has no board axis of its own at all, and no -DBOARD was "
+        "given -- pass -DBOARD=<name>.")
     else()
       message(FATAL_ERROR
-        "Rig: -DRIG=${RIG} resolves to board '${_RIG_RESOLVED_BOARD}', but "
-        "this build directory was configured for '${RIG_INFERRED_BOARD}'. "
-        "Changing to a rig on a different board requires a pristine build "
-        "(-p always).")
+        "Rig: -DRIG=${RIG} names a topology, not a board, and no -DBOARD "
+        "was given -- a rig has no board of its own to fall back to; "
+        "pass -DBOARD=<name>.")
     endif()
   endif()
 
-  # BOARD given -> it wins, unconditionally, whatever the rig declares (or
-  # declares none of, including a promoted shield, which never declares
-  # one); no marker is set for it, since a user-supplied value is never
-  # our own inference (kept out of RIG_INFERRED_BOARD so the rig-swap
-  # guard above never mistakes it for one). BOARD absent -> infer from
-  # the rig exactly as before -DBOARD existed, and record the marker; a
-  # target with nothing to infer (_RIG_RESOLVED_BOARD empty -- a
-  # boardless rig OR a promoted shield, which is ALWAYS in this state)
-  # then has nothing left to fall back to, so it is a FATAL naming both
-  # the target and the missing flag.
-  #   - fresh dir, both given: BOARD defined, no marker set -> BOARD wins.
-  #   - fresh dir, RIG only: BOARD undefined -> infer + set the marker.
-  #   - reconfigure, no -DBOARD repeated: BOARD defined FROM THE CACHE,
-  #     equal to the marker (both are our own old inference) -> re-infers
-  #     the same value, passes silently.
-  #   - reconfigure, user repeats the SAME -DBOARD value: indistinguishable
-  #     from the cache case above -- accepted residual, not fixed.
-  #   - reconfigure with a CHANGED -DRIG: the rig-swap guard above.
-  #   - a PROMOTED SHIELD target: _RIG_RESOLVED_BOARD is always empty, so
-  #     this is always either "BOARD given -> wins, no marker" or the
-  #     FATAL below -- a shield never has a board to infer, so it never
-  #     sets a marker either. Swapping FROM a rig build dir (a marker
-  #     already set) TO a promoted shield still trips the rig-swap guard
-  #     above (an empty resolved board can never equal a real marker) --
-  #     safe (it still FATALs rather than silently misbuilding), but that
-  #     FATAL's own board-name field reads empty in that direction; not
-  #     disambiguated further here.
-  if(DEFINED BOARD)
-    if(_RIG_RESOLVED_BOARD AND NOT "${BOARD}" STREQUAL "${_RIG_RESOLVED_BOARD}")
-      message(STATUS
-        "Rig: -DBOARD=${BOARD} given for -DRIG=${RIG}, overriding its own "
-        "board '${_RIG_RESOLVED_BOARD}'")
-    endif()
-  elseif(_RIG_RESOLVED_BOARD)
-    set(BOARD "${_RIG_RESOLVED_BOARD}" CACHE STRING
-      "Board inferred from -DRIG=${RIG} (rig.yml's board:, no -DBOARD given)")
-    set(RIG_INFERRED_BOARD "${_RIG_RESOLVED_BOARD}" CACHE INTERNAL
-      "Rig-swap-guard marker: the board value this fork inferred from \
--DRIG=${RIG}. Compared against a later cache-carried BOARD so a \
-reconfigure of the SAME build dir is not mistaken for a user-passed \
--DBOARD")
-  elseif(_RIG_RESOLVED_PROMOTED)
-    message(FATAL_ERROR
-      "Rig: -DRIG=${RIG} names the shield '${_RIG_RESOLVED_PROMOTED}', "
-      "which declares no board of its own (a promoted shield has no "
-      "board axis to fall back to, unlike a rig, which might) and no "
-      "-DBOARD was given -- pass -DBOARD=<name>.")
-  else()
-    message(FATAL_ERROR
-      "Rig: -DRIG=${RIG} declares no board: (neither a top-level one nor "
-      "one for its selected variant) and no -DBOARD was given -- this rig "
-      "has no board of its own to fall back to; pass -DBOARD=<name>.")
+  # rig.yml MAY still spell `board:` until the grammar itself is retired
+  # (its own slice). Nothing reads it here any more, so say so rather
+  # than ignore it in silence. No corpus rig declares one, so this never
+  # fires today -- it exists for a hand-authored rig.yml carrying the
+  # dead key.
+  if(_RIG_RESOLVED_BOARD AND NOT "${BOARD}" STREQUAL "${_RIG_RESOLVED_BOARD}")
+    message(STATUS
+      "Rig: -DRIG=${RIG} declares board '${_RIG_RESOLVED_BOARD}', which is "
+      "IGNORED -- -DBOARD=${BOARD} is the only source. rig.yml's board: is "
+      "deprecated and goes with the grammar.")
   endif()
 
   set(_rig_boards_qualifiers_desc "")
@@ -205,10 +157,16 @@ reconfigure of the SAME build dir is not mistaken for a user-passed \
   if(_RIG_RESOLVED_VARIANT)
     string(APPEND _rig_boards_qualifiers_desc " variant: ${_RIG_RESOLVED_VARIANT}")
   endif()
+  # ${BOARD}, never ${_RIG_RESOLVED_BOARD}: the board actually being built
+  # is the only one worth printing now that the invocation is its sole
+  # source. This also fixes a line that read "board: " with nothing after
+  # it for every promoted shield -- _RIG_RESOLVED_BOARD is ALWAYS empty
+  # for one (a shield has no board axis), so the field was blank on the
+  # exact path S3b added.
   if(_RIG_RESOLVED_PROMOTED)
-    message(STATUS "Rig: '${_RIG_RESOLVED_NAME}' (promoted shield), board: ${_RIG_RESOLVED_BOARD}${_rig_boards_qualifiers_desc}")
+    message(STATUS "Rig: '${_RIG_RESOLVED_NAME}' (promoted shield), board: ${BOARD}${_rig_boards_qualifiers_desc}")
   else()
-    message(STATUS "Rig: ${_RIG_RESOLVED_NAME} (${_RIG_RESOLVED_DIR}/rig.yml), board: ${_RIG_RESOLVED_BOARD}${_rig_boards_qualifiers_desc}")
+    message(STATUS "Rig: ${_RIG_RESOLVED_NAME} (${_RIG_RESOLVED_DIR}/rig.yml), board: ${BOARD}${_rig_boards_qualifiers_desc}")
   endif()
 endif()
 # ---------------------------------------------------------------------------

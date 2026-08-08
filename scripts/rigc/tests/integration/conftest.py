@@ -324,59 +324,87 @@ class RigCase:
     """One corpus rig, identified by its rig.yml rig.name — also its
     folder name under boards/rigs/ (rigs are named underscored, board/
     shield-symmetric: a rig's folder and its rig.name are the same
-    string), and the expected verdict."""
+    string) — the board the HARNESS supplies for it, and the expected
+    verdict.
+
+    `board` is this table's own answer to "what does this rig build
+    against", not rig.yml's (board-coordinate-s6-brief.md Sec 3, RULED):
+    since S6, no corpus rig.yml declares a board at all, so nothing here
+    reads one back out of rig.yml — this field is the injected value
+    every corpus build (run_expand's --board, west build-rig's -b) uses,
+    the harness acting as the invocation strict symmetry says supplies
+    it. It is the value each rig was frozen against BEFORE S6 too (S6's
+    own acceptance criterion 2: RIG_BOARD must come back byte-unchanged),
+    never a new choice."""
 
     name: str
+    board: str
     accept: bool
     category: Optional[str] = None   # expected phys-* code, reject rigs only
 
 
-# The full corpus of rigs this suite freezes goldens for, with the verdict
-# each one is expected to produce.
+# The full corpus of rigs this suite freezes goldens for, with the board
+# each one builds against and the verdict each one is expected to produce.
 ACCEPT_CASES: List[RigCase] = [
-    RigCase("nucleo_datalogger", True),
-    RigCase("quail_temp_farm", True),
-    RigCase("quail_sockets", True),
-    RigCase("nucleo_wifi_logger_ok", True),
-    RigCase("frdm_eth_nest", True),
-    RigCase("nucleo_mux_farm", True),
-    RigCase("lotus_pwm", True),
-    RigCase("lotus_buttons", True),
+    RigCase("nucleo_datalogger", "nucleo_f401re/stm32f401xe/rig", True),
+    RigCase("quail_temp_farm", "mikroe_quail/stm32f427xx/rig", True),
+    RigCase("quail_sockets", "mikroe_quail/stm32f427xx/rig", True),
+    RigCase("nucleo_wifi_logger_ok", "nucleo_f401re/stm32f401xe/rig", True),
+    RigCase("frdm_eth_nest", "frdm_k64f/mk64f12/rig", True),
+    RigCase("nucleo_mux_farm", "nucleo_f401re/stm32f401xe/rig", True),
+    RigCase("lotus_pwm", "seeeduino_lotus/samd21g18a/rig", True),
+    RigCase("lotus_buttons", "seeeduino_lotus/samd21g18a/rig", True),
     # Pilot rig family (rig-variants-revisions.md V1a): this entry alone
     # exercises the BARE target (declared defaults revision=1/variant=
     # variant_a) through the standard emitted/resolved machinery; the other
     # three qualifier combinations get their own dedicated tests below,
     # since a single corpus folder now resolves to more than one tuple.
-    RigCase("pilot_variants", True),
+    RigCase("pilot_variants", "nucleo_f401re/stm32f401xe/rig", True),
     # Shield revisions accept pilot (V1c): shield: i2c_sensor@2 is an
     # ordinary instance-level string, needing no rig-level qualifier at
     # all, so it rides the standard corpus machinery directly rather than
     # a dedicated test function like the rig-axis pilot above.
-    RigCase("shield_rev_pilot", True),
+    RigCase("shield_rev_pilot", "nucleo_f401re/stm32f401xe/rig", True),
     # The two revision axes composing (V1c): this entry covers the BARE
     # target, whose default revision 1 must resolve the sensor to the
     # shield's revision 1; revision 2, where the rig's own delta moves it
     # to the shield's revision 2, gets its own tests since one folder
     # again resolves to more than one tuple.
-    RigCase("shield_rev_family", True),
-    # Dual-host rig (the metadata/content split, board per variant): this
-    # entry rides the BARE target, whose declared default variant (nucleo)
-    # resolves to nucleo_f401re/stm32f401xe/rig via rig_board_name's own
-    # per-variant fallback above. The frdm variant gets its own dedicated
-    # emitted/resolved tests below, since one folder again resolves to more
-    # than one tuple, and it is the tuple that carries NO fragment at all.
-    RigCase("ard_datalogger", True),
+    RigCase("shield_rev_family", "nucleo_f401re/stm32f401xe/rig", True),
+    # Dual-host rig (S6's collapse, board-coordinate-s6-brief.md Sec 5):
+    # this entry rides the BARE target on its PRIMARY board (nucleo) --
+    # the same one it was frozen against before the collapse, when it was
+    # still the declared default variant. The second board (frdm) gets
+    # its own dedicated emitted/resolved tests below via
+    # ARD_DATALOGGER_FRDM_BOARD, since one RigCase carries exactly one
+    # board and this is the corpus's only rig genuinely built on two.
+    RigCase("ard_datalogger", "nucleo_f401re/stm32f401xe/rig", True),
 ]
 
 REJECT_CASES: List[RigCase] = [
-    RigCase("nucleo_wifi_logger", False, "phys-net"),
-    RigCase("quail_dup_th", False, "phys-addr"),
-    RigCase("frdm_cs_clash", False, "phys-cs"),
-    RigCase("nucleo_mux_clash", False, "phys-addr"),
-    RigCase("lotus_pwm_clash", False, "phys-channel"),
+    RigCase("nucleo_wifi_logger", "nucleo_f401re/stm32f401xe/rig", False, "phys-net"),
+    RigCase("quail_dup_th", "mikroe_quail/stm32f427xx/rig", False, "phys-addr"),
+    RigCase("frdm_cs_clash", "frdm_k64f/mk64f12/rig", False, "phys-cs"),
+    RigCase("nucleo_mux_clash", "nucleo_f401re/stm32f401xe/rig", False, "phys-addr"),
+    RigCase("lotus_pwm_clash", "seeeduino_lotus/samd21g18a/rig", False, "phys-channel"),
 ]
 
 ALL_CASES: List[RigCase] = ACCEPT_CASES + REJECT_CASES
+
+# Convenience lookup for the handful of call sites that need a corpus rig's
+# board OUTSIDE a parametrized RigCase (a case object already carries its
+# own .board directly) -- e.g. the pilot/shield-revision family's shared
+# helpers below, which build against a fixed board regardless of which
+# qualifier tuple is under test.
+RIG_BOARD: Dict[str, str] = {c.name: c.board for c in ALL_CASES}
+
+# ard_datalogger's SECOND board (S6's dual-host collapse, board-coordinate-
+# s6-brief.md Sec 5) -- deliberately NOT in RIG_BOARD/RigCase, which carry
+# exactly one board per rig; this is the one rig actually built on two, so
+# its second board is its own named constant, mirroring how the
+# shield-uart-subset fixture pair already names its two boards as literals
+# rather than inventing a second-board slot in the corpus table.
+ARD_DATALOGGER_FRDM_BOARD = "frdm_k64f/mk64f12/rig"
 
 # The artifact filenames the emitter may produce, shared by
 # test_emitted_rejects.py and test_emitted_corpus.py. Order is stable so a
@@ -388,28 +416,13 @@ EMITTED_FILES = ("rig-gen.overlay", "rig-gen-includes.dtsi", "context.cmake",
                  "config-sheet.md", "rig-gen.conf")
 
 
-def rig_board_name(folder: str, variant: Optional[str] = None) -> str:
-    """The rig.yml rig.board for a corpus folder — which of BOARDS this
-    rig needs a plain build (and --board-dts) for.
-
-    A rig using the per-variant-board shape (no top-level rig.board:, one
-    board: per variants: list: entry — ard_datalogger) has no single
-    answer, so `variant` picks which one; omitted, it falls back to the
-    declared default variant, matching a bare (unqualified) target's own
-    resolution."""
-    with open(RIGS_DIR / folder / "rig.yml") as f:
-        doc = yaml.safe_load(f)
-    rig = doc["rig"]
-    if "board" in rig:
-        return str(rig["board"])
-    variants = rig.get("variants") or {}
-    selected = variant or variants.get("default")
-    for item in variants.get("list") or []:
-        if isinstance(item, dict) and item.get("name") == selected:
-            return str(item["board"])
-    raise KeyError(
-        f"rig '{folder}': no board declared for variant {selected!r} "
-        f"(neither a top-level rig.board: nor a per-variant one)")
+# rig_board_name (which read rig.yml's own rig.board back out) is RETIRED
+# as of S6 (board-coordinate-s6-brief.md Sec 3, RULED): no corpus rig.yml
+# declares a board any more, so there is nothing left for it to read.
+# RIG_BOARD / RigCase.board / ARD_DATALOGGER_FRDM_BOARD above are the
+# harness's own answer now -- the test corpus table names each rig's
+# board, the invocation (run_expand's --board, west build-rig's -b)
+# supplies it, and nothing reads it back out of the rig's own metadata.
 
 
 # ---------------------------------------------------------------- cached plain builds
@@ -509,6 +522,7 @@ def plain_build_for(board: str, tmp_path_factory: "pytest.TempPathFactory") -> P
 
 def run_expand(rig_yml: Path, out_dir: Path,
                shield_dirs: Optional[List[Path]] = None,
+               board: Optional[str] = None,
                board_dts: Optional[Path] = None,
                build_info: Optional[Path] = None,
                bindings_dirs: Optional[List[Path]] = None,
@@ -537,6 +551,17 @@ def run_expand(rig_yml: Path, out_dir: Path,
     (list_boards.py) and its "board not found" diagnostic, exactly as a bare
     standalone invocation would.
 
+    board threads cli.py's own --board (board-coordinate-s1-brief.md Sec
+    4/board-coordinate-s6-brief.md Sec 3): the board the INVOCATION
+    supplies, winning over whatever the rig declares (nothing, since S6)
+    unconditionally. Omitted (None) means no injection at all -- the rig
+    must declare its own board, or the loader rejects it exactly as an
+    ordinary `rigc expand` with no -DBOARD would. Every corpus rig call
+    site passes this now (RigCase.board), since S6 removed the
+    declaration this used to fall back to; a caller wanting the
+    un-injected diagnostic path itself (no-board-declared) leaves it
+    unset on purpose.
+
     revision/variant carry the SELECTED qualifier axis values (rig-variants-
     revisions.md V1a) — the harness's stand-in for what cmake/dts.cmake's
     fork would resolve via list_rigs.py before invoking this same CLI.
@@ -556,6 +581,8 @@ def run_expand(rig_yml: Path, out_dir: Path,
     cmd = [sys.executable, "-m", RIG_EXPAND_COMPILE, "expand", str(rig_yml)]
     for d in dirs:
         cmd += ["--shield-dir", str(d)]
+    if board is not None:
+        cmd += ["--board", board]
     if board_dts is not None:
         cmd += ["--board-dts", str(board_dts)]
     if build_info is not None:
