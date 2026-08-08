@@ -1,6 +1,5 @@
 rig:
   name: restate-check
-  board: nucleo_f401re/stm32f401xe/rig
   variants:
     default: a
     list: [a, b]

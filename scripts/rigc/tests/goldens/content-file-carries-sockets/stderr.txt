@@ -1,2 +1,0 @@
-error[lang-schema]: tests/fixtures/boards/rigs/content-file-carries-sockets/content-file-carries-sockets.yml: 'sockets:' is rig.yml metadata -- move it to the variant that owns it (or the top-level rig: block, for a single-board rig), not a content file
-    at tests/fixtures/boards/rigs/content-file-carries-sockets/content-file-carries-sockets.yml:2 (sockets)

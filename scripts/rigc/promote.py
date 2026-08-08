@@ -183,10 +183,11 @@ def parse_promotion_opts(opts: Optional[str], target: str,
 def promote_shield(name: str, revision: Optional[str] = None,
                    socket: Optional[str] = None) -> PromotedRig:
     """The natural mapping `a -> [a]` (ruling 4), written out: a rig.yml
-    with NO `board:` (legal only when a board is INJECTED -- S1 relaxed
-    `resolve_board`'s "never neither" to "never neither unless injected",
-    never to "never required at all"; a promoted rig's board reaches it
-    only that way, per Sec 3's own symmetry argument) and a content file
+    with NO `board:` (a promoted rig's board reaches it only by
+    INJECTION, per Sec 3's own symmetry argument -- and, since
+    board-coordinate-s6-brief.md Sec 11 retired the grammar entirely,
+    `board:` is no longer something ANY rig.yml could declare, promoted
+    or persisted) and a content file
     with exactly one instance, socket-LESS BY DEFAULT (the Sec 4.2
     unique-by-type inference resolves it board-agnostically at analysis
     time, once a board is actually in play).

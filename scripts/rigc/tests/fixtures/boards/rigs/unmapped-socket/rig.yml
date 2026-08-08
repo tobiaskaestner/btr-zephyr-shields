@@ -1,12 +1,12 @@
-# Synthetic fixture: the DEGENERATE single-board shape's own top-level
-# sockets: map (rig-metadata-content-split-brief.md), exercised with a
-# socket name the map does not cover -- it passes through unresolved and
-# the board simply has no socket by that literal name. board: names this
-# fixture's own unmapped_socket_board.dts (passed via --board-dts in the
-# test), not a real hwmv2 target -- the real board here is incidental to
-# what the test proves, so it carries none.
+# Synthetic fixture: an instance naming a socket the board simply does
+# not have -- it passes through SocketBinding's own lookup-else-identity
+# (an empty binding today: board-coordinate-s6-brief.md Sec 11 retired
+# the sockets: map that used to populate it, and this fixture's failing
+# name was never IN that map anyway, so removing it changes nothing
+# about what this proves) and fails at the board-side phys-socket check
+# instead. board is INJECTED by the test (unmapped_socket_board, matching
+# this fixture's own unmapped_socket_board.dts passed via --board-dts),
+# not declared here -- the real board is incidental to what the test
+# proves, so this rig.yml carries none.
 rig:
   name: unmapped-socket
-  board: unmapped_socket_board
-  sockets:
-    ard: fixture_ard

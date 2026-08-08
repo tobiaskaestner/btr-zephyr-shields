@@ -1,14 +1,16 @@
-"""The loader proper: rig.yml metadata (qualifier axes, board/socket
-resolution), the shield library, the required content file, fragment
-discovery, and the V1b delta engine with params/pins/dt-includes fully
-wired -- assembled here from the loader's own submodules:
+"""The loader proper: rig.yml metadata (qualifier axes), the shield
+library, the required content file, fragment discovery, and the V1b
+delta engine with params/pins/dt-includes fully wired -- assembled here
+from the loader's own submodules:
 
-  documents.py  -- mark-aware YAML, content-filename construction, the
-                   metadata/content key split
+  documents.py  -- mark-aware YAML, content-filename construction
   axes.py       -- revisions:/variants: declaration + resolution (the
                    hwmv2 seam) -- reused unchanged for shield.yml's own
                    revisions: axis (V1c)
-  binding.py    -- board/SocketBinding resolution (the S2 seam)
+  binding.py    -- the invocation's board -> rig.board, and the
+                   SocketBinding seam (board-coordinate-s6-brief.md
+                   Sec 11 retired rig.yml's own board:/sockets: grammar,
+                   the S2 seam this used to be)
   fragments.py  -- rule 10, the fragment-presence check
   library.py    -- the shield library: scan, axes, lazy revision
                    resolution (rigc-r3-brief.md Sec 4)
@@ -28,8 +30,8 @@ Unimplemented("expand: the accept path...") -- never a silent 0.
 
 **Three phases (rigc-r45-brief.md Part A)**: `load()` itself is now just
 the library scan, three phase calls, and the final Rig assembly --
-`_resolve_metadata` (rig.yml's shell: name, qualifier axes, board +
-SocketBinding -- entirely cpp-free), `_gather_content` (the required
+`_resolve_metadata` (rig.yml's shell: name, qualifier axes, the
+invocation's board -- entirely cpp-free), `_gather_content` (the required
 content file, the two delta fragments, rule 10, the dt-includes union +
 probe), `_build_topology` (stage 0 plus the two delta stages, the
 per-stage invariant). Each phase returns its OWN small value -- never a
@@ -63,7 +65,7 @@ from .binding import SocketBinding
 from .delta import (Topology, apply_delta, parse_instance, parse_wire,
                    union_dt_includes)
 from .documents import (Val, as_mapping, content_file_name,
-                        parse_marked, reject_metadata_keys, require)
+                        parse_marked, require)
 from .library import ShieldLibrary, load_shield_library
 from .params import check_dt_includes, check_param_invariant
 
@@ -93,8 +95,8 @@ class MetadataResult:
     references through. `rig` is None only when rig.yml is malformed
     enough that nothing further can be attempted (no `rig:` block, or no
     `name:` inside it); every OTHER defect found here (an axis collision,
-    an unresolved axis, a bad board:) still produces a Rig plus
-    diagnostics naming what is wrong -- exactly as before the split."""
+    an unresolved axis) still produces a Rig plus diagnostics naming
+    what is wrong -- exactly as before the split."""
 
     rig: Optional[Rig]
     binding: SocketBinding = field(default_factory=SocketBinding)
@@ -103,18 +105,20 @@ class MetadataResult:
 def _resolve_metadata(doc: Val, revision: Optional[str], variant: Optional[str],
                       board: Optional[str] = None,
                       ) -> Tuple[MetadataResult, List[Diagnostic]]:
-    """Steps 2-5 of the blueprint's load(): the rig shell, its qualifier
-    axes (declaration, collision, resolution), and the board +
-    SocketBinding its topology resolves socket: references through.
-    Entirely cpp-free -- reads `doc`'s own parsed YAML tree alone, so a
-    synthetic Val tree exercises every branch here with no shield
-    library, no ZEPHYR_BASE, no file on disk (this is the side benefit
-    the brief calls out: the future hwmv2 revision-semantics seam lands
-    entirely inside this one function).
+    """Steps 2-5 of the blueprint's load(): the rig shell and its
+    qualifier axes (declaration, collision, resolution). Entirely
+    cpp-free -- reads `doc`'s own parsed YAML tree alone, so a synthetic
+    Val tree exercises every branch here with no shield library, no
+    ZEPHYR_BASE, no file on disk (this is the side benefit the brief
+    calls out: the future hwmv2 revision-semantics seam lands entirely
+    inside this one function).
 
     `board`, when given, is the invocation's injected board
-    (board-coordinate-s1-brief.md Sec 4): it wins over whatever this rig
-    declares, unconditionally -- see binding.resolve_board."""
+    (board-coordinate-s1-brief.md Sec 4) -- the only source of one since
+    board-coordinate-s6-brief.md Sec 11 retired rig.yml's own `board:`/
+    `sockets:` grammar; `rig.board` is "" when omitted, which is legal
+    here (see binding.resolve_board) and becomes a diagnostic only where
+    a real board devicetree is actually needed, downstream in cli.py."""
     diags: List[Diagnostic] = []
     rig_v, d = require(doc, "rig", "top level")
     diags += d
@@ -126,7 +130,6 @@ def _resolve_metadata(doc: Val, revision: Optional[str], variant: Optional[str],
         return MetadataResult(rig=None), diags
 
     rig = Rig(name=name_v.value, src=rig_v.src)
-    rig_map = as_mapping(rig_v, "rig: block")
 
     revisions, d = axes.parse_revision_decl(rig_v, "revision", owner="rig")
     diags += d
@@ -149,12 +152,8 @@ def _resolve_metadata(doc: Val, revision: Optional[str], variant: Optional[str],
         log.info("rig '%s': revision requested %r resolved to %r",
                  rig.name, rig.revision_requested, rig.revision)
 
-    board_v = rig_map.get("board")
-    sockets_v = rig_map.get("sockets")
-    rig.board, sock_binding, d = binding.resolve_board(
-        rig.name, variants, rig.variant, board_v, sockets_v, rig_v.src,
-        injected_board=board)
-    diags += d
+    rig.board = binding.resolve_board(board)
+    sock_binding = SocketBinding()
     log.debug("rig '%s': board=%r socket binding=%r", rig.name, rig.board, sock_binding)
 
     return MetadataResult(rig=rig, binding=sock_binding), diags
@@ -221,7 +220,6 @@ def _gather_content(rig: Rig, rig_dir: str, workdir: str,
         return None, diags, deps
     deps = union(deps, touch(content_path))
     content_v = parse_marked(content_path)
-    diags += reject_metadata_keys(content_v)
 
     variant_delta_v: Optional[Val] = None
     if rig.variant is not None:
@@ -386,10 +384,13 @@ def load(rig_path: str, workdir: str,
     probe gets synthesized (cli.py's responsibility to create/clean up).
 
     `board`, when given, is the invocation's injected board (the cmake
-    seam always supplies one; the standalone CLI passes None to keep
-    today's rig.yml-derived behaviour) -- threaded straight to
-    `_resolve_metadata`/`binding.resolve_board`, which is the only place
-    it changes anything.
+    seam always supplies one) -- threaded straight to
+    `_resolve_metadata`/`binding.resolve_board`, the ONLY source of
+    `rig.board` since board-coordinate-s6-brief.md Sec 11 retired
+    rig.yml's own `board:` grammar. Omitted (the standalone CLI's
+    default, and `west rigs --boards-for`'s own census call), `rig.board`
+    is simply "" -- legal here; nothing in this loader needs a real
+    board to assemble a topology.
 
     Returns (rig, diagnostics, deps): deps is the UNION of every real
     source-tree file this load touched -- rig_path itself, the shield

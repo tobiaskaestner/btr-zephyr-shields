@@ -66,7 +66,7 @@ def test_resolve_metadata_rejects_a_missing_rig_block(tmp_path: Path) -> None:
 
 
 def test_resolve_metadata_rejects_a_missing_name(tmp_path: Path) -> None:
-    doc = _parsed(tmp_path, "rig.yml", "rig:\n  board: b/s/rig\n")
+    doc = _parsed(tmp_path, "rig.yml", "rig: {}\n")
     meta, diags = _resolve_metadata(doc, None, None)
     assert meta.rig is None
     assert len(diags) == 1
@@ -74,8 +74,11 @@ def test_resolve_metadata_rejects_a_missing_name(tmp_path: Path) -> None:
 
 
 def test_resolve_metadata_happy_path_with_no_axes(tmp_path: Path) -> None:
-    doc = _parsed(tmp_path, "rig.yml", "rig:\n  name: r\n  board: b/s/rig\n")
-    meta, diags = _resolve_metadata(doc, None, None)
+    """board is never read off rig.yml any more (board-coordinate-
+    s6-brief.md Sec 11) -- `board="b/s/rig"` here is the INJECTED value,
+    the only source of `meta.rig.board` left."""
+    doc = _parsed(tmp_path, "rig.yml", "rig:\n  name: r\n")
+    meta, diags = _resolve_metadata(doc, None, None, board="b/s/rig")
     assert diags == []
     assert meta.rig is not None
     assert meta.rig.name == "r"
@@ -86,13 +89,26 @@ def test_resolve_metadata_happy_path_with_no_axes(tmp_path: Path) -> None:
     assert meta.binding.get("x") == "x"          # lookup-else-identity
 
 
+def test_resolve_metadata_board_absent_is_the_empty_string_with_no_diagnostic(
+        tmp_path: Path) -> None:
+    """The negative control: omitting `board` is legal, not an error --
+    rig.yml has no grammar left to declare one from, and this loader
+    phase never needed a real board to assemble a topology. A caller
+    that DOES need one (cli.py, right before boarddt.load_board) is
+    where an empty board becomes a diagnostic, not here."""
+    doc = _parsed(tmp_path, "rig.yml", "rig:\n  name: r\n")
+    meta, diags = _resolve_metadata(doc, None, None)
+    assert diags == []
+    assert meta.rig is not None
+    assert meta.rig.board == ""
+
+
 def test_resolve_metadata_resolves_the_declared_default_revision(
         tmp_path: Path) -> None:
     doc = _parsed(
         tmp_path, "rig.yml",
         "rig:\n"
         "  name: r\n"
-        "  board: b/s/rig\n"
         "  revision:\n"
         "    format: number\n"
         "    default: '1'\n"
@@ -112,7 +128,6 @@ def test_resolve_metadata_an_explicit_revision_selection_wins_over_the_default(
         tmp_path, "rig.yml",
         "rig:\n"
         "  name: r\n"
-        "  board: b/s/rig\n"
         "  revision:\n"
         "    format: number\n"
         "    default: '1'\n"
@@ -137,7 +152,6 @@ def test_resolve_metadata_nearest_lower_match_keeps_requested_for_provenance(
         tmp_path, "rig.yml",
         "rig:\n"
         "  name: r\n"
-        "  board: b/s/rig\n"
         "  revision:\n"
         "    format: number\n"
         "    default: '1'\n"
@@ -161,7 +175,6 @@ def test_resolve_metadata_reports_an_axis_collision(tmp_path: Path) -> None:
         tmp_path, "rig.yml",
         "rig:\n"
         "  name: r\n"
-        "  board: b/s/rig\n"
         "  variants:\n"
         "    default: '9'\n"
         "    list: ['9']\n"
@@ -173,47 +186,6 @@ def test_resolve_metadata_reports_an_axis_collision(tmp_path: Path) -> None:
     meta, diags = _resolve_metadata(doc, None, None)
     assert meta.rig is not None
     assert any(d.code == "lang-variant" for d in diags)
-
-
-def test_resolve_metadata_per_variant_board_resolves_the_selected_ones(
-        tmp_path: Path) -> None:
-    doc = _parsed(
-        tmp_path, "rig.yml",
-        "rig:\n"
-        "  name: r\n"
-        "  variants:\n"
-        "    default: a\n"
-        "    list:\n"
-        "      - {name: a, board: ba/s/rig}\n"
-        "      - {name: b, board: bb/s/rig, sockets: {ard: nucleo_ard}}\n")
-    meta, diags = _resolve_metadata(doc, None, "b")
-    assert diags == []
-    assert meta.rig is not None
-    assert meta.rig.board == "bb/s/rig"
-    assert meta.binding.get("ard") == "nucleo_ard"
-
-
-def test_resolve_metadata_board_param_overrides_the_declared_board(
-        tmp_path: Path) -> None:
-    """`board` is `_resolve_metadata`'s own plumbing of the CLI's --board
-    (S1) straight into `binding.resolve_board`'s `injected_board` -- this
-    proves the THREADING, not resolve_board's own rules (test_binding.py
-    owns those)."""
-    doc = _parsed(tmp_path, "rig.yml", "rig:\n  name: r\n  board: b/s/rig\n")
-    meta, diags = _resolve_metadata(doc, None, None, board="given/s/rig")
-    assert diags == []
-    assert meta.rig is not None
-    assert meta.rig.board == "given/s/rig"
-
-
-def test_resolve_metadata_board_param_absent_keeps_todays_behaviour(
-        tmp_path: Path) -> None:
-    doc = _parsed(tmp_path, "rig.yml", "rig:\n  name: r\n")
-    meta, diags = _resolve_metadata(doc, None, None)
-    assert meta.rig is not None
-    assert meta.rig.board == ""
-    assert len(diags) == 1
-    assert diags[0].code == "lang-schema"
 
 
 # ---------------------------------------------------------------- _gather_content
@@ -239,18 +211,6 @@ def test_gather_content_reads_an_empty_content_file(tmp_path: Path) -> None:
     assert content.dt_includes == []
     assert content.deltas == Deltas(variant_v=None, revision_v=None)
     assert deps == frozenset((str(content_path),))
-
-
-def test_gather_content_rejects_metadata_keys_in_the_content_document(
-        tmp_path: Path) -> None:
-    _write(tmp_path, "r.yml", """\
-        board: not-allowed-here
-        instances: []
-        """)
-    rig = _rig()
-    _content, diags, _deps = _gather_content(rig, str(tmp_path), str(tmp_path), None)
-    assert len(diags) == 1
-    assert diags[0].code == "lang-schema"
 
 
 def test_gather_content_rule_10_a_nondefault_variant_contributing_nothing(

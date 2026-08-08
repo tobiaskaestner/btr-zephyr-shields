@@ -39,6 +39,7 @@ def test_broken_referenced_shield_preserves_earlier_diagnostics(
     `_build_topology`, mirroring `load_shield_library`'s own D1 shape)."""
     out_dir = tmp_path / "out"
     result = run_expand(_FIXTURE / "rig.yml", out_dir,
+                        board="nucleo_f401re/stm32f401xe/rig",
                         shield_dirs=[_FIXTURE / "shields"])
 
     assert result.returncode != 0, (

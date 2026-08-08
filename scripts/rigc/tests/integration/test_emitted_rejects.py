@@ -80,7 +80,7 @@ def test_route_no_via_golden(tmp_path: Path) -> None:
     that path. Fast: the loader rejects before any board recipe is needed."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "route-no-via" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
 
     assert result.returncode != 0, "route:{} without via: must be rejected"
     assert "[lang-schema]" in result.stderr, result.stderr
@@ -99,7 +99,7 @@ def test_param_undeclared_golden(tmp_path: Path) -> None:
     recipe is needed."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-undeclared" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
 
     assert result.returncode != 0, "an undeclared params: property must be rejected"
     assert "[lang-param]" in result.stderr, result.stderr
@@ -117,7 +117,7 @@ def test_param_required_golden(tmp_path: Path) -> None:
     be rejected, not left as a silently-inert missing property."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-required" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
 
     assert result.returncode != 0, "an unassigned required parameter must be rejected"
     assert "[lang-param]" in result.stderr, result.stderr
@@ -134,7 +134,7 @@ def test_param_unknown_device_golden(tmp_path: Path) -> None:
     naming a device label the shield has no device for must be rejected."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-unknown-device" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
 
     assert result.returncode != 0, "an unknown params: device label must be rejected"
     assert "[lang-param]" in result.stderr, result.stderr
@@ -152,7 +152,7 @@ def test_param_unresolvable_golden(tmp_path: Path) -> None:
     must be rejected, naming the fix."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-unresolvable" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
 
     assert result.returncode != 0, "an unresolvable parameter token must be rejected"
     assert "[lang-dt-include]" in result.stderr, result.stderr
@@ -172,7 +172,7 @@ def test_param_no_vocabulary_golden(tmp_path: Path) -> None:
     typo that is not there."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-no-vocabulary" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
 
     assert result.returncode != 0, (
         "a symbolic token with no declared vocabulary must be rejected")
@@ -193,7 +193,7 @@ def test_param_missing_header_golden(tmp_path: Path) -> None:
     token (rule 4), blaming the assignment instead of the include."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-missing-header" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
 
     assert result.returncode != 0, (
         "a dt-includes header that does not exist must be rejected")
@@ -213,7 +213,7 @@ def test_unknown_revision_golden(tmp_path: Path) -> None:
     is needed), like the other synthetic fixtures above."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "unknown-revision" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, revision="99")
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", revision="99")
 
     assert result.returncode != 0, "an undeclared revision must be rejected"
     assert "[lang-rev]" in result.stderr, result.stderr
@@ -230,7 +230,7 @@ def test_unknown_variant_golden(tmp_path: Path) -> None:
     declared variants: list."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "unknown-variant" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, variant="nope")
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="nope")
 
     assert result.returncode != 0, "an undeclared variant must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -248,7 +248,7 @@ def test_no_default_variant_golden(tmp_path: Path) -> None:
     listing its values (Q5)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "no-default-variant" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
 
     assert result.returncode != 0, "no selection + no default must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -268,7 +268,7 @@ def test_variant_revision_collision_golden(tmp_path: Path) -> None:
     invocation already triggers it."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "variant-revision-collision" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
 
     assert result.returncode != 0, "a variant/revision id collision must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -291,7 +291,7 @@ def test_variant_no_fragment_golden(tmp_path: Path) -> None:
     and is accepted)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "variant-no-fragment" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, variant="ghost")
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="ghost")
 
     assert result.returncode != 0, "a variant contributing nothing must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -314,7 +314,7 @@ def test_widened_variant_revision_collision_golden(tmp_path: Path) -> None:
     rule 4 would have missed this entirely)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "combined-fragment-collision" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
 
     assert result.returncode != 0, "a combined-fragment stem collision must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -335,7 +335,7 @@ def test_no_such_axis_golden(tmp_path: Path) -> None:
     itself rather than implying a typo in an existing one."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "no-such-axis" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, variant="anything")
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="anything")
 
     assert result.returncode != 0, "a qualifier against an undeclared axis must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -356,7 +356,7 @@ def test_empty_revisions_list_golden(tmp_path: Path) -> None:
     this file's own module docstring)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "empty-revisions-list" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
 
     assert result.returncode != 0, "an empty revisions: list must be rejected"
     assert "[lang-schema]" in result.stderr, result.stderr
@@ -370,24 +370,14 @@ def test_empty_revisions_list_golden(tmp_path: Path) -> None:
 
 # ---------------------------------------------------------------- V1b: delta engine rejects
 
-def test_revision_carries_board_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: board: moved into rig.yml's own axis declaration
-    (the metadata/content split's per-variant board), so a revision
-    fragment still carrying it is now rejected as a CONTENT file carrying
-    a METADATA key -- a real authoring error, just a differently-
-    explained one than the old variant-only-key wording."""
-    out_dir = tmp_path / "out"
-    rig_yml = FIXTURES_DIR / "boards" / "rigs" / "revision-carries-board" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, revision="2")
-
-    assert result.returncode != 0, "a revision fragment carrying board: must be rejected"
-    assert "[lang-schema]" in result.stderr, result.stderr
-    assert "'board:' is rig.yml metadata" in result.stderr, result.stderr
-
-    zb = zephyr_base()
-    golden_dir = GOLDENS_DIR / "revision-carries-board"
-    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
-    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+# test_revision_carries_board_golden RETIRED (board-coordinate-s6-brief.md
+# Sec 11): the mechanism it pinned -- documents.reject_metadata_keys
+# rejecting a content/delta document that carries a rig.yml METADATA key
+# -- is gone along with board:/sockets: leaving rig.yml's own grammar
+# entirely. A delta fragment carrying `board:` is no longer special: it
+# is silently ignored, the same as any other unrecognized key. Its
+# fixture (revision-carries-board/) and golden directory are deleted with
+# it, mechanism and test together.
 
 
 def test_instances_delta_unknown_instance_golden(tmp_path: Path) -> None:
@@ -395,7 +385,7 @@ def test_instances_delta_unknown_instance_golden(tmp_path: Path) -> None:
     the effective topology does not have (additions are never implicit)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "instances-delta-unknown-instance" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, variant="b")
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="b")
 
     assert result.returncode != 0, "instances: naming an unknown instance must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -412,7 +402,7 @@ def test_add_instances_already_exists_golden(tmp_path: Path) -> None:
     already exists."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "add-instances-already-exists" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, variant="b")
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="b")
 
     assert result.returncode != 0, "add-instances: naming an existing instance must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -431,7 +421,7 @@ def test_remove_instance_drift_golden(tmp_path: Path) -> None:
     variant that already removed it, so drift cannot hide."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "remove-instance-drift" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, variant="b", revision="2")
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="b", revision="2")
 
     assert result.returncode != 0, "remove-instances: naming an absent instance must be rejected"
     assert "[lang-rev]" in result.stderr, result.stderr
@@ -450,7 +440,7 @@ def test_remove_wire_missing_golden(tmp_path: Path) -> None:
     x.sq -> y.led-2)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "remove-wire-missing" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, variant="b")
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="b")
 
     assert result.returncode != 0, "remove-wires: naming a nonexistent pair must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -470,7 +460,7 @@ def test_restate_check_golden(tmp_path: Path) -> None:
     otherwise silently revert to the shield's authored default."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "restate-check" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, variant="b",
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="b",
                         shield_dirs=[FIXTURES_DIR / "boards" / "shields"])
 
     assert result.returncode != 0, "an un-restated optional parameter must be rejected"
@@ -491,7 +481,7 @@ def test_revision_crosses_variant_golden(tmp_path: Path) -> None:
     unavoidable by construction, so the error must name the variant."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "revision-crosses-variant" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, variant="hpm", revision="2",
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="hpm", revision="2",
                         shield_dirs=[FIXTURES_DIR / "boards" / "shields", SHIELD_DIR])
 
     assert result.returncode != 0, "a revision crossing a variant's shield swap must be rejected"
@@ -514,7 +504,7 @@ def test_dotted_revision_no_fragment_golden(tmp_path: Path) -> None:
     normalization happened, not just that rule 10 still works."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "dotted-revision-no-fragment" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, revision="1.5")
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", revision="1.5")
 
     assert result.returncode != 0, "a dotted revision contributing nothing must be rejected"
     assert "[lang-rev]" in result.stderr, result.stderr
@@ -539,7 +529,7 @@ def test_shield_undeclared_revision_golden(tmp_path: Path) -> None:
     other synthetic fixtures above."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-undeclared-revision" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
 
     assert result.returncode != 0, "an undeclared shield revision must be rejected"
     assert "[lang-rev]" in result.stderr, result.stderr
@@ -559,7 +549,7 @@ def test_shield_no_revisions_declared_golden(tmp_path: Path) -> None:
     revisions: block."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-no-revisions-declared" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
 
     assert result.returncode != 0, (
         "an @rev against a shield declaring no revisions: must be rejected")
@@ -580,7 +570,7 @@ def test_shield_missing_fragment_golden(tmp_path: Path) -> None:
     neither rev_fixture_2.shield nor rev_fixture_2.conf."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-missing-fragment" / "rig.yml"
-    result = run_expand(rig_yml, out_dir,
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig",
                         shield_dirs=[FIXTURES_DIR / "boards" / "rigs" /
                                      "shield-missing-fragment" / "shields"])
 
@@ -608,7 +598,7 @@ def test_shield_revision_param_invariant_golden(tmp_path: Path) -> None:
     assigns it."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-revision-param-invariant" / "rig.yml"
-    result = run_expand(rig_yml, out_dir,
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig",
                         shield_dirs=[FIXTURES_DIR / "boards" / "rigs" /
                                      "shield-revision-param-invariant" / "shields"])
 
@@ -635,7 +625,7 @@ def test_missing_content_file_golden(tmp_path: Path) -> None:
     parsed from the folder and is therefore not obvious from the layout."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "missing-content-file" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
 
     assert result.returncode != 0, "a missing content file must be rejected"
     assert "[lang-content]" in result.stderr, result.stderr
@@ -661,7 +651,7 @@ def test_shield_bad_revisions_block_golden(tmp_path: Path) -> None:
     fixture's output too."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-bad-revisions-block" / "rig.yml"
-    result = run_expand(rig_yml, out_dir,
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig",
                         shield_dirs=[FIXTURES_DIR / "boards" / "rigs" / "shield-bad-revisions-block" / "shields"])
 
     assert result.returncode != 0, (
@@ -688,7 +678,7 @@ def test_shield_node_name_mismatch_golden(tmp_path: Path) -> None:
     and the node name disagreeing about what was built."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-node-name-mismatch" / "rig.yml"
-    result = run_expand(rig_yml, out_dir,
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig",
                         shield_dirs=[FIXTURES_DIR / "boards" / "rigs" / "shield-node-name-mismatch" / "shields"])
 
     assert result.returncode != 0, (
@@ -705,38 +695,23 @@ def test_shield_node_name_mismatch_golden(tmp_path: Path) -> None:
 
 # ---------------------------------------------------------------- board-per-variant
 
-def test_variant_board_restated_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: rule 10 widened -- a non-default variant
-    declaring its OWN board and socket map, but restating the default's
-    verbatim, with no fragment file either. Presence of a board: key is
-    not itself contribution; this is the case the weaker (presence-only)
-    reading of the widened rule would have missed. Purely loader-level
-    (no board recipe needed): board/socket resolution here never touches
-    a real board.yml, only rig.yml's own declared strings."""
-    out_dir = tmp_path / "out"
-    rig_yml = FIXTURES_DIR / "boards" / "rigs" / "variant-board-restated" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, variant="nucleo_again")
-
-    assert result.returncode != 0, (
-        "a variant restating the default's board/sockets with no fragment "
-        "must be rejected")
-    assert "[lang-variant]" in result.stderr, result.stderr
-    assert "contributes nothing" in result.stderr, result.stderr
-    assert "does not differ from the default variant's" in result.stderr, result.stderr
-
-    zb = zephyr_base()
-    golden_dir = GOLDENS_DIR / "variant-board-restated"
-    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
-    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+# test_variant_board_restated_golden RETIRED (board-coordinate-s6-brief.md
+# Sec 11): its own mechanism -- fragments.variant_metadata_differs, rule
+# 10's per-variant board/socket "second avenue" of contribution -- is
+# gone along with the per-variant-board grammar it read
+# (`AxisDecl.boards`/`.sockets` are never populated by any variants:
+# entry any more). A variant restating nothing now simply contributes
+# nothing, the plain rule 10 case test_variant_no_fragment_golden already
+# covers; its fixture (variant-board-restated/) and golden directory are
+# deleted with it.
 
 
 def test_unmapped_socket_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: the DEGENERATE shape's own top-level sockets:
-    map (rig-metadata-content-split-brief.md), with an instance naming a
-    socket the map does not cover -- it passes through unresolved, and the
-    board simply has no socket by that literal name (the pre-existing
-    phys-socket diagnostic, exercised here through the metadata-sourced
-    resolution path rather than a raw board-socket label).
+    """Synthetic fixture: an instance naming a socket the board does not
+    have -- it passes through SocketBinding's own lookup-else-identity
+    (an empty binding since board-coordinate-s6-brief.md Sec 11: nothing
+    populates one any more), and the board simply has no socket by that
+    literal name (the pre-existing phys-socket diagnostic).
 
     The board is incidental to this: any board with any socket set
     demonstrates the same "unresolved name falls through to a real-socket
@@ -744,7 +719,8 @@ def test_unmapped_socket_golden(tmp_path: Path) -> None:
     against the fixture connector type under fixtures/dts/connectors/,
     never a real one) instead of a real corpus board -- no plain build,
     hence unmarked like fixtures/boards/rigs/not-rig-enabled's sibling
-    test."""
+    test. board is INJECTED (the harness, not a rig.yml declaration --
+    Sec 11 retired that grammar), matching its own fixture .dts's name."""
     fixture = FIXTURES_DIR / "boards" / "rigs" / "unmapped-socket"
     board_dts = FIXTURES_DIR / "boards" / "mainboards" / "unmapped_socket_board.dts"
     bindings_dirs = [FIXTURES_DIR / "dts" / "connectors"]
@@ -753,6 +729,7 @@ def test_unmapped_socket_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     result = run_expand(
         fixture / "rig.yml", out_dir,
+        board="unmapped_socket_board",
         board_dts=board_dts,
         bindings_dirs=bindings_dirs, include_dirs=include_dirs)
 
@@ -768,12 +745,7 @@ def test_unmapped_socket_golden(tmp_path: Path) -> None:
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
 
 
-# ---------------------------------------------------------------- _resolve_board shape rules
-#
-# Every lang-schema rejection _resolve_board (loader_yml.py) and its
-# _parse_axis_decl/_reject_metadata_keys neighbours can raise, pinned one
-# case at a time. All are pure loader-level shape defects -- none reaches
-# the analyzer, so none needs a real board recipe (no @pytest.mark.build).
+# ---------------------------------------------------------------- board resolution
 
 
 # test_revision_mapping_entry_golden RETIRED (hwmv2-revision-semantics-
@@ -785,122 +757,51 @@ def test_unmapped_socket_golden(tmp_path: Path) -> None:
 # touch).
 
 
-def test_board_declared_twice_golden(tmp_path: Path) -> None:
-    """A top-level board: alongside a variants: axis that ALSO declares
-    its own boards is rejected: two legal shapes exist (one board once at
-    the top level, or one per variant), and a rig taking both would make
-    "which board won" unanswerable from the file alone."""
-    out_dir = tmp_path / "out"
-    rig_yml = FIXTURES_DIR / "boards" / "rigs" / "board-declared-twice" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
-
-    assert result.returncode != 0, (
-        "a top-level board: alongside per-variant boards must be rejected")
-    assert "[lang-schema]" in result.stderr, result.stderr
-    assert "never both" in result.stderr, result.stderr
-
-    zb = zephyr_base()
-    golden_dir = GOLDENS_DIR / "board-declared-twice"
-    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
-    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
-
-
-def test_variant_board_partial_golden(tmp_path: Path) -> None:
-    """Only SOME declared variants carrying a board: is rejected: a
-    partial declaration would leave the other variant resolving to no
-    board at all, which is not a silent fallback this split permits --
-    every variant must declare a board, or none should."""
-    out_dir = tmp_path / "out"
-    rig_yml = FIXTURES_DIR / "boards" / "rigs" / "variant-board-partial" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
-
-    assert result.returncode != 0, (
-        "only some variants declaring board: must be rejected")
-    assert "[lang-schema]" in result.stderr, result.stderr
-    assert "every variant must declare a board, or none should" in result.stderr, result.stderr
-
-    zb = zephyr_base()
-    golden_dir = GOLDENS_DIR / "variant-board-partial"
-    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
-    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
-
-
-def test_sockets_with_variant_board_golden(tmp_path: Path) -> None:
-    """A top-level sockets: map is rejected once every variant declares
-    its own board: a top-level map only makes sense paired with a
-    top-level board in the degenerate single-board shape; once boards are
-    per-variant, a top-level map has no single board to be a map for."""
-    out_dir = tmp_path / "out"
-    rig_yml = FIXTURES_DIR / "boards" / "rigs" / "sockets-with-variant-board" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
-
-    assert result.returncode != 0, (
-        "a top-level sockets: map alongside per-variant boards must be rejected")
-    assert "[lang-schema]" in result.stderr, result.stderr
-    assert "declares a top-level sockets: map" in result.stderr, result.stderr
-
-    zb = zephyr_base()
-    golden_dir = GOLDENS_DIR / "sockets-with-variant-board"
-    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
-    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+# test_board_declared_twice_golden, test_variant_board_partial_golden and
+# test_sockets_with_variant_board_golden RETIRED (board-coordinate-
+# s6-brief.md Sec 11): all three pinned one of binding.resolve_board's
+# per-variant-board coherence rules (a top-level board: alongside
+# per-variant ones; a partial per-variant declaration; a top-level
+# sockets: alongside per-variant boards) -- rules that policed a
+# DECLARATION shape no rig.yml can spell any more. resolve_board itself
+# is now a one-line injection (loader/binding.py), with no declaration
+# left to be incoherent about; their fixtures (board-declared-twice/,
+# variant-board-partial/, sockets-with-variant-board/) and goldens are
+# deleted with the mechanism.
+#
+# test_content_file_carries_board_golden and test_content_file_carries_
+# sockets_golden RETIRED alongside them: their mechanism,
+# documents.reject_metadata_keys (board:/sockets: as rig.yml-only
+# METADATA keys, illegal in any content document), existed only to
+# police the same retired grammar from the other side -- a content file
+# naming `board:` or `sockets:` today is just an unrecognized key,
+# silently ignored like any other. Their fixtures (content-file-carries-
+# board/, content-file-carries-sockets/) and goldens are deleted too.
 
 
 def test_no_board_declared_golden(tmp_path: Path) -> None:
-    """A rig declaring no board at all -- neither a top-level board: nor
-    one per variant -- is rejected: every rig must name at least one host
-    board, in one of the two legal shapes."""
+    """A rig with no board INJECTED (no --board, and -- since
+    board-coordinate-s6-brief.md Sec 11 -- no declaration exists any
+    more to fall back to) is rejected: a rig has no board of its own to
+    build against. The diagnostic itself moved (binding.resolve_board
+    never rejects any more; the loader assembles a boardless topology
+    just fine) to cli.py, right before it would otherwise ask boarddt to
+    read a board literally named "" -- so this fixture's rig.yml carries
+    no `board:` key at all (there is nothing left to declare), and the
+    golden's shape changed with the mechanism: phys-board, unanchored,
+    the same family every other board-reading diagnostic already uses,
+    rather than a lang-schema finding anchored at a rig.yml line that no
+    longer exists to point at."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "no-board-declared" / "rig.yml"
     result = run_expand(rig_yml, out_dir)
 
-    assert result.returncode != 0, "a rig with no board declared at all must be rejected"
-    assert "[lang-schema]" in result.stderr, result.stderr
-    assert "declares no board:" in result.stderr, result.stderr
+    assert result.returncode != 0, "a rig with no board injected at all must be rejected"
+    assert "[phys-board]" in result.stderr, result.stderr
+    assert "no board given" in result.stderr, result.stderr
 
     zb = zephyr_base()
     golden_dir = GOLDENS_DIR / "no-board-declared"
-    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
-    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
-
-
-def test_content_file_carries_board_golden(tmp_path: Path) -> None:
-    """The BASE content file (<rigname>.yml), not a delta fragment,
-    carrying board: is rejected -- the hole the metadata/content split
-    left in its first slice: a content file is topology only, so board:
-    surviving there is a defect regardless of whether it arrives via a
-    fragment or the base file itself."""
-    out_dir = tmp_path / "out"
-    rig_yml = FIXTURES_DIR / "boards" / "rigs" / "content-file-carries-board" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
-
-    assert result.returncode != 0, (
-        "a base content file carrying board: must be rejected")
-    assert "[lang-schema]" in result.stderr, result.stderr
-    assert "'board:' is rig.yml metadata" in result.stderr, result.stderr
-    assert "content-file-carries-board.yml" in result.stderr, result.stderr
-
-    zb = zephyr_base()
-    golden_dir = GOLDENS_DIR / "content-file-carries-board"
-    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
-    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
-
-
-def test_content_file_carries_sockets_golden(tmp_path: Path) -> None:
-    """The other half of the same rejection: the base content file
-    carrying sockets: instead of board:. Both keys are rig.yml metadata;
-    neither is legal in a content file of any kind."""
-    out_dir = tmp_path / "out"
-    rig_yml = FIXTURES_DIR / "boards" / "rigs" / "content-file-carries-sockets" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
-
-    assert result.returncode != 0, (
-        "a base content file carrying sockets: must be rejected")
-    assert "[lang-schema]" in result.stderr, result.stderr
-    assert "'sockets:' is rig.yml metadata" in result.stderr, result.stderr
-    assert "content-file-carries-sockets.yml" in result.stderr, result.stderr
-
-    zb = zephyr_base()
-    golden_dir = GOLDENS_DIR / "content-file-carries-sockets"
     freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
 
@@ -922,7 +823,7 @@ def test_shield_revisions_mapping_entry_golden(tmp_path: Path) -> None:
     reported at library-scan time for every folder scanned."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-revisions-mapping-entry" / "rig.yml"
-    result = run_expand(rig_yml, out_dir,
+    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig",
                         shield_dirs=[FIXTURES_DIR / "boards" / "rigs" / "shield-revisions-mapping-entry" / "shields"])
 
     assert result.returncode != 0, (

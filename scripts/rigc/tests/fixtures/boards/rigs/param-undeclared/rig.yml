@@ -1,3 +1,2 @@
 rig:
   name: param-undeclared
-  board: nucleo_f401re/stm32f401xe/rig

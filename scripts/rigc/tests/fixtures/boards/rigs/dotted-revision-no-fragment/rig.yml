@@ -11,7 +11,6 @@
 # declared "1.5.0" exactly -- no nearest-lower involved.
 rig:
   name: dotted-revision-no-fragment
-  board: nucleo_f401re/stm32f401xe/rig
   revision:
     format: major.minor.patch
     default: "1.0.0"

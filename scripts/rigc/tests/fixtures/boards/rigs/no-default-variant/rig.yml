@@ -3,6 +3,5 @@
 # the axis and listing its values.
 rig:
   name: no-default-variant
-  board: nucleo_f401re/stm32f401xe/rig
   variants:
     list: [a, b]

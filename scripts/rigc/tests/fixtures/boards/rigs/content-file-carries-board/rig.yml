@@ -1,8 +1,0 @@
-# Synthetic fixture: the BASE content file (<rigname>.yml), not a delta
-# fragment, carrying board: -- the S1-era hole this split's metadata/
-# content separation must also close: a content file is topology only,
-# so board: surviving there is a defect regardless of whether it arrives
-# via a fragment or the base file itself.
-rig:
-  name: content-file-carries-board
-  board: nucleo_f401re/stm32f401xe/rig

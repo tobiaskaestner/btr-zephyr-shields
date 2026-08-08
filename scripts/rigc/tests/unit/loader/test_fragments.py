@@ -1,15 +1,18 @@
 """Unit: loader.fragments -- rule 10, the fragment-presence check.
 
 The stable contract: a selected NON-DEFAULT axis value must contribute
-something (an existing delta doc, a cmake-collected overlay/defconfig,
-or -- variants only -- board/socket metadata that actually differs from
-the default variant's); the declared DEFAULT is always exempt. The rule
-is PURE: which files exist arrives as a FragmentPresence VALUE (the IO
-phase probes; joint review 2026-07-29), so nothing here touches a
-filesystem -- no tmp_path, no fixture files.
-`variant_metadata_differs` is exercised directly, since it is the one
-"presence is not itself contribution" subtlety the wording alone would
-not make obvious to a future rewrite.
+something (an existing delta doc, or a cmake-collected overlay/
+defconfig); the declared DEFAULT is always exempt. The rule is PURE:
+which files exist arrives as a FragmentPresence VALUE (the IO phase
+probes; joint review 2026-07-29), so nothing here touches a filesystem
+-- no tmp_path, no fixture files.
+
+A variant's second avenue of contribution -- its own board/socket
+metadata differing from the default's -- used to be tested here
+directly (`variant_metadata_differs`); retired along with the grammar
+that populated `AxisDecl.boards`/`.sockets` at all
+(board-coordinate-s6-brief.md Sec 11), so a variant's only remaining way
+to contribute is the same fragment-file avenue a revision has.
 """
 from __future__ import annotations
 
@@ -17,8 +20,7 @@ from rigc.diag import SourceRef
 from rigc.loader.fragments import (FragmentPresence,
                                    check_fragment_presence,
                                    revision_contribution_names,
-                                   variant_contribution_names,
-                                   variant_metadata_differs)
+                                   variant_contribution_names)
 from rigc.model import AxisDecl, Rig
 
 _SRC = SourceRef("synthetic", 1, "rig")
@@ -29,42 +31,6 @@ def _rig(variant: "str | None" = None, revision: "str | None" = None,
         revisions: "AxisDecl | None" = None) -> Rig:
     return Rig(name="r", variant=variant, revision=revision,
               variants=variants, revisions=revisions)
-
-
-# ------------------------------------------------------ variant_metadata_differs
-
-def test_no_variants_axis_never_differs() -> None:
-    assert variant_metadata_differs(_rig(variant="a")) is False
-
-
-def test_default_variant_never_differs() -> None:
-    variants = AxisDecl(values=["a"], default="a", boards={"a": "b/s/rig"})
-    assert variant_metadata_differs(_rig(variant="a", variants=variants)) is False
-
-
-def test_no_per_variant_boards_never_differs() -> None:
-    variants = AxisDecl(values=["a", "b"], default="a")   # no boards at all
-    assert variant_metadata_differs(_rig(variant="b", variants=variants)) is False
-
-
-def test_restated_board_and_sockets_do_not_differ() -> None:
-    variants = AxisDecl(values=["a", "b"], default="a",
-                        boards={"a": "b/s/rig", "b": "b/s/rig"},
-                        sockets={"a": {"x": "y"}, "b": {"x": "y"}})
-    assert variant_metadata_differs(_rig(variant="b", variants=variants)) is False
-
-
-def test_different_board_differs() -> None:
-    variants = AxisDecl(values=["a", "b"], default="a",
-                        boards={"a": "ba/s/rig", "b": "bb/s/rig"})
-    assert variant_metadata_differs(_rig(variant="b", variants=variants)) is True
-
-
-def test_same_board_different_sockets_differs() -> None:
-    variants = AxisDecl(values=["a", "b"], default="a",
-                        boards={"a": "b/s/rig", "b": "b/s/rig"},
-                        sockets={"a": {"x": "y"}, "b": {"x": "z"}})
-    assert variant_metadata_differs(_rig(variant="b", variants=variants)) is True
 
 
 # --------------------------------------------------------- check_fragment_presence
@@ -94,22 +60,6 @@ def test_nondefault_variant_contributing_nothing_is_rejected() -> None:
     assert "r_b.overlay" in diags[0].message
     assert "r_b_defconfig" in diags[0].message
     assert "r_b.yml" in diags[0].message
-
-
-def test_metadata_hint_appears_only_when_variants_declare_boards() -> None:
-    """Structural, not wording (the exact hint bytes belong to the
-    variant-board-restated golden alone): the same selection produces a
-    LONGER message when per-variant boards exist -- the hint is appended
-    -- and the boards-less message is its prefix."""
-    with_boards = AxisDecl(values=["a", "b"], default="a",
-                           boards={"a": "x/s/rig", "b": "x/s/rig"})
-    without_boards = AxisDecl(values=["a", "b"], default="a")
-    hinted = check_fragment_presence(
-        _rig(variant="b", variants=with_boards), _SRC, FragmentPresence())
-    plain = check_fragment_presence(
-        _rig(variant="b", variants=without_boards), _SRC, FragmentPresence())
-    assert hinted[0].message.startswith(plain[0].message)
-    assert len(hinted[0].message) > len(plain[0].message)
 
 
 def test_nondefault_revision_contributing_nothing_is_rejected() -> None:

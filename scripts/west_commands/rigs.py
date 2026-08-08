@@ -54,14 +54,6 @@ _add_zephyr_scripts()
 from zephyr_ext_common import ZEPHYR_BASE  # noqa: E402
 import zephyr_module  # noqa: E402
 
-# `--boards-for` (Rigs._boards_for, below) needs SOME board to satisfy
-# loader.load's schema now that no rig declares one (board-coordinate-
-# s6-brief.md Sec 3) -- inert by construction (see _boards_for's own
-# docstring for why its exact spelling never matters), so it is spelled
-# to read as a placeholder rather than a real hwmv2 target if it ever
-# does leak into a diagnostic somehow.
-_BOARDS_FOR_PLACEHOLDER_BOARD = '(boards-for census: no board selected)'
-
 
 class Rigs(WestCommand):
 
@@ -183,8 +175,8 @@ class Rigs(WestCommand):
             # longer declares one, so this listing has nothing of its own
             # to print for it -- --boards-for is the enumeration answer.
             # variants: variant_names extracts the bare NAME out of each
-            # list: entry, which may be a {name:, board:, sockets:}
-            # mapping rather than a scalar in that same shape.
+            # list: entry, which may be a {name:} mapping rather than a
+            # scalar in that same shape.
             self.inf(args.format.format(
                 name=rig.name,
                 dir=rig.dir,
@@ -281,19 +273,16 @@ class Rigs(WestCommand):
         shield name exited 1 with list_rigs' "does not resolve to a rig",
         which read as "no such thing" rather than "wrong namespace".
 
-        board IS injected, as of S6 (board-coordinate-s6-brief.md Sec 3):
-        no corpus rig declares one any more, so loader.load would
-        otherwise hit binding.resolve_board's "declares no board:"
-        rejection for every target this command is asked about -- the
-        opposite of "an empty answer is a fact, not an error" above. The
-        injected value is _BOARDS_FOR_PLACEHOLDER_BOARD, an inert
-        constant: this command's own claim is bounded to socket
-        conformance against EVERY censused board (board_census.boards_for
-        iterates cb.board for each CensusBoard, never rig.board), so which
-        placeholder string satisfies the loader's schema is immaterial --
-        it is never rendered (no emitter call on this path at all) and
-        never reaches boarddt (no --board-dts either, so pass-1 board
-        reading never runs here)."""
+        No board is injected here at all (board-coordinate-s6-brief.md
+        Sec 11 retired rig.yml's own board: grammar outright, taking
+        with it the wart an earlier slice needed here: loader.load no
+        longer requires a board to assemble a topology, so this call
+        needs no placeholder to satisfy it). This command's own claim is
+        bounded to socket conformance against EVERY censused board
+        (board_census.boards_for iterates cb.board for each CensusBoard,
+        never rig.board) -- it is never rendered (no emitter call on
+        this path at all) and never reaches boarddt (no --board-dts
+        either, so pass-1 board reading never runs here)."""
         # rigc reads $ZEPHYR_BASE at call time (its own header/index
         # parsing needs zephyr's include dir); pin it to west's OWN
         # resolution rather than trust the ambient shell, exactly as
@@ -335,8 +324,7 @@ class Rigs(WestCommand):
             rig, diags, _rig_deps = loader.load(
                 rig_yml, workdir, types=types,
                 shield_dirs=self._shield_dirs(args),
-                revision=revision, variant=variant,
-                board=_BOARDS_FOR_PLACEHOLDER_BOARD)
+                revision=revision, variant=variant)
         finally:
             # D10's rule: this command never leaves a workdir behind,
             # accept or reject alike -- unlike rigc's own CLI, a query has

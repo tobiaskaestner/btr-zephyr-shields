@@ -21,7 +21,7 @@ from ..deps import Deps, union
 from ..diag import Diagnostic, SourceRef, error
 from ..model import Instance, Wire, WireEnd
 from .binding import SocketBinding
-from .documents import Val, as_mapping, reject_metadata_keys, require
+from .documents import Val, as_mapping, require
 from .library import ShieldLibrary
 from .params import apply_params_block, apply_pin_block, check_restate
 
@@ -298,15 +298,14 @@ def apply_delta(delta: Val, stage: str, stage_value: str,
     returning a NEW Topology plus every diagnostic raised plus every real
     file this stage's shield resolutions touched. `stage_value` is the
     selected axis value itself, folded into the rule-8 drift-hint
-    wording. Metadata-key rejection (board:/sockets:) fires first, exactly
-    as rigexp's own `_apply_delta` does. `variant` is the RIG's selected
-    variant (rule 12's context, only meaningful when stage == "revision").
+    wording. `variant` is the RIG's selected variant (rule 12's context,
+    only meaningful when stage == "revision").
 
     Returns (topology, diagnostics, deps): a NEW Topology -- the input
     one is never mutated -- plus this stage's findings in document
     order and the files its shield resolutions touched."""
     code = "lang-variant" if stage == "variant" else "lang-rev"
-    diags: List[Diagnostic] = list(reject_metadata_keys(delta))
+    diags: List[Diagnostic] = []
     deps: Deps = frozenset()
 
     effective = dict(topology.effective)

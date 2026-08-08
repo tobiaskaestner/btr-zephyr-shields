@@ -1,14 +1,17 @@
 """Unit: loader.documents -- the document model.
 
-Three contracts live here: content/fragment filename CONSTRUCTION
+Two contracts live here: content/fragment filename CONSTRUCTION
 (construct-don't-parse, the Q6 discipline: filenames derive from the
 rig's own declared name: and a selected axis value, NEVER from the
-folder the rig happens to live in), the metadata/content key split
-(board:/sockets: are rig.yml metadata; a content document carrying
-either is rejected), and require()'s missing-key structure (a stable
-contract -- code, severity, anchor -- even though the wording itself is
-a no-golden diagnostic, hand-differentialed separately, not duplicated
-here).
+folder the rig happens to live in), and require()'s missing-key
+structure (a stable contract -- code, severity, anchor -- even though
+the wording itself is a no-golden diagnostic, hand-differentialed
+separately, not duplicated here). A third contract used to live here --
+the metadata/content key split, board:/sockets: rejected out of any
+content document -- retired along with that grammar
+(board-coordinate-s6-brief.md Sec 11): neither key is rig.yml metadata
+any more, so nothing about a content document needs to reject them
+specially.
 
 The anchor-line contract rides along: an anchor carries the VALUE node's
 start line (a scalar value sits on its key's line; a nested mapping
@@ -22,7 +25,7 @@ from pathlib import Path
 
 from rigc.diag import Diagnostic, SourceRef
 from rigc.loader.documents import (Val, content_file_name, parse_marked,
-                                   reject_metadata_keys, require)
+                                   require)
 
 
 def _ref(d: Diagnostic, i: int = 0) -> SourceRef:
@@ -50,60 +53,6 @@ def test_construction_uses_the_name_value_alone() -> None:
     parameter to parse a name out of. (Fragment-stem construction lives
     in axes.py -- the hwmv2 seam -- and is tested in test_axes.py.)"""
     assert content_file_name("other") == "other.yml"
-
-
-# ----------------------------------------------- metadata/content key split
-
-def test_clean_content_document_returns_no_diagnostics(tmp_path: Path) -> None:
-    assert reject_metadata_keys(_doc(tmp_path, """\
-        instances: []
-        """)) == []
-
-
-def test_board_key_is_rejected_anchored_at_its_value(tmp_path: Path) -> None:
-    doc = _doc(tmp_path, """\
-        board: some_board/soc/rig
-        instances: []
-        """)
-    diags = reject_metadata_keys(doc)
-    assert len(diags) == 1
-    d = diags[0]
-    assert isinstance(d, Diagnostic)
-    assert d.severity == "error"
-    assert d.code == "lang-schema"
-    assert len(d.refs) == 1
-    ref = _ref(d)
-    assert ref.file == str(tmp_path / "content.yml")
-    assert ref.line == 1               # scalar value: the key's own line
-    assert ref.key == "board"
-
-
-def test_sockets_key_anchors_at_the_value_node_line(tmp_path: Path) -> None:
-    doc = _doc(tmp_path, """\
-        sockets:
-          ard: nucleo_ard
-        instances: []
-        """)
-    diags = reject_metadata_keys(doc)
-    assert len(diags) == 1
-    ref = _ref(diags[0])
-    assert ref.line == 2               # nested mapping: first entry's line
-    assert ref.key == "sockets"
-
-
-def test_both_keys_reject_in_declaration_order(tmp_path: Path) -> None:
-    """Ordering contract: board: before sockets:, regardless of the
-    document's own key order -- rigexp's own fixed scan order."""
-    doc = _doc(tmp_path,
-               """\
-        sockets:
-          ard: x
-        board: some_board/soc/rig
-        instances: []
-        """)
-    diags = reject_metadata_keys(doc)
-    assert [_ref(d).key for d in diags] == ["board", "sockets"]
-    assert all(d.code == "lang-schema" for d in diags)
 
 
 # ------------------------------------------------------------- require()

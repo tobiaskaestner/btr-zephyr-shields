@@ -682,12 +682,13 @@ def test_resolved_empty_rig_equals_plain_board(
     board_root: .), so BOARD_ROOT gains an entry rather than losing one."""
     build_dir = tmp_path / "build"
     extra = board_extra_defines(_EMPTY_RIG_BOARD) + [f"-DBOARD_ROOT={FIXTURES_DIR}"]
-    # The board is passed explicitly like every corpus call site, even
-    # though this FIXTURE (unlike the corpus) still spells `board:` in its
-    # own rig.yml: S6 deleted cmake/boards.cmake's inference outright, so a
-    # declared board is read by nothing and the invocation is the only
-    # source. This call omitted it while inference still existed, which is
-    # what made it the one test the inference deletion broke.
+    # The board is passed explicitly like every corpus call site: this
+    # fixture's own rig.yml declares none at all (board-coordinate-
+    # s6-brief.md Sec 11 retired that grammar outright, so there is
+    # nothing left to spell even in principle) -- -DBOARD is the only
+    # source. This call omitted it while cmake's own rig->board
+    # inference still existed, which is what made it the one test that
+    # inference's deletion broke.
     result = _run_build("empty_rig", build_dir, extra, board=_EMPTY_RIG_BOARD)
     assert result.returncode == 0, (
         f"empty_rig: expected `west build-rig --cmake-only` to configure "

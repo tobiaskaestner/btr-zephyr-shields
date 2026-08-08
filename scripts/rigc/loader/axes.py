@@ -17,10 +17,14 @@ applies ONLY at filename construction, and only to a RESOLVED value,
 never a requested one.
 
 `variants:` keeps its own `{default:, list: []}` shape (bare names, or a
-rig-only mapping entry {name:, board:, sockets:}) -- V1's
-one-schema-for-both-axes property is deliberately spent here
-(rig-variants-revisions.md V1 Sec 2), a ratified trade recorded where
-that property was originally stated.
+rig-only mapping entry {name:}) -- V1's one-schema-for-both-axes
+property was spent here to let a variant entry carry board:/sockets:
+per value (rig-variants-revisions.md V1 Sec 2, the ratified trade);
+board-coordinate-s6-brief.md Sec 11 retired that grammar (a mapping
+entry's only remaining key is name:), but the asymmetry it motivated
+survives -- a variant entry may still be a bare scalar, a revision
+entry never may (`parse_revision_decl` below requires a mapping)  -- so
+the trade stays recorded rather than treated as undone.
 
 A rig.yml revision axis (singular key `revision:`) takes upstream's own
 board.yml block: `format:` (required, one of letter/number/major.minor.
@@ -165,10 +169,14 @@ def parse_variant_decl(container_v: Val, key: str = "variants",
     both lang-schema, since they are defects of the declaring FILE, not of
     a particular selection.
 
-    Each list entry is either a bare name, or a mapping {name:, board:,
-    sockets:} -- the one shape only a rig's OWN variants: list may take
-    (a revision's `revisions:` entries never carry board:/sockets:,
-    parsed separately by `parse_revision_decl`).
+    Each list entry is either a bare name, or a mapping {name:} -- board:/
+    sockets: are no longer read from a variant entry at all
+    (board-coordinate-s6-brief.md Sec 11 retired the per-variant-board
+    shape they used to spell; `AxisDecl.boards`/`.sockets` accordingly
+    stay at their empty default for every variants: axis now). A stray
+    board:/sockets: key on an entry is silently ignored, the same as an
+    unrecognized key anywhere else in this grammar -- ONLY name: is read
+    off a mapping entry.
 
     Returns (decl, diagnostics): the parsed declaration, or None when the
     key is absent or its shape was rejected -- the diagnostics distinguish
@@ -180,22 +188,13 @@ def parse_variant_decl(container_v: Val, key: str = "variants",
     axis_map = axis_v.value if isinstance(axis_v.value, dict) else {}
     list_v = axis_map.get("list")
     values: list[str] = []
-    boards: dict[str, str] = {}
-    sockets: dict[str, dict[str, str]] = {}
     for item_v in (list_v.value if list_v is not None else []):
         if isinstance(item_v.value, dict):
             name_v, d = require(item_v, "name", f"{owner} {key} entry")
             diags += d
             if name_v is None:
                 continue
-            name = str(name_v.value)
-            values.append(name)
-            board_v = item_v.value.get("board")
-            if board_v is not None:
-                boards[name] = board_v.value
-            sockets_v = item_v.value.get("sockets")
-            if sockets_v is not None:
-                sockets[name] = {k: v.value for k, v in sockets_v.value.items()}
+            values.append(str(name_v.value))
         else:
             values.append(str(item_v.value))
     if not values:
@@ -205,7 +204,7 @@ def parse_variant_decl(container_v: Val, key: str = "variants",
         return None, diags
     default_v = axis_map.get("default")
     if default_v is None:
-        return AxisDecl(values=values, boards=boards, sockets=sockets), diags
+        return AxisDecl(values=values), diags
     default = str(default_v.value)
     if default not in values:
         diags.append(error(
@@ -214,8 +213,7 @@ def parse_variant_decl(container_v: Val, key: str = "variants",
             f"values ({', '.join(values)})",
             (default_v.src,)))
         return None, diags
-    return AxisDecl(values=values, default=default, boards=boards,
-                    sockets=sockets), diags
+    return AxisDecl(values=values, default=default), diags
 
 
 def parse_revision_decl(container_v: Val, key: str = "revision",
@@ -368,9 +366,8 @@ def parse_legacy_revision_decl(container_v: Val, key: str = "revisions",
         if isinstance(item_v.value, dict):
             diags.append(error(
                 "lang-schema",
-                f"{owner} {key}: a mapping entry (name:/board:/sockets:) is "
-                "legal only in a rig's variants: list -- this axis takes "
-                "bare names",
+                f"{owner} {key}: a mapping entry (name:) is legal only in "
+                "a rig's variants: list -- this axis takes bare names",
                 (item_v.src,)))
             continue
         values.append(str(item_v.value))

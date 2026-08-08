@@ -5,7 +5,6 @@
 # target actually selects, so a bare invocation already triggers it.
 rig:
   name: variant-revision-collision
-  board: nucleo_f401re/stm32f401xe/rig
   revision:
     format: number
     default: "1"

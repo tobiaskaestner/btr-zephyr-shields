@@ -5,4 +5,3 @@
 # sibling .yml; the diagnostic names the path that was looked for.
 rig:
   name: missing-content-file
-  board: nucleo_f401re/stm32f401xe/rig

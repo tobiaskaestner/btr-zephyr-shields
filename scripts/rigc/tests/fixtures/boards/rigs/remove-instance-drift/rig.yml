@@ -1,6 +1,5 @@
 rig:
   name: remove-instance-drift
-  board: nucleo_f401re/stm32f401xe/rig
   revision:
     format: number
     default: "1"

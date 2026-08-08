@@ -2,7 +2,6 @@
 # variants: list -- rule 2 (lang-variant).
 rig:
   name: unknown-variant
-  board: nucleo_f401re/stm32f401xe/rig
   variants:
     default: a
     list: [a, b]

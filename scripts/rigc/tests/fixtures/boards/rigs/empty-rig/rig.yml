@@ -6,4 +6,3 @@
 # test_resolved_empty_rig_equals_plain_board.
 rig:
   name: empty_rig
-  board: nucleo_f401re/stm32f401xe/rig

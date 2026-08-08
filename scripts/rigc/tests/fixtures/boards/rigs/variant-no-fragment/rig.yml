@@ -4,7 +4,6 @@
 # invocation already selects it and triggers the check.
 rig:
   name: variant-no-fragment
-  board: nucleo_f401re/stm32f401xe/rig
   variants:
     default: base_only
     list: [base_only, ghost]

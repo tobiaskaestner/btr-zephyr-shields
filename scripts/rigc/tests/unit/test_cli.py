@@ -169,35 +169,38 @@ def test_board_reading_options_are_now_live(tmp_path: Path) -> None:
     boarddt.load_board rather than being parsed and discarded. (A rig the
     LOADER itself rejects first -- e.g. unreadable -- still exits 3
     regardless of these options: see test_recipe_resolved_lazily below,
-    which is the case that used to make this look inert.)"""
+    which is the case that used to make this look inert.) --board is
+    given here too (board-coordinate-s6-brief.md Sec 11 retired rig.yml's
+    own board: grammar -- with no board injected, cli.py's own
+    board-empty check would reject BEFORE ever reaching --board-dts,
+    which is not what this test means to exercise)."""
     (tmp_path / "rig.yml").write_text(
         dedent("""\
         rig:
           name: r
-          board: some_board/soc/rig
         """))
     (tmp_path / "r.yml").write_text(dedent("""\
         instances: []
         """))
     ret = main(["expand", str(tmp_path / "rig.yml"),
                "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path),
+               "--board", "some_board/soc/rig",
                "--board-dts", str(tmp_path / "no-such-board.dts")])
     assert ret == 1
 
 
-def test_board_option_overrides_rig_ymls_declared_board(
+def test_board_option_reaches_boarddt_with_the_given_name(
         tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """--board (S1) must reach `rig.board` unconditionally, whatever
-    rig.yml declares -- proven the same way as the option above (a
-    --board-dts that does not exist forces a phys-board rejection), but
-    checking WHICH name the rejection carries: the GIVEN board, never the
-    declared one, since boarddt.load_board's own diagnostic embeds the
-    board name it was asked to read."""
+    """--board (S1) threads straight to `rig.board` -- proven the same
+    way as the option above (a --board-dts that does not exist forces a
+    phys-board rejection), but checking that the GIVEN name is what
+    boarddt.load_board's own diagnostic embeds. rig.yml declares no
+    board of its own (board-coordinate-s6-brief.md Sec 11: there is
+    nothing left to declare it with) -- --board is the only source."""
     (tmp_path / "rig.yml").write_text(
         dedent("""\
         rig:
           name: r
-          board: declared_board/soc/rig
         """))
     (tmp_path / "r.yml").write_text(dedent("""\
         instances: []
@@ -209,18 +212,21 @@ def test_board_option_overrides_rig_ymls_declared_board(
     assert ret == 1
     err = capsys.readouterr().err
     assert "given_board/soc/rig" in err
-    assert "declared_board/soc/rig" not in err
 
 
-def test_board_option_absent_keeps_todays_behaviour(
+def test_board_option_absent_is_a_clean_phys_board_reject(
         tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """The companion negative control: omitting --board must still name
-    the DECLARED board, unchanged (today's behaviour, byte-inert)."""
+    """The negative control: omitting --board, with no declaration left
+    in rig.yml to fall back to (board-coordinate-s6-brief.md Sec 11),
+    must still be a clean phys-board rejection -- never a crash, and
+    never boarddt's own confusing "unknown board ''" (this fixture's
+    --board-dts, which would otherwise force exactly that, proves
+    cli.py's own board-empty check fires FIRST: --board-dts is never
+    even reached)."""
     (tmp_path / "rig.yml").write_text(
         dedent("""\
         rig:
           name: r
-          board: declared_board/soc/rig
         """))
     (tmp_path / "r.yml").write_text(dedent("""\
         instances: []
@@ -230,7 +236,9 @@ def test_board_option_absent_keeps_todays_behaviour(
                "--board-dts", str(tmp_path / "no-such-board.dts")])
     assert ret == 1
     err = capsys.readouterr().err
-    assert "declared_board/soc/rig" in err
+    assert "[phys-board]" in err
+    assert "no board given" in err
+    assert "no-such-board.dts" not in err
 
 
 def test_recipe_resolved_lazily(tmp_path: Path) -> None:
@@ -287,12 +295,13 @@ def test_out_of_scope_feature_refuses(tmp_path: Path,
 def _write_zero_instance_rig(tmp_path: Path) -> None:
     """A rig with zero instances needs no cpp from the emitter (no params
     to resolve, no dt-includes to probe) -- the shape every accept-path
-    test below reuses so board reading is the only thing left to stub."""
+    test below reuses so board reading is the only thing left to stub.
+    Carries no `board:` of its own (board-coordinate-s6-brief.md Sec 11):
+    every caller must pass `--board` itself now, the only source left."""
     (tmp_path / "rig.yml").write_text(
         dedent("""\
         rig:
           name: r
-          board: some_board/soc/rig
         """))
     (tmp_path / "r.yml").write_text(dedent("""\
         instances: []
@@ -327,7 +336,8 @@ def test_accept_path_now_accepts_and_writes_artifacts(
     out_dir = tmp_path / "out"
     ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
                              "--out-dir", str(out_dir),
-                             *_no_shields(tmp_path)])
+                             *_no_shields(tmp_path),
+                             "--board", "some_board/soc/rig"])
     assert ret == 0
     assert err == ""     # no diagnostics at all -- not even a warning
     for fname in ("rig-gen.overlay", "config-sheet.md", "expectations.yml",
@@ -372,7 +382,8 @@ def test_accept_path_removes_the_workdir(
     out_dir = tmp_path / "out"
     ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
                              "--out-dir", str(out_dir),
-                             *_no_shields(tmp_path)])
+                             *_no_shields(tmp_path),
+                             "--board", "some_board/soc/rig"])
 
     assert ret == 0
     assert not _workdir_of(out_dir).exists()
@@ -395,6 +406,7 @@ def test_reject_path_keeps_the_workdir(
     ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
                              "--out-dir", str(out_dir),
                              *_no_shields(tmp_path),
+                             "--board", "some_board/soc/rig",
                              "--board-dts", str(tmp_path / "no-such-board.dts")])
 
     assert ret == 1
@@ -414,7 +426,8 @@ def test_rigc_keep_workdir_env_overrides_the_accept_path_deletion(
 
     ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
                              "--out-dir", str(out_dir),
-                             *_no_shields(tmp_path)])
+                             *_no_shields(tmp_path),
+                             "--board", "some_board/soc/rig"])
 
     assert ret == 0
     assert _workdir_of(out_dir).is_dir()
@@ -428,11 +441,12 @@ def test_promote_writes_promote_shields_own_documents_verbatim(
     """The pin that there is exactly ONE desugaring (board-coordinate-
     s3b-brief.md Sec 5): --promote's materialized rig.yml/content pair is
     byte-identical to promote.promote_shield's own return, for the exact
-    name/filename it chose. No --board is given, so the loader rejects at
-    its own "no board anywhere" diagnostic (the S1 relaxation is
-    conditional on an INJECTED board, and this run supplies none) -- D10
-    keeps the workdir on that reject, which is what lets this test read
-    the two files back off disk."""
+    name/filename it chose. No --board is given, so this run rejects at
+    cli.py's own board-empty check (board-coordinate-s6-brief.md Sec 11:
+    the loader itself no longer needs a board to accept a promoted rig's
+    topology, so this is the first and only place a missing one still
+    matters) -- D10 keeps the workdir on that reject, which is what lets
+    this test read the two files back off disk."""
     from rigc.promote import promote_shield
 
     out_dir = tmp_path / "out"

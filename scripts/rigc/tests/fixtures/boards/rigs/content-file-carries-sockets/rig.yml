@@ -1,8 +1,0 @@
-# Synthetic fixture: the base content file carrying sockets: -- the other
-# half of the same rejection as content-file-carries-board (both keys are
-# rig.yml metadata, neither is legal in a content file).
-rig:
-  name: content-file-carries-sockets
-  board: nucleo_f401re/stm32f401xe/rig
-  sockets:
-    ard: nucleo_ard

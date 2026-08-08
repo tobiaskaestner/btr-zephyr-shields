@@ -67,6 +67,7 @@ def test_reference_shields_accept(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     result = run_expand(
         _FIXTURE / "rig.yml", out_dir,
+        board="reference_board",
         shield_dirs=shield_dirs,
         board_dts=board_dts,
         bindings_dirs=bindings_dirs,

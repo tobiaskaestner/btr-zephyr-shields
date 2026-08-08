@@ -7,7 +7,6 @@
 # original (narrower) rule 4 would have missed this.
 rig:
   name: combined-fragment-collision
-  board: nucleo_f401re/stm32f401xe/rig
   revision:
     format: number
     default: "1"

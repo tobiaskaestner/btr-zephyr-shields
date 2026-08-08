@@ -1,2 +1,0 @@
-error[lang-schema]: rig 'sockets-with-variant-board' declares a top-level sockets: map while its variants declare their own boards -- put each variant's own socket map beside its board: under variants: list instead
-    at tests/fixtures/boards/rigs/sockets-with-variant-board/rig.yml:9 (rig.sockets)

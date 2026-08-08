@@ -89,16 +89,13 @@ if(DEFINED RIG)
   if(_RIG_RESOLVED_DIR STREQUAL "NOTFOUND")
     set(_RIG_RESOLVED_DIR "")
   endif()
-  # BOARD is the one RESOLVED key that can legitimately come back NOTFOUND
-  # now (board-coordinate-s1-brief.md Sec 3): a rig declaring no board:
-  # anywhere (no top-level, none for the selected variant) is no longer a
-  # list_rigs.py failure -- it renders empty here, same as an unselected
-  # REVISION/VARIANT above, and this file alone decides whether that is
-  # fatal (below), since only THIS file knows whether -DBOARD filled in
-  # for it. A promoted shield's BOARD is unconditionally empty too
-  # (board-coordinate-s3b-brief.md) -- it never has one to declare;
-  # PROMOTED above is what lets the FATAL wording below tell the two
-  # apart.
+  # BOARD is UNCONDITIONALLY NOTFOUND now (board-coordinate-s6-brief.md
+  # Sec 11 retired rig.yml's own board:/sockets: grammar outright): no
+  # rig of any shape, persisted or promoted, has one of its own to
+  # declare, so list_rigs.py's {BOARD} key never renders anything else.
+  # Normalized to empty the same way REVISION/VARIANT/DIR are above --
+  # this file alone decides whether that is fatal (below), since only
+  # THIS file knows whether -DBOARD filled in for it.
   if(_RIG_RESOLVED_BOARD STREQUAL "NOTFOUND")
     set(_RIG_RESOLVED_BOARD "")
   endif()
@@ -136,18 +133,6 @@ if(DEFINED RIG)
         "was given -- a rig has no board of its own to fall back to; "
         "pass -DBOARD=<name>.")
     endif()
-  endif()
-
-  # rig.yml MAY still spell `board:` until the grammar itself is retired
-  # (its own slice). Nothing reads it here any more, so say so rather
-  # than ignore it in silence. No corpus rig declares one, so this never
-  # fires today -- it exists for a hand-authored rig.yml carrying the
-  # dead key.
-  if(_RIG_RESOLVED_BOARD AND NOT "${BOARD}" STREQUAL "${_RIG_RESOLVED_BOARD}")
-    message(STATUS
-      "Rig: -DRIG=${RIG} declares board '${_RIG_RESOLVED_BOARD}', which is "
-      "IGNORED -- -DBOARD=${BOARD} is the only source. rig.yml's board: is "
-      "deprecated and goes with the grammar.")
   endif()
 
   set(_rig_boards_qualifiers_desc "")

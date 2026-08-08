@@ -10,8 +10,8 @@ hwmv2's own per-format id validation, zero-append and nearest-lower
 match, revision normalization, and the widened fragment-stem collision
 enumeration. Wording stays out of these tests where a frozen golden
 already owns it (the goldens assert the target fixtures' exact message
-text); here the SHAPE -- values, defaults, format/exact, boards/sockets
-maps, which diagnostic code fires -- is what must survive a rewrite. The
+text); here the SHAPE -- values, defaults, format/exact, which
+diagnostic code fires -- is what must survive a rewrite. The
 `resolve_axis_selection` section below is the one place that DOES assert
 full message text (see its own header comment).
 """
@@ -155,8 +155,13 @@ def test_variant_empty_list_is_rejected(tmp_path: Path) -> None:
     assert diags[0].message == "rig variants: 'list' must be a non-empty list"
 
 
-def test_variant_mapping_entry_collects_board_and_sockets(
+def test_variant_mapping_entry_board_and_sockets_are_silently_ignored(
         tmp_path: Path) -> None:
+    """board-coordinate-s6-brief.md Sec 11 retired board:/sockets: from
+    rig.yml's own grammar entirely -- a variant entry may still carry
+    them (nothing rejects an unrecognized key here, same as anywhere
+    else in this grammar), but only name: is read: `AxisDecl.boards`/
+    `.sockets` stay at their frozen (model.py) empty default regardless."""
     rig_v = _rig(tmp_path,
                 """\
         rig:
@@ -173,8 +178,8 @@ def test_variant_mapping_entry_collects_board_and_sockets(
     assert diags == []
     assert decl is not None
     assert decl.values == ["a", "b"]
-    assert decl.boards == {"a": "b1/s/rig"}
-    assert decl.sockets == {"a": {"ard": "nucleo_ard"}}
+    assert decl.boards == {}
+    assert decl.sockets == {}
 
 
 # ------------------------------------------------------ revision: declaration

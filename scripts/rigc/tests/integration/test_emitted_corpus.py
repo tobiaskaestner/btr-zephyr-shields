@@ -253,13 +253,16 @@ def test_emitted_golden(case: RigCase, tmp_path: Path,
 
 
 def test_unknown_board_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: a rig naming a nonexistent board must be rejected
-    with a phys-board diagnostic before pass 1 ever tries to read any
-    devicetree. No corpus rig exercises this path (every corpus rig names a
-    real, existing board)."""
+    """Synthetic fixture: a rig INJECTED with a nonexistent board must be
+    rejected with a phys-board diagnostic before pass 1 ever tries to
+    read any devicetree. No corpus rig exercises this path (every corpus
+    rig names a real, existing board). An injected unknown board is
+    still a real error (board-coordinate-s6-brief.md Sec 11's own
+    judgement call) -- the diagnostic is unchanged by where the name
+    came from, boarddt.load_board never learns the difference."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "unknown-board" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
+    result = run_expand(rig_yml, out_dir, board="nonexistent_board_xyz")
 
     assert result.returncode != 0, "an unknown board must be rejected"
     assert "[phys-board]" in result.stderr, result.stderr
@@ -281,6 +284,7 @@ def test_not_rig_enabled_golden(tmp_path: Path) -> None:
     fixture = FIXTURES_DIR / "boards" / "rigs" / "not-rig-enabled"
     zb = zephyr_base()
     result = run_expand(fixture / "rig.yml", out_dir,
+                        board="socketless_board",
                         board_dts=FIXTURES_DIR / "boards" / "mainboards" / "socketless_board.dts",
                         bindings_dirs=[Path(zb) / "dts" / "bindings"])
 
@@ -315,6 +319,7 @@ def test_pwm_nonzero_flags_golden(tmp_path: Path,
     out_dir = tmp_path / "out"
     result = run_expand(
         fixture / "rig.yml", out_dir,
+        board=board,
         shield_dirs=[fixture / "shields"],
         board_dts=REPO_ROOT / BOARD_DTS[board],
         build_info=plain_build.build_info)
@@ -492,18 +497,21 @@ def test_ard_datalogger_frdm_golden(tmp_path: Path,
 @pytest.mark.build
 def test_shield_uart_subset_reject_on_nucleo_golden(
         tmp_path: Path, tmp_path_factory: "pytest.TempPathFactory") -> None:
-    """A shield needing socket,uart, mated through the DEFAULT (nucleo)
-    variant's own socket map: nucleo_ard deliberately exposes no
-    socket,uart (subset exposure, declared by absence), so this must
-    reject -- the same content that test_shield_uart_subset_accept_on_frdm
-    below builds clean on the OTHER host, which is the property this
-    fixture pair exists to freeze."""
+    """A shield needing socket,uart, mated on the injected nucleo board:
+    its Arduino socket deliberately exposes no socket,uart (subset
+    exposure, declared by absence), so this must reject -- the same
+    content that test_shield_uart_subset_accept_on_frdm below builds
+    clean on the OTHER host, which is the property this fixture pair
+    exists to freeze. One variant-less rig built twice, on two different
+    injected boards (board-coordinate-s6-brief.md Sec 11's collapse) --
+    not two variants of one rig any more."""
     board = "nucleo_f401re/stm32f401xe/rig"
     plain_build = plain_build_for(board, tmp_path_factory)
     fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-uart-subset"
     out_dir = tmp_path / "out"
     result = run_expand(
         fixture / "rig.yml", out_dir,
+        board=board,
         shield_dirs=[fixture / "shields"],
         board_dts=REPO_ROOT / BOARD_DTS[board],
         build_info=plain_build.build_info)
@@ -524,21 +532,23 @@ def test_shield_uart_subset_reject_on_nucleo_golden(
 @pytest.mark.build
 def test_shield_uart_subset_accept_on_frdm_golden(
         tmp_path: Path, tmp_path_factory: "pytest.TempPathFactory") -> None:
-    """The other half of the pair above: the IDENTICAL content, mated
-    through the frdm variant's socket map instead -- frdm_ard exposes
-    socket,uart (uart3), so the same rig accepts here. Proves the subset-
-    exposure check runs against metadata-sourced sockets, not only a
-    single fixed board mapping."""
+    """The other half of the pair above: the IDENTICAL rig, injected
+    against frdm instead -- its Arduino socket exposes socket,uart
+    (uart3), so the same rig accepts here. Proves the subset-exposure
+    check runs against the board's own typed socket, not only a single
+    fixed board mapping. No variant selected: this rig declares none any
+    more (Sec 11's collapse) -- a different --board is the only thing
+    that changes between this test and the one above."""
     board = "frdm_k64f/mk64f12/rig"
     plain_build = plain_build_for(board, tmp_path_factory)
     fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-uart-subset"
     out_dir = tmp_path / "out"
     result = run_expand(
         fixture / "rig.yml", out_dir,
+        board=board,
         shield_dirs=[fixture / "shields"],
         board_dts=REPO_ROOT / BOARD_DTS[board],
-        build_info=plain_build.build_info,
-        variant="frdm")
+        build_info=plain_build.build_info)
 
     assert result.returncode == 0, (
         f"shield-uart-subset/frdm: expected accept\n--- stderr ---\n{result.stderr}")

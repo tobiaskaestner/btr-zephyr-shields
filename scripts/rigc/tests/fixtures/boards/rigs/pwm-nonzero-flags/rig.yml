@@ -1,3 +1,2 @@
 rig:
   name: pwm-nonzero-flags
-  board: seeeduino_lotus/samd21g18a/rig

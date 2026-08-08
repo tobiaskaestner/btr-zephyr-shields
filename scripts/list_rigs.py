@@ -9,11 +9,19 @@
 # conventionally the same as the rig name but is not authoritative (exactly as
 # list_shields.py takes the name from shield.yml's `name:`, not the folder).
 #
-# rig.yml holds ONLY metadata (name/board/revisions/variants) — never a
+# rig.yml holds ONLY metadata (name/revisions/variants) — never a
 # hardware description. The assembled topology (instances/wires/dt-includes)
 # lives in a separate, required content file, `<rigname>.yml`, which this
-# module never opens: everything past the four keys read below is the
+# module never opens: everything past the keys read below is the
 # rigc loader's job, the canonical content parser.
+#
+# `board:` is NOT one of those keys (board-coordinate-s6-brief.md Sec 11):
+# a rig has no board of its own to read any more, the invocation's own
+# --board/-DBOARD is the only source, so this module never reads one out
+# of rig.yml either — every board-shaped field below (Rig has none;
+# resolve_target/dump_rig_target render {BOARD} as NOTFOUND unconditionally)
+# exists only where a cmake consumer's own format string still expects the
+# key.
 #
 # This is shared code between the build system's rig resolution
 # (cmake/boards.cmake's fork, `-DRIG=<target>` -> board; cmake/dts.cmake's
@@ -64,7 +72,6 @@ _RIG_TARGET_RE = re.compile(r'^([^@/:]+)(@[^@/:]+)?(/([^:]+))?(:(.+))?$')
 class Rig:
     name: str
     dir: Path
-    board: str | None = None
     # DECLARED qualifier axes (rig.yml revisions:/variants:, V1a), each
     # {'default': str|None, 'list': [str, ...]} or None if undeclared.
     revisions: dict | None = None
@@ -77,22 +84,6 @@ class Rig:
 
 def rig_key(rig):
     return rig.name
-
-
-def variant_boards(variants):
-    """Every DECLARED per-variant board, keyed by variant name -- the raw
-    variants: dict's list: entries that are mappings ({name:, board:,
-    sockets:}) rather than bare names. Empty for a rig using the
-    degenerate single top-level board: shape, or one with no variants:
-    axis at all."""
-    boards = {}
-    for item in (variants or {}).get('list') or []:
-        if isinstance(item, dict):
-            name = item.get('name')
-            board = item.get('board')
-            if name is not None and board is not None:
-                boards[str(name)] = str(board)
-    return boards
 
 
 def _revision_axis_shape(rig_data):
@@ -119,27 +110,11 @@ def _revision_axis_shape(rig_data):
 
 def variant_names(variants):
     """Bare variant-axis values, whichever shape variants: list: entries
-    take -- a scalar, or a {name:, board:, sockets:} mapping in the
-    per-variant-board shape. Display/reporting code that only wants the
-    declared NAMES (west rigs' own variants= column) uses this rather
-    than assuming every entry is already a bare string."""
+    take -- a scalar, or a {name:} mapping. Display/reporting code that
+    only wants the declared NAMES (west rigs' own variants= column) uses
+    this rather than assuming every entry is already a bare string."""
     return [item.get('name') if isinstance(item, dict) else item
             for item in (variants or {}).get('list') or []]
-
-
-def default_board(rig):
-    """The board to show for a rig that has not gone through
-    resolve_rig_target -- --list/--json below, and west rigs' own listing
-    text: the degenerate top-level board:, or -- for a per-variant rig --
-    the DECLARED DEFAULT variant's board, since showing nothing at all
-    would read as a broken entry rather than as "this rig has no single
-    board". None if even that cannot be answered (a malformed rig with
-    neither shape, or a per-variant rig declaring no default variant)."""
-    per_variant = variant_boards(rig.variants)
-    if not per_variant:
-        return rig.board
-    default = (rig.variants or {}).get('default')
-    return per_variant.get(str(default)) if default is not None else None
 
 
 def find_rigs(args):
@@ -178,7 +153,6 @@ def find_rigs_in(root):
         # resolve_rig_target below; shape validation, and the separate
         # content file's own existence, are the rigc loader's job).
         ret.append(Rig(name=name, dir=maybe_rig,
-                       board=rig_data.get('board'),
                        revisions=_revision_axis_shape(rig_data),
                        variants=rig_data.get('variants')))
 
@@ -221,10 +195,9 @@ def _resolve_axis(rig_name, axis_kind, decl_key, declared, selected):
 
     Membership is checked against variant_names(declared), never the raw
     list: entries directly -- a rig's variants: axis may declare its list
-    as {name:, board:, sockets:} mappings (the per-variant-board shape),
-    and comparing a selected bare name against a stringified MAPPING would
-    never match. revisions: never takes that shape, so this is a no-op
-    there."""
+    as {name:} mappings, and comparing a selected bare name against a
+    stringified MAPPING would never match. revisions: never takes that
+    shape, so this is a no-op there."""
     if selected is not None:
         if declared is None:
             sys.exit(f"ERROR: rig '{rig_name}' names a {axis_kind} "
@@ -247,65 +220,29 @@ def _resolve_axis(rig_name, axis_kind, decl_key, declared, selected):
               f"{', '.join(values) or '(none)'}")
 
 
-def _resolve_board(rig, resolved_variant):
-    """The board a resolved rig target DECLARES: the per-variant board
-    beside the SELECTED variant, or the rig's own top-level board: in the
-    degenerate single-board shape. Mirrors rigc.loader.binding's own
-    two-shape mixing rule closely enough that cmake never constructs a
-    fragment filename from a board that rule would have rejected -- the
-    loader stays the canonical validator with the fuller diagnostic
-    (naming every offending variant, not just the one selected here).
-
-    A rig declaring no board anywhere (no top-level board:, no board for
-    the selected variant) is no longer this function's failure mode
-    (board-coordinate-s1-brief.md Sec 3): it returns None, same as a
-    rig.yml this permissive about `board:` always could in principle,
-    and the caller (dump_rig_target's `notfound`) renders it NOTFOUND --
-    boards.cmake's fork decides whether that is fatal, since a
-    user-supplied -DBOARD (which this module never sees) can now answer
-    for a rig that declares none. The two DECLARATION-coherence errors
-    below (board declared twice; a partial per-variant declaration)
-    stay sys.exit: they are schema violations independent of whether
-    -DBOARD was also given."""
-    per_variant = variant_boards(rig.variants)
-    if per_variant:
-        if rig.board is not None:
-            sys.exit(
-                f"ERROR: rig '{rig.name}' declares a top-level board: "
-                "while its variants also declare their own -- a rig may "
-                "declare a board per variant or once at the top level, "
-                "never both.")
-        if resolved_variant not in per_variant:
-            sys.exit(
-                f"ERROR: rig '{rig.name}': variant '{resolved_variant}' "
-                "declares no board:, but at least one other variant does "
-                "-- every variant must declare a board, or none should.")
-        return per_variant[resolved_variant]
-    return rig.board
-
-
 def resolve_rig_target(target, args):
     """Resolve a FULL `-DRIG=<target>` string to the ONE rig it names — the
-    cmake-facing seam for cmake/boards.cmake's fork (rig->board inference +
-    the `-DBOARD`/`-DRIG` mismatch check, cmake-alone-rig-entry-brief.md) and
-    cmake/dts.cmake's fork (rig->folder resolution), plus any future
-    `west rigs --rig <target>` use.
+    cmake-facing seam for cmake/boards.cmake's fork (the `-DBOARD`
+    exclusivity FATAL, cmake-alone-rig-entry-brief.md) and cmake/dts.cmake's
+    fork (rig->folder resolution), plus any future `west rigs --rig
+    <target>` use.
 
     Design rule 1 (ratified 2026-07-24): cmake never parses rig CONTENT — it
     hands this function the target VERBATIM; resolution semantics live here,
     never reimplemented in cmake. `@rev`/`/variant` resolve fully as of V1a:
     the selected value is validated against the rig's OWN declared
     revisions:/variants: (or defaulted, for a bare target) and returned
-    alongside NAME/DIR/BOARD, so cmake can construct the per-axis fragment
+    alongside NAME/DIR, so cmake can construct the per-axis fragment
     filenames (`<name>_<variant>.overlay` etc.) without parsing rig.yml
     itself. `rigc expand`, invoked later in the SAME configure, is the
     canonical validator (lang-rev/lang-variant diagnostics) -- this
     resolution exists so cmake has concrete axis strings to build filenames
     from, not to duplicate that diagnostic quality.
 
-    The board is resolved LAST, after both axes, in the per-variant-board
-    shape it depends on which variant was actually selected -- see
-    _resolve_board.
+    No board is resolved here at all any more (board-coordinate-
+    s6-brief.md Sec 11): a rig has none of its own to declare, so
+    dump_rig_target's own `{BOARD}` key renders NOTFOUND unconditionally
+    for every `Rig` this returns.
 
     Exits (via `sys.exit`, mirroring `find_rigs_in`'s existing error
     convention in this module) rather than raising, so a cmake
@@ -333,8 +270,7 @@ def resolve_rig_target(target, args):
                 rig.name, 'revision', 'revision', rig.revisions, revision)
             resolved_variant = _resolve_axis(
                 rig.name, 'variant', 'variants', rig.variants, variant)
-            resolved_board = _resolve_board(rig, resolved_variant)
-            return replace(rig, board=resolved_board, revision=resolved_revision,
+            return replace(rig, revision=resolved_revision,
                            variant=resolved_variant)
     available = ', '.join(r.name for r in rigs) or '(none)'
     sys.exit(f"ERROR: -DRIG={target} does not resolve to a rig.\n"
@@ -475,14 +411,14 @@ def add_args_formatting(parser):
 
 
 def dump_rigs(rigs, args):
-    """--list / --json never resolves a target axis, so a per-variant rig
-    has no single selected board to report -- default_board falls back to
-    the DECLARED DEFAULT variant's, so this listing never prints a
-    board of None for a rig that legitimately has one per variant."""
+    """--list / --json never resolves a target axis. 'board' stays a JSON
+    key for format stability but is always None now (board-coordinate-
+    s6-brief.md Sec 11): no rig declares one any more, of any shape, so
+    there is nothing left to read into it."""
     if args.json:
         print(
             json.dumps([{'dir': rig.dir.as_posix(), 'name': rig.name,
-                         'board': default_board(rig), 'revisions': rig.revisions,
+                         'board': None, 'revisions': rig.revisions,
                          'variants': rig.variants} for rig in rigs])
         )
     else:
@@ -494,11 +430,15 @@ def dump_rig_target(resolved, args):
     """Renders a `resolve_target` answer -- either a `Rig` (unchanged
     from before promoted shields existed) or a `PromotedTarget` -- via
     `--cmakeformat`, or just the resolved name without it. A
-    `PromotedTarget` has no folder, no board and no variant of its own by
-    construction (Sec 3/Sec 5), so those three keys are unconditionally
-    NOTFOUND for one; `{PROMOTED}` is the shield name for one and NOTFOUND
-    for an ordinary `Rig`, so a cmake caller tells the two apart on that
-    key alone without needing to special-case DIR being empty."""
+    `PromotedTarget` has no folder and no variant of its own by
+    construction (Sec 3/Sec 5); `{PROMOTED}` is the shield name for one
+    and NOTFOUND for an ordinary `Rig`, so a cmake caller tells the two
+    apart on that key alone without needing to special-case DIR being
+    empty. `{BOARD}` is unconditionally NOTFOUND for BOTH -- neither a
+    promoted shield nor, since board-coordinate-s6-brief.md Sec 11, a
+    persisted rig has one of its own to declare; the key stays in the
+    format string only because cmake/boards.cmake's fork still parses
+    it."""
     if args.cmakeformat is not None:
         def notfound(x):
             return x or 'NOTFOUND'
@@ -515,7 +455,7 @@ def dump_rig_target(resolved, args):
             info = args.cmakeformat.format(
                 NAME='NAME;' + resolved.name,
                 DIR='DIR;' + resolved.dir.as_posix(),
-                BOARD='BOARD;' + notfound(resolved.board),
+                BOARD='BOARD;NOTFOUND',
                 REVISION='REVISION;' + notfound(resolved.revision),
                 VARIANT='VARIANT;' + notfound(resolved.variant),
                 PROMOTED='PROMOTED;NOTFOUND',

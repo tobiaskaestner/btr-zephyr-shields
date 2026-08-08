@@ -1,2 +1,1 @@
-error[lang-schema]: rig 'no-board-declared' declares no board: -- add a top-level board:, or give every declared variant its own
-    at tests/fixtures/boards/rigs/no-board-declared/rig.yml:5 (rig)
+error[phys-board]: rig 'no-board-declared': no board given -- a rig has no board of its own any more (board: left rig.yml's grammar entirely); pass --board <name>

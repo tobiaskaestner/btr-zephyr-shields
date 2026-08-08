@@ -448,18 +448,6 @@ def test_add_wires_parses_like_base_wires(tmp_path) -> None:
     assert len(new_topology.wires) == 1
 
 
-def test_metadata_keys_are_rejected_before_any_other_delta_operation(tmp_path) -> None:
-    delta = _doc(tmp_path,
-               """\
-        board: some/other/board
-        remove-instances: [ghost]
-        """)
-    topology = _topology_with("a")
-    _, diags, deps = _apply(delta, "revision", "2", topology)
-    assert [d.code for d in diags] == ["lang-schema", "lang-rev"]
-    assert "is rig.yml metadata" in diags[0].message
-
-
 def test_multiple_delta_errors_compose_in_document_order(tmp_path) -> None:
     """Diagnostic ordering: several operations in ONE delta each raise,
     and the composed order must equal document/traversal order -- never

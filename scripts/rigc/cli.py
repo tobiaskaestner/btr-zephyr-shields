@@ -8,10 +8,12 @@ one; as of R4 (rigc-r4-brief.md) every one of them is LIVE -- --board-dts/
 --build-info/--bindings-dir feed the board reader (boarddt/board_edt/
 edt_build), the same way --shield-dir/--include-dir/--connector-dir/
 --revision/--variant feed the loader (R2/R3). --board
-(board-coordinate-s1-brief.md Sec 4) feeds the loader too: given, it wins
-over whatever rig.yml (or the selected variant) declares as the rig's
-board, unconditionally; absent, the loader resolves the board exactly as
-before --board existed. As of R5
+(board-coordinate-s1-brief.md Sec 4) feeds the loader too, and is now
+the ONLY source of `rig.board` (board-coordinate-s6-brief.md Sec 11
+retired rig.yml's own `board:` grammar entirely): omitted, `rig.board`
+is simply "" -- legal through the loader, and a diagnostic only once
+this file is about to read a real board devicetree (see the board-empty
+check right before boarddt.load_board, below). As of R5
 (rigc-r5-brief.md) the accept path is complete: a clean analysis emits
 the rig artifacts (`emitter.emit`) plus the build-glue handoff
 (`emitter.context.render`) through the one writer (`emitter.write_
@@ -380,6 +382,24 @@ def _expand(args: argparse.Namespace) -> int:
         # it only once the loader has already accepted is what
         # board.load_board's own "no usable recipe" diagnostic exists to
         # report cleanly instead.
+        #
+        # rig.board is "" whenever this run injected none (board-
+        # coordinate-s6-brief.md Sec 11: the loader itself never requires
+        # one any more, since a rig's TOPOLOGY never needed a board to
+        # assemble). This is the one place that still does -- passing ""
+        # straight to boarddt.load_board would search for a board literally
+        # named "" and report the confusing "unknown board ''" rather than
+        # the honest fact that none was given, so it is caught here first,
+        # before boarddt ever runs. Unlike a `lang-*` loader finding, this
+        # has no rig.yml line to blame (there is no longer a `board:` key
+        # to point at) -- phys-board, no refs, matching every other
+        # board-reading diagnostic's own unanchored shape.
+        if not rig.board:
+            return _reject(diags + [diag_error(
+                "phys-board",
+                f"rig '{rig.name}': no board given -- a rig has no board "
+                "of its own any more (board: left rig.yml's grammar "
+                "entirely); pass --board <name>")])
         #
         # board.load_board's own diagnostics carry no `rig`-side src ref
         # (a "phys-board" finding is never anchored to a rig.yml line), so

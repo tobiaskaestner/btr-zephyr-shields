@@ -6,7 +6,6 @@
 # a valid one is given here to isolate this fixture's own point.
 rig:
   name: empty-revisions-list
-  board: nucleo_f401re/stm32f401xe/rig
   revision:
     format: number
     revisions: []

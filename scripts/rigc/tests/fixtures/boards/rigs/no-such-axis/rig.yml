@@ -5,4 +5,3 @@
 # (item 1/5 of the V1a dispatch, P's rule-5 precedent).
 rig:
   name: no-such-axis
-  board: nucleo_f401re/stm32f401xe/rig

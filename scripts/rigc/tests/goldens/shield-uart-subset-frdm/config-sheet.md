@@ -8,4 +8,4 @@ Board: **frdm_k64f/mk64f12/rig**
 
 | instance | shield | socket |
 |---|---|---|
-| probe | uart_probe | frdm_ard |
+| probe | uart_probe | arduino_r3 |
