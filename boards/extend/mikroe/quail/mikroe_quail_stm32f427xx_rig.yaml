@@ -1,4 +1,4 @@
-identifier: mikroe_quail_stm32f427xx_rig
+identifier: mikroe_quail/stm32f427xx/rig
 name: MikroE Quail for STM32 (rig extension variant)
 type: mcu
 arch: arm

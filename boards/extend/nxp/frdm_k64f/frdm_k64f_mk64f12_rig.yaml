@@ -1,4 +1,4 @@
-identifier: frdm_k64f_mk64f12_rig
+identifier: frdm_k64f/mk64f12/rig
 name: NXP FRDM-K64F (rig extension variant)
 type: mcu
 arch: arm

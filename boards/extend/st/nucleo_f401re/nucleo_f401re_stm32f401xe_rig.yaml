@@ -1,4 +1,4 @@
-identifier: nucleo_f401re_stm32f401xe_rig
+identifier: nucleo_f401re/stm32f401xe/rig
 name: ST Nucleo F401RE (rig extension variant)
 type: mcu
 arch: arm

@@ -1,4 +1,4 @@
-identifier: seeeduino_lotus_samd21g18a_rig
+identifier: seeeduino_lotus/samd21g18a/rig
 name: Seeeduino Lotus Cortex-M0+ (rig extension variant)
 type: mcu
 arch: arm
