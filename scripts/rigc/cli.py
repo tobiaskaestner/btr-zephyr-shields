@@ -33,16 +33,25 @@ of its own, so it is never forwarded to `loader.load`.
 Exit vocabulary (rigc-r1-brief.md Sec 1): 0 accept, 1 rejected input,
 2 usage error (argparse's own), 3 not implemented (see unimplemented.py).
 
-**The workdir prefix is NOT cosmetic**: the frozen `conftest.py`'s own
-`normalize()` strips exactly `/tmp/rigc-<...>` (`_WORKDIR_RE`, hardcoded
--- never parameterized on `RIG_EXPAND_COMPILE`) to a stable placeholder
-before comparing rendered stderr against a golden. A cpp-preprocess-
-failure detail (e.g. `param-missing-header`) embeds this path verbatim
-inside gcc's own stderr text, so rigc's workdir MUST share that literal
-prefix or the comparison sees an un-normalized path and byte-mismatches a
-golden that has nothing else wrong with it. Recorded here because it is
-exactly the kind of "confusing session" trap R0's own
-CMAKE_CONFIGURE_DEPENDS finding warned about.
+**The workdir lives inside `--out-dir`, as `<out-dir>/rigc-generated`**,
+never in /tmp: a build directory already has an owner and a lifetime, and
+the workdir inherits both, so `west build -p`, `rm -rf build/` and
+pytest's own tmp_path retention each reap it for free. The name is
+DETERMINISTIC (no mkdtemp suffix) and the directory is wiped on entry --
+a random suffix inside a long-lived build dir would accumulate one more
+directory per configure, which is the pile this shape exists to end.
+
+**The workdir NAME is NOT cosmetic**: the frozen `conftest.py`'s own
+`normalize()` strips a path ending in `rigc-generated` (`_WORKDIR_RE`,
+hardcoded -- never parameterized on `RIG_EXPAND_COMPILE`) to a stable
+placeholder before comparing rendered stderr against a golden. A
+cpp-preprocess-failure detail (e.g. `param-missing-header`) embeds this
+path verbatim inside gcc's own stderr text, and the leading part of it is
+now a per-run build directory, so the trailing component MUST stay
+literally `rigc-generated` or the comparison sees an un-normalized
+absolute path and byte-mismatches a golden that has nothing else wrong
+with it. Recorded here because it is exactly the kind of "confusing
+session" trap R0's own CMAKE_CONFIGURE_DEPENDS finding warned about.
 
 **The workdir is removed on a clean accept, KEPT on any non-zero exit**
 (cutover-decisions.md D10, post-cutover-backlog.md group A item 1): a cpp
@@ -59,7 +68,6 @@ import logging
 import os
 import shutil
 import sys
-import tempfile
 from typing import List, Optional
 
 from . import analyzer, boarddt, loader, promote
@@ -71,6 +79,13 @@ from .registry import load_types
 from .unimplemented import Unimplemented
 
 log = logging.getLogger(__name__)
+
+#: The workdir's name inside --out-dir. Load-bearing, not cosmetic: the
+#: test harness's own normalizer (tests/integration/conftest.py
+#: _WORKDIR_RE) strips a path ending in this to a stable placeholder
+#: before comparing rendered stderr against a byte-exact golden. See this
+#: module's docstring.
+WORKDIR_NAME = "rigc-generated"
 
 #: Marks a handler `_configure_logging` itself installed, so a repeated
 #: `main()` call (every in-process unit test makes one) never accumulates
@@ -279,7 +294,25 @@ def _expand(args: argparse.Namespace) -> int:
         connector_dirs=connector_dirs, header_dirs=header_dirs
     )
 
-    workdir = tempfile.mkdtemp(prefix="rigc-")
+    # The workdir lives INSIDE --out-dir, never in /tmp: a build directory
+    # already has an owner and a lifetime, and the workdir now inherits
+    # both. `west build -p`, `rm -rf build/` and pytest's own tmp_path
+    # retention each reap it for free, which is what /tmp never did -- D10
+    # keeps the directory on every non-zero exit ON PURPOSE, and a test
+    # suite rejects ~39 times per run, so under /tmp the keeps simply
+    # accumulated forever with nothing responsible for them.
+    #
+    # DETERMINISTIC, not mkdtemp: a random suffix inside a long-lived
+    # build directory would just move the pile rather than end it (one
+    # more directory per configure). One name per out-dir, wiped on entry
+    # so a previous run's intermediates can never be mistaken for this
+    # run's -- and a stale keep from a rejected configure is cleaned by
+    # the next attempt rather than surviving it.
+    out_dir = os.path.abspath(args.out_dir)
+    log.info("out-dir: %s", out_dir)
+    workdir = os.path.join(out_dir, WORKDIR_NAME)
+    shutil.rmtree(workdir, ignore_errors=True)
+    os.makedirs(workdir)
     log.info("workdir: %s", workdir)
     accepted = False
     try:
@@ -367,8 +400,6 @@ def _expand(args: argparse.Namespace) -> int:
         # topology stages -- eager scan breadth and resolution history
         # alike, see loader.load's own docstring), and the board's .dts.
         all_deps = deps_union(types_deps, rig_deps, board_deps)
-        out_dir = os.path.abspath(args.out_dir)
-        log.info("out-dir: %s", out_dir)
         artifacts = emit(rig, solved, types, workdir, include_dirs=header_dirs)
         artifacts["context.cmake"] = context.render(rig, all_deps)
         write_artifacts(out_dir, artifacts)
@@ -386,6 +417,12 @@ def _expand(args: argparse.Namespace) -> int:
         # failure's own rendered diagnostic points at, e.g.
         # param-missing-header); RIGC_KEEP_WORKDIR overrides the
         # accept-path deletion for inspecting a run that succeeded.
+        #
+        # A KEPT directory is no longer unowned: it sits in --out-dir, so
+        # it dies with the build directory it belongs to and is wiped by
+        # the next run into the same out-dir. That is what makes "keep on
+        # reject" affordable -- under /tmp the keeps were permanent, and
+        # 292 of them had accumulated by the time anyone counted.
         if accepted and not os.environ.get("RIGC_KEEP_WORKDIR"):
             log.debug("workdir: removing %s (accepted)", workdir)
             shutil.rmtree(workdir, ignore_errors=True)

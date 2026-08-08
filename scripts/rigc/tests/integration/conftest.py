@@ -209,7 +209,15 @@ REFREEZE = bool(os.environ.get("RIGC_REFREEZE"))
 # module), not merely expected-red.
 RIG_EXPAND_COMPILE = os.environ.get("RIG_EXPAND_COMPILE", "rigc")
 
-_WORKDIR_RE = re.compile(r"/tmp/rigc-[^/\s]+")
+# rigc's workdir is `<--out-dir>/rigc-generated` (cli.WORKDIR_NAME), so
+# the leading part varies per run -- a pytest tmp_path here, a real build
+# directory under cmake. Match the whole absolute path up to and including
+# the fixed trailing component: anchoring on `rigc-generated` alone would
+# leave the run-specific prefix in the text, and matching a bare
+# `/generated` would collide with zephyr's own include/generated. The
+# workdir used to be `/tmp/rigc-<mkdtemp suffix>`, which is why the
+# trailing component still carries the `rigc-` marker.
+_WORKDIR_RE = re.compile(r"/[^\s]*rigc-generated")
 
 # A resolved zephyr.dts's own DT provenance comments (/* in PATH:LINE */,
 # /* node 'X' defined in PATH:LINE */) render PATH relative to the build's

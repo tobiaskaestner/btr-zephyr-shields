@@ -344,21 +344,19 @@ def test_accept_path_now_accepts_and_writes_artifacts(
 
 # --------------------------------------------- the workdir (cutover-decisions.md D10)
 
-def _spy_mkdtemp(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> List[str]:
-    """Captures every workdir cli.py creates, forcing each one to land
-    under tmp_path -- so a directory this test's own scenario leaves
-    behind (the whole point of the reject case) is still cleaned up by
-    pytest's own tmp_path retention rather than leaking into real /tmp."""
-    created: List[str] = []
-    real_mkdtemp = cli.tempfile.mkdtemp
+def _workdir_of(out_dir: Path) -> Path:
+    """Where cli.py puts its workdir for a given --out-dir. Derived from
+    cli.WORKDIR_NAME rather than spelled again, so a rename cannot leave
+    these tests asserting a path nothing writes.
 
-    def spy(prefix: str) -> str:   # cli.py's own call shape: mkdtemp(prefix=...)
-        d = real_mkdtemp(prefix=prefix, dir=str(tmp_path))
-        created.append(d)
-        return d
-
-    monkeypatch.setattr(cli.tempfile, "mkdtemp", spy)
-    return created
+    This replaced a monkeypatched-mkdtemp spy, and the replacement is
+    STRONGER than what it replaced: the old spy could only observe that
+    SOME directory was created and later removed, and had to force it
+    under tmp_path itself to stop the reject case leaking into real /tmp.
+    The location is now a property of the code under test, so these tests
+    assert it directly -- and nothing can leak, because a workdir inside
+    --out-dir is inside tmp_path by construction."""
+    return out_dir / cli.WORKDIR_NAME
 
 
 def test_accept_path_removes_the_workdir(
@@ -370,7 +368,6 @@ def test_accept_path_removes_the_workdir(
     the accept path's own artifacts must still have landed."""
     _write_zero_instance_rig(tmp_path)
     _stub_board_reading(monkeypatch)
-    created = _spy_mkdtemp(monkeypatch, tmp_path)
 
     out_dir = tmp_path / "out"
     ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
@@ -378,8 +375,7 @@ def test_accept_path_removes_the_workdir(
                              *_no_shields(tmp_path)])
 
     assert ret == 0
-    assert len(created) == 1
-    assert not Path(created[0]).exists()
+    assert not _workdir_of(out_dir).exists()
     assert (out_dir / "context.cmake").is_file()   # cleanup didn't race the writer
 
 
@@ -394,16 +390,15 @@ def test_reject_path_keeps_the_workdir(
     own rendered diagnostic points at (e.g. param-missing-header), so the
     directory must survive exactly this exit."""
     _write_zero_instance_rig(tmp_path)
-    created = _spy_mkdtemp(monkeypatch, tmp_path)
+    out_dir = tmp_path / "out"
 
     ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
-                             "--out-dir", str(tmp_path / "out"),
+                             "--out-dir", str(out_dir),
                              *_no_shields(tmp_path),
                              "--board-dts", str(tmp_path / "no-such-board.dts")])
 
     assert ret == 1
-    assert len(created) == 1
-    assert Path(created[0]).is_dir()
+    assert _workdir_of(out_dir).is_dir()
 
 
 def test_rigc_keep_workdir_env_overrides_the_accept_path_deletion(
@@ -414,16 +409,15 @@ def test_rigc_keep_workdir_env_overrides_the_accept_path_deletion(
     since a reject already keeps its directory regardless of this knob."""
     _write_zero_instance_rig(tmp_path)
     _stub_board_reading(monkeypatch)
-    created = _spy_mkdtemp(monkeypatch, tmp_path)
     monkeypatch.setenv("RIGC_KEEP_WORKDIR", "1")
+    out_dir = tmp_path / "out"
 
     ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
-                             "--out-dir", str(tmp_path / "out"),
+                             "--out-dir", str(out_dir),
                              *_no_shields(tmp_path)])
 
     assert ret == 0
-    assert len(created) == 1
-    assert Path(created[0]).is_dir()
+    assert _workdir_of(out_dir).is_dir()
 
 
 # --------------------------------------------------------------- --promote
@@ -441,14 +435,13 @@ def test_promote_writes_promote_shields_own_documents_verbatim(
     the two files back off disk."""
     from rigc.promote import promote_shield
 
-    created = _spy_mkdtemp(monkeypatch, tmp_path)
+    out_dir = tmp_path / "out"
     ret, err = _run(capsys, ["expand", "--promote", "adafruit_data_logger",
-                            "--out-dir", str(tmp_path / "out"),
+                            "--out-dir", str(out_dir),
                             *_no_shields(tmp_path)])
 
     assert ret == 1
-    assert len(created) == 1
-    workdir = Path(created[0])
+    workdir = _workdir_of(out_dir)
     expected = promote_shield("adafruit_data_logger")
     assert (workdir / "rig.yml").read_text() == expected.rig_yml
     assert (workdir / expected.content_name).read_text() == expected.content
@@ -465,14 +458,14 @@ def test_promote_with_revision_bakes_the_shields_own_revision(
     above."""
     from rigc.promote import promote_shield
 
-    created = _spy_mkdtemp(monkeypatch, tmp_path)
+    out_dir = tmp_path / "out"
     ret, err = _run(capsys, ["expand", "--promote", "i2c_sensor",
                             "--revision", "2",
-                            "--out-dir", str(tmp_path / "out"),
+                            "--out-dir", str(out_dir),
                             *_no_shields(tmp_path)])
 
     assert ret == 1
-    workdir = Path(created[0])
+    workdir = _workdir_of(out_dir)
     expected = promote_shield("i2c_sensor", revision="2")
     assert (workdir / "rig.yml").read_text() == expected.rig_yml
     assert (workdir / expected.content_name).read_text() == expected.content

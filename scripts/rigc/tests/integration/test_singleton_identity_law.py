@@ -101,17 +101,17 @@ _SHIELD_DIRS = [SHIELDS_DIR]
 # test_singleton_law_holds's own verdict assertion.
 EXPECTED_REJECTING = {"adafruit_winc1500"}
 
-# `--promote`'s materialized pair lives inside rigc's OWN ephemeral
-# workdir (cli.py's `tempfile.mkdtemp(prefix="rigc-")`, kept on a reject --
-# D10), a DIFFERENT absolute path every run and on every side; the
-# fixture rig's own materialized pair (_materialize_fixture, below) is
-# equally ephemeral (pytest's tmp_path). A rejected rig's diagnostic may
-# quote either one verbatim (a "lang-*" finding anchored to the rig's own
-# source), so a REJECT comparison needs both stripped before stderr
-# compares meaningfully -- an ACCEPT never has this problem (Sec 2.1: the
-# emitted artifacts' own RIG_NAME/instance name are the same STRING on
-# both sides, never a path).
-_RIGC_WORKDIR_RE = re.compile(r"/tmp/rigc-[^/\s]+")
+# `--promote`'s materialized pair lives inside rigc's OWN workdir
+# (`<--out-dir>/rigc-generated`, cli.WORKDIR_NAME -- kept on a reject,
+# D10), a DIFFERENT absolute path on each side because each side gets its
+# own --out-dir; the fixture rig's own materialized pair
+# (_materialize_fixture, below) is equally ephemeral (pytest's tmp_path).
+# A rejected rig's diagnostic may quote either one verbatim (a "lang-*"
+# finding anchored to the rig's own source), so a REJECT comparison needs
+# both stripped before stderr compares meaningfully -- an ACCEPT never has
+# this problem (Sec 2.1: the emitted artifacts' own RIG_NAME/instance name
+# are the same STRING on both sides, never a path).
+_RIGC_WORKDIR_RE = re.compile(r"/[^\s]*rigc-generated")
 
 
 def _normalize_reject_paths(text: str, fixture_rig_dir: Path) -> str:
