@@ -116,18 +116,32 @@ All three are now CLOSED — two with no work to do, one implemented.
    deliberately left open in content files. After item 5, since both
    predecessors change the keys it describes.
 
+   **This item GREW, and it is now the home of a standing debt** (Tobi,
+   2026-08-08). Two grammars have since been retired by deleting their
+   parsing while leaving a stray key SILENTLY IGNORED rather than an
+   error: `board:`/`sockets:` (`7c724bd`) and, when it lands,
+   `dt-includes:` (`param-vocabulary-brief.md`). Both were ruled that way
+   deliberately, on the grounds that one-off unknown-key errors would be
+   inconsistent machinery — the tightening belongs HERE, once, for every
+   retired key at once. Scope it as **rig.yml AND shield.yml**, not rig.yml
+   alone: `shield.yml` gains `shield,param-includes`'s sibling questions in
+   the same period. The user-visible consequence until then: a rig.yml
+   outside this repo still carrying `board:` builds whatever `-b` says,
+   silently.
+
 8. **Shield plurality** — pre-migration (`bridle-migration.md`).
 
 9. **BRIDLE MIGRATION** — the goal the whole mission serves. Its
    prerequisite, the lazy shield library (item 5), is DONE: the eager scan
    bridle would have made untenable is gone.
 
-10. **Board as an invocation coordinate** — "the board is no longer part of
-   the rig definition." `board-as-invocation-coordinate.md`, design-log
-   2026-07-29a: rig × board becomes a product coordinate (`--boards-for`)
-   rather than a property the rig file carries. Explicitly post-cutover.
-   Note S2 already moved `board:` under each variant entry, so this
-   finishes a direction already started.
+10. **Board as an invocation coordinate** — **DONE 2026-08-08.** "The board
+   is no longer part of the rig definition", now literally true: §9.5's six
+   slices (S1–S6) made the board an independent coordinate and emptied the
+   corpus of `board:`, and `7c724bd` retired the declaration grammar
+   itself. `--boards-for` is the product-coordinate query it predicted, and
+   it answers promoted shields too (`8887163`). Nothing in rig.yml names a
+   board; the invocation is the only source.
 
 ---
 
