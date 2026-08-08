@@ -1,6 +1,94 @@
 # Rigs — Session Handoff
 
-## RESUME (2026-08-06c) — S4 AND S5 LANDED. NEXT = S6, THE LAST STEP OF §9.5.
+## RESUME (2026-08-06d) — §9.5 IS COMPLETE. S6 LANDED. NEXT = RETIRE THE BOARD GRAMMAR.
+
+### STATE AT SESSION CLOSE (2026-08-06d)
+
+btr-shields HEAD **`40c8d10`** plus the doc commit this block ships in.
+`main` is **ahead 27+1 of origin, NOT pushed** — carried since
+2026-08-04, still Tobi's call. Tree clean.
+
+**Gate, driver-verified, FULL:** mypy **94**, unit **617**, integration
+**184**, coverage **92%** vs the 88 floor.
+
+184 reconciles: 187 after S5, minus the 4 tests S6 retired with the
+mechanism they covered, plus the new no-board census test.
+
+**`board-as-coordinate-brief.md` §9.5 is DONE — all six steps landed.**
+A rig names a topology; the invocation names the board. `ard_datalogger`,
+the dual-host rig that motivated the whole direction, is now literally
+`rig: name: ard_datalogger`, built twice by supplying a different `-b`.
+
+### WHAT LANDED — S6 (`40c8d10`)
+
+18 `board:` keys across 17 rig.yml files gone. The harness's board source
+is now an explicit `RigCase.board` (the ruling §9.4 never made — see the
+brief's §3 for the two rejected alternatives).
+
+**Tobi ruled DURING review that the grammar goes too**, overriding §9.4's
+"keep inference as a fallback" staging: *"that's confusing in the long
+run and besides us noone will remember it or miss it."* S6 took the half
+that belongs with the data — `cmake/boards.cmake`'s inference, the
+`RIG_INFERRED_BOARD` marker and the rig-swap guard — **in the same change
+as the four tests covering them.** Dropped, not adapted: the guard's
+failure mode needed a rig with a declared board, so it *ceased to exist*
+rather than merely stopping being tested. Mechanism and tests together is
+what keeps "no live code left untested" true.
+
+**Predictions that held, and one that did not:**
+
+- §4's prediction HELD — **no `RIG_BOARD` value moved.** The golden diff
+  is 4 files, all `ard_datalogger`. §9.4's "the 19 goldens refreeze"
+  counted goldens CARRYING the key, not ones whose value moves.
+- §9.4's own numbers were WRONG: 18 real `board:` keys across 17 files,
+  not 19 (a naive grep counts comment lines); `ard_datalogger` carried
+  **two**, not three; `pilot_variants` was ALREADY the target shape, so
+  the collapse touched exactly one rig.
+- The dispatch's list of broken tests was a READING, not a run — off by
+  one in each direction. **Run the module rather than reason about it.**
+
+**The one test the inference deletion broke that nobody predicted:**
+`test_resolved_empty_rig_equals_plain_board`. The `empty_rig` FIXTURE
+still spells `board:` and was the only call site relying on inference to
+supply it. Every other `_run_build` call already threaded `board=`
+(swept, not assumed).
+
+**Fixed in passing:** a STATUS line that read `board: ` with nothing after
+it for every promoted shield — it printed `_RIG_RESOLVED_BOARD`, which is
+ALWAYS empty for a shield. It prints `${BOARD}` now.
+
+### NEXT — retire the board grammar, its own slice
+
+Scope MEASURED (see `board-coordinate-s6-brief.md` §11):
+
+- **36 fixture rigs declare `board:`** — not 17; the corpus was the small
+  half. Each needs its board injected via the harness.
+- **10 fixtures exist to test the declaration grammar**, each with a
+  byte-exact reject golden. ~8 die outright — a user-facing diagnostic
+  family disappearing, byte-exact BY RULING, so it wants its own
+  classified diff. `unknown-board` and `unmapped-socket` need judgement
+  (an *injected* unknown board is still a real error).
+- Production: `resolve_board`'s five S2 coherence rules, `SocketBinding`,
+  `list_rigs.py`'s board resolution, the `{BOARD}` cmakeformat key.
+  **`RIG_BOARD` STAYS** — the board actually built is still a fact.
+- **The `--boards-for` placeholder-board wart disappears** rather than
+  needing documentation: S6 had to inject an inert placeholder so
+  `resolve_board` would not reject every target; with no board required
+  to load a rig, the census needs no fake one.
+
+Then the standing queue: **rig-schema.yaml** (backlog item 7), **shield
+plurality**, **BRIDLE MIGRATION**. Off-sequence: **§9.6's params CLI
+grammar**, **the i2c-port binding decision**, **the tutorial playground**.
+
+### A BRIEF-WRITING RULE, learned twice in two slices
+
+S5's §7 named the module its code lived nearest; S6's §9 named the
+modules that OBSERVE the acceptance criteria. **Both were incomplete.**
+The rule is: *name the modules that observe the criteria AND the modules
+the change invalidates.* S6's nine broken tests were in a module neither
+brief would have listed.
+
+## RESUME (2026-08-06c, superseded) — S4 AND S5 LANDED. NEXT = S6, THE LAST STEP OF §9.5.
 
 ### STATE AT SESSION CLOSE (2026-08-06c)
 

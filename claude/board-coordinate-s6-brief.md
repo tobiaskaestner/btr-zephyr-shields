@@ -209,3 +209,46 @@ Retiring `SocketBinding`/`resolve_board`'s map mechanism (§6 — report it
 as dead, leave it). The §9.6 params CLI grammar. The production
 `i2c-port.yaml` gap (S4's handoff records it; it is a product decision).
 Any change to the boards' own DT labels.
+
+## 11. RULED DURING REVIEW (Tobi, 2026-08-06) — the grammar goes too
+
+> *"I want to remove the `board:` from the rig grammar entirely. That's
+> confusing in the long run and besides us noone will remember it or miss
+> it."*
+
+This **overrides §9.4's staging**, which kept inference as a fallback. It
+splits in two:
+
+**Landed with S6 (`40c8d10`) — the half that belongs with the data:**
+`cmake/boards.cmake`'s rig→board inference, the `RIG_INFERRED_BOARD`
+marker, and the rig-swap guard, together with the four tests covering
+them (`reconfigure_of_rig_build_dir_proceeds` and the three
+`rig_swap_*`). Those four were **dropped, not adapted** — the guard's
+failure mode required a rig with a declared board, so it ceased to exist
+rather than merely stopping being tested. Deleting mechanism and tests in
+one change is what keeps "no live code left untested" true.
+
+The other five of the nine gained `-DBOARD` and kept their subjects.
+
+**Deferred to its own slice — the grammar itself.** Measured before
+committing to it:
+
+- **36 fixture rigs declare `board:`** (not 17 — the corpus was the small
+  half). Each needs its board injected via the harness instead.
+- **10 fixtures exist to test the declaration grammar**, each with a
+  byte-exact reject golden: `board-declared-twice`,
+  `content-file-carries-board`, `content-file-carries-sockets`,
+  `no-board-declared`, `revision-carries-board`,
+  `sockets-with-variant-board`, `variant-board-partial`,
+  `variant-board-restated`, plus `unknown-board` and `unmapped-socket`,
+  which need judgement (an *injected* unknown board is still a real
+  error). Roughly eight of those goldens die outright — a user-facing
+  diagnostic family disappearing, byte-exact by ruling, so it wants its
+  own classified diff.
+- Production: `resolve_board`'s five S2 coherence rules, `SocketBinding`,
+  `list_rigs.py`'s board resolution and the `{BOARD}` cmakeformat key.
+  **`RIG_BOARD` in `context.cmake` STAYS** — the board actually built is
+  still a fact.
+- **The `--boards-for` placeholder-board wart disappears** rather than
+  needing documentation: with no board required to load a rig, the census
+  needs no fake one.
