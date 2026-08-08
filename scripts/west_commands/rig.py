@@ -114,9 +114,16 @@ class BuildRig(Build):
         if parser.usage:
             parser.usage = parser.usage.replace('west build', 'west build-rig')
         parser.add_argument(
-            '--rig', metavar='NAME',
-            help='rig to build (by rig.yml `rig.name`): forwarded verbatim '
-                 'as -DRIG=<NAME>. The board defaults to the rig\'s own '
+            '--rig', metavar='TARGET',
+            help='rig to build: a persisted rig by rig.yml `rig.name`, or a '
+                 'shield name promoted to one -- '
+                 'name[@rev][/variant][:<key>=<value>...], forwarded '
+                 'verbatim as -DRIG=<TARGET>. The trailing options apply '
+                 'to a PROMOTED SHIELD only (today: socket=<label>, which '
+                 'is how a shield names which socket it plugs on a board '
+                 'carrying more than one of its type); they are refused on '
+                 'a persisted rig, whose instances each name their own. '
+                 'The board defaults to the rig\'s own '
                  '(cmake\'s boards.cmake fork resolves it), or pass '
                  '-b/--board yourself to override it -- given wins, '
                  'whatever the rig declares. --shield keeps its own '

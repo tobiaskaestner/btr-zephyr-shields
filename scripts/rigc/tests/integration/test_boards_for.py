@@ -123,6 +123,39 @@ def test_boards_for_a_promoted_shield_whose_socket_is_ambiguous_answers_nothing(
         f"empty answer proves nothing\n--- stdout ---\n{control.stdout}")
 
 
+def test_boards_for_a_promoted_shield_naming_its_socket_answers_that_board() -> None:
+    """The promotion-option grammar's own falsifier, and the exact pair
+    that motivated it: the SAME shield answers nothing bare (above) and
+    mikroe_quail once the target names which of the four mikrobus sockets
+    it means. Asserted as a pair rather than in isolation, because either
+    half alone is satisfiable by a stub -- "always empty" passes the test
+    above, "always quail" passes this one, and only both together say the
+    socket is what made the difference."""
+    bare = _run("--boards-for", "flash_click")
+    socketed = _run("--boards-for", "flash_click:socket=quail_sock1")
+
+    assert socketed.returncode == 0, (
+        f"exit {socketed.returncode}\n{socketed.stderr}")
+    assert bare.stdout.strip() == ""
+    assert socketed.stdout.strip() == "mikroe_quail/stm32f427xx/rig"
+
+
+def test_boards_for_promotion_options_on_a_persisted_rig_are_refused() -> None:
+    """Decision 1: promotion options are promotion-only. A persisted rig
+    has N instances, so `socket=` could not say which one it means --
+    refused rather than silently dropped, which would answer a question
+    the target did not ask."""
+    result = _run("--boards-for", "quail_temp_farm:socket=quail_sock1")
+    assert result.returncode != 0
+    assert "persisted rig" in result.stderr
+
+
+def test_boards_for_a_malformed_promotion_option_is_refused_before_any_census() -> None:
+    result = _run("--boards-for", "flash_click:sockets=quail_sock1")
+    assert result.returncode != 0
+    assert "unknown promotion option" in result.stderr
+
+
 def test_boards_for_a_variant_on_a_promoted_shield_is_refused() -> None:
     """A promoted shield has no variant axis to select, and --boards-for
     refuses one for the same reason --explain does -- the SAME

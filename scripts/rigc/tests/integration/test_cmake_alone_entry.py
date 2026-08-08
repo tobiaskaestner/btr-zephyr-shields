@@ -578,6 +578,57 @@ def test_cmake_alone_promoted_shield_configures_with_a_given_board(
 
 
 @pytest.mark.build
+def test_cmake_alone_promoted_shield_with_a_socket_configures_where_the_bare_form_cannot(
+        tmp_path: Path) -> None:
+    """The promotion-option grammar through the REAL cmake seam, which is
+    the only place it can be falsified end to end: `{PROMOTED}` carries
+    the whole target string and dts.cmake forwards it to `--promote`
+    opaquely, so nothing between list_rigs and rigc parses it twice. A
+    unit test of the parser cannot see that plumbing at all.
+
+    flash_click plugs mikrobus and mikroe_quail offers FOUR, so inference
+    is RIGHT to refuse the bare form -- asserted here as the paired
+    control, in the same run and on the same board. Either half alone is
+    weak: a socket silently ignored would still let the bare case fail
+    and, without the second assertion, nothing would notice that the
+    socketed case failed for the very same reason."""
+    bare = _run_cmake_alone(tmp_path / "bare", [
+        "-DRIG=flash_click",
+        "-DBOARD=mikroe_quail/stm32f427xx/rig",
+    ])
+    assert bare.returncode != 0, (
+        "flash_click has four candidate mikrobus sockets on quail; the "
+        "bare promoted form must still be refused, or the control below "
+        f"proves nothing\n--- stdout ---\n{bare.stdout}")
+    assert "phys-socket" in bare.stdout + bare.stderr
+
+    build_dir = tmp_path / "socketed"
+    result = _run_cmake_alone(build_dir, [
+        "-DRIG=flash_click:socket=quail_sock1",
+        "-DBOARD=mikroe_quail/stm32f427xx/rig",
+    ])
+    assert result.returncode == 0, (
+        "expected -DRIG=<shield>:socket=<label> to configure\n"
+        f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
+        f"--- stderr ---\n{result.stderr}")
+
+    with open(build_dir / "build_info.yml") as f:
+        info = yaml.safe_load(f)
+    rig_info = info["cmake"]["vendor-specific"]["rig"]
+    # The WHOLE target, options included: build_info records what was
+    # asked for, which is what makes a build reproducible from it.
+    assert rig_info["promoted-shield"] == "flash_click:socket=quail_sock1"
+    assert rig_info["board"] == "mikroe_quail/stm32f427xx/rig"
+    assert "flash_click" in rig_info["shields"]
+
+    # The socket actually reached the emitted overlay -- a configure that
+    # succeeded against the wrong socket would satisfy everything above.
+    overlay = (build_dir / "rig" / "rig-gen.overlay").read_text()
+    assert "quail_sock1" in overlay
+    for other in ("quail_sock2", "quail_sock3", "quail_sock4"):
+        assert other not in overlay
+
+
 def test_cmake_alone_promoted_shield_without_a_board_is_fatal(
         tmp_path: Path) -> None:
     """Criterion 2.3: a promoted shield declares no board and has no axis

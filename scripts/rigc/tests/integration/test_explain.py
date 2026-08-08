@@ -97,3 +97,31 @@ def test_west_rigs_with_no_flag_is_unaffected_by_explain_landing() -> None:
         yaml.safe_load(p.read_text())["rig"]["name"]
         for p in (REPO_ROOT / "boards" / "rigs").glob("*/rig.yml"))
     assert sorted(result.stdout.split()) == expected
+
+
+def test_explain_a_promoted_shield_with_a_socket_shows_it_on_the_instance() -> None:
+    """The promotion-option grammar, printed: --explain is the oracle for
+    what `--rig <shield>:socket=<label>` actually desugars to, exactly as
+    it is for the bare form above."""
+    result = _run("--explain", "flash_click:socket=quail_sock1")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == textwrap.dedent("""\
+        # rig.yml
+        rig:
+          name: flash_click
+
+        # flash_click.yml
+        instances:
+          - name: flash_click
+            shield: flash_click
+            socket: quail_sock1
+        """)
+
+
+def test_explain_promotion_options_on_a_persisted_rig_are_refused() -> None:
+    """Decision 1, on the other query surface -- and it must be the SAME
+    refusal: the message comes from list_rigs, which the cmake seam uses
+    too, never a second wording owned by this command."""
+    result = _run("--explain", "nucleo_datalogger:socket=arduino_r3")
+    assert result.returncode != 0
+    assert "persisted rig" in result.stderr

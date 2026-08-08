@@ -1,0 +1,6 @@
+tests:
+  shields.temp_click:
+    platform_allow: mikroe_quail/stm32f427xx/rig
+    tags: shields
+    extra_args:
+      - RIG=temp_click:socket=quail_sock1

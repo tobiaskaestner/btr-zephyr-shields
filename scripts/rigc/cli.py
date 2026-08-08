@@ -72,7 +72,7 @@ from typing import List, Optional
 
 from . import analyzer, boarddt, loader, promote
 from .deps import union as deps_union
-from .diag import Diagnostic, LoadError, has_errors, render
+from .diag import Diagnostic, LoadError, error as diag_error, has_errors, render
 from .edt_build import BuildRecipe, recipe_from_build_info
 from .emitter import context, emit, write_artifacts
 from .registry import load_types
@@ -326,7 +326,20 @@ def _expand(args: argparse.Namespace) -> int:
         # the rendered diagnostic itself names.
         revision = args.revision
         if args.promote is not None:
-            promoted = promote.promote_shield(args.promote, args.revision)
+            # --promote's value is the promotion TARGET, not a bare
+            # shield name: `<shield>[@rev][:<key>=<value>...]`. cmake
+            # forwards list_rigs' `{PROMOTED}` here opaquely and never
+            # parses it, so this is the one parser for the option
+            # grammar no matter how many options it grows.
+            shield_name, _, opt_text = args.promote.partition(":")
+            opts = promote.parse_promotion_opts(
+                opt_text or None, args.promote)
+            if isinstance(opts, str):
+                # No SourceRef: the offending text is argv, not a file,
+                # and the message already quotes the target verbatim.
+                return _reject([diag_error("lang-promote-opts", opts)])
+            promoted = promote.promote_shield(
+                shield_name, args.revision, socket=opts.get("socket"))
             rig_path = os.path.join(workdir, "rig.yml")
             with open(rig_path, "w") as f:
                 f.write(promoted.rig_yml)

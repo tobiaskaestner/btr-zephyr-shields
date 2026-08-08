@@ -18,6 +18,7 @@ from rigc.diag import has_errors
 from rigc.dtsio import MODULE_ROOT
 from rigc.model import Device, Shield
 from rigc.promote import (ShieldInfo, both_paths_error, check_promotable,
+                          parse_promotion_opts,
                           discover_shields, promote_shield,
                           shield_declares_required_params)
 from rigc.registry import load_types
@@ -239,3 +240,94 @@ def test_a_revved_promoted_shield_round_trips_to_the_named_revision(
     assert diags == []
     assert rig is not None
     assert rig.instances[0].shield.revision == "2"
+
+
+# ------------------------------------------- promotion options (Tobi, 2026-08-08)
+
+def test_no_opts_is_an_empty_mapping_not_an_error() -> None:
+    """A bare promotion target is the overwhelmingly common case and must
+    stay free of the option grammar entirely."""
+    assert parse_promotion_opts(None, "flash_click") == {}
+    assert parse_promotion_opts("", "flash_click") == {}
+
+
+def test_socket_assignment_parses() -> None:
+    assert parse_promotion_opts("socket=quail_sock1", "t") == {
+        "socket": "quail_sock1"}
+
+
+def test_a_bare_word_is_refused_rather_than_read_as_a_socket() -> None:
+    """Decision 3: explicit `key=value` only. `flash_click:quail_sock1`
+    is the shorthand deliberately NOT adopted -- a positional rule would
+    have to be re-litigated the moment a second option lands, so it is an
+    error today rather than a meaning that changes later."""
+    err = parse_promotion_opts("quail_sock1", "flash_click:quail_sock1")
+    assert isinstance(err, str)
+    assert "<key>=<value>" in err
+
+
+def test_an_unknown_key_names_the_known_ones() -> None:
+    err = parse_promotion_opts("sockets=quail_sock1", "t")
+    assert isinstance(err, str)
+    assert "sockets" in err and "socket" in err
+
+
+def test_name_is_not_an_option_key() -> None:
+    """Excluded ON PURPOSE, not merely absent: S4's singleton identity
+    law pins the desugared instance name to the shield name, and that
+    name reaches config-sheet.md, so a CLI slot for it would let a user
+    break the law from the command line."""
+    err = parse_promotion_opts("name=something_else", "t")
+    assert isinstance(err, str)
+    assert "unknown promotion option" in err
+
+
+def test_an_empty_value_is_refused() -> None:
+    err = parse_promotion_opts("socket=", "t")
+    assert isinstance(err, str)
+    assert "empty value" in err
+
+
+def test_a_repeated_key_is_refused_rather_than_last_wins() -> None:
+    """Silently taking the last would build against a socket the target
+    also names differently -- ambiguous input, not a preference."""
+    err = parse_promotion_opts("socket=a:socket=b", "t")
+    assert isinstance(err, str)
+    assert "more than once" in err
+
+
+def test_promote_shield_with_a_socket_emits_it_on_the_one_instance() -> None:
+    promoted = promote_shield("flash_click", socket="quail_sock1")
+    assert promoted.content == (
+        "instances:\n"
+        "  - name: flash_click\n"
+        "    shield: flash_click\n"
+        "    socket: quail_sock1\n")
+
+
+def test_promote_shield_without_a_socket_stays_socket_less() -> None:
+    """The default is unchanged: socket-LESS, so unique-by-type
+    inference still resolves it board-agnostically. S4's identity law
+    compares against exactly this text."""
+    assert "socket:" not in promote_shield("flash_click").content
+
+
+def test_a_socketed_promoted_shield_round_trips_through_the_loader(
+        tmp_path: Path) -> None:
+    """The same round-trip proof the revision case above carries: the
+    synthesized text is not merely well-formed, it LOADS, and the socket
+    reaches the instance the loader builds."""
+    promoted = promote_shield("flash_click", socket="quail_sock1")
+    rig_dir = tmp_path / "rig"
+    rig_dir.mkdir()
+    (rig_dir / "rig.yml").write_text(promoted.rig_yml)
+    (rig_dir / promoted.content_name).write_text(promoted.content)
+
+    types, _deps = load_types()
+    rig, diags, _load_deps = loader.load(
+        str(rig_dir / "rig.yml"), str(tmp_path / "workdir"), types=types,
+        board="some_board")
+
+    assert diags == []
+    assert rig is not None
+    assert rig.instances[0].socket == "quail_sock1"

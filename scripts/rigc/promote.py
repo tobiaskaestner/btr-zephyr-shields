@@ -33,7 +33,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 import yaml
 
@@ -126,15 +126,86 @@ class PromotedRig:
     content: str
 
 
-def promote_shield(name: str, revision: Optional[str] = None) -> PromotedRig:
+#: The promotion options a target string may carry after `:`. A CLOSED
+#: set, deliberately (Tobi, 2026-08-08, decision 2): `socket` alone to
+#: start, everything else later. Two names are excluded on purpose rather
+#: than merely absent -- `name`, because S4's singleton identity law pins
+#: the desugared instance name to the shield name and that name reaches
+#: config-sheet.md, so a CLI slot for it would let a user break the law
+#: from the command line; and `shield`, which is the target itself.
+_PROMOTION_OPTS = ("socket",)
+
+
+def parse_promotion_opts(opts: Optional[str], target: str,
+                         ) -> Union[Dict[str, str], str]:
+    """Parse the `:`-separated assignment list a promotion target may
+    carry -- `<shield>[@rev][:<key>=<value>[:<key>=<value>...]]` -- into
+    a mapping of instance fields for the ONE desugared instance.
+
+    Returns the mapping, or an ERROR MESSAGE string when the text does
+    not parse (the same return convention `check_promotable` uses, so a
+    caller handles both refusals the same way). `None`/empty opts is an
+    empty mapping, never an error.
+
+    EXPLICIT `key=value` ONLY, with no bare-word shorthand for the
+    common case (Tobi, 2026-08-08, decision 3): `flash_click:quail_sock1`
+    is refused, not read as a socket. A positional rule would have to be
+    re-litigated the moment a second option lands.
+
+    `:` separates, NOT `,` -- and that is a hard constraint, not a
+    preference: real devicetree property names contain commas
+    (`zephyr,code` is exactly the property the two param-blocked shields
+    need), so a comma-separated list could never carry the parameter
+    syntax this grammar is designed to grow into."""
+    if not opts:
+        return {}
+    parsed: Dict[str, str] = {}
+    for assignment in opts.split(":"):
+        key, sep, value = assignment.partition("=")
+        if not sep:
+            return (f"'{target}': promotion option '{assignment}' is not "
+                    f"'<key>=<value>' -- promotion options are explicit "
+                    f"assignments (known keys: "
+                    f"{', '.join(_PROMOTION_OPTS)})")
+        if key not in _PROMOTION_OPTS:
+            return (f"'{target}': unknown promotion option '{key}' "
+                    f"(known keys: {', '.join(_PROMOTION_OPTS)})")
+        if key in parsed:
+            return (f"'{target}': promotion option '{key}' given more "
+                    f"than once")
+        if not value:
+            return (f"'{target}': promotion option '{key}=' has an empty "
+                    f"value")
+        parsed[key] = value
+    return parsed
+
+
+def promote_shield(name: str, revision: Optional[str] = None,
+                   socket: Optional[str] = None) -> PromotedRig:
     """The natural mapping `a -> [a]` (ruling 4), written out: a rig.yml
     with NO `board:` (legal only when a board is INJECTED -- S1 relaxed
     `resolve_board`'s "never neither" to "never neither unless injected",
     never to "never required at all"; a promoted rig's board reaches it
     only that way, per Sec 3's own symmetry argument) and a content file
-    with exactly one instance, socket-LESS (the Sec 4.2 unique-by-type
-    inference resolves it board-agnostically at analysis time, once a
-    board is actually in play).
+    with exactly one instance, socket-LESS BY DEFAULT (the Sec 4.2
+    unique-by-type inference resolves it board-agnostically at analysis
+    time, once a board is actually in play).
+
+    `socket`, when given, emits `socket: <label>` on that instance and
+    inference never runs for it. This is what makes a shield promotable
+    onto a board carrying MORE THAN ONE socket of its type, where
+    inference is right to refuse: measured 2026-08-08, four mikrobus
+    shields (eth_click, flash_click, temp_click, temp_hum_click) could
+    not be promoted onto mikroe_quail at all, because quail offers four
+    mikrobus sockets and the desugared instance named none of them.
+
+    The label is BOARD-SPECIFIC (`quail_sock1`, not `mikrobus`), and
+    that is correct rather than a regression of S5: S5 moved board-
+    specific labels out of CONTENT, which must stay portable. An
+    invocation already names the board -- it is the one place a
+    board-specific label belongs. This function does not check that the
+    label exists on the board; that is the analyzer's job, and it
+    already renders the candidates (error[phys-socket]).
 
     The instance is named after THE SHIELD ITSELF, never a placeholder
     like "inst": instance names reach config-sheet.md
@@ -158,6 +229,8 @@ def promote_shield(name: str, revision: Optional[str] = None) -> PromotedRig:
     content = ("instances:\n"
               f"  - name: {name}\n"
               f"    shield: {shield_ref}\n")
+    if socket is not None:
+        content += f"    socket: {socket}\n"
     return PromotedRig(rig_yml=rig_yml, content_name=f"{name}.yml", content=content)
 
 

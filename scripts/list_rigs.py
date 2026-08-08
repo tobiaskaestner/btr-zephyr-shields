@@ -44,7 +44,20 @@ RIG_YML = 'rig.yml'
 # board target, mirrored here for a rig's identity string per ontology.md
 # section 7 ("the board->rig lift"): a rig target is symmetric with a board
 # target, so its grammar and its parser are too.
-_RIG_TARGET_RE = re.compile(r'^([^@/]+)(@[^@/]+)?(/(.+))?$')
+#
+# `[:opts]` extends it (Tobi, 2026-08-08) for PROMOTED SHIELDS ONLY: a
+# promoted shield desugars to exactly ONE instance, so a target can name
+# that instance's own fields — `flash_click:socket=quail_sock1`. A
+# persisted rig has N instances, so `socket=` would not say WHICH, and
+# `resolve_target` refuses opts on one; this parser only SPLITS them off,
+# it never decides whether they are allowed (rigc.promote owns their
+# content, the resolvers own the namespace rule).
+#
+# `:` and not `,` as the separator is forced, not chosen: devicetree
+# property names contain commas (`zephyr,code`), and this grammar is
+# meant to grow the `<device>.<prop>=<value>` parameter form next.
+# The name stays `[^@/:]+`, so a `:` can never be read as part of it.
+_RIG_TARGET_RE = re.compile(r'^([^@/:]+)(@[^@/:]+)?(/([^:]+))?(:(.+))?$')
 
 
 @dataclass(frozen=True)
@@ -173,19 +186,26 @@ def find_rigs_in(root):
 
 
 def parse_rig_target(target):
-    """Split a `-DRIG=<target>` value into `(name, revision, variant)`, per
-    the grammar above. `revision`/`variant` are `None` when absent (never an
-    empty string), so a caller can tell "bare name" apart from a stray empty
-    match cleanly.
+    """Split a `-DRIG=<target>` value into `(name, revision, variant,
+    opts)`, per the grammar above. Every one but `name` is `None` when
+    absent (never an empty string), so a caller can tell "bare name"
+    apart from a stray empty match cleanly.
+
+    `opts` is the RAW text after the first `:`, unparsed — whether it is
+    allowed at all is the resolvers' decision (promotion only), and what
+    it means is `rigc.promote.parse_promotion_opts`'s. Splitting it here
+    and interpreting it there keeps this module free of rigc imports on
+    the bare `--list`/`--json` path.
     """
     m = _RIG_TARGET_RE.match(target)
     if not m:
         sys.exit(f"ERROR: invalid rig target syntax: {target!r} "
-                  f"(expected name[@rev][/variant])")
+                  f"(expected name[@rev][/variant][:opts])")
     name = m.group(1)
     revision = m.group(2)[1:] if m.group(2) else None
     variant = m.group(4)
-    return name, revision, variant
+    opts = m.group(6)
+    return name, revision, variant, opts
 
 
 def _resolve_axis(rig_name, axis_kind, decl_key, declared, selected):
@@ -292,10 +312,23 @@ def resolve_rig_target(target, args):
     `execute_process` caller sees a clean nonzero exit + stderr message with
     no Python traceback.
     """
-    name, revision, variant = parse_rig_target(target)
+    name, revision, variant, opts = parse_rig_target(target)
     rigs = find_rigs(args)
     for rig in rigs:
         if rig.name == name:
+            # Promotion options are PROMOTION-only (Tobi, 2026-08-08,
+            # decision 1). A persisted rig has N instances, so `socket=`
+            # could not say which one it means -- refused here rather
+            # than silently dropped, which would build something the
+            # target did not ask for. Refused at the point the name is
+            # KNOWN to be a rig, so the message can say so.
+            if opts is not None:
+                sys.exit(
+                    f"ERROR: -DRIG={target}: '{name}' is a persisted rig, "
+                    f"and promotion options ({opts!r}) apply only to a "
+                    f"promoted shield -- a rig has its own instances, "
+                    f"each already naming its own socket in the rig's "
+                    f"content file.")
             resolved_revision = _resolve_axis(
                 rig.name, 'revision', 'revision', rig.revisions, revision)
             resolved_variant = _resolve_axis(
@@ -316,11 +349,36 @@ class PromotedTarget:
     `revision` are exactly `rigc.promote.promote_shield`'s own two
     arguments; a promoted shield has no variant axis (S3a already refuses
     one), so there is nothing to carry for it. `dump_rig_target` tells
-    this apart from a `Rig` by type and renders `{PROMOTED}=name`,
+    this apart from a `Rig` by type and renders `{PROMOTED}=target`,
     `{DIR}=NOTFOUND` (no rig folder exists), `{BOARD}=NOTFOUND` (a shield
-    declares none), `{VARIANT}=NOTFOUND`."""
+    declares none), `{VARIANT}=NOTFOUND`.
+
+    `opts` is the promotion options text (`socket=quail_sock1`), already
+    VALIDATED by `rigc.promote.parse_promotion_opts` before this is
+    built. `promotion_target` re-renders name+opts as the single string
+    `{PROMOTED}` carries and `rigc expand --promote` takes back: cmake
+    forwards that value opaquely and never parses it, so the option
+    grammar has exactly one parser no matter how many options it grows.
+    That is why no new `{PROMOTED_SOCKET}` cmakeformat key and no new
+    rigc flag were added -- cmake learns no new concept at all.
+
+    The REVISION is deliberately NOT rendered into it, even though it is
+    part of the target the user typed: it already travels on its own
+    `{REVISION}` key, which dts.cmake forwards as `--revision`. Rendering
+    it here too would reach `promote_shield` twice and desugar to
+    `shield: i2c_sensor@2@2`. `test_cmakeformat_line_for_a_revved_
+    promoted_shield` is what caught that, which is exactly why it pins
+    the whole line rather than just the key under test.
+    """
     name: str
     revision: str | None = None
+    opts: str | None = None
+
+    @property
+    def promotion_target(self):
+        """The `--promote` value: this target as rigc will re-parse it.
+        Revision excluded on purpose -- see the class docstring."""
+        return f"{self.name}:{self.opts}" if self.opts else self.name
 
 
 def resolve_target(target, args):
@@ -358,7 +416,7 @@ def resolve_target(target, args):
     # (this module's OTHER entry point) never needs rigc's own import
     # graph, so it stays untouched by anything importable here.
 
-    name, revision, variant = parse_rig_target(target)
+    name, revision, variant, opts = parse_rig_target(target)
     rigs = find_rigs(args)
     rig = next((r for r in rigs if r.name == name), None)
     shields = promote.discover_shields(
@@ -371,7 +429,16 @@ def resolve_target(target, args):
         err = promote.check_promotable(name, shields[name], variant)
         if err is not None:
             sys.exit(f'ERROR: {err}')
-        return PromotedTarget(name=name, revision=revision)
+        # Parsed HERE, at resolution time, so a malformed option is a
+        # clean cmake-visible exit before any expander runs -- not a
+        # traceback three processes deep. The parsed mapping is
+        # discarded: rigc re-parses the same text from --promote, and
+        # ONE parser owning the grammar is the point (see
+        # PromotedTarget). What this call buys is the early refusal.
+        parsed = promote.parse_promotion_opts(opts, target)
+        if isinstance(parsed, str):
+            sys.exit(f'ERROR: {parsed}')
+        return PromotedTarget(name=name, revision=revision, opts=opts)
 
     return resolve_rig_target(target, args)
 
@@ -389,7 +456,7 @@ def add_args(parser):
                          help='add a board root, may be given more than once')
     parser.add_argument("--rig", dest='rig', default=None,
                          help='resolve a single rig target '
-                              '(name[@rev][/variant]) instead of listing '
+                              '(name[@rev][/variant][:opts]) instead of listing '
                               'every rig; prints via --cmakeformat if given, '
                               'else just the resolved name')
 
@@ -442,7 +509,7 @@ def dump_rig_target(resolved, args):
                 BOARD='BOARD;NOTFOUND',
                 REVISION='REVISION;' + notfound(resolved.revision),
                 VARIANT='VARIANT;NOTFOUND',
-                PROMOTED='PROMOTED;' + resolved.name,
+                PROMOTED='PROMOTED;' + resolved.promotion_target,
             )
         else:
             info = args.cmakeformat.format(

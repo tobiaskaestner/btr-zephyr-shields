@@ -114,14 +114,19 @@ class Rigs(WestCommand):
         parser.add_argument(
             '--boards-for', metavar='TARGET', default=None,
             help='''instead of listing rigs, print the boards whose typed
-                 sockets satisfy TARGET (name[@rev][/variant]): mating,
+                 sockets satisfy TARGET (name[@rev][/variant][:opts]):
+                 mating,
                  bus-subset exposure, alias-aware reference resolution and
                  stackability, censused from board rig-extension SOURCES
                  (no cmake configure). TARGET is resolved against BOTH
                  namespaces, exactly as --explain resolves it: a persisted
                  rig, or a discoverable shield promoted to one -- so
                  "which boards can host this shield?" is askable without a
-                 rig existing for it. This is NOT a promise the rig
+                 rig existing for it. A promoted shield may name the
+                 socket it plugs -- "<shield>:socket=<label>" -- which is
+                 what makes a shield askable at all on a board carrying
+                 more than one socket of its type. This is NOT a promise
+                 the rig
                  actually builds on a listed board -- GPIO position
                  routing, CS-pool allocation, address domains and net
                  analysis need the board's real devicetree, which this
@@ -130,7 +135,7 @@ class Rigs(WestCommand):
         parser.add_argument(
             '--explain', metavar='TARGET', default=None,
             help='''instead of listing rigs, print the rig.yml and content
-                 file TARGET (name[@rev][/variant]) stands for: verbatim
+                 file TARGET (name[@rev][/variant][:opts]) stands for: verbatim
                  from disk for a persisted rig, or the synthesized pair a
                  shield name desugars to when TARGET names a discoverable
                  shield instead (board-as-coordinate-brief.md Sec 9.2/9.3)
@@ -140,7 +145,9 @@ class Rigs(WestCommand):
                  is an error naming both paths; a promoted shield takes
                  only "@rev" (the shield's own revision) -- "/variant"
                  on one is refused, since a promoted shield has no
-                 variant axis. Short-circuits the listing like
+                 variant axis -- plus ":<key>=<value>" promotion options
+                 ("socket=<label>" today), which apply to a promoted
+                 shield only and are refused on a persisted rig. Short-circuits the listing like
                  --boards-for: -f/-n do not apply.''')
         list_rigs.add_args(parser)
 
@@ -214,12 +221,20 @@ class Rigs(WestCommand):
         `--boards-for X` reported "does not resolve to a rig" was exactly
         the divergence this method was extracted to end.
 
-        Exits non-zero (never returns) on a collision or on a shield that
-        cannot be promoted -- `check_promotable` is what refuses
-        "/variant" on a shield, which has no variant axis to select."""
+        Exits non-zero (never returns) on a collision, on a shield that
+        cannot be promoted (`check_promotable` is what refuses "/variant"
+        on a shield, which has no variant axis to select), or on
+        malformed promotion options.
+
+        Returns `opts` as the PARSED mapping for a shield, and asserts it
+        is empty for a rig target -- promotion options are promotion-only
+        (Tobi, 2026-08-08, decision 1). The rig-target refusal itself is
+        left to `list_rigs.resolve_target`/`resolve_rig_target`, which
+        owns it for the cmake seam too, so both surfaces refuse with one
+        message rather than two."""
         from rigc import promote
 
-        name, revision, variant = list_rigs.parse_rig_target(target)
+        name, revision, variant, opt_text = list_rigs.parse_rig_target(target)
         rig = next((r for r in list_rigs.find_rigs(args) if r.name == name),
                    None)
         shields = promote.discover_shields(self._shield_dirs(args))
@@ -232,9 +247,12 @@ class Rigs(WestCommand):
             err = promote.check_promotable(name, shields[name], variant)
             if err is not None:
                 sys.exit(f'ERROR: {err}')
-            return name, revision, variant, shields[name]
+            opts = promote.parse_promotion_opts(opt_text, target)
+            if isinstance(opts, str):
+                sys.exit(f'ERROR: {opts}')
+            return name, revision, opts, shields[name]
 
-        return name, revision, variant, None
+        return name, revision, {}, None
 
     def _boards_for(self, args):
         """`--boards-for`'s implementation: resolve TARGET against
@@ -288,14 +306,16 @@ class Rigs(WestCommand):
         from rigc.diag import has_errors, render
         from rigc.registry import load_types
 
-        name, revision, variant, shield = self._resolve_both_namespaces(
+        name, revision, opts, shield = self._resolve_both_namespaces(
             args, args.boards_for)
+        variant = None
 
         types, _types_deps = load_types()
         workdir = tempfile.mkdtemp(prefix='rigs-boards-for-')
         try:
             if shield is not None:
-                promoted = promote.promote_shield(name, revision)
+                promoted = promote.promote_shield(
+                    name, revision, socket=opts.get('socket'))
                 rig_yml = os.path.join(workdir, list_rigs.RIG_YML)
                 with open(rig_yml, 'w') as f:
                     f.write(promoted.rig_yml)
@@ -352,11 +372,12 @@ class Rigs(WestCommand):
         from rigc import promote
         from rigc.loader.documents import content_file_name
 
-        name, revision, _variant, shield = self._resolve_both_namespaces(
+        name, revision, opts, shield = self._resolve_both_namespaces(
             args, args.explain)
 
         if shield is not None:
-            promoted = promote.promote_shield(name, revision)
+            promoted = promote.promote_shield(
+                name, revision, socket=opts.get('socket'))
             self._print_pair(('rig.yml', promoted.rig_yml),
                              (promoted.content_name, promoted.content))
             return
