@@ -5,8 +5,8 @@ types, diags)` as a value-shaped contract -- given an ORDERED pool, the
 already-taken net identities, and the members of one SPI scope in R18
 allocation order (some copper-fixed), assign each a position, or report
 the pool exhausted. `effective_cs_pool` is the one upstream pool-MERGE
-source this module keeps separate from the algorithm (mission brief's
-"socket.cs_pool if not None else ctype.cs_pool").
+source this module keeps separate from the algorithm ("bus.cs_pool if
+not None else ctype.cs_pool[qualified bus name]").
 
 Every test here constructs plain CsMember/CsPlacement values directly --
 no Rig, Instance, Shield, Board, or BoardSocket anywhere -- proving the

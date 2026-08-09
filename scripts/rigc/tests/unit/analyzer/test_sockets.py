@@ -43,7 +43,7 @@ def test_subset_gaps_is_sorted_for_deterministic_rendering() -> None:
 
 def _parent(gpio_map=None, buses=None, path="/board_ard", label="board_ard") -> BoardSocket:
     return BoardSocket(label=label, path=path, type_name="arduino-r3",
-                      gpio_map=gpio_map or {}, buses=buses or {}, cs_pool=None)
+                      gpio_map=gpio_map or {}, buses=buses or {})
 
 
 def test_compose_socket_passes_through_a_routed_position() -> None:
@@ -119,15 +119,42 @@ def test_compose_socket_scope_creation_registers_a_scope_entry() -> None:
     assert socket.buses["i2c"].path == "mux_1.ch0"
 
 
-def test_compose_socket_cs_pool_override_travels_with_the_composed_socket() -> None:
-    parent = _parent()
+def test_compose_socket_cs_pool_override_travels_to_the_composed_bus() -> None:
+    """ExposedSocket.cs_pool is a carrier's own authored override on its
+    exposed socket node -- CS pools live per bus, on BusRef, never on the
+    socket as a whole, so this override's destination is the SAME kind's
+    composed BusRef.cs_pool, not a socket-level field. The parent's OWN
+    per-bus BusRef.cs_pool (here [16, 15, 14], as if edtlib-backfilled)
+    must NOT leak through instead -- that was the regression this test
+    guards against."""
+    parent = _parent(buses={"spi": BusRef(label="spi0", path="/spi0",
+                                          cs_pool=[16, 15, 14])})
     exposed = ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
-                            gpio_map={}, buses={}, cs_pool=[3, 4])
+                            gpio_map={}, buses={"spi": "plug"}, cs_pool=[3, 4])
 
-    socket, _diags, _scopes = compose_socket(
+    socket, diags, _scopes = compose_socket(
         "adapter_1.mb1", "adapter_1", exposed, parent, None)
 
-    assert socket.cs_pool == [3, 4]
+    assert diags == []
+    assert socket.buses["spi"].cs_pool == [3, 4]
+
+
+def test_compose_socket_no_cs_pool_override_leaves_the_composed_bus_none() -> None:
+    """A carrier that never authors socket,cs-pool on its exposed socket
+    node passes an ABSENT override through as None -- never the parent's
+    own BusRef.cs_pool -- so the analyzer's own ctype-fallback merge
+    (analyzer/cs.py's effective_cs_pool) is what supplies a value, not
+    this composition."""
+    parent = _parent(buses={"spi": BusRef(label="spi0", path="/spi0",
+                                          cs_pool=[16, 15, 14])})
+    exposed = ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
+                            gpio_map={}, buses={"spi": "plug"})
+
+    socket, diags, _scopes = compose_socket(
+        "adapter_1.mb1", "adapter_1", exposed, parent, None)
+
+    assert diags == []
+    assert socket.buses["spi"].cs_pool is None
 
 
 # ---------------------------------------------------------------- resolve_sockets
@@ -144,7 +171,7 @@ def _inst(name: str, socket: str | None, shield: Shield) -> Instance:
 def test_resolve_sockets_finds_a_direct_board_socket() -> None:
     board = Board(name="b", sockets={
         "ard": BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
-                          gpio_map={}, buses={}, cs_pool=None)})
+                          gpio_map={}, buses={})})
     inst = _inst("i1", "ard", _shield())
     rig = Rig(name="r", instances=[inst])
 
@@ -162,7 +189,7 @@ def test_resolve_sockets_finds_a_board_socket_by_its_conventional_alias() -> Non
     board = Board(name="b", sockets={
         "nucleo_ard": BoardSocket(label="nucleo_ard", path="/ard",
                                  type_name="arduino-r3", gpio_map={},
-                                 buses={}, cs_pool=None)},
+                                 buses={})},
                   aliases={"arduino_r3": "nucleo_ard"})
     inst = _inst("i1", "arduino_r3", _shield())
     rig = Rig(name="r", instances=[inst])
@@ -181,7 +208,7 @@ def test_resolve_sockets_still_finds_the_socket_by_its_defining_label() -> None:
     board = Board(name="b", sockets={
         "nucleo_ard": BoardSocket(label="nucleo_ard", path="/ard",
                                  type_name="arduino-r3", gpio_map={},
-                                 buses={}, cs_pool=None)},
+                                 buses={})},
                   aliases={"arduino_r3": "nucleo_ard"})
     inst = _inst("i1", "nucleo_ard", _shield())
     rig = Rig(name="r", instances=[inst])
@@ -207,7 +234,7 @@ def test_resolve_sockets_unknown_board_socket_is_phys_socket() -> None:
 def test_resolve_sockets_plug_type_mismatch_is_phys_mating() -> None:
     board = Board(name="b", sockets={
         "ard": BoardSocket(label="ard", path="/ard", type_name="mikrobus",
-                          gpio_map={}, buses={}, cs_pool=None)})
+                          gpio_map={}, buses={})})
     inst = _inst("i1", "ard", _shield(plugs="arduino-r3"))
     rig = Rig(name="r", instances=[inst])
 
@@ -221,7 +248,7 @@ def test_resolve_sockets_plug_type_mismatch_is_phys_mating() -> None:
 def test_resolve_sockets_subset_gap_is_phys_subset() -> None:
     board = Board(name="b", sockets={
         "ard": BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
-                          gpio_map={}, buses={}, cs_pool=None)})
+                          gpio_map={}, buses={})})
     shield = _shield()
     from rigc.model import Device
     shield.devices.append(Device(name="d", label="d", compatible=None,
@@ -239,7 +266,7 @@ def test_resolve_sockets_subset_gap_is_phys_subset() -> None:
 def test_resolve_sockets_carrier_chain_composes() -> None:
     board = Board(name="b", sockets={
         "ard": BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
-                          gpio_map={7: ("gpiod", 0, 0)}, buses={}, cs_pool=None)})
+                          gpio_map={7: ("gpiod", 0, 0)}, buses={})})
     carrier_shield = _shield(plugs="arduino-r3", exposes={
         "mb1": ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
                              gpio_map={2: (7, 0)}, buses={})})
@@ -276,7 +303,7 @@ def test_resolve_sockets_cyclic_carrier_reference_is_stack_guarded() -> None:
 def test_resolve_sockets_two_non_stackable_instances_on_one_socket_is_phys_mating() -> None:
     board = Board(name="b", sockets={
         "ard": BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
-                          gpio_map={}, buses={}, cs_pool=None)})
+                          gpio_map={}, buses={})})
     a = _inst("a", "ard", _shield())
     b = _inst("b", "ard", _shield())
     rig = Rig(name="r", instances=[a, b])
@@ -292,7 +319,7 @@ def test_resolve_sockets_two_non_stackable_instances_on_one_socket_is_phys_matin
 def test_resolve_sockets_stackable_type_allows_multiple_instances() -> None:
     board = Board(name="b", sockets={
         "ard": BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
-                          gpio_map={}, buses={}, cs_pool=None)})
+                          gpio_map={}, buses={})})
     a = _inst("a", "ard", _shield())
     b = _inst("b", "ard", _shield())
     rig = Rig(name="r", instances=[a, b])
@@ -308,7 +335,7 @@ def test_resolve_sockets_skips_a_failed_instance_but_keeps_going() -> None:
     resolution of the REST of the rig."""
     board = Board(name="b", sockets={
         "ard": BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
-                          gpio_map={}, buses={}, cs_pool=None)})
+                          gpio_map={}, buses={})})
     bad = _inst("bad", "nope", _shield())
     good = _inst("good", "ard", _shield())
     rig = Rig(name="r", instances=[bad, good])
@@ -334,7 +361,7 @@ def test_resolve_sockets_two_labels_for_one_socket_still_caught_as_not_stackable
     board = Board(name="b", sockets={
         "nucleo_ard": BoardSocket(label="nucleo_ard", path="/ard",
                                  type_name="arduino-r3", gpio_map={},
-                                 buses={}, cs_pool=None)},
+                                 buses={})},
                   aliases={"arduino_r3": "nucleo_ard"})
     a = _inst("a", "nucleo_ard", _shield())
     b = _inst("b", "arduino_r3", _shield())
@@ -356,9 +383,9 @@ def test_resolve_sockets_infers_the_sole_mating_candidate_silently() -> None:
     no diagnostic at all."""
     board = Board(name="b", sockets={
         "ard": BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
-                          gpio_map={}, buses={}, cs_pool=None),
+                          gpio_map={}, buses={}),
         "mb": BoardSocket(label="mb", path="/mb", type_name="mikrobus",
-                         gpio_map={}, buses={}, cs_pool=None)})
+                         gpio_map={}, buses={})})
     inst = _inst("i1", None, _shield(plugs="arduino-r3"))
     rig = Rig(name="r", instances=[inst])
 
@@ -372,7 +399,7 @@ def test_resolve_sockets_infers_the_sole_mating_candidate_silently() -> None:
 def test_resolve_sockets_inference_zero_candidates_names_plug_type_and_offerings() -> None:
     board = Board(name="b", sockets={
         "mb": BoardSocket(label="mb", path="/mb", type_name="mikrobus",
-                         gpio_map={}, buses={}, cs_pool=None)})
+                         gpio_map={}, buses={})})
     inst = _inst("i1", None, _shield(plugs="arduino-r3"))
     rig = Rig(name="r", instances=[inst])
 
@@ -393,9 +420,9 @@ def test_resolve_sockets_inference_two_candidates_rejects_rather_than_tie_breaks
     either one."""
     board = Board(name="b", sockets={
         "ard1": BoardSocket(label="ard1", path="/ard1", type_name="arduino-r3",
-                           gpio_map={}, buses={}, cs_pool=None),
+                           gpio_map={}, buses={}),
         "ard2": BoardSocket(label="ard2", path="/ard2", type_name="arduino-r3",
-                           gpio_map={}, buses={}, cs_pool=None)})
+                           gpio_map={}, buses={})})
     inst = _inst("i1", None, _shield(plugs="arduino-r3"))
     rig = Rig(name="r", instances=[inst])
 
@@ -418,7 +445,7 @@ def test_resolve_sockets_inference_never_considers_carrier_exposed_sockets() -> 
     needing mikrobus must still get the zero-candidate error."""
     board = Board(name="b", sockets={
         "ard": BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
-                          gpio_map={}, buses={}, cs_pool=None)})
+                          gpio_map={}, buses={})})
     carrier_shield = _shield(plugs="arduino-r3", exposes={
         "mb1": ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
                              gpio_map={}, buses={})})
@@ -440,7 +467,7 @@ def test_resolve_sockets_inference_obeys_the_existing_stacking_rule() -> None:
     though neither one named a socket."""
     board = Board(name="b", sockets={
         "ard": BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
-                          gpio_map={}, buses={}, cs_pool=None)})
+                          gpio_map={}, buses={})})
     a = _inst("a", None, _shield(plugs="arduino-r3"))
     b = _inst("b", None, _shield(plugs="arduino-r3"))
     rig = Rig(name="r", instances=[a, b])
@@ -455,4 +482,4 @@ def test_resolve_sockets_inference_obeys_the_existing_stacking_rule() -> None:
 
 def _ctype(name: str = "arduino-r3", stackable: bool = True) -> ConnectorType:
     return ConnectorType(name=name, positions={}, index2name={}, bus_proxies=[],
-                        stackable=stackable, cs_pool=[])
+                        stackable=stackable, cs_pool={})

@@ -129,7 +129,7 @@ def test_every_artifact_is_utf8_encoded_bytes() -> None:
 
 def test_emit_is_deterministic_under_a_shuffled_instance_order() -> None:
     ctype = ConnectorType(name="t", positions={}, index2name={}, bus_proxies=[],
-                          stackable=False, cs_pool=[])
+                          stackable=False, cs_pool={})
 
     def make(order: list[str]) -> dict:
         insts = []
@@ -140,7 +140,7 @@ def test_emit_is_deterministic_under_a_shuffled_instance_order() -> None:
             shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
             insts.append(Instance(name=name, shield=shield, socket="sock"))
             sockets[name] = BoardSocket(label="sock", path="/s", type_name="t",
-                                        gpio_map={}, buses={}, cs_pool=None)
+                                        gpio_map={}, buses={})
         rig = Rig(name="r", board="b", instances=insts)
         s = Solved(sockets=sockets)
         return emit(rig, s, {"t": ctype}, workdir="/does-not-matter")

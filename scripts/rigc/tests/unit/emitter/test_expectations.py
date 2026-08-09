@@ -40,8 +40,7 @@ def test_addr_and_cs_entries_are_sorted_and_carry_the_probe_check() -> None:
         sockets={"i1": BoardSocket(label="s1", path="/s1", type_name="t",
                                    gpio_map={}, buses={
                                        "i2c": BusRef("i2c1", "/i2c1"),
-                                       "spi": BusRef("spi1", "/spi1")},
-                                   cs_pool=None)},
+                                       "spi": BusRef("spi1", "/spi1")})},
         addr={("i1", "sensor"): 0x50},
         cs={("i1", "flash"): (0, 5)})
 
@@ -50,6 +49,30 @@ def test_addr_and_cs_entries_are_sorted_and_carry_the_probe_check() -> None:
     assert ("instance: i1, device: sensor, bus: i2c1, address: 0x50, "
            "check: probe") in text
     assert ("instance: i1, device: flash, bus: spi1, cs-index: 0, "
+           "check: probe") in text
+
+
+def test_cs_entry_resolves_a_named_bus_through_the_backing_device() -> None:
+    """A device declared against a NAMED bus ("spi-motors", a multi-bus
+    connector type's own role-suffixed variant) resolves through THAT
+    qualified key, never the bare "spi" -- exercised with a real backing
+    Instance/Device so the lookup this module does by name actually
+    finds one, unlike the synthetic-Solved test above."""
+    from rigc.model import BoardSocket, BusRef, Device, Instance, Shield
+
+    dev = Device(name="drv8825", label="drv8825", compatible=None,
+                bus="spi-motors", group=None, reg=None, addr_from=None,
+                cs_position=None)
+    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
+    inst = Instance(name="i1", shield=shield, socket="sock")
+    rig = Rig(name="r", board="b", instances=[inst])
+    socket = BoardSocket(label="sock", path="/s", type_name="t", gpio_map={},
+                        buses={"spi-motors": BusRef("spi2", "/spi2")})
+    s = Solved(sockets={"i1": socket}, cs={("i1", "drv8825"): (0, 11)})
+
+    text = render_expectations(rig, s)
+
+    assert ("instance: i1, device: drv8825, bus: spi2, cs-index: 0, "
            "check: probe") in text
 
 

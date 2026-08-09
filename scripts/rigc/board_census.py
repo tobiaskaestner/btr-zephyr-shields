@@ -78,13 +78,16 @@ from .diag import Diagnostic, SourceRef, has_errors
 from .dtsio import MODULE_ROOT
 from .model import Board, BoardSocket, BusRef, ConnectorType, Rig
 
-#: compatible = "socket,<bus>" property name -> the bus kind resolve_sockets
-#: keys BoardSocket.buses by. Mirrors board_edt.py's own `_BUS_PROPS`
-#: (kept as a separate copy: this module reads raw text, board_edt.py
-#: reads an already-built edtlib.EDT -- two different inputs to the same
-#: fact, not one shared value to import).
-_BUS_PROPS: Dict[str, str] = {"socket,i2c": "i2c", "socket,spi": "spi",
-                             "socket,uart": "uart"}
+#: compatible = "socket,<bus>[-<role>]" property name pattern -> the
+#: QUALIFIED bus name (kind, or kind-role) resolve_sockets keys
+#: BoardSocket.buses by. Mirrors board_edt.py's own `_BUS_PROP_RE` (kept
+#: as a separate copy: this module reads raw text, board_edt.py reads an
+#: already-built edtlib.EDT -- two different inputs to the same fact, not
+#: one shared value to import). Anchored on `\s*=` immediately after the
+#: qualified name so a "-cs-pool" property (e.g. "socket,spi-sensors-
+#: cs-pool") is never mistaken for a bus: its own trailing "-cs-pool"
+#: leaves no "=" adjacent to any qualified-name-length match.
+_BUS_PROP_RE = re.compile(r'\bsocket,((?:i2c|spi|uart)(?:-\w+)?)\s*=')
 
 #: Every socket,*-compatible node in this tree is a childless leaf
 #: (properties only, no nested node) -- a brace-balanced regex is exact
@@ -95,8 +98,6 @@ _BUS_PROPS: Dict[str, str] = {"socket,i2c": "i2c", "socket,spi": "spi",
 _SOCKET_NODE_RE = re.compile(
     r"(?P<labels>(?:\w+\s*:\s*)+)(?P<name>\w+)\s*\{(?P<body>[^{}]*)\}")
 _COMPAT_RE = re.compile(r'compatible\s*=\s*"socket,([\w-]+)"')
-_BUS_PROP_RE = {prop: re.compile(rf'\b{re.escape(prop)}\s*=')
-               for prop in _BUS_PROPS}
 
 
 @dataclass(frozen=True)
@@ -108,7 +109,7 @@ class SocketNode:
     the node's own name (not a label): the DT path this node projects to
     is "/" + name. `type_name` is the DASHED form straight off
     `compatible = "socket,<type>"` (the dash trap above). `buses` is which
-    of socket,i2c/socket,spi/socket,uart the node's text declares --
+    QUALIFIED bus names (kind, or kind-role) the node's text declares --
     MEMBERSHIP only, never a resolved target (a text scan cannot follow a
     phandle to the controller it names)."""
 
@@ -135,8 +136,7 @@ def scan_socket_nodes(filename: str, text: str) -> Iterator[SocketNode]:
             continue
         labels = [lbl.strip() for lbl in m.group("labels").split(":")
                  if lbl.strip()]
-        buses = [kind for prop, kind in _BUS_PROPS.items()
-                if _BUS_PROP_RE[prop].search(m.group("body"))]
+        buses = [bm.group(1) for bm in _BUS_PROP_RE.finditer(m.group("body"))]
         line = text.count("\n", 0, m.start()) + 1
         yield SocketNode(labels=labels, name=m.group("name"),
                          type_name=compat.group(1), buses=buses,
@@ -237,7 +237,7 @@ def census_board(board_yml_text: str, fragments: List[Tuple[str, str]],
             buses = {kind: BusRef(label="", path="") for kind in node.buses}
             sockets[label] = BoardSocket(
                 label=label, path=f"/{node.name}", type_name=node.type_name,
-                gpio_map={}, buses=buses, cs_pool=None,
+                gpio_map={}, buses=buses,
                 src=SourceRef(node.filename, node.line, label))
             for alias in node.labels[1:]:
                 aliases[alias] = label

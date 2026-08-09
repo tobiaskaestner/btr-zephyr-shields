@@ -32,6 +32,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
+from ..buskind import is_bus_kind
 from ..diag import Diagnostic, error
 from ..model import BoardSocket, Device, Instance, Rig, Strap
 from .ordering import allocation_key
@@ -143,9 +144,9 @@ def allocate_addresses(rig: Rig, sockets: Dict[str, BoardSocket],
         if socket is None:
             continue
         for dev in inst.shield.devices:
-            if dev.bus != "i2c" or "i2c" not in socket.buses:
+            if not is_bus_kind(dev.bus, "i2c") or dev.bus not in socket.buses:
                 continue
-            bus = socket.buses["i2c"]
+            bus = socket.buses[dev.bus]
             result.bus_label[bus.path] = bus.label
             scopes.setdefault(bus.path, []).append((inst, dev, socket))
 

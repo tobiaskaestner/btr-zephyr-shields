@@ -34,6 +34,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, FrozenSet, List, Optional, Sequence, Tuple
 
+from ..buskind import is_bus_kind
 from ..diag import Diagnostic, error
 from ..model import BoardSocket, ConnectorType, Device, Instance, Rig
 from .gpio import NetClaim, NetKey, Nets, soc_net
@@ -42,16 +43,16 @@ from .ordering import allocation_key
 log = logging.getLogger(__name__)
 
 
-def effective_cs_pool(socket_cs_pool: Optional[List[int]],
+def effective_cs_pool(bus_cs_pool: Optional[List[int]],
                       type_default_pool: List[int]) -> List[int]:
     """The cs_pool None-if-absent merge (rigc-r4-brief.md Sec 2): a real
-    board socket whose connector type's binding declares a
-    socket,cs-pool default already has it backfilled by edtlib
+    board socket whose connector type's binding declares a cs-pool
+    default for this bus already has it backfilled by edtlib
     (board_edt.py), making this merge inert there -- but a
     shield-SYNTHESIZED socket (carrier/mux composition, analyzer/
     sockets.py's `compose_socket`) comes from a plain dtlib parse with no
     binding-default backfill, so this is very much alive for that path."""
-    return socket_cs_pool if socket_cs_pool is not None else type_default_pool
+    return bus_cs_pool if bus_cs_pool is not None else type_default_pool
 
 
 @dataclass(frozen=True)
@@ -129,9 +130,9 @@ def allocate_cs(rig: Rig, sockets: Dict[str, BoardSocket],
         if socket is None:
             continue
         for dev in inst.shield.devices:
-            if dev.bus != "spi" or "spi" not in socket.buses:
+            if not is_bus_kind(dev.bus, "spi") or dev.bus not in socket.buses:
                 continue
-            bus = socket.buses["spi"]
+            bus = socket.buses[dev.bus]
             result.bus_label[bus.path] = bus.label
             scopes.setdefault(bus.path, []).append((inst, dev, socket))
 
@@ -159,7 +160,9 @@ def allocate_cs(rig: Rig, sockets: Dict[str, BoardSocket],
                 cs_members.append(CsMember(
                     identity=identity, fixed=(pos, soc_net(socket, pos))))
             else:
-                pool = effective_cs_pool(socket.cs_pool, ctype.cs_pool)
+                assert dev.bus is not None   # narrowed by the scope-building filter above
+                bus = socket.buses[dev.bus]
+                pool = effective_cs_pool(bus.cs_pool, ctype.cs_pool.get(dev.bus, []))
                 cs_members.append(CsMember(
                     identity=identity,
                     pool=tuple((p, soc_net(socket, p)) for p in pool)))
@@ -172,7 +175,9 @@ def allocate_cs(rig: Rig, sockets: Dict[str, BoardSocket],
         for identity in exhausted:
             inst, dev, socket = by_identity[identity]
             ctype = types[socket.type_name]
-            pool = effective_cs_pool(socket.cs_pool, ctype.cs_pool)
+            assert dev.bus is not None   # narrowed by the scope-building filter above
+            bus = socket.buses[dev.bus]
+            pool = effective_cs_pool(bus.cs_pool, ctype.cs_pool.get(dev.bus, []))
             diags.append(error(
                 "phys-cs",
                 f"CS pool of socket '{socket.label}' is exhausted for "

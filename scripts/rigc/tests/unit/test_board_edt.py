@@ -15,8 +15,17 @@ Everything that must resolve out of ONE socket,fixture-nexus node is
 covered by construction: gpio-map (two positions), pwm-map (whose
 controller carries a SECOND, later-attached label -- the controller-label
 determinism invariant, ported as a pair of tests from the blueprint's
-own test_controller_label.py), io-channel-map, an i2c bus phandle, and an
-authored socket,cs-pool override.
+own test_controller_label.py), io-channel-map, an i2c bus phandle, an spi
+bus phandle, and an authored cs-pool (per-bus, on BusRef -- the i2c bus
+of the same socket carries none, pinning that a cs-pool value attaches
+to the ONE bus that authors it, never every bus of the socket).
+
+A named, multi-bus connector type (socket,spi-sensors/socket,spi-motors,
+board_edt.py's own widened pattern match) is a SEPARATE, hermetic
+edtlib.EDT this file builds inline rather than through fixture_board.dts
+-- it needs its own binding (the shared socket-fixture-nexus.yaml schema
+declares no such properties), and keeping it out of the shared fixture
+avoids widening that schema/DTS for every other test in this file.
 
 fixture_socket_bare additionally carries a SECOND label of its own
 (fixture_bare_alias) -- the alias-index fixture for
@@ -153,22 +162,25 @@ def test_bus_ref_projects_label_and_path() -> None:
     assert "i2c" in socket.buses
     assert socket.buses["i2c"].label == "i2c0"
     assert socket.buses["i2c"].path == "/i2c_ctrl@30"
-    # subset exposure: a socket declaring no socket,spi/uart at all simply
+    assert socket.buses["spi"].label == "spi_ctrl0"
+    assert socket.buses["spi"].path == "/spi_ctrl@40"
+    # subset exposure: a socket declaring no socket,uart at all simply
     # has no entry for it -- never a placeholder.
-    assert "spi" not in socket.buses
     assert "uart" not in socket.buses
 
 
-def test_authored_cs_pool_is_read_verbatim() -> None:
-    assert _socket().cs_pool == [2, 3]
+def test_authored_cs_pool_is_read_verbatim_onto_its_own_bus() -> None:
+    """cs_pool lives on BusRef now, not on BoardSocket -- authored
+    verbatim onto the ONE bus (spi) that carries a cs-pool property."""
+    assert _socket().buses["spi"].cs_pool == [2, 3]
 
 
-def test_absent_cs_pool_stays_none() -> None:
-    """A socket node that authors no socket,cs-pool at all keeps
-    cs_pool=None -- never an invented empty list. The ctype-fallback
-    merge (analyzer/cs.py's effective_cs_pool) exists specifically for
-    this case."""
-    assert _bare_socket().cs_pool is None
+def test_a_bus_without_its_own_cs_pool_stays_none() -> None:
+    """The SAME socket's i2c bus authors no cs-pool of its own -- stays
+    None, never inheriting the sibling spi bus's value or an invented
+    empty list. The ctype-fallback merge (analyzer/cs.py's
+    effective_cs_pool) exists specifically for this case."""
+    assert _socket().buses["i2c"].cs_pool is None
 
 
 def test_bare_socket_has_no_bus_pwm_or_adc_entries() -> None:
@@ -179,6 +191,100 @@ def test_bare_socket_has_no_bus_pwm_or_adc_entries() -> None:
     assert socket.buses == {}
     assert socket.pwm_map == {}
     assert socket.adc_map == {}
+
+
+# ------------------------------------------------- multi-bus socket widening
+#
+# A connector type naming more than one bus of a kind suffixes it with a
+# role ("spi-sensors"/"spi-motors") -- board_edt.py's pattern match against
+# EVERY socket,* property name, not the fixed 3-entry table the rest of
+# this file's fixture predates. A dedicated, hermetic edtlib.EDT (its own
+# binding, its own DTS text) rather than fixture_board.dts/socket-fixture-
+# nexus.yaml: no other test in this file needs these properties, and
+# widening the shared fixture just for this would be pure churn on it.
+
+
+def _multibus_edt(tmp_path: Path):
+    binding_dir = tmp_path / "bindings"
+    binding_dir.mkdir()
+    (binding_dir / "socket-fixture-multibus.yaml").write_text(textwrap.dedent("""\
+        description: purpose-built fixture binding for the multi-bus widening tests
+        compatible: "socket,fixture-multibus"
+        properties:
+          "#gpio-cells":
+            type: int
+            required: true
+          gpio-map:
+            type: compound
+            required: true
+          gpio-map-mask:
+            type: array
+          gpio-map-pass-thru:
+            type: array
+          socket,spi-sensors:
+            type: phandle
+          socket,spi-motors:
+            type: phandle
+          socket,spi-sensors-cs-pool:
+            type: array
+          socket,spi-motors-cs-pool:
+            type: array
+        """))
+    dts_path = tmp_path / "multibus.dts"
+    dts_path.write_text(textwrap.dedent("""\
+        /dts-v1/;
+        / {
+            #address-cells = <1>;
+            #size-cells = <1>;
+
+            spi_a: spi_ctrl@0 {
+                compatible = "fixturetest,spi-ctrl";
+                reg = <0x0 0x4>;
+            };
+            spi_b: spi_ctrl@10 {
+                compatible = "fixturetest,spi-ctrl";
+                reg = <0x10 0x4>;
+            };
+            gpio0: gpio_ctrl@20 {
+                compatible = "fixturetest,gpio-ctrl";
+                reg = <0x20 0x4>;
+                gpio-controller;
+                #gpio-cells = <2>;
+            };
+
+            multibus_socket: connector_multibus {
+                compatible = "socket,fixture-multibus";
+                #gpio-cells = <2>;
+                gpio-map-mask = <0xffffffff 0xffffffff>;
+                gpio-map-pass-thru = <0 0>;
+                gpio-map = <10 0 &gpio0 0 0>,
+                          <11 0 &gpio0 1 0>;
+                socket,spi-sensors = <&spi_a>;
+                socket,spi-motors = <&spi_b>;
+                socket,spi-sensors-cs-pool = <10>;
+                socket,spi-motors-cs-pool = <11>;
+            };
+        };
+        """))
+    ensure_devicetree_on_path()
+    from devicetree import edtlib
+    return edtlib.EDT(str(dts_path), [str(binding_dir)], default_prop_types=True)
+
+
+def test_project_edt_widens_named_bus_properties_to_qualified_keys(
+        tmp_path: Path) -> None:
+    board = board_edt.project_edt(_multibus_edt(tmp_path), "multibus-board")
+    socket = board.sockets["multibus_socket"]
+    assert set(socket.buses) == {"spi-sensors", "spi-motors"}
+    assert socket.buses["spi-sensors"].label == "spi_a"
+    assert socket.buses["spi-motors"].label == "spi_b"
+
+
+def test_project_edt_widens_cs_pool_per_named_bus(tmp_path: Path) -> None:
+    board = board_edt.project_edt(_multibus_edt(tmp_path), "multibus-board")
+    socket = board.sockets["multibus_socket"]
+    assert socket.buses["spi-sensors"].cs_pool == [10]
+    assert socket.buses["spi-motors"].cs_pool == [11]
 
 
 def test_pwm_map_resolves_position_to_controller_and_channel() -> None:

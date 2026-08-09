@@ -6,8 +6,8 @@ description: |
   DATA). Declares exactly the nexus shapes board_edt.py's projection
   reads: gpio-map (required, every socket has one), pwm-map/
   io-channel-map (optional, only PWM/ADC-capable sockets carry them),
-  socket,i2c (a bus proxy phandle), socket,cs-pool (the CS pool
-  default).
+  socket,i2c/socket,spi (bus proxy phandles), socket,cs-pool (the bare
+  SPI bus's own CS pool default).
 
 compatible: "socket,fixture-nexus"
 
@@ -15,6 +15,10 @@ properties:
   socket,i2c:
     type: phandle
     description: the I2C controller this socket exposes, if any
+
+  socket,spi:
+    type: phandle
+    description: the SPI controller this socket exposes, if any
 
   socket,cs-pool:
     type: array

@@ -18,7 +18,7 @@ from rigc.model import (Board, BoardSocket, ConnectorType, Device, Instance,
 
 def _ctype() -> ConnectorType:
     return ConnectorType(name="t", positions={}, index2name={}, bus_proxies=[],
-                        stackable=True, cs_pool=[])
+                        stackable=True, cs_pool={})
 
 
 def _dev(name: str, reg=None) -> Device:
@@ -36,8 +36,7 @@ def test_analyze_assembles_every_pass_into_one_solved_value() -> None:
 
     board = Board(name="b", sockets={
         "ard": BoardSocket(label="ard", path="/ard", type_name="t",
-                          gpio_map={}, buses={"i2c": BusRef("i2c1", "/i2c1")},
-                          cs_pool=None)})
+                          gpio_map={}, buses={"i2c": BusRef("i2c1", "/i2c1")})})
     inst = _inst("i1", "ard", _dev("sensor", reg=0x50))
     rig = Rig(name="r", instances=[inst])
 

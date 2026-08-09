@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import glob
 import os
+import re
 from typing import Dict, List, Optional, Tuple
 
 import yaml
@@ -35,16 +36,32 @@ from .model import ConnectorType, Position
 #: The default connector-type root: every real connector's unified binding.
 BINDINGS = os.path.join(MODULE_ROOT, "dts", "bindings", "connectors")
 
+#: socket,<kind>-<role>-cs-pool -- a named bus's own CS pool default,
+#: keyed the qualified way (mirrors board_edt.py's own _CS_POOL_PROP_RE;
+#: this module reads the raw binding dict, board_edt.py reads an
+#: already-built edtlib.EDT -- two different inputs to the same fact).
+_CS_POOL_PROP_RE = re.compile(r"^socket,((?:i2c|spi|uart)-\w+)-cs-pool$")
 
-def _socket_facts(binding: dict) -> Tuple[bool, list]:
+
+def _socket_facts(binding: dict) -> Tuple[bool, Dict[str, List[int]]]:
     """(stackable, cs_pool) -- the socket-side type facts, read off the
     unified binding's own schema: mating multiplicity = presence of
-    socket,stackable in the schema; default CS candidate list = the
-    socket,cs-pool default."""
+    socket,stackable in the schema; default CS candidate lists, keyed by
+    qualified bus name -- the legacy, role-less socket,cs-pool default
+    always means the bare "spi" bus (CS only ever applies to SPI), and
+    socket,<kind>-<role>-cs-pool is a named bus's own."""
     sprops = binding.get("properties", {})
     stackable = "socket,stackable" in sprops
-    cs_pool = sprops.get("socket,cs-pool", {}).get("default", [])
-    return bool(stackable), list(cs_pool)
+    cs_pool: Dict[str, List[int]] = {}
+    legacy = sprops.get("socket,cs-pool")
+    if legacy is not None:
+        cs_pool["spi"] = list(legacy.get("default", []))
+    for prop_name, meta in sprops.items():
+        m = _CS_POOL_PROP_RE.match(prop_name)
+        if m is None:
+            continue
+        cs_pool[m.group(1)] = list((meta or {}).get("default", []))
+    return bool(stackable), cs_pool
 
 
 def load_types(connector_dirs: Optional[List[str]] = None,
@@ -90,6 +107,6 @@ def load_types(connector_dirs: Optional[List[str]] = None,
                 index2name={v: k for k, v in indices.items()},
                 bus_proxies=list(binding.get("plug,bus-proxies", [])),
                 stackable=stackable,
-                cs_pool=list(cs_pool),
+                cs_pool=cs_pool,
             )
     return types, deps

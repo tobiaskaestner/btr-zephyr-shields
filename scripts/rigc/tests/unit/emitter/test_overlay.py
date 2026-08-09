@@ -23,12 +23,12 @@ _SRC = SourceRef("f.yml", 1, "k")
 
 def _ctype() -> ConnectorType:
     return ConnectorType(name="t", positions={}, index2name={}, bus_proxies=[],
-                        stackable=False, cs_pool=[])
+                        stackable=False, cs_pool={})
 
 
 def _socket() -> BoardSocket:
     return BoardSocket(label="sock", path="/s", type_name="t", gpio_map={},
-                       buses={}, cs_pool=None)
+                       buses={})
 
 
 def _plain_dev(**kwargs: object) -> Device:
@@ -186,8 +186,7 @@ def _mux_rig_and_solved(channel_order: list[int]) -> Tuple[Rig, Solved]:
     shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
     inst = Instance(name="i1", shield=shield, socket="sock")
     socket = BoardSocket(label="sock", path="/s", type_name="t", gpio_map={},
-                         buses={"i2c": BusRef(label="i2c1", path="/i2c1")},
-                         cs_pool=None)
+                         buses={"i2c": BusRef(label="i2c1", path="/i2c1")})
     scopes: Dict[str, Tuple[str, object]] = {
         f"/i2c1/ch{channel}": ("i1_mux", channel) for channel in channel_order}
     return (Rig(name="r", instances=[inst]),
@@ -241,10 +240,10 @@ def test_carrier_exported_socket_synthesizes_a_chained_gpio_nexus() -> None:
     synthesizes BOTH (the recursive parent visit). The four fixed property
     lines and the multi-row gpio-map join are frozen output text."""
     parent = BoardSocket(label="carrier", path="/c", type_name="t", gpio_map={},
-                         buses={}, cs_pool=None, nexus_label="carrier_nexus",
+                         buses={}, nexus_label="carrier_nexus",
                          nexus_rows=[(0, "nucleo_ard", 7)])
     child = BoardSocket(label="click", path="/c/k", type_name="t", gpio_map={},
-                        buses={}, cs_pool=None, nexus_label="click_nexus",
+                        buses={}, nexus_label="click_nexus",
                         nexus_rows=[(0, "carrier_nexus", 3), (1, "carrier_nexus", 4)],
                         parent=parent)
     rig = Rig(name="r", instances=[])

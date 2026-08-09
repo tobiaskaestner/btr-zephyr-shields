@@ -21,7 +21,7 @@ def _dev(name: str) -> Device:
 
 def _socket(label: str) -> BoardSocket:
     return BoardSocket(label=label, path=f"/{label}", type_name="t",
-                       gpio_map={}, buses={}, cs_pool=None)
+                       gpio_map={}, buses={})
 
 
 def test_key_is_socket_then_instance_then_device() -> None:

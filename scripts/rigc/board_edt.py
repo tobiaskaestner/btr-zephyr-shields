@@ -16,6 +16,7 @@ below are no-ops for sockets without one.
 """
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, cast
 
 # $ZEPHYR_BASE is what locates the devicetree package, so requiring it at
@@ -34,7 +35,19 @@ if TYPE_CHECKING:
 from .diag import SourceRef
 from .model import Board, BoardSocket, BusRef
 
-_BUS_PROPS = {"socket,i2c": "i2c", "socket,spi": "spi", "socket,uart": "uart"}
+#: socket,<kind> or socket,<kind>-<role> -- a connector type names an
+#: additional bus of a kind by suffixing the kind with a role (multi-bus-
+#: socket schema, Sec 2); the QUALIFIED name (kind, or kind-role) is the
+#: key BoardSocket.buses/ConnectorType.cs_pool use throughout. Anchored
+#: full-match so a "-cs-pool" property (matched separately below) never
+#: also reads as a bus.
+_BUS_PROP_RE = re.compile(r"^socket,(i2c|spi|uart)(?:-\w+)?$")
+#: socket,<kind>-<role>-cs-pool -- a NAMED bus's own CS pool, keyed the
+#: same qualified way. The legacy, role-less "socket,cs-pool" (every real
+#: connector type's own spelling, unchanged by this schema) is handled
+#: separately: it is not this pattern's concern, since it carries no
+#: kind in its own name at all.
+_CS_POOL_PROP_RE = re.compile(r"^socket,((?:i2c|spi|uart)-\w+)-cs-pool$")
 
 
 def load_board(name: str, dts_path: str, recipe: BuildRecipe,
@@ -93,10 +106,54 @@ def _project_socket(node: "edtlib.Node", compat: str) -> BoardSocket:
             raise ValueError(f"gpio controller {ctrl.path} has no label")
         gpio_map[pos] = (ctrl.labels[0], pin, flags)
 
+    # Per-bus cs_pool, keyed the same qualified way as buses below: the
+    # legacy role-less "socket,cs-pool" (every real connector type's own
+    # spelling) always means the bare "spi" bus, since CS only ever
+    # applies to SPI; "socket,<kind>-<role>-cs-pool" is a named bus's own.
+    # Built before buses so each BusRef below can carry its own value at
+    # construction time.
+    cs_pools: Dict[str, List[int]] = {}
+    legacy_cs_prop = node.props.get("socket,cs-pool")
+    if legacy_cs_prop is not None:
+        assert isinstance(legacy_cs_prop.val, list)
+        cs_pools["spi"] = cast(List[int], legacy_cs_prop.val)
+    for prop_name, prop in node.props.items():
+        m = _CS_POOL_PROP_RE.match(prop_name)
+        if m is None:
+            continue
+        assert isinstance(prop.val, list)
+        cs_pools[m.group(1)] = cast(List[int], prop.val)
+
+    # edtlib back-fills the binding default here when the socket doesn't
+    # author its own cs-pool property, provided the type's binding
+    # declares it with a default (arduino-r3.yaml, mikrobus.yaml both do
+    # for the bare "spi" bus). For those types this value is already the
+    # EFFECTIVE one, same as the analyzer's own merge would compute
+    # (analyzer/cs.py's effective_cs_pool: bus.cs_pool if not None else
+    # ctype.cs_pool[qualified_key]) -- so for a real board socket of such
+    # a type, this bus's cs_pool is never None and that merge's
+    # ctype-fallback branch is inert.
+    #
+    # That merge is not dead code in general, though: this function is not
+    # the only source of a BoardSocket. grove.yaml declares no
+    # socket,cs-pool property at all (Grove never exposes SPI/CS), so a
+    # grove socket's spi bus never even exists here -- harmlessly, since CS
+    # allocation never reaches a socket with no "spi" bus. More
+    # significantly, the analyzer's carrier/mux composition
+    # (analyzer/sockets.py's compose_socket) builds each pass-through
+    # bus's cs_pool from model.ExposedSocket.cs_pool -- the CARRIER'S OWN
+    # authored override on its exposed socket node, parsed by shields.py
+    # with no binding-default backfill at all, and never the PARENT
+    # socket's own (possibly edtlib-backfilled) BusRef.cs_pool. A carrier
+    # that never authors socket,cs-pool on its exposed socket node
+    # (arduino_uno_click, i2c_mux) therefore yields no per-bus cs_pool
+    # there regardless of the connector type's binding default OR of
+    # what the parent socket's own bus happens to carry, so the
+    # analyzer's ctype-fallback branch is very much alive for that path.
     buses: Dict[str, BusRef] = {}
-    for prop_name, kind in _BUS_PROPS.items():
-        prop = node.props.get(prop_name)
-        if prop is None:
+    for prop_name, prop in node.props.items():
+        m = _BUS_PROP_RE.match(prop_name)
+        if m is None:
             continue
         bus_node = prop.val
         # The one runtime reference to edtlib in this module; anything
@@ -107,35 +164,9 @@ def _project_socket(node: "edtlib.Node", compat: str) -> BoardSocket:
         assert isinstance(bus_node, edtlib.Node)
         if not bus_node.labels:
             raise ValueError(f"bus controller {bus_node.path} has no label")
-        buses[kind] = BusRef(label=bus_node.labels[0], path=bus_node.path)
-
-    # edtlib back-fills the binding default here when the socket doesn't
-    # author socket,cs-pool itself, provided the type's binding declares
-    # the property with a default (arduino-r3.yaml, mikrobus.yaml both
-    # do). For those types this value is already the EFFECTIVE one, same
-    # as the analyzer's own merge would compute (analyzer/cs.py's
-    # effective_cs_pool: socket.cs_pool if not None else ctype.cs_pool) --
-    # so for a real board socket of such a type, cs_pool here is never
-    # None and that merge's ctype-fallback branch is inert.
-    #
-    # That merge is not dead code in general, though: this function is not
-    # the only source of a BoardSocket. grove.yaml declares no
-    # socket,cs-pool property at all (Grove never exposes SPI/CS), so a
-    # grove socket's cs_pool stays None here too -- harmlessly, since CS
-    # allocation never reaches a socket with no "spi" bus. More
-    # significantly, the analyzer's carrier/mux composition builds
-    # synthesized BoardSockets from model.ExposedSocket.cs_pool, which
-    # comes from shields.py -- a plain dtlib parse of the carrier .shield
-    # template with no binding-default backfill at all. A carrier that
-    # never authors socket,cs-pool on its exposed socket node
-    # (arduino_uno_click, i2c_mux) yields cs_pool=None there regardless of
-    # the connector type's binding default, so the analyzer's ctype-
-    # fallback branch is very much alive for that path.
-    cs_pool: Optional[List[int]] = None
-    cs_prop = node.props.get("socket,cs-pool")
-    if cs_prop is not None:
-        assert isinstance(cs_prop.val, list)
-        cs_pool = cast(List[int], cs_prop.val)
+        qualified = prop_name[len("socket,"):]
+        buses[qualified] = BusRef(label=bus_node.labels[0], path=bus_node.path,
+                                  cs_pool=cs_pools.get(qualified))
 
     pwm_map: Dict[int, Tuple[str, int]] = {}
     for entry in node.maps.get("pwm", []):
@@ -151,7 +182,7 @@ def _project_socket(node: "edtlib.Node", compat: str) -> BoardSocket:
 
     return BoardSocket(
         label=label, path=node.path, type_name=type_name,
-        gpio_map=gpio_map, buses=buses, cs_pool=cs_pool,
+        gpio_map=gpio_map, buses=buses,
         pwm_map=pwm_map, adc_map=adc_map,
         src=SourceRef(node.filename, node.lineno, label))
 

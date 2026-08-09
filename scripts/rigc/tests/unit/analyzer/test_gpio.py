@@ -42,7 +42,7 @@ def test_role_of_strips_the_gpios_suffix_before_matching() -> None:
 
 def _socket(gpio_map=None, path="/socket@0", label="s1") -> BoardSocket:
     return BoardSocket(label=label, path=path, type_name="t",
-                      gpio_map=gpio_map or {}, buses={}, cs_pool=None)
+                      gpio_map=gpio_map or {}, buses={})
 
 
 def test_soc_net_resolves_through_the_gpio_map() -> None:
@@ -143,7 +143,7 @@ def test_merge_nets_concatenates_claims_preserving_order() -> None:
 def _ctype() -> ConnectorType:
     return ConnectorType(name="t", positions={
         "D7": Position(name="D7", index=7, function="gpio")},
-        index2name={7: "D7"}, bus_proxies=[], stackable=False, cs_pool=[])
+        index2name={7: "D7"}, bus_proxies=[], stackable=False, cs_pool={})
 
 
 def test_collect_gpio_nets_registers_a_fixed_position_claim() -> None:

@@ -76,7 +76,7 @@ def test_fixture_nexus_type_is_registry_visible() -> None:
     ctype = fixture_types["fixture-nexus"]
     assert set(ctype.positions) == {"D0", "D1", "CS"}
     assert ctype.bus_proxies == ["i2c", "spi"]
-    assert ctype.cs_pool == [4]
+    assert ctype.cs_pool == {"spi": [4]}
 
     real_types, _deps = load_types()
     assert set(real_types) == {"arduino-r3", "grove", "i2c-port", "mikrobus"}

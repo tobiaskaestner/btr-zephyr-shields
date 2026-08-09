@@ -14,7 +14,10 @@
  * pin the controller-label determinism invariant on both paths:
  * board_edt._controller_label must always report the DEFINING label,
  * defining_ctrl, never legacy_alias), an io-channel-map, an i2c bus
- * phandle, and an authored socket,cs-pool.
+ * phandle, an spi bus phandle, and an authored cs-pool -- the cs-pool
+ * value attaches to the spi bus alone (BusRef.cs_pool), leaving the same
+ * socket's i2c bus with none, which pins that per-bus attachment rather
+ * than a socket-wide value every bus would otherwise share.
  */
 /dts-v1/;
 
@@ -53,9 +56,17 @@
 		#size-cells = <0>;
 	};
 
+	spi_ctrl0: spi_ctrl@40 {
+		compatible = "fixturetest,spi-ctrl";
+		reg = <0x40 0x4>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
 	fixture_socket: connector_fixture {
 		compatible = "socket,fixture-nexus";
 		socket,i2c = <&i2c0>;
+		socket,spi = <&spi_ctrl0>;
 		socket,cs-pool = <2 3>;
 
 		#gpio-cells = <2>;

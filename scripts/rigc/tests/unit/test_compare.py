@@ -587,13 +587,12 @@ def _generated_sheet() -> str:
     src = SourceRef("f.yml", 1, "k")
     ctype = ConnectorType(
         name="t", positions={}, index2name={0: "CS", 9: "D9"},
-        bus_proxies=[], stackable=False, cs_pool=[])
+        bus_proxies=[], stackable=False, cs_pool={})
     mapped = BoardSocket(
         label="sock1", path="/s1", type_name="t",
-        gpio_map={0: ("gpioa", 3, 0)}, buses={}, cs_pool=None)
+        gpio_map={0: ("gpioa", 3, 0)}, buses={})
     unmapped = BoardSocket(
-        label="sock2", path="/s2", type_name="t", gpio_map={}, buses={},
-        cs_pool=None)
+        label="sock2", path="/s2", type_name="t", gpio_map={}, buses={})
     shield = Shield(name="flash_click", label="fc", plugs="t")
     insts = [Instance(name="flash_a", shield=shield, socket="sock1"),
             Instance(name="flash_b", shield=shield, socket="sock2")]
@@ -670,9 +669,9 @@ def _generated_overlay() -> str:
                    params={"d": {"zephyr,code": "INPUT_KEY_9"}})
     rig = Rig(name="r", instances=[inst])
     ctype = ConnectorType(name="t", positions={}, index2name={5: "D2", 6: "D3"},
-                         bus_proxies=[], stackable=False, cs_pool=[])
+                         bus_proxies=[], stackable=False, cs_pool={})
     socket = BoardSocket(label="sock", path="/s", type_name="t", gpio_map={},
-                        buses={}, cs_pool=None)
+                        buses={})
     solved = Solved(sockets={"i1": socket}, controllers={"tcc0": "pwm"})
     return render_overlay(rig, solved, {"t": ctype}, needed_includes=["rig-params.h"])
 

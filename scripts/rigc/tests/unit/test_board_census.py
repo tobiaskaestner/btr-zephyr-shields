@@ -109,6 +109,43 @@ def test_census_board_socket_declaring_no_bus_props_has_empty_buses() -> None:
     assert socket.buses == {}
 
 
+def test_census_board_records_qualified_named_bus_kinds() -> None:
+    """A connector type naming more than one bus of a kind suffixes it
+    with a role -- the census's own bus-membership scan must recognize
+    the QUALIFIED name as a distinct member, in lockstep with
+    board_edt.py's own regex, or --boards-for silently stops recognizing
+    a shield that needs a named bus."""
+    fragment = textwrap.dedent("""\
+        / {
+            multibus_sock: connector_multibus {
+                compatible = "socket,fixture-multibus";
+                socket,spi-sensors = <&spi_a>;
+                socket,spi-motors = <&spi_b>;
+            };
+        };
+        """)
+    boards = census_board(_BOARD_YML_ONE_VARIANT, [("f.dtsi", fragment)])
+    socket = boards[0].board.sockets["multibus_sock"]
+    assert set(socket.buses) == {"spi-sensors", "spi-motors"}
+
+
+def test_census_board_does_not_mistake_a_cs_pool_property_for_a_bus() -> None:
+    """Negative control: a named bus's own "-cs-pool" property must never
+    be counted as a SECOND bus of that name."""
+    fragment = textwrap.dedent("""\
+        / {
+            multibus_sock: connector_multibus {
+                compatible = "socket,fixture-multibus";
+                socket,spi-sensors = <&spi_a>;
+                socket,spi-sensors-cs-pool = <10>;
+            };
+        };
+        """)
+    boards = census_board(_BOARD_YML_ONE_VARIANT, [("f.dtsi", fragment)])
+    socket = boards[0].board.sockets["multibus_sock"]
+    assert set(socket.buses) == {"spi-sensors"}
+
+
 def test_census_board_two_variants_yield_two_targets_over_one_socket_set() -> None:
     boards = census_board(_BOARD_YML_TWO_VARIANTS, [("f.dtsi", _TWO_LABEL_FRAGMENT)])
     assert {cb.target for cb in boards} == {
@@ -219,7 +256,7 @@ def test_boards_for_conforms_via_the_conventional_alias() -> None:
 
 def test_boards_for_type_mismatch_does_not_conform() -> None:
     socket = BoardSocket(label="mb", path="/mb", type_name="mikrobus",
-                         gpio_map={}, buses={}, cs_pool=None)
+                         gpio_map={}, buses={})
     board = Board(name="b", sockets={"mb": socket})
     inst = _inst("i1", "mb", _shield(plugs="arduino-r3"))
     rig = Rig(name="r", instances=[inst])
@@ -233,7 +270,7 @@ def test_boards_for_bus_subset_gap_does_not_conform() -> None:
     """The real shield-uart-subset-frdm shape: a shield needing UART
     against a socket declaring no socket,uart does not conform."""
     socket = BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
-                         gpio_map={}, buses={}, cs_pool=None)
+                         gpio_map={}, buses={})
     board = Board(name="b", sockets={"ard": socket})
     shield = Shield(name="sh", label="sh", plugs="arduino-r3",
                     devices=[_device_needing("uart")])
@@ -269,7 +306,7 @@ def test_boards_for_inference_two_candidates_does_not_conform() -> None:
 
 def test_boards_for_inference_zero_candidates_does_not_conform() -> None:
     socket = BoardSocket(label="mb", path="/mb", type_name="mikrobus",
-                         gpio_map={}, buses={}, cs_pool=None)
+                         gpio_map={}, buses={})
     board = Board(name="b", sockets={"mb": socket})
     inst = _inst("i1", None, _shield(plugs="arduino-r3"))     # no match at all
     rig = Rig(name="r", instances=[inst])

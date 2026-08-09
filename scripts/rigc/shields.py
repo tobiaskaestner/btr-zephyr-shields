@@ -26,15 +26,19 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional, Tuple
 
+from .buskind import bus_kind_of, is_bus_kind
 from .diag import Diagnostic, SourceRef, error, warning
 from .dtsio import get_dtlib, render_prop, src_of, words
 from .model import (ConnectorType, Device, ExposedSocket, GpioRef, Jumper,
                     Pad, Shield, Strap)
 
+# Carrier/mux composition's own re-exported-socket parsing (_parse_exposed
+# below): out of scope for the widened multi-bus schema, still exactly
+# i2c/spi/uart bare, never role-suffixed -- a carrier re-exporting a
+# NAMED bus is not a case this loader resolves yet.
 _BUS_PROPS = {"socket,i2c": "i2c", "socket,spi": "spi", "socket,uart": "uart"}
 
 _RESERVED = {"plug", "pads", "config"}
-_ADDRESSABLE = {"i2c"}          # buses with device-static in-band addressing
 _MODEL_PROPS = {"reg", "compatible", "shield,addr-from", "shield,cs-position",
                "shield,collect", "shield,params", "shield,param-includes"}
 
@@ -112,7 +116,7 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
         if group.name in _RESERVED or is_exposed(group):
             continue
         bus = group.name if ctype and group.name in ctype.bus_proxies else None
-        if bus is None and ctype and group.name in ("i2c", "spi", "uart"):
+        if bus is None and ctype and bus_kind_of(group.name) is not None:
             diags.append(error(
                 "lang-shield-proxy",
                 f"shield '{shield.name}' has a '{group.name}' bus proxy "
@@ -158,7 +162,7 @@ def _parse_device(node, shield: Shield, plug, ctype, bus, group,
             addr_from = strap.name
 
     # exactly-one-of rule: forgot-reg is detectable, deferred is explicit
-    if bus in _ADDRESSABLE:
+    if is_bus_kind(bus, "i2c"):
         if (reg is None) == (addr_from is None):
             which = "both" if reg is not None else "neither"
             diags.append(error(

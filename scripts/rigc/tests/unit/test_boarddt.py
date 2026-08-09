@@ -114,7 +114,7 @@ def test_a_board_with_sockets_loads_clean(
         """))
     fake_board = Board(name="b", sockets={
         "ard": BoardSocket(label="ard", path="/ard", type_name="t",
-                          gpio_map={}, buses={}, cs_pool=None)})
+                          gpio_map={}, buses={})})
     monkeypatch.setattr(
         "rigc.board_edt.load_board",
         lambda name, dts_path, recipe, workdir: fake_board)

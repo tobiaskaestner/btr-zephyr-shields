@@ -64,7 +64,7 @@ def test_load_types_assembles_one_synthetic_type(tmp_path: Path) -> None:
     assert ctype.name == "fixture_type"
     assert ctype.bus_proxies == ["i2c"]
     assert ctype.stackable is True
-    assert ctype.cs_pool == [0]
+    assert ctype.cs_pool == {"spi": [0]}
     assert set(ctype.positions) == {"SIG0", "SIG1"}
     assert ctype.positions["SIG0"].index == 0
     assert ctype.positions["SIG0"].function == "gpio"
@@ -106,3 +106,34 @@ def test_load_types_stackable_false_when_key_absent(tmp_path: Path) -> None:
         connector_dirs=[str(tmp_path / "connectors")],
         header_dirs=[str(tmp_path / "include")])
     assert types["fixture_type"].stackable is False
+
+
+def test_load_types_widens_cs_pool_per_named_bus(tmp_path: Path) -> None:
+    """A multi-bus connector type's cs_pool is keyed by the QUALIFIED bus
+    name -- a named bus's own "socket,<kind>-<role>-cs-pool" default,
+    alongside (in a different type) the legacy role-less "socket,cs-pool"
+    default, which always means the bare "spi" bus."""
+    yaml_dir = tmp_path / "connectors"
+    yaml_dir.mkdir(parents=True)
+    header_dir = tmp_path / "include" / "dt-bindings" / "connector"
+    header_dir.mkdir(parents=True)
+    binding = {
+        "compatible": "socket,fixture_multibus",
+        "properties": {
+            "socket,spi-sensors-cs-pool": {"type": "array", "default": [10]},
+            "socket,spi-motors-cs-pool": {"type": "array", "default": [11]},
+        },
+        "plug,bus-proxies": ["spi-sensors", "spi-motors"],
+        "plug,positions": {},
+    }
+    (yaml_dir / "fixture_multibus.yaml").write_text(yaml.safe_dump(binding))
+    (header_dir / "fixture_multibus.h").write_text(
+        "#ifndef DT_BINDINGS_CONNECTOR_FIXTURE_MULTIBUS_H_\n"
+        "#define DT_BINDINGS_CONNECTOR_FIXTURE_MULTIBUS_H_\n"
+        "#endif\n")
+
+    types, _ = load_types(
+        connector_dirs=[str(yaml_dir)], header_dirs=[str(tmp_path / "include")])
+
+    assert types["fixture_multibus"].cs_pool == {
+        "spi-sensors": [10], "spi-motors": [11]}

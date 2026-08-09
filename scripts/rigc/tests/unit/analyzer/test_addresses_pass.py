@@ -16,8 +16,7 @@ from rigc.model import (BoardSocket, BusRef, Device, Instance, Rig, Shield,
 
 def _socket(path: str = "/i2c1") -> BoardSocket:
     return BoardSocket(label="sock", path=path, type_name="t", gpio_map={},
-                      buses={"i2c": BusRef(label="i2c1", path=path)},
-                      cs_pool=None)
+                      buses={"i2c": BusRef(label="i2c1", path=path)})
 
 
 def _shield(straps=None) -> Shield:

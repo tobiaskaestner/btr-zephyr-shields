@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import Dict, Iterator, List, Optional, Tuple, cast
 
 from ..analyzer import Solved
+from ..buskind import is_bus_kind
 from ..model import BoardSocket, ConnectorType, Device, Instance, Rig
 from . import GEN
 
@@ -217,17 +218,32 @@ def _collection_entry(s: Solved, types: Dict[str, ConnectorType], inst: Instance
     return lines
 
 
-def _bus_devices(rig: Rig, s: Solved, bus: str, bus_path: str,
+def _bus_devices(rig: Rig, s: Solved, kind: str, bus_path: str,
                  ) -> Iterator[Tuple[Instance, Device, BoardSocket]]:
+    """Every (instance, device, socket) of `kind` ("i2c" or "spi") whose
+    device sits on the physical bus `bus_path` identifies -- matched
+    through the device's OWN qualified Device.bus name against its
+    socket's buses dict, never a literal kind-as-name comparison (a named
+    bus spells "spi-sensors", never bare "spi"). `kind` itself IS still
+    needed despite bus_path being a real per-controller identity: the
+    caller's own bus_label mixes i2c AND spi paths in one dict, so a
+    kind-blind match would let an SPI device leak into the I2C-address-
+    keyed rendering path whenever it walks a bus_path that happens to be
+    this device's own (a real SPI bus, just not the one this call is
+    rendering). A device whose own socket does not even offer the bus it
+    names simply yields nothing (the loader/analyzer already rejected
+    that shield, phys-subset)."""
     for inst in rig.instances:
         socket = s.sockets.get(inst.name)
-        if socket is None or bus not in socket.buses:
-            continue
-        if socket.buses[bus].path != bus_path:
+        if socket is None:
             continue
         for dev in inst.shield.devices:
-            if dev.bus == bus:
-                yield inst, dev, socket
+            if dev.bus is None or not is_bus_kind(dev.bus, kind):
+                continue
+            bus_ref = socket.buses.get(dev.bus)
+            if bus_ref is None or bus_ref.path != bus_path:
+                continue
+            yield inst, dev, socket
 
 
 def _mux_node(rig: Rig, s: Solved, types: Dict[str, ConnectorType], inst: Instance,

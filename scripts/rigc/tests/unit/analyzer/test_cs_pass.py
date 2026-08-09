@@ -15,13 +15,12 @@ from rigc.model import (BoardSocket, BusRef, ConnectorType, Device,
 
 def _socket(cs_pool=None, gpio_map=None, path="/spi0") -> BoardSocket:
     return BoardSocket(label="sock", path=path, type_name="t", gpio_map=gpio_map or {},
-                      buses={"spi": BusRef(label="spi0", path=path)},
-                      cs_pool=cs_pool)
+                      buses={"spi": BusRef(label="spi0", path=path, cs_pool=cs_pool)})
 
 
 def _ctype(cs_pool=None) -> ConnectorType:
     return ConnectorType(name="t", positions={}, index2name={}, bus_proxies=[],
-                        stackable=True, cs_pool=cs_pool or [16, 15, 14])
+                        stackable=True, cs_pool={"spi": cs_pool or [16, 15, 14]})
 
 
 def _dev(name: str, cs_position=None) -> Device:

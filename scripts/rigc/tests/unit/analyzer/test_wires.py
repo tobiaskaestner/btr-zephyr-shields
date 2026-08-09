@@ -32,7 +32,7 @@ def _inst(name: str, shield: Shield) -> Instance:
 def _ctype() -> ConnectorType:
     return ConnectorType(name="t", positions={
         "D7": Position(name="D7", index=7, function="gpio")},
-        index2name={7: "D7"}, bus_proxies=[], stackable=False, cs_pool=[])
+        index2name={7: "D7"}, bus_proxies=[], stackable=False, cs_pool={})
 
 
 def test_a_wire_between_one_driver_and_one_listener_is_legal() -> None:
@@ -102,7 +102,7 @@ def test_route_via_a_position_name_resolves_to_its_index() -> None:
     wire = Wire(frm=_end("a", "x"), to=_end("b", "y"), route="D7", src=_SRC)
     rig = Rig(name="r", instances=[a, b], wires=[wire])
     socket = BoardSocket(label="s", path="/s", type_name="t", gpio_map={},
-                        buses={}, cs_pool=None)
+                        buses={})
 
     resolved, diags = check_wires(rig, {"a": socket}, {"t": _ctype()})
 
@@ -119,7 +119,7 @@ def test_route_via_an_unknown_position_name_is_phys_wire() -> None:
     wire = Wire(frm=_end("a", "x"), to=_end("b", "y"), route="NOPE", src=_SRC)
     rig = Rig(name="r", instances=[a, b], wires=[wire])
     socket = BoardSocket(label="s", path="/s", type_name="t", gpio_map={},
-                        buses={}, cs_pool=None)
+                        buses={})
 
     _resolved, diags = check_wires(rig, {"a": socket}, {"t": _ctype()})
 
@@ -140,7 +140,7 @@ def test_check_wires_never_mutates_the_original_wire() -> None:
     wire = Wire(frm=_end("a", "x"), to=_end("b", "y"), route="D7", src=_SRC)
     rig = Rig(name="r", instances=[a, b], wires=[wire])
     socket = BoardSocket(label="s", path="/s", type_name="t", gpio_map={},
-                        buses={}, cs_pool=None)
+                        buses={})
 
     resolved, _diags = check_wires(rig, {"a": socket}, {"t": _ctype()})
 

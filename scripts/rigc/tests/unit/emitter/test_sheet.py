@@ -81,7 +81,7 @@ def test_socket_assignment_row_shows_the_resolved_label_when_none_was_declared()
     inst = Instance(name="i1", shield=shield, socket=None)
     rig = Rig(name="r", instances=[inst])
     socket = BoardSocket(label="ard", path="/ard", type_name="t",
-                        gpio_map={}, buses={}, cs_pool=None)
+                        gpio_map={}, buses={})
     s = Solved(sockets={"i1": socket})
 
     text = render_sheet(rig, s, {}, workdir="/does-not-matter")
@@ -98,7 +98,7 @@ def test_socket_assignment_row_shows_the_declared_string_when_one_was_given() ->
     inst = Instance(name="i1", shield=shield, socket="arduino_r3")
     rig = Rig(name="r", instances=[inst])
     socket = BoardSocket(label="nucleo_ard", path="/ard", type_name="t",
-                        gpio_map={}, buses={}, cs_pool=None)
+                        gpio_map={}, buses={})
     s = Solved(sockets={"i1": socket})
 
     text = render_sheet(rig, s, {}, workdir="/does-not-matter")

@@ -118,12 +118,9 @@ def test_edt_pickle_cross_check(plain_build: PlainBuild, tmp_path: Path) -> None
             f"{plain_build.board}/{label}: gpio-map entries differ from "
             f"pass-2's edt.pickle")
         assert standalone_socket.buses == pass2_socket.buses, (
-            f"{plain_build.board}/{label}: bus phandle targets differ from "
+            f"{plain_build.board}/{label}: bus phandle targets (including "
+            f"each bus's own cs_pool, a BusRef field) differ from "
             f"pass-2's edt.pickle")
-        assert standalone_socket.cs_pool == pass2_socket.cs_pool, (
-            f"{plain_build.board}/{label}: cs-pool differs from pass-2's "
-            f"edt.pickle (standalone={standalone_socket.cs_pool} "
-            f"pass2={pass2_socket.cs_pool})")
 
 
 # ---------------------------------------------------------------- production-plumbing guard

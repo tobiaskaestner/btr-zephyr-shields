@@ -26,7 +26,7 @@ _PLUG_TYPE = ConnectorType(
     index2name={0: "P0", 1: "P1", 2: "BUS_COPPER"},
     bus_proxies=["i2c", "spi"],
     stackable=True,
-    cs_pool=[],
+    cs_pool={},
 )
 # BUS_COPPER (index 2) is NOT in .positions -- it exists on the header
 # (index2name) but is bus copper, not a claimable position (mirrors real
@@ -120,6 +120,32 @@ def test_device_bus_membership_by_parentage(tmp_path) -> None:
     assert dev.compatible == "vnd,thing"
 
 
+def test_device_bus_membership_by_a_qualified_named_bus_proxy(tmp_path) -> None:
+    """A multi-bus connector type names an additional bus of a kind by
+    suffixing the kind with a role (bus_proxies, an open string list, is
+    already wide enough for this -- shields.py needs no code change to
+    recognize one: a device group node literally named "spi-motors"
+    matches it exactly as "spi"/"i2c" match today)."""
+    named_type = ConnectorType(
+        name="fixture-multibus", positions={}, index2name={},
+        bus_proxies=["spi-sensors", "spi-motors"], stackable=False, cs_pool={})
+    dt = _dt(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-multibus";
+\t\t\tplug: plug { #gpio-cells = <2>; };
+\t\t\tspi-motors {
+\t\t\t\tdrv: drv8825@0 { compatible = "vnd,motor-driver"; };
+\t\t\t};
+\t\t};
+""")
+    shields, diags = parse_shields(dt, {"fixture-multibus": named_type})
+
+    assert diags == []
+    dev = shields["fx"].devices[0]
+    assert dev.bus == "spi-motors"
+    assert dev.group is None
+
+
 def test_device_in_a_non_bus_group_gets_the_group_name(tmp_path) -> None:
     shields, diags = _one_shield(tmp_path, """
 \t\tfx: fx {
@@ -153,6 +179,34 @@ def test_unrecognized_bus_proxy_group_is_rejected(tmp_path) -> None:
 """)
     assert len(diags) == 1
     assert diags[0].code == "lang-shield-proxy"
+
+
+def test_unrecognized_qualified_bus_proxy_group_is_rejected(tmp_path) -> None:
+    """A ROLE-QUALIFIED group name ("spi-nonexistent-role") that still
+    names a recognized kind (spi) but is NOT in this connector type's own
+    bus_proxies vocabulary must raise lang-shield-proxy exactly like an
+    unqualified name does -- the kind-prefix check that recognizes
+    "spi-nonexistent-role" as bus-shaped at all must not stop at the
+    three bare kind names."""
+    named_type = ConnectorType(
+        name="fixture-multibus", positions={}, index2name={},
+        bus_proxies=["spi-sensors", "spi-motors"], stackable=False, cs_pool={})
+    dt = _dt(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-multibus";
+\t\t\tplug: plug { #gpio-cells = <2>; };
+\t\t\tspi-nonexistent-role {
+\t\t\t\tdev1: dev@0 { compatible = "vnd,thing"; };
+\t\t\t};
+\t\t};
+""")
+    shields, diags = parse_shields(dt, {"fixture-multibus": named_type})
+
+    assert len(diags) == 1
+    assert diags[0].code == "lang-shield-proxy"
+    dev = shields["fx"].devices[0]
+    assert dev.bus is None
+    assert dev.group == "spi-nonexistent-role"
 
 
 def test_declared_params_from_shield_params(tmp_path) -> None:
@@ -259,6 +313,32 @@ def test_addr_authority_rejects_neither_reg_nor_addr_from(tmp_path) -> None:
     assert len(diags) == 1
     assert diags[0].code == "lang-addr-authority"
     assert "neither" in diags[0].message
+
+
+def test_addr_authority_rule_applies_to_a_qualified_named_i2c_bus(tmp_path) -> None:
+    """The address-authority rule (exactly one of reg / shield,addr-from)
+    is a fact of the I2C KIND, not of the bare string "i2c" -- a device
+    on a role-suffixed i2c bus a multi-bus connector type offers
+    ("i2c-sensors") must be checked exactly like a device on bare "i2c",
+    never silently skipped because the literal string differs."""
+    named_type = ConnectorType(
+        name="fixture-multibus", positions={}, index2name={},
+        bus_proxies=["i2c-sensors"], stackable=False, cs_pool={})
+    dt = _dt(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-multibus";
+\t\t\tplug: plug { #gpio-cells = <2>; };
+\t\t\ti2c-sensors {
+\t\t\t\tdev1: dev@50 { compatible = "vnd,thing"; };
+\t\t\t};
+\t\t};
+""")
+    shields, diags = parse_shields(dt, {"fixture-multibus": named_type})
+
+    assert len(diags) == 1
+    assert diags[0].code == "lang-addr-authority"
+    assert "neither" in diags[0].message
+    assert shields["fx"].devices[0].bus == "i2c-sensors"
 
 
 def test_addr_from_must_point_at_a_strap(tmp_path) -> None:

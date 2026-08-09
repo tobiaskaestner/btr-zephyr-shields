@@ -29,7 +29,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, Optional, Set, Tuple, cast
 
 from ..diag import Diagnostic, SourceRef, error
 from ..model import (Board, BoardSocket, BusRef, ConnectorType, ExposedSocket,
@@ -87,7 +87,10 @@ def compose_socket(socket_label: str, carrier_name: str, exposed: ExposedSocket,
     for kind, marker in exposed.buses.items():
         if marker == "plug":                            # pass-through (S6)
             if kind in parent.buses:
-                buses[kind] = parent.buses[kind]
+                parent_bus = parent.buses[kind]
+                buses[kind] = BusRef(
+                    label=parent_bus.label, path=parent_bus.path,
+                    cs_pool=cast(Optional[List[int]], exposed.cs_pool))
             else:
                 refs = tuple(x for x in (exposed.src, parent.src, inst_src) if x)
                 diags.append(error(
@@ -105,12 +108,18 @@ def compose_socket(socket_label: str, carrier_name: str, exposed: ExposedSocket,
     parent_nexus = parent.nexus_label or parent.label
     nexus_rows = [(child_pos, parent_nexus, parent_pos)
                  for child_pos, (parent_pos, _f) in exposed.gpio_map.items()]
-    cs_pool = exposed.cs_pool
-    assert cs_pool is None or isinstance(cs_pool, list)
+    # exposed.cs_pool (a carrier's own authored cs-pool override) has one
+    # destination: the SAME kind's pass-through BusRef, built fresh above
+    # rather than aliased from the parent's -- CS pools live per bus, on
+    # BusRef, never on the socket as a whole, and the parent's own
+    # BusRef.cs_pool must never leak into the composed socket unchanged
+    # (a real board socket's pool is a fact of ITS type, not of whatever
+    # carrier happens to be plugged into it). A scope-creating bus is
+    # I2C-only and never reads cs_pool at all.
     socket = BoardSocket(
         label=socket_label, path=f"{parent.path}/{exposed.name}",
         type_name=exposed.type_name, gpio_map=gpio_map, buses=buses,
-        cs_pool=cs_pool, src=exposed.src,
+        src=exposed.src,
         nexus_label=f"{carrier_name}_{exposed.name}", nexus_rows=nexus_rows,
         parent=parent)
     return socket, diags, scope_entries

@@ -45,7 +45,11 @@ class ConnectorType:
     index2name: Dict[int, str]         # ALL header indices (incl. bus copper)
     bus_proxies: List[str]             # allowed shield proxy nodes
     stackable: bool                    # mating multiplicity N vs 1
-    cs_pool: List[int]                 # default ordered CS candidates
+    # default ordered CS candidates, keyed by the QUALIFIED bus name a
+    # multi-bus connector type suffixes with a role ("spi" bare, or
+    # "spi-sensors"/"spi-motors" once a type offers more than one SPI
+    # bus); only spi-kind buses ever populate this, i2c/uart never read it
+    cs_pool: Dict[str, List[int]]
 
     def posname(self, index: int) -> str:
         return self.index2name.get(index, f"position {index}")
@@ -243,6 +247,12 @@ class Instance:
 class BusRef:
     label: str          # "i2c1" -- emission target &i2c1
     path: str           # dtlib path, scope identity
+    # CS numbering is a fact of THIS bus, not of the socket as a whole (a
+    # socket offering two independent SPI buses gives each its own pool):
+    # authored override for this bus, else None (the connector type's own
+    # default is the caller's fallback, analyzer/cs.py's effective_cs_pool).
+    # Never read for an i2c/uart bus.
+    cs_pool: Optional[List[int]] = None
 
 
 @dataclass
@@ -251,8 +261,7 @@ class BoardSocket:
     path: str
     type_name: str                               # from compatible "socket,<type>"
     gpio_map: Dict[int, Tuple[str, int, int]]    # position -> (ctrl label, pin, flags)
-    buses: Dict[str, BusRef]                     # "i2c"/"spi"/"uart" present = offered subset
-    cs_pool: Optional[List[int]]                 # authored override, else type default
+    buses: Dict[str, BusRef]                     # qualified bus name (kind, or kind-role) present = offered subset
     pwm_map: Dict[int, Tuple[str, int]] = field(default_factory=dict)  # position -> (ctrl label, channel)
     adc_map: Dict[int, Tuple[str, int]] = field(default_factory=dict)  # position -> (ctrl label, channel)
     # emission (R19): every socket is referenced through a nexus. Board
