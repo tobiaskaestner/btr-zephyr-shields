@@ -1,16 +1,16 @@
 # Rigs — Session Handoff
 
-## RESUME (2026-08-09) — §9.6 IS FULLY DONE, BOTH PARTS. MULTI-BUS SOCKETS LANDED. TWISTER GAINED AN 8TH SUITE. MULTI-PLUG SHIELDS IS A NEW, PAUSED DESIGN THREAD. NEXT = rig-schema.yaml.
+## RESUME (2026-08-09) — §9.6 IS FULLY DONE, BOTH PARTS. MULTI-BUS SOCKETS LANDED. TWISTER GAINED THREE SUITES, INCLUDING A NEW REAL GROVE BOARD. MULTI-PLUG SHIELDS IS A NEW, PAUSED DESIGN THREAD. NEXT = rig-schema.yaml.
 
 ### STATE AT SESSION CLOSE (2026-08-09)
 
-btr-shields HEAD **`84d0eb8`**. `main` is **ahead 14 of origin, NOT
-pushed** — six new commits this session on top of the 8 already carried.
+btr-shields HEAD **`37ccbdf`**. `main` is **ahead 17 of origin, NOT
+pushed** — nine new commits this session on top of the 8 already carried.
 **Tree is NOT fully clean, deliberately** — see the end of this block.
 
-**Gate, driver-verified independently, FULL, once per landed slice
-(three times):** mypy **96/0**, unit **623**, integration **195**
-(including the build tier), coverage **93%** vs the 88 floor.
+**Gate, driver-verified independently, FULL, four times:** mypy **96/0**,
+unit **623**, integration **195** (including the build tier), coverage
+**93%** vs the 88 floor.
 
 | commit | what |
 |---|---|
@@ -20,6 +20,7 @@ pushed** — six new commits this session on top of the 8 already carried.
 | `96d1809` | doc: the promoted-shield-params brief (§9.6 part 2) |
 | `617f545` | **§9.6 part 2** — the promotion CLI params grammar |
 | `84d0eb8` | **twister: the pilot_alt_button shield suite** — 7 -> 8 |
+| `37ccbdf` | **a real upstream grove board (m5stack_nanoc6), grove_btn/grove_led suites** — 8 -> 10 |
 
 ### §9.6 IS ENTIRELY DONE — both the vocabulary move and the CLI grammar
 
@@ -35,12 +36,51 @@ comparison against a real rig.yml carrying the identical assignment, not
 an emptied exclusion.
 
 **Twister gained an 8th suite for it**, `tests/shields/pilot_alt_button/`
-(`84d0eb8`) — the only one of the two newly-unblocked shields that
-actually could: `grove_btn`'s only real socket is `seeeduino_lotus`,
-whose base board lives in the `bridle` module, still not a twister
-platform in this workspace (§2026-08-08's census, unchanged — see below).
-Verified directly with `west twister --build-only` on both target
-platforms before committing, not assumed from the pattern match.
+(`84d0eb8`). Verified directly with `west twister --build-only` on both
+target platforms before committing, not assumed from the pattern match.
+
+`grove_btn` looked stuck the same way — its only CORPUS rig
+(`lotus_buttons`) targets `seeeduino_lotus`, whose base board lives in
+the `bridle` module, still not a twister platform here. **But that
+turned out to be a fact about the corpus, not about grove connectors in
+general** — scanning `boards/` for real grove content upstream (asked
+for explicitly, not initiative) found several m5stack boards ship a
+genuine `grove-header` devicetree fragment as part of the standard
+zephyr tree. `boards/extend/m5stack/m5stack_nanoc6/` (`37ccbdf`) wraps
+one of them (RISC-V, ESP32-C6 — picked over the xtensa `m5stack_atom_
+lite` specifically because no xtensa toolchain is installed here) under
+this project's typed `socket,grove` contract, same pattern as every
+other extension. **Now 10 twister suites, not 8** — `grove_btn` (via
+§9.6 part 2's own CLI grammar) and `grove_led` both build and link a
+real `zephyr.elf` there.
+
+**One real, previously-unencountered Kconfig limitation surfaced and
+was fixed extension-locally.** `boards/m5stack/m5stack_nanoc6/Kconfig(.m5stack_nanoc6)`
+selects two HPCORE-critical symbols (`SOC_ESP32C6_HPCORE`,
+`HEAP_MEM_POOL_ADD_SIZE_BOARD`) conditionally on the BASE board's own
+qualifier-exact symbol, which the `rig` variant's separately-generated
+symbol never satisfies — confirmed by diffing a plain build's `.config`
+against the rig variant's, not guessed. This is the FIRST rig extension
+on a board with a multi-level qualifier (SoC + cpucluster); every prior
+one is single-level, where this exact-match pattern cannot arise.
+**Check for this again** the day any future extension targets another
+multi-cpucluster SoC.
+
+**A real regression in an ALREADY-COMMITTED test**, found by running
+the gate rather than assuming the new board was inert:
+`test_boards_for.py`'s `..._required_param_answers_once_assigned`
+asserted `--boards-for grove_btn:gb_key.zephyr,code=...` answers EMPTY —
+true only because `seeeduino_lotus`'s eight sockets made it the sole,
+ambiguous candidate. `m5stack_nanoc6` offers exactly one, so the answer
+is no longer empty. Fixed in the same commit.
+
+**Two more grove shields deliberately NOT added**, verified rather than
+assumed free: `grove_light` (ADC) and `grove_servo` (PWM) fail correctly
+(`error[phys-function]`, not a crash) against this socket, which is
+digital-only, matching the real upstream fragment it wraps. Adding
+either needs ESP32-C6's real ADC-channel-to-GPIO mapping, which nothing
+in this zephyr tree currently wires up to cross-reference — recorded in
+`tests/shields/grove_led/README.rst` rather than guessed at.
 
 ### MULTI-BUS SOCKETS — new capability, fixture-proven, zero real users yet
 
