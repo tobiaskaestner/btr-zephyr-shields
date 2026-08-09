@@ -1,0 +1,8 @@
+tests:
+  shields.pilot_alt_button:
+    platform_allow:
+      - frdm_k64f/mk64f12/rig
+      - nucleo_f401re/stm32f401xe/rig
+    tags: shields
+    extra_args:
+      - RIG=pilot_alt_button:pab_key.zephyr,code=INPUT_KEY_0
