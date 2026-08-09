@@ -1,6 +1,162 @@
 # Rigs — Session Handoff
 
-## RESUME (2026-08-08) — BOARD-AS-COORDINATE IS **DONE**. TWISTER IS IN. NEXT = §9.6 PART 1, ALREADY BRIEFED.
+## RESUME (2026-08-09) — §9.6 IS FULLY DONE, BOTH PARTS. MULTI-BUS SOCKETS LANDED. MULTI-PLUG SHIELDS IS A NEW, PAUSED DESIGN THREAD. NEXT = rig-schema.yaml.
+
+### STATE AT SESSION CLOSE (2026-08-09)
+
+btr-shields HEAD **`617f545`**. `main` is **ahead 13 of origin, NOT
+pushed** — five new commits this session on top of the 8 already
+carried. **Tree is NOT fully clean, deliberately** — see the end of this
+block.
+
+**Gate, driver-verified independently, FULL, once per landed slice
+(three times):** mypy **96/0**, unit **623**, integration **195**
+(including the build tier), coverage **93%** vs the 88 floor.
+
+| commit | what |
+|---|---|
+| `067b4e6` | **§9.6 part 1** — the parameter vocabulary moves to the shield |
+| `eef9836` | doc: the multi-bus-socket brief |
+| `b9c3be3` | **a socket may offer more than one bus of the same kind** |
+| `96d1809` | doc: the promoted-shield-params brief (§9.6 part 2) |
+| `617f545` | **§9.6 part 2** — the `<device>.<prop>=<value>` promotion CLI grammar |
+
+### §9.6 IS ENTIRELY DONE — both the vocabulary move and the CLI grammar
+
+Rig-level `dt-includes:` retired wholesale (measured zero users under the
+narrower "gains a second source" reading — same shape as the `board:`
+retirement). The vocabulary is now the declaring shield's own
+`shield,param-includes`. A promoted shield with a required, undefaulted
+param can now be satisfied from argv:
+`--promote 'grove_btn:gb_key.zephyr,code=INPUT_KEY_0'`. **`test_singleton_
+identity_law.py`'s `EXCLUDED`, `{"grove_btn", "pilot_alt_button"}` at the
+start of this session, is now `set()`** — verified as a real byte-for-byte
+comparison against a real rig.yml carrying the identical assignment, not
+an emptied exclusion.
+
+### MULTI-BUS SOCKETS — new capability, fixture-proven, zero real users yet
+
+`socket,<kind>-<role>` (still a bare phandle) names an additional bus of a
+kind a connector type offers. Ownership ruling (Tobi, 2026-08-09): the
+role name belongs to the CONNECTOR TYPE, never the board — same status as
+GPIO position numbering. `cs_pool` moved from `BoardSocket` onto `BusRef`
+(CS numbering is a fact of a bus, not the socket as a whole). New shared
+`scripts/rigc/buskind.py` (`is_bus_kind`/`bus_kind_of`) replaces three
+independent kind-prefix checks that had started to drift.
+
+**Out of scope, left unwidened and NAMED rather than silently skipped:**
+`shields.py`'s `_parse_exposed` (carrier/mux re-exported-socket parsing)
+still has its own literal 3-kind vocabulary — only matters if carrier
+composition itself ever needs named bus variants, which is its own
+future slice, not a defect today.
+
+### TWO REVIEW ROUNDS EACH, AND EACH FOUND SOMETHING REAL
+
+**Multi-bus sockets' review found a genuine regression, not polish.**
+Moving `cs_pool` onto `BusRef` meant `compose_socket`'s pass-through
+branch — which used to alias the parent socket's bus object outright —
+started leaking the PARENT's own CS pool into a composed socket of a
+DIFFERENT connector type. `arduino_uno_click`'s exposed mikrobus-type
+socket inherited the arduino parent's `[16,15,14]` instead of falling
+back to mikrobus's own `[2]`, breaking `frdm_eth_nest` and rewriting the
+permanently byte-exact `frdm_cs_clash` reject golden. Fixed by building a
+fresh `BusRef` at the pass-through site carrying `exposed.cs_pool` (the
+carrier's own authored override) instead of aliasing the parent's — which
+also resolved a second, wrongly-diagnosed finding from the FIRST review
+pass (`ExposedSocket.cs_pool` was reported "orphaned"; it wasn't, it just
+needed to travel through this branch correctly).
+
+**§9.6 part 2's review found no regression at all — but a real scope
+gap the brief's own file list missed.** The implementor traced every
+CALLER of `parse_promotion_opts`/`promote_shield` rather than trusting
+the brief's list, and found two the brief never named:
+`west_commands/rigs.py`'s `--boards-for` and `--explain`, which would
+have hit `AttributeError` the moment the parser's return type changed
+from a flat dict to a dataclass. Fixed, and threaded `params` through
+both symmetrically rather than leaving it silently dropped. **The gap
+the review DID catch was exactly the test coverage for that fix** —
+the code was right, nothing pinned it.
+
+**The recurring lesson, worth restating because it keeps recurring:**
+run/trace the actual callers and tests; a brief's own scope list is a
+prediction, not a guarantee. Every dispatch this session that found an
+out-of-list item found it by running mypy/pytest or grepping call sites,
+never by re-reading the brief harder.
+
+### MULTI-PLUG SHIELDS — a NEW design thread, paused for a fresh session
+
+Ideation surfaced a second, structurally BIGGER gap while multi-bus
+sockets was in flight: **a shield mating more than one socket at once is
+not representable today** — `Shield.plugs: str`, `Instance.socket:
+Optional[str]`, and `SocketResolution.sockets` (keyed by `inst.name`
+alone) are all hard 1:1. Real motivating hardware (Tobi's own past): a
+carrier plugging into BOTH a mainboard's arduino AND mikrobus headers at
+once, re-exporting the combined connections through a third connector.
+
+Captured in **`claude/multi-plug-shield-design.md`** — NOT a brief, no
+ruling, no scope trace verified end-to-end. That document's own **RESUME
+HERE** section says exactly how to pick it up: root a fresh session at
+`/wrk/z/ws-up/btr-shields` itself (not the west topdir) so `rig-
+implementor`/`rig-reviewer` are real agent types there — confirmed this
+session that they are NOT discovered from `/wrk/z/ws-up`, and there is no
+mid-session fix, only a fresh session rooted correctly. Concrete next
+action recorded there: trace how far `sockets.get(inst.name)`'s
+single-socket assumption propagates through `cs.py`/`addresses.py`/the
+emitter, the same file-by-file way the multi-bus brief's own scope trace
+was built — and re-verify that document's `model.py`/`analyzer/sockets.py`
+citations first, since both changed shape under this session's multi-bus
+work after that document's §2 was written.
+
+### DISPATCH CONTRACT NOTE — confirmed, not assumed, this session
+
+`rig-implementor`/`rig-reviewer` are still **NOT** registered as agent
+types from this session's root (`/wrk/z/ws-up`) — every dispatch this
+session ran as `general-purpose` with the role's `.claude/agents/*.md`
+rules folded directly into the prompt. This was tested directly this
+session (previous handoffs had asserted both states at different times
+without verifying): project-scoped subagent discovery is fixed at
+session launch and only walks UP from the launch directory, never down
+into a subdirectory — so a session rooted at the west topdir will never
+see `btr-shields/.claude/agents/` no matter what. Root a session directly
+at `btr-shields` if those agent types matter for a dispatch.
+
+### NEXT — the standing queue, unchanged in order
+
+1. **`rig-schema.yaml`** (backlog item 7) — now carries retirement debt
+   for THREE grammars (`board:`/`sockets:`, and now `dt-includes:`),
+   scoped across both rig.yml AND shield.yml.
+2. **Shield plurality** (item 8) — unaffected by the bridle correction
+   below; `load_shield_library`'s one-per-folder lookup still needs the
+   actual implementation.
+3. **BRIDLE MIGRATION** (item 9) — the mission goal; every prerequisite
+   is now done.
+
+Off-sequence: **multi-plug shields** (above, needs its own brief before
+it can be dispatched), the i2c-port binding decision, the tutorial
+playground honesty debt — all still Tobi's call, all unchanged from
+before this session.
+
+### OPEN, CARRIED
+
+- **Two docs left deliberately uncommitted** — both yours to review:
+  - `claude/bridle-migration.md` — a dated correction: upstream bridle
+    has adopted shield.yml for most of its shields since the migration
+    triage was written (the pinned checkout doesn't reflect this yet).
+    Shield plurality's own implementation work is UNAFFECTED either way.
+  - `claude/multi-plug-shield-design.md` — the paused design thread
+    above.
+- Small debt surfaced by review this session, named rather than fixed:
+  unquoted CLI-supplied promotion values can leak an internal repr into
+  a diagnostic on a YAML-parse failure — pre-existing, confirmed to
+  affect the old `socket:` grammar identically, not introduced this
+  session; worth a future slice, not urgent.
+- Everything else carried from the 2026-08-08 block below is unchanged:
+  `AxisDecl.boards`/`.sockets` dead fields under the model.py freeze,
+  331 stale `/tmp/rigc-*` dirs, the i2c-port binding decision, the
+  tutorial playground debt, `doc/tutorials/give-a-board-a-socket.rst`'s
+  stale note.
+
+## RESUME (2026-08-08, superseded) — BOARD-AS-COORDINATE IS **DONE**. TWISTER IS IN. NEXT = §9.6 PART 1, ALREADY BRIEFED.
 
 ### STATE AT SESSION CLOSE (2026-08-08)
 
