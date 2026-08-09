@@ -140,6 +140,48 @@ def test_boards_for_a_promoted_shield_naming_its_socket_answers_that_board() -> 
     assert socketed.stdout.strip() == "mikroe_quail/stm32f427xx/rig"
 
 
+def test_boards_for_a_promoted_shield_with_a_required_param_answers_once_assigned() -> None:
+    """The dotted `<device>.<prop>=<value>` promotion-option grammar's own
+    falsifier (Sec 9.6 part 2), the same shape the socket= pair above
+    uses: grove_btn declares zephyr,code required with no authored
+    default (grove_btn.shield), so the bare shield fails rule 2
+    (check_param_invariant) exactly as an authored rig.yml omitting the
+    assignment would, and assigning it via the dotted grammar clears that
+    failure. Asserted as a pair for the same reason the socket= test is:
+    either half alone is satisfiable by a stub.
+
+    The "after" answer is asserted EMPTY rather than any one board --
+    seeeduino_lotus offers eight grove sockets (grove_sockets.dtsi), so
+    unique-by-type inference cannot pick one; that ambiguity is a
+    separate fact from the params grammar this pair exists to prove, and
+    the compose test below is what pins the socket= pairing that resolves
+    it."""
+    bare = _run("--boards-for", "grove_btn")
+    assigned = _run("--boards-for", "grove_btn:gb_key.zephyr,code=INPUT_KEY_0")
+
+    assert bare.returncode != 0
+    assert "zephyr,code" in bare.stderr
+
+    assert assigned.returncode == 0, (
+        f"--boards-for grove_btn:gb_key.zephyr,code=INPUT_KEY_0: exit "
+        f"{assigned.returncode}\n{assigned.stderr}")
+    assert assigned.stdout.strip() == ""
+
+
+def test_boards_for_a_promoted_shield_with_socket_and_dotted_param_composes() -> None:
+    """A single target string carrying BOTH promotion-option grammar
+    categories in one `:`-separated chain -- the fixed keyword `socket=`
+    and a dotted `<device>.<prop>=<value>` -- exactly as
+    parse_promotion_opts documents the two composing.
+    `socket=grove_d2` breaks the eight-way ambiguity the test above hits,
+    so this answers exactly the one board that socket lives on."""
+    result = _run(
+        "--boards-for",
+        "grove_btn:socket=grove_d2:gb_key.zephyr,code=INPUT_KEY_0")
+    assert result.returncode == 0, f"exit {result.returncode}\n{result.stderr}"
+    assert result.stdout.strip() == "seeeduino_lotus/samd21g18a/rig"
+
+
 def test_boards_for_promotion_options_on_a_persisted_rig_are_refused() -> None:
     """Decision 1: promotion options are promotion-only. A persisted rig
     has N instances, so `socket=` could not say which one it means --

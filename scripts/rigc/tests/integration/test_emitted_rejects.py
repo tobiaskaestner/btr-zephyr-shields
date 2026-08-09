@@ -58,11 +58,16 @@ reflect an INTENTIONAL, understood behavior change, never silent drift.
 """
 from __future__ import annotations
 
+import os
+import subprocess
+import sys
 from pathlib import Path
 
 from conftest import (
     FIXTURES_DIR,
     GOLDENS_DIR,
+    REPO_ROOT,
+    RIG_EXPAND_COMPILE,
     SHIELD_DIR,
     assert_fixture_local,
     freeze_or_assert,
@@ -70,6 +75,26 @@ from conftest import (
     run_expand,
     zephyr_base,
 )
+
+
+def _run_promoted(target: str, out_dir: Path, board: str,
+                  ) -> "subprocess.CompletedProcess[str]":
+    """`python -m rigc expand --promote <target>`, the promoted-side
+    counterpart to `run_expand`'s positional rig.yml path -- every OTHER
+    reject fixture in this module compares an AUTHORED rig.yml by path,
+    which `run_expand` takes no `--promote` form to reach. Shares run_
+    expand's own env/cwd/timeout recipe (ZEPHYR_BASE pinned, PYTHONPATH
+    set, cwd at REPO_ROOT, no --shield-dir override) so a rendered
+    diagnostic's own paths normalize the same way and the real corpus
+    shield library resolves exactly as a bare invocation would."""
+    zb = zephyr_base()
+    env = dict(os.environ)
+    env["ZEPHYR_BASE"] = zb
+    env["PYTHONPATH"] = str(REPO_ROOT / "scripts")
+    cmd = [sys.executable, "-m", RIG_EXPAND_COMPILE, "expand",
+          "--promote", target, "--board", board, "--out-dir", str(out_dir)]
+    return subprocess.run(cmd, env=env, cwd=str(REPO_ROOT),
+                          capture_output=True, text=True, timeout=60)
 
 
 def test_route_no_via_golden(tmp_path: Path) -> None:
@@ -142,6 +167,42 @@ def test_param_unknown_device_golden(tmp_path: Path) -> None:
 
     zb = zephyr_base()
     golden_dir = GOLDENS_DIR / "param-unknown-device"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_promoted_param_undeclared_golden(tmp_path: Path) -> None:
+    """Sec 9.6 part 2's own reject-golden confirmation: a `--promote`
+    target's `<device>.<prop>` assignment naming a REAL device
+    (grove_btn's gb_key) but a property it never declared via
+    shield,params must be rejected with the SAME rule-1 diagnostic an
+    authored rig.yml's params: block gets (test_param_undeclared_golden,
+    above) -- confirms rules 1/3 fire identically for a promoted
+    assignment as for an authored one, rather than assuming it from the
+    shared-codepath argument (promote.promote_shield's own docstring):
+    apply_params_block cannot tell a promoted document's params: block
+    from an authored one, and this is what proves it, not merely states
+    it.
+
+    The target ALSO assigns gb_key's own required `zephyr,code` (rule
+    2's own parameter, the one grove_btn's shield,params declares with no
+    default authored) so that rule fires nowhere in this golden --
+    without it, rule 2 fires ALONGSIDE rule 1 for the unrelated reason
+    that the instance never assigns a required parameter, which is not
+    what this test exists to demonstrate. The authored-fixture control
+    above stays a clean single diagnostic; this one matches it."""
+    out_dir = tmp_path / "out"
+    result = _run_promoted(
+        "grove_btn:gb_key.bogus_prop=INPUT_KEY_0:gb_key.zephyr,code=INPUT_KEY_0",
+        out_dir, board="nucleo_f401re/stm32f401xe/rig")
+
+    assert result.returncode != 0, (
+        "an undeclared params: property reached via promotion must be rejected")
+    assert "[lang-param]" in result.stderr, result.stderr
+    assert "declares no parameter" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "promoted-param-undeclared"
     freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
 

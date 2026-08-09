@@ -133,19 +133,41 @@ class PromotedRig:
 #: the desugared instance name to the shield name and that name reaches
 #: config-sheet.md, so a CLI slot for it would let a user break the law
 #: from the command line; and `shield`, which is the target itself.
+#:
+#: A key containing a literal `.` is never a member of this tuple, and
+#: never will be: it is a `<device>.<prop>` parameter assignment, a
+#: DIFFERENT grammar category reached by different syntax (see
+#: `ParsedPromotionOpts`), not a new fixed keyword growing this set.
 _PROMOTION_OPTS = ("socket",)
 
 
+@dataclass(frozen=True)
+class ParsedPromotionOpts:
+    """A parsed promotion target's `:`-separated assignment list, split
+    into its two grammar categories: `fixed`, the closed `_PROMOTION_OPTS`
+    keywords (today just socket), and `params`, every `<device>.<prop>=
+    <value>` assignment -- device label -> property name -> value, the
+    identical shape `Instance.params` (model.py) already carries, so
+    `promote_shield` can print it with the SAME structure a real rig.yml's
+    own params: block already uses. A flat `Dict[str, str]` cannot hold
+    both without overloading one key namespace with two unrelated
+    meanings, so the two live in separate fields rather than one mapping.
+
+    Both are fresh dicts the caller owns."""
+    fixed: Dict[str, str]
+    params: Dict[str, Dict[str, str]]
+
+
 def parse_promotion_opts(opts: Optional[str], target: str,
-                         ) -> Union[Dict[str, str], str]:
+                         ) -> Union[ParsedPromotionOpts, str]:
     """Parse the `:`-separated assignment list a promotion target may
     carry -- `<shield>[@rev][:<key>=<value>[:<key>=<value>...]]` -- into
-    a mapping of instance fields for the ONE desugared instance.
+    a `ParsedPromotionOpts` for the ONE desugared instance.
 
-    Returns the mapping, or an ERROR MESSAGE string when the text does
-    not parse (the same return convention `check_promotable` uses, so a
-    caller handles both refusals the same way). `None`/empty opts is an
-    empty mapping, never an error.
+    Returns the parsed opts, or an ERROR MESSAGE string when the text
+    does not parse (the same return convention `check_promotable` uses,
+    so a caller handles both refusals the same way). `None`/empty opts
+    parses to an empty `ParsedPromotionOpts`, never an error.
 
     EXPLICIT `key=value` ONLY, with no bare-word shorthand for the
     common case (Tobi, 2026-08-08, decision 3): `flash_click:quail_sock1`
@@ -156,10 +178,20 @@ def parse_promotion_opts(opts: Optional[str], target: str,
     preference: real devicetree property names contain commas
     (`zephyr,code` is exactly the property the two param-blocked shields
     need), so a comma-separated list could never carry the parameter
-    syntax this grammar is designed to grow into."""
+    syntax this grammar is designed to grow into.
+
+    A key containing a literal `.` is routed to `params` instead of
+    checked against `_PROMOTION_OPTS`: split on the FIRST dot only
+    (`str.partition`, never `str.split`) into a device label and a
+    property name, everything after the first dot -- dots included --
+    staying part of the property name. Devicetree property names may
+    legally contain a literal `.` themselves (rare, but the grammar does
+    not forbid it); shield-local device labels in this corpus never do,
+    so the first dot is always the real boundary between the two."""
     if not opts:
-        return {}
-    parsed: Dict[str, str] = {}
+        return ParsedPromotionOpts(fixed={}, params={})
+    fixed: Dict[str, str] = {}
+    params: Dict[str, Dict[str, str]] = {}
     for assignment in opts.split(":"):
         key, sep, value = assignment.partition("=")
         if not sep:
@@ -167,21 +199,37 @@ def parse_promotion_opts(opts: Optional[str], target: str,
                     f"'<key>=<value>' -- promotion options are explicit "
                     f"assignments (known keys: "
                     f"{', '.join(_PROMOTION_OPTS)})")
+        if "." in key:
+            dev_label, _, prop_name = key.partition(".")
+            if not dev_label or not prop_name:
+                return (f"'{target}': promotion parameter '{key}' is not "
+                        f"'<device>.<prop>=<value>' -- both the device "
+                        f"label and the property name must be non-empty")
+            if prop_name in params.get(dev_label, {}):
+                return (f"'{target}': parameter '{dev_label}.{prop_name}' "
+                        f"given more than once")
+            if not value:
+                return (f"'{target}': promotion parameter '{key}=' has an "
+                        f"empty value")
+            params.setdefault(dev_label, {})[prop_name] = value
+            continue
         if key not in _PROMOTION_OPTS:
             return (f"'{target}': unknown promotion option '{key}' "
                     f"(known keys: {', '.join(_PROMOTION_OPTS)})")
-        if key in parsed:
+        if key in fixed:
             return (f"'{target}': promotion option '{key}' given more "
                     f"than once")
         if not value:
             return (f"'{target}': promotion option '{key}=' has an empty "
                     f"value")
-        parsed[key] = value
-    return parsed
+        fixed[key] = value
+    return ParsedPromotionOpts(fixed=fixed, params=params)
 
 
 def promote_shield(name: str, revision: Optional[str] = None,
-                   socket: Optional[str] = None) -> PromotedRig:
+                   socket: Optional[str] = None,
+                   params: Optional[Dict[str, Dict[str, str]]] = None,
+                   ) -> PromotedRig:
     """The natural mapping `a -> [a]` (ruling 4), written out: a rig.yml
     with NO `board:` (a promoted rig's board reaches it only by
     INJECTION, per Sec 3's own symmetry argument -- and, since
@@ -222,8 +270,23 @@ def promote_shield(name: str, revision: Optional[str] = None,
     place a shield's `revisions:` axis is already read; duplicating it
     here would be a second authority for the same fact.
 
-    Pure over its two string arguments: no filesystem, no promotability
-    or namespace decision (the caller's job, via `check_promotable`,
+    `params`, when given (device label -> property name -> value, the
+    identical shape `ParsedPromotionOpts.params`/`Instance.params` both
+    carry), prints one `params:` block onto the same instance, in the
+    SAME shape any authored rig.yml already uses (4-space `params:`,
+    6-space device label, 8-space `<prop>: <value>`). This function
+    performs NO validation of its own against device or property
+    existence, declared-parameter membership, or token resolution --
+    the printed text flows through the identical `rigc.loader.load`
+    path every promoted document already goes through (`PromotedRig`'s
+    own contract, above), which is the one place those facts are
+    already checked; a second check here would be a second authority
+    for facts the loader already owns. An empty or absent mapping omits
+    the block entirely, matching params-less promotion exactly as
+    before.
+
+    Pure over its arguments: no filesystem, no promotability or
+    namespace decision (the caller's job, via `check_promotable`,
     before this ever runs). Returns a PromotedRig the caller owns."""
     shield_ref = f"{name}@{revision}" if revision else name
     rig_yml = f"rig:\n  name: {name}\n"
@@ -232,6 +295,12 @@ def promote_shield(name: str, revision: Optional[str] = None,
               f"    shield: {shield_ref}\n")
     if socket is not None:
         content += f"    socket: {socket}\n"
+    if params:
+        content += "    params:\n"
+        for dev_label, props in params.items():
+            content += f"      {dev_label}:\n"
+            for prop_name, value in props.items():
+                content += f"        {prop_name}: {value}\n"
     return PromotedRig(rig_yml=rig_yml, content_name=f"{name}.yml", content=content)
 
 

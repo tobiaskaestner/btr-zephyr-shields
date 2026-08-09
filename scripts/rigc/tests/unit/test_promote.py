@@ -17,8 +17,8 @@ from rigc import loader
 from rigc.diag import has_errors
 from rigc.dtsio import MODULE_ROOT
 from rigc.model import Device, Shield
-from rigc.promote import (ShieldInfo, both_paths_error, check_promotable,
-                          parse_promotion_opts,
+from rigc.promote import (ParsedPromotionOpts, ShieldInfo, both_paths_error,
+                          check_promotable, parse_promotion_opts,
                           discover_shields, promote_shield,
                           shield_declares_required_params)
 from rigc.registry import load_types
@@ -247,13 +247,15 @@ def test_a_revved_promoted_shield_round_trips_to_the_named_revision(
 def test_no_opts_is_an_empty_mapping_not_an_error() -> None:
     """A bare promotion target is the overwhelmingly common case and must
     stay free of the option grammar entirely."""
-    assert parse_promotion_opts(None, "flash_click") == {}
-    assert parse_promotion_opts("", "flash_click") == {}
+    assert parse_promotion_opts(None, "flash_click") == \
+        ParsedPromotionOpts(fixed={}, params={})
+    assert parse_promotion_opts("", "flash_click") == \
+        ParsedPromotionOpts(fixed={}, params={})
 
 
 def test_socket_assignment_parses() -> None:
-    assert parse_promotion_opts("socket=quail_sock1", "t") == {
-        "socket": "quail_sock1"}
+    assert parse_promotion_opts("socket=quail_sock1", "t") == \
+        ParsedPromotionOpts(fixed={"socket": "quail_sock1"}, params={})
 
 
 def test_a_bare_word_is_refused_rather_than_read_as_a_socket() -> None:
@@ -331,3 +333,155 @@ def test_a_socketed_promoted_shield_round_trips_through_the_loader(
     assert diags == []
     assert rig is not None
     assert rig.instances[0].socket == "quail_sock1"
+
+
+# ---------------------------------- <device>.<prop> parameter assignments (Sec 9.6 part 2)
+
+def test_a_dotted_key_parses_as_a_device_parameter() -> None:
+    parsed = parse_promotion_opts("gb_key.zephyr,code=INPUT_KEY_0", "t")
+    assert parsed == ParsedPromotionOpts(
+        fixed={}, params={"gb_key": {"zephyr,code": "INPUT_KEY_0"}})
+
+
+def test_a_dotted_key_and_a_fixed_key_coexist() -> None:
+    parsed = parse_promotion_opts(
+        "socket=quail_sock1:gb_key.zephyr,code=INPUT_KEY_0", "t")
+    assert parsed == ParsedPromotionOpts(
+        fixed={"socket": "quail_sock1"},
+        params={"gb_key": {"zephyr,code": "INPUT_KEY_0"}})
+
+
+def test_only_the_first_dot_separates_device_from_property() -> None:
+    """Negative control: a property name that itself contains a literal
+    '.' (legal devicetree, if rare) must not be mis-split -- everything
+    after the FIRST dot, dots included, is the property name verbatim.
+    Splitting on every dot would instead produce a device 'gb_key' and a
+    mangled property 'vnd', silently dropping '.threshold'."""
+    parsed = parse_promotion_opts("gb_key.vnd,threshold.sub=5", "t")
+    assert parsed == ParsedPromotionOpts(
+        fixed={}, params={"gb_key": {"vnd,threshold.sub": "5"}})
+
+
+def test_a_dotted_key_with_no_device_label_is_malformed() -> None:
+    err = parse_promotion_opts(".zephyr,code=INPUT_KEY_0", "t")
+    assert isinstance(err, str)
+    assert "<device>.<prop>" in err
+
+
+def test_a_dotted_key_with_no_property_name_is_malformed() -> None:
+    err = parse_promotion_opts("gb_key.=INPUT_KEY_0", "t")
+    assert isinstance(err, str)
+    assert "<device>.<prop>" in err
+
+
+def test_a_dotted_key_given_more_than_once_is_refused() -> None:
+    err = parse_promotion_opts(
+        "gb_key.zephyr,code=INPUT_KEY_0:gb_key.zephyr,code=INPUT_KEY_1", "t")
+    assert isinstance(err, str)
+    assert "more than once" in err
+
+
+def test_a_dotted_key_with_an_empty_value_is_refused() -> None:
+    err = parse_promotion_opts("gb_key.zephyr,code=", "t")
+    assert isinstance(err, str)
+    assert "empty value" in err
+
+
+def test_a_repeated_dotted_key_with_an_empty_value_reports_the_duplicate() -> None:
+    """When one assignment is both a repeat AND empty-valued, the
+    duplicate check fires first -- the same order the fixed-key branch
+    below uses, so the two grammar halves refuse identically rather than
+    each picking its own order."""
+    err = parse_promotion_opts(
+        "gb_key.zephyr,code=INPUT_KEY_0:gb_key.zephyr,code=", "t")
+    assert isinstance(err, str)
+    assert "more than once" in err
+
+
+def test_a_repeated_fixed_key_with_an_empty_value_reports_the_duplicate_too() -> None:
+    """The fixed-key branch's own order, pinned as the oracle the dotted
+    branch above now matches: duplicate-check before empty-value-check."""
+    err = parse_promotion_opts("socket=a:socket=", "t")
+    assert isinstance(err, str)
+    assert "more than once" in err
+
+
+def test_promote_shield_with_params_emits_the_params_block_on_the_instance() -> None:
+    """The printed shape must match a real rig.yml's own params: block
+    exactly (boards/rigs/lotus_buttons/lotus_buttons.yml:25-27): 4-space
+    params:, 6-space device label, 8-space '<prop>: <value>'."""
+    promoted = promote_shield(
+        "grove_btn", params={"gb_key": {"zephyr,code": "INPUT_KEY_0"}})
+    assert promoted.content == (
+        "instances:\n"
+        "  - name: grove_btn\n"
+        "    shield: grove_btn\n"
+        "    params:\n"
+        "      gb_key:\n"
+        "        zephyr,code: INPUT_KEY_0\n")
+
+
+def test_promote_shield_with_params_and_a_socket_orders_socket_first() -> None:
+    promoted = promote_shield(
+        "grove_btn", socket="quail_sock1",
+        params={"gb_key": {"zephyr,code": "INPUT_KEY_0"}})
+    assert promoted.content == (
+        "instances:\n"
+        "  - name: grove_btn\n"
+        "    shield: grove_btn\n"
+        "    socket: quail_sock1\n"
+        "    params:\n"
+        "      gb_key:\n"
+        "        zephyr,code: INPUT_KEY_0\n")
+
+
+def test_promote_shield_with_no_params_omits_the_block() -> None:
+    assert "params:" not in promote_shield("grove_btn").content
+    assert "params:" not in promote_shield("grove_btn", params={}).content
+
+
+def test_a_param_carrying_promoted_shield_round_trips_and_satisfies_the_invariant(
+        tmp_path: Path) -> None:
+    """Criterion 1/2's own unit-level proof: grove_btn's required,
+    no-default zephyr,code (declared via shield,params on gb_key) is
+    satisfied entirely through the promoted params: block, with NO
+    parallel validation in promote.py -- rule 2 (check_param_invariant)
+    passes because the printed text reaches the identical loader path an
+    authored rig.yml would."""
+    promoted = promote_shield(
+        "grove_btn", params={"gb_key": {"zephyr,code": "INPUT_KEY_0"}})
+    rig_dir = tmp_path / "rig"
+    rig_dir.mkdir()
+    (rig_dir / "rig.yml").write_text(promoted.rig_yml)
+    (rig_dir / promoted.content_name).write_text(promoted.content)
+
+    types, _deps = load_types()
+    rig, diags, _load_deps = loader.load(
+        str(rig_dir / "rig.yml"), str(tmp_path / "workdir"), types=types,
+        board="some_board")
+
+    assert diags == [], diags
+    assert rig is not None
+    assert rig.instances[0].params == {"gb_key": {"zephyr,code": "INPUT_KEY_0"}}
+
+
+def test_a_promoted_shield_missing_its_required_param_still_rejects(
+        tmp_path: Path) -> None:
+    """Criterion 4, the regression control: a promoted grove_btn given NO
+    params: block still fails exactly as an authored rig.yml omitting the
+    assignment would -- rule 2, fired by the SAME check_param_invariant,
+    never a bespoke promote.py check. Proves the params: block is real
+    plumbing, not a rubber stamp that always happens to pass."""
+    promoted = promote_shield("grove_btn")
+    rig_dir = tmp_path / "rig"
+    rig_dir.mkdir()
+    (rig_dir / "rig.yml").write_text(promoted.rig_yml)
+    (rig_dir / promoted.content_name).write_text(promoted.content)
+
+    types, _deps = load_types()
+    rig, diags, _load_deps = loader.load(
+        str(rig_dir / "rig.yml"), str(tmp_path / "workdir"), types=types,
+        board="some_board")
+
+    assert has_errors(diags)
+    assert any("required" in d.message for d in diags), diags

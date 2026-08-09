@@ -218,12 +218,12 @@ class Rigs(WestCommand):
         on a shield, which has no variant axis to select), or on
         malformed promotion options.
 
-        Returns `opts` as the PARSED mapping for a shield, and asserts it
-        is empty for a rig target -- promotion options are promotion-only
-        (Tobi, 2026-08-08, decision 1). The rig-target refusal itself is
-        left to `list_rigs.resolve_target`/`resolve_rig_target`, which
-        owns it for the cmake seam too, so both surfaces refuse with one
-        message rather than two."""
+        Returns `opts` as the parsed `promote.ParsedPromotionOpts` for a
+        shield (empty for a rig target -- promotion options are
+        promotion-only, Tobi, 2026-08-08, decision 1). The rig-target
+        refusal itself is left to `list_rigs.resolve_target`/`resolve_
+        rig_target`, which owns it for the cmake seam too, so both
+        surfaces refuse with one message rather than two."""
         from rigc import promote
 
         name, revision, variant, opt_text = list_rigs.parse_rig_target(target)
@@ -244,7 +244,7 @@ class Rigs(WestCommand):
                 sys.exit(f'ERROR: {opts}')
             return name, revision, opts, shields[name]
 
-        return name, revision, {}, None
+        return name, revision, promote.ParsedPromotionOpts(fixed={}, params={}), None
 
     def _boards_for(self, args):
         """`--boards-for`'s implementation: resolve TARGET against
@@ -304,7 +304,8 @@ class Rigs(WestCommand):
         try:
             if shield is not None:
                 promoted = promote.promote_shield(
-                    name, revision, socket=opts.get('socket'))
+                    name, revision, socket=opts.fixed.get('socket'),
+                    params=opts.params or None)
                 rig_yml = os.path.join(workdir, list_rigs.RIG_YML)
                 with open(rig_yml, 'w') as f:
                     f.write(promoted.rig_yml)
@@ -365,7 +366,8 @@ class Rigs(WestCommand):
 
         if shield is not None:
             promoted = promote.promote_shield(
-                name, revision, socket=opts.get('socket'))
+                name, revision, socket=opts.fixed.get('socket'),
+                params=opts.params or None)
             self._print_pair(('rig.yml', promoted.rig_yml),
                              (promoted.content_name, promoted.content))
             return

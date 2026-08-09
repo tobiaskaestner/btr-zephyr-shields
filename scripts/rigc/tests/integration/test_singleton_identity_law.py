@@ -44,7 +44,7 @@ import subprocess
 import sys
 import tempfile
 from pathlib import Path
-from typing import List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import pytest
 
@@ -57,6 +57,8 @@ from conftest import REPO_ROOT, RIG_EXPAND_COMPILE, zephyr_base
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigc.diag import SourceRef  # noqa: E402
 from rigc.loader.library import SHIELDS_DIR, load_shield_library  # noqa: E402
+from rigc.loader.params import device_required_params  # noqa: E402
+from rigc.model import Shield  # noqa: E402
 from rigc.promote import (discover_shields,  # noqa: E402
                           shield_declares_required_params)
 from rigc.registry import load_types  # noqa: E402
@@ -89,6 +91,37 @@ _BOARD_LABEL = "singleton_law_board"
 # list, so the census and the resolver can never disagree about what the
 # domain contains.
 _SHIELD_DIRS = [SHIELDS_DIR]
+
+# For a shield listed here, the census supplies exactly this device-label
+# -> property -> value assignment (Sec 9.6 part 2's `<device>.<prop>=
+# <value>` grammar) on BOTH sides of the law -- the fixture's own params:
+# block (_materialize_fixture) and --promote's own dotted CLI opts
+# (_promotion_target) -- so the comparison is a real instance of the law
+# (the identical assignment, same shape S4 already uses for socket=),
+# never merely an emptied exclusion. A shield that declares a required
+# param NOT listed here stays EXCLUDED: the value a required token
+# resolves to (which macro, off which header) is shield-specific domain
+# knowledge this census has no way to invent on its own.
+_REQUIRED_PARAM_ASSIGNMENTS: Dict[str, Dict[str, Dict[str, str]]] = {
+    "grove_btn": {"gb_key": {"zephyr,code": "INPUT_KEY_0"}},
+    "pilot_alt_button": {"pab_key": {"zephyr,code": "INPUT_KEY_0"}},
+}
+
+
+def _promotion_target(shield: str) -> str:
+    """The `--promote` value for `shield`, carrying its own
+    `_REQUIRED_PARAM_ASSIGNMENTS` entry as dotted CLI parameter opts when
+    it has one -- the bare name otherwise. Built straight from the same
+    table `_materialize_fixture` reads, so the two sides can never assign
+    a different value without this module's own domain table changing."""
+    assignment = _REQUIRED_PARAM_ASSIGNMENTS.get(shield)
+    if not assignment:
+        return shield
+    opts = ":".join(f"{dev_label}.{prop_name}={value}"
+                    for dev_label, props in assignment.items()
+                    for prop_name, value in props.items())
+    return f"{shield}:{opts}"
+
 
 # Which eligible shields are expected to REJECT on both sides rather than
 # emit comparable artifacts. Today exactly one: adafruit_winc1500 needs a
@@ -123,14 +156,30 @@ EMITTED_FILES = ("rig-gen.overlay", "config-sheet.md", "expectations.yml",
                  "rig-gen-includes.dtsi")
 
 
+def _assignment_covers_every_required_param(
+        shield: Shield, assignment: Dict[str, Dict[str, str]]) -> bool:
+    """Whether `assignment` (a `_REQUIRED_PARAM_ASSIGNMENTS` entry) names
+    every one of `shield`'s own required, no-default parameters -- the
+    same per-device rule `check_param_invariant` applies, checked here so
+    a table entry that only covers PART of a multi-parameter shield
+    cannot silently pass the census while still failing the real
+    invariant downstream. Pure; shield is read-only."""
+    return all(
+        set(device_required_params(dev)) <= set(assignment.get(dev.label, {}))
+        for dev in shield.devices)
+
+
 def _census() -> Tuple[List[str], Set[str]]:
     """Every discovered, promotable (`template: true`) shield, split into
     the singleton law's own domain (Sec 2.3): ELIGIBLE (no device
-    declares a required, no-default `shield,params`) vs EXCLUDED --
-    resolved through the REAL shield library, never hand-listed. Returns
-    (sorted eligible names, excluded names) -- fresh values this module
-    owns, computed once at collection time (a dozen cheap dtlib parses,
-    no cpp of any real board or app -- "nearly free" per Sec 2.3)."""
+    declares a required, no-default `shield,params` -- OR one that does,
+    with a known `_REQUIRED_PARAM_ASSIGNMENTS` entry covering every such
+    parameter, Sec 9.6 part 2) vs EXCLUDED (a required parameter with no
+    known assignment to supply it) -- resolved through the REAL shield
+    library, never hand-listed. Returns (sorted eligible names, excluded
+    names) -- fresh values this module owns, computed once at collection
+    time (a dozen cheap dtlib parses, no cpp of any real board or app --
+    "nearly free" per Sec 2.3)."""
     infos = discover_shields(_SHIELD_DIRS)
     templated = sorted(name for name, info in infos.items() if info.template)
     types, _deps = load_types()
@@ -154,7 +203,10 @@ def _census() -> Tuple[List[str], Set[str]]:
             assert shield is not None, (
                 f"{name}: failed to resolve for the singleton-law census -- "
                 f"{diags}")
-            if shield_declares_required_params(shield):
+            assignment = _REQUIRED_PARAM_ASSIGNMENTS.get(name)
+            if shield_declares_required_params(shield) and not (
+                    assignment is not None and
+                    _assignment_covers_every_required_param(shield, assignment)):
                 excluded.add(name)
             else:
                 eligible.append(name)
@@ -168,21 +220,18 @@ def test_excluded_set_is_exactly_the_required_param_shields() -> None:
     """Criterion 3: the domain is DERIVED (Sec 2.3), never hand-listed --
     this pins only what today's derivation yields. grove_btn and
     pilot_alt_button each declare a `shield,params` `zephyr,code` name
-    with no authored default; a promoted rig has no CLI slot to supply
-    `params:` with at all (parent brief Sec 9.6, the ad-hoc params token
-    exit -- still unruled), so the law's two sides could never be
-    compared for either one. This assertion can only SHRINK, never grow,
-    the day Sec 9.6's grammar lands and gives a promoted rig a way to
-    satisfy a required param."""
-    assert EXCLUDED == {"grove_btn", "pilot_alt_button"}, (
-        f"excluded set is {sorted(EXCLUDED)}, expected exactly "
-        "['grove_btn', 'pilot_alt_button'] -- both excluded because "
-        "neither shield's required shield,params name has an authored "
-        "default and a promoted rig has no --params CLI slot to supply "
-        "one (parent brief Sec 9.6, still unruled); a drift here means "
-        "either a new required-param shield landed (real) or Sec 9.6's "
-        "grammar landed and one of these two now has a way to be "
-        "satisfied (update this assertion, don't paper over it)")
+    with no authored default, but both now have a
+    `_REQUIRED_PARAM_ASSIGNMENTS` entry (Sec 9.6 part 2's `<device>.
+    <prop>=<value>` CLI grammar gives a promoted rig a real way to
+    satisfy it), so EXCLUDED is empty today. This assertion can only
+    GROW again the day a new required-param shield lands with no entry
+    supplied for it yet."""
+    assert EXCLUDED == set(), (
+        f"excluded set is {sorted(EXCLUDED)}, expected exactly [] -- a "
+        "non-empty excluded set means either a new required-param shield "
+        "landed with no _REQUIRED_PARAM_ASSIGNMENTS entry yet (add one), "
+        "or an existing entry stopped covering every one of its shield's "
+        "required parameters (fix the entry, don't paper over it)")
 
 
 def _materialize_fixture(name: str, tmp_path: Path) -> Path:
@@ -193,10 +242,16 @@ def _materialize_fixture(name: str, tmp_path: Path) -> Path:
     in (Sec 2.1's caveat: nothing here is reachable from a live namespace
     scan of the fixtures root, since no such folder exists on disk at
     all outside a test's own tmp_path). Declares no board: (Sec 2.1
-    parity with the promoted side) and no params: assignment of its own
-    needing a shield,param-includes header (Sec 2.2 symmetry), and
-    exactly one socket-less instance named after the shield (S3a's own
-    desugaring convention, board-coordinate-s3-brief.md Sec 3).
+    parity with the promoted side) and exactly one socket-less instance
+    named after the shield (S3a's own desugaring convention,
+    board-coordinate-s3-brief.md Sec 3).
+
+    A `name` with a `_REQUIRED_PARAM_ASSIGNMENTS` entry gets that exact
+    assignment appended as a params: block, in the SAME shape `promote.
+    promote_shield` prints on the other side of the law (Sec 2.2
+    symmetry) -- the value the promoted side supplies via its own dotted
+    CLI opts and the value this fixture assigns must be the identical
+    string for the comparison to prove anything.
 
     Returns the written rig.yml's path; the content file
     (`<name>.yml`, matching promote.PromotedRig's own naming) sits
@@ -207,7 +262,15 @@ def _materialize_fixture(name: str, tmp_path: Path) -> Path:
     content_tmpl = (_TEMPLATE_DIR / "content.yml.tmpl").read_text()
     rig_yml = rig_dir / "rig.yml"
     rig_yml.write_text(rig_tmpl.format(name=name))
-    (rig_dir / f"{name}.yml").write_text(content_tmpl.format(name=name))
+    content = content_tmpl.format(name=name)
+    assignment = _REQUIRED_PARAM_ASSIGNMENTS.get(name)
+    if assignment:
+        content += "    params:\n"
+        for dev_label, props in assignment.items():
+            content += f"      {dev_label}:\n"
+            for prop_name, value in props.items():
+                content += f"        {prop_name}: {value}\n"
+    (rig_dir / f"{name}.yml").write_text(content)
     return rig_yml
 
 
@@ -300,7 +363,8 @@ def test_singleton_law_holds(shield: str, tmp_path: Path) -> None:
     fixture_rig = _materialize_fixture(shield, tmp_path)
 
     fixture_result = _run(str(fixture_rig), out_dir=fixture_out)
-    promoted_result = _run("--promote", shield, out_dir=promoted_out)
+    promoted_result = _run("--promote", _promotion_target(shield),
+                           out_dir=promoted_out)
 
     assert fixture_result.returncode == promoted_result.returncode, (
         f"{shield}: verdict differs -- fixture exit "

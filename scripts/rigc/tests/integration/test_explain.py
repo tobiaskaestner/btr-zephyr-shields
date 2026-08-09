@@ -118,6 +118,28 @@ def test_explain_a_promoted_shield_with_a_socket_shows_it_on_the_instance() -> N
         """)
 
 
+def test_explain_a_promoted_shield_with_params_shows_them_on_the_instance() -> None:
+    """The dotted `<device>.<prop>=<value>` promotion-option grammar (Sec
+    9.6 part 2), printed the same way the fixed-keyword `socket=` case
+    above is: --explain is the oracle for what a promoted shield's
+    params: block actually desugars to."""
+    result = _run("--explain", "grove_btn:gb_key.zephyr,code=INPUT_KEY_0")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == textwrap.dedent("""\
+        # rig.yml
+        rig:
+          name: grove_btn
+
+        # grove_btn.yml
+        instances:
+          - name: grove_btn
+            shield: grove_btn
+            params:
+              gb_key:
+                zephyr,code: INPUT_KEY_0
+        """)
+
+
 def test_explain_promotion_options_on_a_persisted_rig_are_refused() -> None:
     """Decision 1, on the other query surface -- and it must be the SAME
     refusal: the message comes from list_rigs, which the cmake seam uses
