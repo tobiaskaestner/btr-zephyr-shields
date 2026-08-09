@@ -1,0 +1,6 @@
+tests:
+  shields.grove_led:
+    platform_allow: m5stack_nanoc6/esp32c6/hpcore/rig
+    tags: shields
+    extra_args:
+      - RIG=grove_led

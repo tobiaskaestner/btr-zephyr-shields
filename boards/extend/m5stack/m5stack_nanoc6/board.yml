@@ -1,0 +1,5 @@
+board:
+  extend: m5stack_nanoc6
+  variants:
+    - name: rig
+      qualifier: esp32c6/hpcore

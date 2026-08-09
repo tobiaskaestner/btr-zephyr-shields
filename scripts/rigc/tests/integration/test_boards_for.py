@@ -150,12 +150,13 @@ def test_boards_for_a_promoted_shield_with_a_required_param_answers_once_assigne
     failure. Asserted as a pair for the same reason the socket= test is:
     either half alone is satisfiable by a stub.
 
-    The "after" answer is asserted EMPTY rather than any one board --
+    The "after" answer names exactly one board, `m5stack_nanoc6` --
     seeeduino_lotus offers eight grove sockets (grove_sockets.dtsi), so
-    unique-by-type inference cannot pick one; that ambiguity is a
+    unique-by-type inference cannot pick one there; that ambiguity is a
     separate fact from the params grammar this pair exists to prove, and
     the compose test below is what pins the socket= pairing that resolves
-    it."""
+    it. m5stack_nanoc6 offers exactly one (boards/extend/m5stack/
+    m5stack_nanoc6/grove_socket.dtsi), so it alone answers unambiguously."""
     bare = _run("--boards-for", "grove_btn")
     assigned = _run("--boards-for", "grove_btn:gb_key.zephyr,code=INPUT_KEY_0")
 
@@ -165,7 +166,7 @@ def test_boards_for_a_promoted_shield_with_a_required_param_answers_once_assigne
     assert assigned.returncode == 0, (
         f"--boards-for grove_btn:gb_key.zephyr,code=INPUT_KEY_0: exit "
         f"{assigned.returncode}\n{assigned.stderr}")
-    assert assigned.stdout.strip() == ""
+    assert assigned.stdout.strip() == "m5stack_nanoc6/esp32c6/hpcore/rig"
 
 
 def test_boards_for_a_promoted_shield_with_socket_and_dotted_param_composes() -> None:

@@ -1,0 +1,40 @@
+/*
+ * Board-DT fragment: M5Stack NanoC6 typed "socket,grove" node (rigs
+ * Convention 4 -- typed sockets live in the board's own devicetree).
+ *
+ * Layered on top of the REAL upstream m5stack_nanoc6 HPCORE dts by the
+ * `rig` board EXTENSION variant (board.yml `extend:`) -- included from
+ * m5stack_nanoc6_esp32c6_hpcore_rig.dts, alongside the base board's own
+ * untyped "grove-header" nexus node (grove_connectors.dtsi, unmodified --
+ * harmless duplication, not referenced by this socket).
+ *
+ * Same-module case, unlike seeeduino_lotus's cross-module bridle
+ * dependency: m5stack is part of the standard upstream zephyr tree, so
+ * this target needs no EXTRA_ZEPHYR_MODULES and is a real twister
+ * platform, with a real RISC-V toolchain available.
+ *
+ * Pin mapping is the upstream grove-header's own real fact, reused
+ * verbatim (&gpio0 1, &gpio0 2) -- this wraps the SAME references under
+ * this project's typed "socket,grove" contract, position-indexed via
+ * GROVE_SIG0/SIG1 (dt-bindings/connector/grove.h) rather than
+ * re-deriving them. gpio-map-mask/pass-thru match seeeduino_lotus's own
+ * grove sockets exactly (position occupies the low 6 bits of the child
+ * unit address).
+ *
+ * Digital-only: upstream declares no pwm-map/io-channel-map for this
+ * connector, so neither is added here -- both are optional per
+ * dts/bindings/connectors/grove.yaml (not every Grove socket carries a
+ * PWM/ADC-reachable position).
+ */
+
+#include <dt-bindings/connector/grove.h>
+
+/ {
+	grove_1: connector_grove_1 {
+		compatible = "socket,grove";
+		#gpio-cells = <2>;
+		gpio-map-mask = <0xffffffff 0xffffffc0>;
+		gpio-map-pass-thru = <0 0x3f>;
+		gpio-map = <GROVE_SIG0 0 &gpio0 1 0>, <GROVE_SIG1 0 &gpio0 2 0>;
+	};
+};

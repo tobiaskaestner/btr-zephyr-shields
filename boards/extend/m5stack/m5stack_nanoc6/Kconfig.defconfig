@@ -1,0 +1,21 @@
+# SPDX-License-Identifier: Apache-2.0
+#
+# The base board's own Kconfig.m5stack_nanoc6 (SOC select) and Kconfig
+# (heap size) both key their qualifier-specific defaults on the base
+# board's OWN qualifier-exact symbol (BOARD_M5STACK_NANOC6_ESP32C6_
+# HPCORE), which the `rig` variant's separate BOARD_..._HPCORE_RIG
+# symbol never satisfies. Restated here under the rig variant's own
+# symbol -- no upstream Kconfig changes.
+
+if BOARD_M5STACK_NANOC6_ESP32C6_HPCORE_RIG
+
+config SOC_ESP32C6_HPCORE
+	default y
+
+# Without this the heap pool is sized 0 and k_malloc (needed by the
+# interrupt controller's esp_intr_alloc_intrstatus) never links in --
+# same value the base board's own Kconfig sets for BOARD_..._HPCORE.
+config HEAP_MEM_POOL_ADD_SIZE_BOARD
+	default 4096
+
+endif

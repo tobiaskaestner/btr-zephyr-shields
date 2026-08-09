@@ -1,0 +1,22 @@
+identifier: m5stack_nanoc6/esp32c6/hpcore/rig
+name: M5Stack NanoC6 HP Core (rig extension variant)
+type: mcu
+arch: riscv
+toolchain:
+  - zephyr
+supported:
+  - adc
+  - gpio
+  - watchdog
+  - uart
+  - dma
+  - pwm
+  - spi
+  - counter
+  - entropy
+  - i2c
+  - netif:openthread
+  - crypto
+  - retained_mem
+  - grove_gpio
+vendor: m5stack

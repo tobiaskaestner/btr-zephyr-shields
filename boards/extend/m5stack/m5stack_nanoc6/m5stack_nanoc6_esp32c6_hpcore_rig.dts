@@ -1,0 +1,15 @@
+/*
+ * hwmv2 board EXTENSION: `rig` variant of the real upstream
+ * m5stack_nanoc6 board (board.yml `extend:`) -- the same-module case,
+ * m5stack ships as part of the standard upstream zephyr tree.
+ *
+ * Pulls in the REAL base board dts verbatim (its own untyped
+ * "grove-header" nexus node comes along unmodified -- that is intended,
+ * not a regression: closer to what a converted upstream board looks
+ * like) and adds the typed rig socket layer on top (Convention 4).
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+#include "m5stack_nanoc6_hpcore.dts"
+#include "grove_socket.dtsi"

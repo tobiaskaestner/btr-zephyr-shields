@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: Apache-2.0
+# hwmv2 board extension: `rig` variant defconfig, mirrors the base
+# board's own m5stack_nanoc6_hpcore_defconfig. See Kconfig.defconfig in
+# this same directory for the SOC_ESP32C6_HPCORE fix this variant needs
+# -- that symbol has no prompt, so it cannot be set from a plain
+# defconfig values file; it needs an actual Kconfig `default` rule.
+
+CONFIG_CONSOLE=y
+CONFIG_SERIAL=y
+CONFIG_UART_CONSOLE=y
+CONFIG_GPIO=y
+
+# For enabling RGB LED
+CONFIG_REGULATOR=y
