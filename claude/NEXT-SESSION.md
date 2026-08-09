@@ -1,13 +1,12 @@
 # Rigs — Session Handoff
 
-## RESUME (2026-08-09) — §9.6 IS FULLY DONE, BOTH PARTS. MULTI-BUS SOCKETS LANDED. MULTI-PLUG SHIELDS IS A NEW, PAUSED DESIGN THREAD. NEXT = rig-schema.yaml.
+## RESUME (2026-08-09) — §9.6 IS FULLY DONE, BOTH PARTS. MULTI-BUS SOCKETS LANDED. TWISTER GAINED AN 8TH SUITE. MULTI-PLUG SHIELDS IS A NEW, PAUSED DESIGN THREAD. NEXT = rig-schema.yaml.
 
 ### STATE AT SESSION CLOSE (2026-08-09)
 
-btr-shields HEAD **`617f545`**. `main` is **ahead 13 of origin, NOT
-pushed** — five new commits this session on top of the 8 already
-carried. **Tree is NOT fully clean, deliberately** — see the end of this
-block.
+btr-shields HEAD **`84d0eb8`**. `main` is **ahead 14 of origin, NOT
+pushed** — six new commits this session on top of the 8 already carried.
+**Tree is NOT fully clean, deliberately** — see the end of this block.
 
 **Gate, driver-verified independently, FULL, once per landed slice
 (three times):** mypy **96/0**, unit **623**, integration **195**
@@ -19,7 +18,8 @@ block.
 | `eef9836` | doc: the multi-bus-socket brief |
 | `b9c3be3` | **a socket may offer more than one bus of the same kind** |
 | `96d1809` | doc: the promoted-shield-params brief (§9.6 part 2) |
-| `617f545` | **§9.6 part 2** — the `<device>.<prop>=<value>` promotion CLI grammar |
+| `617f545` | **§9.6 part 2** — the promotion CLI params grammar |
+| `84d0eb8` | **twister: the pilot_alt_button shield suite** — 7 -> 8 |
 
 ### §9.6 IS ENTIRELY DONE — both the vocabulary move and the CLI grammar
 
@@ -33,6 +33,14 @@ identity_law.py`'s `EXCLUDED`, `{"grove_btn", "pilot_alt_button"}` at the
 start of this session, is now `set()`** — verified as a real byte-for-byte
 comparison against a real rig.yml carrying the identical assignment, not
 an emptied exclusion.
+
+**Twister gained an 8th suite for it**, `tests/shields/pilot_alt_button/`
+(`84d0eb8`) — the only one of the two newly-unblocked shields that
+actually could: `grove_btn`'s only real socket is `seeeduino_lotus`,
+whose base board lives in the `bridle` module, still not a twister
+platform in this workspace (§2026-08-08's census, unchanged — see below).
+Verified directly with `west twister --build-only` on both target
+platforms before committing, not assumed from the pattern match.
 
 ### MULTI-BUS SOCKETS — new capability, fixture-proven, zero real users yet
 
