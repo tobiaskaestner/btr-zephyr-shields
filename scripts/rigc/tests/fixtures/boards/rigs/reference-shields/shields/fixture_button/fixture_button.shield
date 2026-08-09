@@ -7,9 +7,9 @@
  * authored, so a rig instantiating this shield MUST assign it (rule 4/5).
  * See boards/shields/grove_btn for the identical pattern on a real
  * connector type, where the assigned token is a zephyr,code MACRO resolved
- * against a rig's dt-includes:; this fixture assigns a plain integer
- * instead, to keep the reference set free of any dependency outside its
- * own fixture tree.
+ * against the shield's own shield,param-includes; this fixture assigns a
+ * plain integer instead, to keep the reference set free of any dependency
+ * outside its own fixture tree.
  */
 
 #include <dt-bindings/connector/fixture-nexus.h>

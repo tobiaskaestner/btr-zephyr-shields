@@ -1,7 +1,7 @@
 """The loader proper: rig.yml metadata (qualifier axes), the shield
 library, the required content file, fragment discovery, and the V1b
-delta engine with params/pins/dt-includes fully wired -- assembled here
-from the loader's own submodules:
+delta engine with params/pins fully wired -- assembled here from the
+loader's own submodules:
 
   documents.py  -- mark-aware YAML, content-filename construction
   axes.py       -- revisions:/variants: declaration + resolution (the
@@ -14,7 +14,10 @@ from the loader's own submodules:
   fragments.py  -- rule 10, the fragment-presence check
   library.py    -- the shield library: scan, axes, lazy revision
                    resolution (rigc-r3-brief.md Sec 4)
-  params.py     -- params/pin/dt-includes machinery (Sec 5)
+  params.py     -- params/pin machinery (Sec 5); the per-instance-
+                   parameter vocabulary is the owning DEVICE's own
+                   declared_param_includes (param-vocabulary-brief.md),
+                   never a rig.yml declaration
   delta.py      -- base topology + the V1b delta engine, now resolving
                    `shield:` against the REAL library (R2's ShieldRef
                    seam, closed)
@@ -32,9 +35,9 @@ Unimplemented("expand: the accept path...") -- never a silent 0.
 the library scan, three phase calls, and the final Rig assembly --
 `_resolve_metadata` (rig.yml's shell: name, qualifier axes, the
 invocation's board -- entirely cpp-free), `_gather_content` (the required
-content file, the two delta fragments, rule 10, the dt-includes union +
-probe), `_build_topology` (stage 0 plus the two delta stages, the
-per-stage invariant). Each phase returns its OWN small value -- never a
+content file, the two delta fragments, rule 10), `_build_topology` (stage
+0 plus the two delta stages, the per-stage invariant). Each phase returns
+its OWN small value -- never a
 shared mutable "context" written into across phases (rigc-mission-brief.md
 Sec 6; a bespoke accumulator by another name is still the banned shape).
 `load()` concatenates each phase's diagnostics onto its own running list,
@@ -62,12 +65,11 @@ from ..unimplemented import Unimplemented
 from . import axes, binding, fragments
 from .axes import revision_fragment_name, variant_fragment_name
 from .binding import SocketBinding
-from .delta import (Topology, apply_delta, parse_instance, parse_wire,
-                   union_dt_includes)
+from .delta import Topology, apply_delta, parse_instance, parse_wire
 from .documents import (Val, as_mapping, content_file_name,
                         parse_marked, require)
 from .library import ShieldLibrary, load_shield_library
-from .params import check_dt_includes, check_param_invariant
+from .params import check_param_invariant
 
 __all__ = ["load"]
 
@@ -175,42 +177,33 @@ class Deltas:
 
 @dataclass(frozen=True)
 class ContentResult:
-    """Phase 2's own value: the rig's required content document, its two
-    delta fragments (unapplied), and the dt-includes list already unioned
-    across base + both fragments and probed (`check_dt_includes`) once,
-    before any stage's own params resolve against it."""
+    """Phase 2's own value: the rig's required content document and its
+    two delta fragments (unapplied)."""
 
     content_v: Val
     deltas: Deltas
-    dt_includes: List[str] = field(default_factory=list)
-    dt_includes_refs: List[SourceRef] = field(default_factory=list)
 
 
-def _gather_content(rig: Rig, rig_dir: str, workdir: str,
-                    include_dirs: Optional[List[str]],
+def _gather_content(rig: Rig, rig_dir: str,
                     ) -> Tuple[Optional[ContentResult], List[Diagnostic], Deps]:
     """Steps 6-9: the rig's REQUIRED content file, its two qualifier delta
     fragments (looked up by the constructed stems `loader.axes` builds,
-    never `${RIG}` literally), rule 10 (a selected non-default axis value
-    that contributes nothing), and the dt-includes union across base +
-    both fragments. Returns None only when the content file itself is
-    missing -- every other finding here still returns a value, matching
-    phase 1's own only-truly-fatal-stops-here shape.
+    never `${RIG}` literally), and rule 10 (a selected non-default axis
+    value that contributes nothing). Returns None only when the content
+    file itself is missing -- every other finding here still returns a
+    value, matching phase 1's own only-truly-fatal-stops-here shape.
 
-    Never raises LoadError itself: the one cpp-reaching call here
-    (`check_dt_includes`) catches it internally per header
-    (`dtsio.check_include`), so this phase needs no D1-style inner
-    boundary of its own (unlike phase 3, see `_build_topology`).
+    Entirely cpp-free (unlike phase 3, see `_build_topology`): a delta
+    fragment is parsed the same mark-aware-YAML way the base content is,
+    never cpp, and the per-instance-parameter vocabulary is now the
+    owning shield DEVICE's own concern (`loader.params`), not something
+    this phase probes -- so it never raises LoadError and needs no
+    D1-style inner boundary of its own.
 
     Returns (result, diagnostics, deps): deps names the content file
-    itself, whichever of the two qualifier delta fragments actually
-    exist, and every real file each declared dt-includes: header's own
-    preprocess opened (`check_dt_includes`, recorded whether or not that
-    header's own check passed) -- the closure this phase owns of
-    rigc-r5-brief.md Sec 2's RIG_DEPENDS handoff (the fragments' own
-    #include chains are not opened here at all, since a delta fragment is
-    parsed the same mark-aware-YAML way the base content is, never
-    cpp)."""
+    itself and whichever of the two qualifier delta fragments actually
+    exist -- the closure this phase owns of rigc-r5-brief.md Sec 2's
+    RIG_DEPENDS handoff."""
     assert rig.src is not None   # phase 1 always sets it before returning a Rig
     diags: List[Diagnostic] = []
     deps: Deps = frozenset()
@@ -258,27 +251,10 @@ def _gather_content(rig: Rig, rig_dir: str, workdir: str,
                 revision_delta=revision_delta_v is not None,
                 revision_defconfig=revision_defconfig))
 
-    content_map = as_mapping(content_v, f"content document {content_path}")
-    dt_includes, dt_includes_refs = union_dt_includes(
-        [], [], content_map.get("dt-includes"))
-    if variant_delta_v is not None:
-        dt_includes, dt_includes_refs = union_dt_includes(
-            dt_includes, dt_includes_refs,
-            as_mapping(variant_delta_v, "variant delta").get("dt-includes"))
-    if revision_delta_v is not None:
-        dt_includes, dt_includes_refs = union_dt_includes(
-            dt_includes, dt_includes_refs,
-            as_mapping(revision_delta_v, "revision delta").get("dt-includes"))
-    if dt_includes:
-        d, dt_deps = check_dt_includes(rig.name, dt_includes, dt_includes_refs,
-                                       workdir, include_dirs)
-        diags += d
-        deps = union(deps, dt_deps)
-
     return ContentResult(
         content_v=content_v,
-        deltas=Deltas(variant_v=variant_delta_v, revision_v=revision_delta_v),
-        dt_includes=dt_includes, dt_includes_refs=dt_includes_refs), diags, deps
+        deltas=Deltas(variant_v=variant_delta_v, revision_v=revision_delta_v)
+        ), diags, deps
 
 
 # ---------------------------------------------------------------- phase 3
@@ -320,7 +296,7 @@ def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
         diags += d
         for item in (insts_v.value if insts_v is not None else []):
             inst, d, idep = parse_instance(item, sock_binding, lib, rig.name,
-                                           content.dt_includes, workdir, include_dirs)
+                                           workdir, include_dirs)
             diags += d
             deps = union(deps, idep)
             if inst is not None:
@@ -340,7 +316,7 @@ def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
             assert rig.variant is not None    # a delta only loads for a selected axis
             topology, d, idep = apply_delta(
                 content.deltas.variant_v, "variant", rig.variant, topology,
-                sock_binding, lib, rig.variant, rig.name, content.dt_includes,
+                sock_binding, lib, rig.variant, rig.name,
                 workdir, include_dirs)
             diags += d
             deps = union(deps, idep)
@@ -352,7 +328,7 @@ def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
             assert rig.revision is not None   # a delta only loads for a selected axis
             topology, d, idep = apply_delta(
                 content.deltas.revision_v, "revision", rig.revision, topology,
-                sock_binding, lib, rig.variant, rig.name, content.dt_includes,
+                sock_binding, lib, rig.variant, rig.name,
                 workdir, include_dirs)
             diags += d
             deps = union(deps, idep)
@@ -380,8 +356,9 @@ def load(rig_path: str, workdir: str,
     after most errors -- this reproduces that shape rather than stopping
     at the first diagnostic, so a later one is never dropped.
 
-    `workdir` is where every `.shield` translation unit and dt-includes
-    probe gets synthesized (cli.py's responsibility to create/clean up).
+    `workdir` is where every `.shield` translation unit and per-instance-
+    parameter resolution probe gets synthesized (cli.py's responsibility
+    to create/clean up).
 
     `board`, when given, is the invocation's injected board (the cmake
     seam always supplies one) -- threaded straight to
@@ -428,7 +405,7 @@ def load(rig_path: str, workdir: str,
 
         log.info("load(): gathering content")
         rig_dir = os.path.dirname(rig_path)
-        content, d, cdeps = _gather_content(rig, rig_dir, workdir, include_dirs)
+        content, d, cdeps = _gather_content(rig, rig_dir)
         diags += d
         deps = union(deps, cdeps)
         if content is None:
@@ -440,8 +417,6 @@ def load(rig_path: str, workdir: str,
         diags += d
         deps = union(deps, tdeps)
 
-        rig.dt_includes = content.dt_includes
-        rig.dt_includes_refs = content.dt_includes_refs
         rig.instances = topology.instances()
         rig.wires = topology.wires
         for inst in rig.instances:

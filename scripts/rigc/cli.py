@@ -280,9 +280,10 @@ def _expand(args: argparse.Namespace) -> int:
     )
     # header_dirs is the RAW --include-dir list, threaded to every cpp
     # invocation this run makes (the connector-type registry's <type>.h
-    # lookup, every .shield template's own translation unit, the rig's
-    # dt-includes:/per-instance-parameter resolution) -- one list, one
-    # ratified plumbing shape (rigexp/cli.py's own docstring).
+    # lookup, every .shield template's own translation unit, a shield
+    # device's own shield,param-includes/per-instance-parameter
+    # resolution) -- one list, one ratified plumbing shape (rigexp/cli.py's
+    # own docstring).
     header_dirs = (
         [os.path.abspath(d) for d in args.include_dirs] if args.include_dirs else None
     )

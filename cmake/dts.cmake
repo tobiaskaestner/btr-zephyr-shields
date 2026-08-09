@@ -334,7 +334,7 @@ else()
   endif()
 
   # The rig's REQUIRED content file (metadata/content split: rig.yml is
-  # metadata-only, instances:/wires:/dt-includes: live in <rigname>.yml).
+  # metadata-only, instances:/wires: live in <rigname>.yml).
   # Its name depends on the RESOLVED rig name, already in hand above (from
   # either boards.cmake's stash or the list_rigs.py fallback) -- never
   # parsed from rig.yml itself, per THE TRAP note on the axis fragments

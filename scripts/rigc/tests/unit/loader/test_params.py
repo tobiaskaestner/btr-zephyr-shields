@@ -5,13 +5,16 @@ restated set) -> findings", and pin/params block application (a PURE
 function of a Val + a Shield, never mutating an Instance).
 
 **The cpp/unit-test seam**: `apply_params_block`'s token-resolution branch
-calls `dtsio.resolve_token`/`check_include` (cpp, a real subprocess) only
-when an assigned value is NOT a bare integer literal. Every test here
-assigns bare integer literals (`is_int_literal` is unit-tested directly in
-test_dtsio.py) precisely so this module's OWN logic -- undeclared/unknown-
-device/required/restate decisions -- gets covered without ever reaching
-cpp. `check_dt_includes`/`check_param_token`'s cpp-reaching branches are
-integration-only by construction, covered through the frozen suite.
+calls `check_param_token` (which calls `dtsio.resolve_token`/
+`check_include`, cpp, a real subprocess) only when an assigned value is
+NOT a bare integer literal. Every test here assigns bare integer literals
+(`is_int_literal` is unit-tested directly in test_dtsio.py) precisely so
+this module's OWN logic -- undeclared/unknown-device/required/restate
+decisions -- gets covered without ever reaching cpp. `check_param_token`'s
+own cpp-reaching branch is integration-only by construction, covered
+through the frozen suite (its vocabulary is now the owning shield
+device's own declared_param_includes, param-vocabulary-brief.md, never a
+rig-level list).
 """
 from __future__ import annotations
 
@@ -110,26 +113,27 @@ def test_restate_ignores_a_device_with_no_prior_assignment(tmp_path) -> None:
 # ---------------------------------------------------------- apply_params_block
 
 def test_apply_params_block_none_is_a_no_op() -> None:
-    params, refs, diags = apply_params_block(
-        None, "a", _shield(), [], "rig", "/nonexistent", "tag")
-    assert (params, refs, diags) == ({}, {}, [])
+    params, refs, diags, deps = apply_params_block(
+        None, "a", _shield(), "/nonexistent", "tag")
+    assert (params, refs, diags, deps) == ({}, {}, [], frozenset())
 
 
 def test_apply_params_block_assigns_a_declared_bare_int(tmp_path) -> None:
     dev = _device("d", declared_params=["x"])
     params_v = _val(tmp_path, "v: {d: {x: 5}}\n")
-    params, refs, diags = apply_params_block(
-        params_v, "a", _shield(dev), [], "rig", "/nonexistent", "tag")
+    params, refs, diags, deps = apply_params_block(
+        params_v, "a", _shield(dev), "/nonexistent", "tag")
     assert diags == []
     assert params == {"d": {"x": "5"}}
     assert "d" in refs and "x" in refs["d"]
+    assert deps == frozenset()   # a bare int literal never reaches cpp
 
 
 def test_apply_params_block_unknown_device_is_rejected(tmp_path) -> None:
     dev = _device("d", declared_params=["x"])
     params_v = _val(tmp_path, "v: {ghost: {x: 5}}\n")
-    params, refs, diags = apply_params_block(
-        params_v, "a", _shield(dev), [], "rig", "/nonexistent", "tag")
+    params, refs, diags, deps = apply_params_block(
+        params_v, "a", _shield(dev), "/nonexistent", "tag")
     assert len(diags) == 1
     assert diags[0].code == "lang-param"
     assert "names no device 'ghost'" in diags[0].message
@@ -139,8 +143,8 @@ def test_apply_params_block_unknown_device_context_is_folded_into_the_message(
         tmp_path) -> None:
     dev = _device("d", declared_params=["x"])
     params_v = _val(tmp_path, "v: {ghost: {x: 5}}\n")
-    _, _, diags = apply_params_block(
-        params_v, "a", _shield(dev), [], "rig", "/nonexistent", "tag",
+    _, _, diags, _deps = apply_params_block(
+        params_v, "a", _shield(dev), "/nonexistent", "tag",
         unknown_device_context="because of variant 'hpm'")
     assert "(because of variant 'hpm')" in diags[0].message
 
@@ -148,8 +152,8 @@ def test_apply_params_block_unknown_device_context_is_folded_into_the_message(
 def test_apply_params_block_undeclared_property_is_rejected(tmp_path) -> None:
     dev = _device("d", declared_params=["x"])
     params_v = _val(tmp_path, "v: {d: {y: 5}}\n")
-    params, refs, diags = apply_params_block(
-        params_v, "a", _shield(dev), [], "rig", "/nonexistent", "tag")
+    params, refs, diags, deps = apply_params_block(
+        params_v, "a", _shield(dev), "/nonexistent", "tag")
     assert len(diags) == 1
     assert diags[0].code == "lang-param"
     assert "declares no parameter 'y'" in diags[0].message
@@ -160,8 +164,8 @@ def test_apply_params_block_one_bad_property_does_not_block_the_others(
         tmp_path) -> None:
     dev = _device("d", declared_params=["x", "y"])
     params_v = _val(tmp_path, "v: {d: {x: 1, z: 2}}\n")
-    params, refs, diags = apply_params_block(
-        params_v, "a", _shield(dev), [], "rig", "/nonexistent", "tag")
+    params, refs, diags, deps = apply_params_block(
+        params_v, "a", _shield(dev), "/nonexistent", "tag")
     assert len(diags) == 1
     assert params == {"d": {"x": "1"}}
 

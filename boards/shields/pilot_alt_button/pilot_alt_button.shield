@@ -19,6 +19,7 @@
 				pab_key: button {
 					shield,collect = "gpio-keys";
 					shield,params = "zephyr,code";	/* required: no default authored */
+					shield,param-includes = "zephyr/dt-bindings/input/input-event-codes.h";
 					gpios = <&pab_plug ARDUINO_HEADER_R3_D2 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>;
 				};
 			};

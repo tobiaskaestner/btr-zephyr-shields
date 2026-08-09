@@ -1,15 +1,19 @@
-"""Params, pins, dt-includes vocabulary -- closing R2's ShieldRef
-deferrals (rigc-r3-brief.md Sec 5). Ported value-shaped from
+"""Params, pins, per-instance-parameter vocabulary -- closing R2's
+ShieldRef deferrals (rigc-r3-brief.md Sec 5). Ported value-shaped from
 rigexp/loader_yml.py's `_apply_params_block`/`_check_param_invariant`/
-`_check_restate`/`_apply_pin_block`/`_check_param_token`/
-`_check_dt_includes`.
+`_check_restate`/`_apply_pin_block`/`_check_param_token`.
 
 Every function here takes the NARROW values it needs (a shield, a params:
-Val, a dt-includes list, a rig NAME) rather than a whole `Rig` or
-`Instance` (mission brief Sec 6, rule 2 -- "whole-model inputs where a
-value would do"): the caller (loader/delta.py) already holds these pieces
-and assigns the result onto a freshly constructed Instance, matching its
-own no-mutation discipline.
+Val, a rig NAME) rather than a whole `Rig` or `Instance` (mission brief
+Sec 6, rule 2 -- "whole-model inputs where a value would do"): the caller
+(loader/delta.py) already holds these pieces and assigns the result onto
+a freshly constructed Instance, matching its own no-mutation discipline.
+
+**The vocabulary a param token resolves against is the OWNING DEVICE's
+own `declared_param_includes` (param-vocabulary-brief.md), never a
+rig-level declaration** -- the shield that declares a parameter declares
+the vocabulary that parameter is drawn from, so `check_param_token` takes
+the device's own header list, not something threaded down from rig.yml.
 """
 from __future__ import annotations
 
@@ -69,64 +73,97 @@ def check_param_invariant(instances) -> List[Diagnostic]:
     return diags
 
 
-def check_param_token(raw: str, dt_includes: List[str], rig_name: str,
-                      workdir: str, tag: str, inst_name: str, dev_label: str,
-                      prop_name: str, ref: SourceRef,
+def check_param_token(raw: str, param_includes: List[str], workdir: str,
+                      tag: str, inst_name: str, dev_label: str,
+                      shield_name: str, prop_name: str, ref: SourceRef,
                       include_dirs: Optional[List[str]] = None,
-                      ) -> List[Diagnostic]:
-    """Rules 4/5: an assigned token that is not a bare integer literal
-    must resolve against the rig's declared dt-includes list.
+                      ) -> Tuple[List[Diagnostic], Deps]:
+    """Rules 4/5/6, collapsed into one shape now that the vocabulary is
+    the owning device's own, not a rig-level list: every header in
+    `param_includes` (`dev.declared_param_includes`, the caller's own
+    copy) must exist and preprocess cleanly on its own (rule 6), and an
+    assigned token that is not a bare integer literal must resolve
+    against that same list (rules 4/5). Rule 6 is checked here, per
+    device, rather than once per shield at parse time, because this is
+    the only call site that already has a reason to preprocess each
+    header at all (a device whose parameters are never assigned a
+    non-literal token never pays for it); see `emitter._needed_param_
+    includes`, which independently re-derives the same "which headers
+    does this rig need" answer from the SOLVED side -- a change here
+    that stops walking every declared header must be mirrored there.
 
-    Returns the resolution findings -- empty when the token resolves;
-    inputs are read-only."""
-    if resolve_token(raw, dt_includes, workdir, tag, include_dirs) is not None:
-        return []
-    if not dt_includes:
-        return [error(
-            "lang-dt-include",
-            f"instance '{inst_name}': device '{dev_label}' property "
-            f"'{prop_name}' assigns '{raw}', which does not resolve — "
-            "this rig declares no dt-includes: at all; add the header "
-            f"that defines '{raw}'",
-            (ref,))]
-    return [error(
+    Returns (diagnostics, deps): one diagnostic per header that is
+    missing or fails to preprocess, plus one more if the token itself
+    still fails to resolve once every header is confirmed good; empty
+    when both checks pass. deps is the union of every real file each of
+    `param_includes`' own preprocess opened (dtsio.check_include),
+    recorded whether or not either check succeeds -- a header the token
+    actually resolves against is a real dependency of this rig
+    (RIG_DEPENDS), and it is exactly the file an author is about to edit
+    when it does not. Inputs are read-only; the caller owns the returned
+    Deps."""
+    deps: Deps = frozenset()
+    diags: List[Diagnostic] = []
+    searched = ", ".join([*(include_dirs or []), zephyr_inc(), MODULE_INC])
+    for i, header in enumerate(param_includes):
+        detail, files = check_include(
+            header, workdir, f"{tag}_{i}", include_dirs)
+        deps = union(deps, *(touch(f) for f in files))
+        if detail is not None:
+            diags.append(error(
+                "lang-dt-include",
+                f"instance '{inst_name}': device '{dev_label}' of shield "
+                f"'{shield_name}' declares param-includes header "
+                f"'{header}' that is not found or fails to preprocess "
+                f"(searched {searched})\n{detail}",
+                (ref,)))
+    if resolve_token(raw, param_includes, workdir, tag,
+                     include_dirs) is not None:
+        return diags, deps
+    diags.append(error(
         "lang-dt-include",
         f"instance '{inst_name}': device '{dev_label}' property "
         f"'{prop_name}' assigns '{raw}', which does not resolve against "
-        f"this rig's declared dt-includes ({', '.join(dt_includes)}) — "
-        f"add the header that defines it to {rig_name}.yml dt-includes:",
-        (ref,))]
+        f"the param-includes shield '{shield_name}' declares for this "
+        f"device ({', '.join(param_includes) or 'none'}) — add the header "
+        f"that defines it to shield,param-includes on '{dev_label}'",
+        (ref,)))
+    return diags, deps
 
 
 def apply_params_block(params_v: Optional[Val], inst_name: str, shield: Shield,
-                       dt_includes: List[str], rig_name: str, workdir: str,
-                       tag_prefix: str,
+                       workdir: str, tag_prefix: str,
                        unknown_device_context: Optional[str] = None,
                        include_dirs: Optional[List[str]] = None,
                        ) -> Tuple[Dict[str, Dict[str, str]],
                                  Dict[str, Dict[str, SourceRef]],
-                                 List[Diagnostic]]:
+                                 List[Diagnostic], Deps]:
     """Parse ONE params: block -- the base assignment, OR a delta's
-    wholesale replacement -- into (params, param_refs, diagnostics), a
-    PURE function of its inputs: never mutates the Instance it describes,
-    the caller assigns the result onto a freshly constructed one. Rules
-    1/3 (undeclared property / unknown device) fire immediately against
-    the CURRENT shield; rules 4/5 (token resolution) too. Rule 2 (every
-    required parameter assigned) is deliberately NOT checked here -- it
-    is the per-stage invariant, run once per stage over every instance,
-    since a LATER stage may still supply what an EARLIER one left
-    required-but-unassigned.
+    wholesale replacement -- into (params, param_refs, diagnostics, deps),
+    a PURE function of its inputs: never mutates the Instance it
+    describes, the caller assigns the result onto a freshly constructed
+    one. Rules 1/3 (undeclared property / unknown device) fire
+    immediately against the CURRENT shield; rules 4/5 (token resolution,
+    against the owning device's own declared_param_includes) too. Rule 2
+    (every required parameter assigned) is deliberately NOT checked here
+    -- it is the per-stage invariant, run once per stage over every
+    instance, since a LATER stage may still supply what an EARLIER one
+    left required-but-unassigned.
 
     `unknown_device_context`, if given, is folded into rule 3's message
     when it fires (rule 12): a family-wide revision's params naming a
     device the POST-VARIANT shield does not have is unavoidable by
     construction whenever a variant already substituted the shield.
 
-    Returns (params, refs, diagnostics): fresh dicts the caller owns;
-    nothing handed in is touched."""
+    Returns (params, refs, diagnostics, deps): fresh values the caller
+    owns; deps is the union of every real file a non-literal token's
+    resolution attempt opened (check_param_token), empty when every
+    assigned value is a bare integer literal. Nothing handed in is
+    touched."""
     if params_v is None:
-        return {}, {}, []
+        return {}, {}, [], frozenset()
     diags: List[Diagnostic] = []
+    deps: Deps = frozenset()
     params: Dict[str, Dict[str, str]] = {}
     param_refs: Dict[str, Dict[str, SourceRef]] = {}
     devices_by_label = {d.label: d for d in shield.devices}
@@ -158,10 +195,12 @@ def apply_params_block(params_v: Optional[Val], inst_name: str, shield: Shield,
             param_refs.setdefault(dev_label, {})[prop_name] = val_v.src
             if not is_int_literal(raw):
                 tag = f"{tag_prefix}_{dev_label}_{prop_name}"
-                diags += check_param_token(
-                    raw, dt_includes, rig_name, workdir, tag, inst_name,
-                    dev_label, prop_name, val_v.src, include_dirs)
-    return params, param_refs, diags
+                d, tdeps = check_param_token(
+                    raw, dev.declared_param_includes, workdir, tag, inst_name,
+                    dev_label, shield.name, prop_name, val_v.src, include_dirs)
+                diags += d
+                deps = union(deps, tdeps)
+    return params, param_refs, diags, deps
 
 
 def apply_pin_block(pin_v: Optional[Val], inst_name: str, shield: Shield,
@@ -236,35 +275,3 @@ def check_restate(params_v: Val, prior_params: Dict[str, Dict[str, str]],
                     "explicitly or remove it deliberately",
                     (params_v.src,)))
     return diags
-
-
-def check_dt_includes(rig_name: str, dt_includes: List[str],
-                      dt_includes_refs: List[SourceRef], workdir: str,
-                      include_dirs: Optional[List[str]] = None,
-                      ) -> Tuple[List[Diagnostic], Deps]:
-    """Rule 6: every declared dt-includes: header must exist and
-    preprocess cleanly on its own, checked once per rig regardless of
-    whether any parameter ends up resolving against it.
-
-    Returns (diagnostics, deps): one diagnostic per header that is
-    missing or fails to preprocess, empty when all resolve; deps is the
-    UNION of every real file each declared header's own preprocess
-    opened (dtsio.check_include), recorded for EVERY header regardless
-    of whether its own check passed -- a rig's declared token vocabulary
-    is a real dependency of that rig even on the header that currently
-    fails, since that header is exactly the one an author is about to
-    edit. Inputs are read-only; the caller owns the returned Deps."""
-    diags: List[Diagnostic] = []
-    deps: Deps = frozenset()
-    searched = ", ".join([*(include_dirs or []), zephyr_inc(), MODULE_INC])
-    for i, (header, ref) in enumerate(zip(dt_includes, dt_includes_refs)):
-        detail, files = check_include(header, workdir, f"{rig_name}_{i}", include_dirs)
-        deps = union(deps, *(touch(f) for f in files))
-        if detail is not None:
-            diags.append(error(
-                "lang-dt-include",
-                f"rig '{rig_name}': dt-includes header '{header}' not "
-                f"found or fails to preprocess (searched {searched})\n"
-                f"{detail}",
-                (ref,)))
-    return diags, deps

@@ -36,7 +36,7 @@ _BUS_PROPS = {"socket,i2c": "i2c", "socket,spi": "spi", "socket,uart": "uart"}
 _RESERVED = {"plug", "pads", "config"}
 _ADDRESSABLE = {"i2c"}          # buses with device-static in-band addressing
 _MODEL_PROPS = {"reg", "compatible", "shield,addr-from", "shield,cs-position",
-               "shield,collect", "shield,params"}
+               "shield,collect", "shield,params", "shield,param-includes"}
 
 
 def parse_shields(dt, types: Dict[str, ConnectorType],
@@ -203,10 +203,19 @@ def _parse_device(node, shield: Shield, plug, ctype, bus, group,
     if "shield,params" in node.props:
         declared_params = list(node.props["shield,params"].to_strings())
 
+    # The vocabulary declared_params' own tokens resolve against (Sec 3):
+    # a device-node property, sibling to shield,params, since the header
+    # is a contract of the parameter, not an accident of what the
+    # template happened to #include.
+    declared_param_includes: List[str] = []
+    if "shield,param-includes" in node.props:
+        declared_param_includes = list(node.props["shield,param-includes"].to_strings())
+
     dev = Device(name=name, label=node.labels[0] if node.labels else name,
                 compatible=compat, bus=bus, group=group, reg=reg,
                 addr_from=addr_from, cs_position=cs_position, collect=collect,
-                declared_params=declared_params, src=src_of(node))
+                declared_params=declared_params,
+                declared_param_includes=declared_param_includes, src=src_of(node))
 
     for prop in node.props.values():
         if prop.name in _MODEL_PROPS or prop.name == "phandle":

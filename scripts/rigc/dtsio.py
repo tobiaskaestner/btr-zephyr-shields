@@ -1,10 +1,11 @@
-"""DTS plumbing for the SHIELD-template side, and for rig-declared token
-vocabularies (dt-includes:). Ported from rigexp/dtsio.py (rigc-r3-brief.md
-Sec 2): this module never touches the board DT (that is an analyzer-slice
-concern); what's here is cpp + stock dtlib parsing of `.shield` translation
-units (Ground rule 3 -- shield templates are pre-instantiation text with no
-binding/schema of their own, so there is nothing for edtlib to attach type
-info to), dt-bindings/connector/*.h position-index header parsing, and
+"""DTS plumbing for the SHIELD-template side, and for shield-declared
+per-instance-parameter token vocabularies (shield,param-includes:).
+Ported from rigexp/dtsio.py (rigc-r3-brief.md Sec 2): this module never
+touches the board DT (that is an analyzer-slice concern); what's here is
+cpp + stock dtlib parsing of `.shield` translation units (Ground rule 3
+-- shield templates are pre-instantiation text with no binding/schema of
+their own, so there is nothing for edtlib to attach type info to),
+dt-bindings/connector/*.h position-index header parsing, and
 resolve_token/check_include, the per-instance-parameter mechanism's own
 synthetic-TU resolution.
 
@@ -275,22 +276,23 @@ def render_prop(prop) -> Optional[str]:
     return None
 
 
-# ---------------------------------------------------------------- rig dt-includes vocabulary
+# ------------------------------------------------ per-instance-parameter vocabulary
 
 _INT_LITERAL_RE = re.compile(r"^-?(0[xX][0-9a-fA-F]+|\d+)$")
 
 
 def is_int_literal(text: str) -> bool:
     """Whether text is already a bare DTS integer literal (decimal or 0x
-    hex, optionally negative) needing no dt-includes: resolution at all."""
+    hex, optionally negative) needing no header resolution at all."""
     return bool(_INT_LITERAL_RE.match(text))
 
 
 def check_include(header: str, workdir: str, tag: str,
                   include_dirs: Optional[List[str]] = None,
                   ) -> Tuple[Optional[str], List[str]]:
-    """Confirm one dt-includes: header is real and preprocesses cleanly on
-    its own (rule 6, "lang-dt-include").
+    """Confirm one declared header (a shield device's own
+    shield,param-includes entry) is real and preprocesses cleanly on its
+    own (rule 6, "lang-dt-include").
 
     Returns (detail, files): detail is an error detail string on failure,
     else None; files is every real file this preprocess opened
@@ -324,12 +326,12 @@ def check_include(header: str, workdir: str, tag: str,
 def resolve_token(token: str, headers: List[str], workdir: str, tag: str,
                   include_dirs: Optional[List[str]] = None) -> Optional[int]:
     """cpp+dtlib-resolve one assigned parameter TOKEN against a synthetic
-    TU that includes exactly headers -- a rig's declared dt-includes:
-    vocabulary, in order. Returns None if cpp leaves the token unexpanded
-    (an unresolved bareword identifier is not valid syntax inside a DTS
-    cell list, so the embedding dtlib.DT parse fails -- the same failure
-    shape whether the token is a typo or the defining header was never
-    declared)."""
+    TU that includes exactly headers -- the owning shield device's own
+    declared_param_includes vocabulary, in order. Returns None if cpp
+    leaves the token unexpanded (an unresolved bareword identifier is not
+    valid syntax inside a DTS cell list, so the embedding dtlib.DT parse
+    fails -- the same failure shape whether the token is a typo or the
+    defining header was never declared)."""
     tu = os.path.join(workdir, f"rig-param-{tag}.dts")
     with open(tu, "w") as f:
         f.write("/dts-v1/;\n")

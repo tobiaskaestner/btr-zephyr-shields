@@ -193,7 +193,8 @@ def _materialize_fixture(name: str, tmp_path: Path) -> Path:
     in (Sec 2.1's caveat: nothing here is reachable from a live namespace
     scan of the fixtures root, since no such folder exists on disk at
     all outside a test's own tmp_path). Declares no board: (Sec 2.1
-    parity with the promoted side) and no dt-includes: (Sec 2.2), and
+    parity with the promoted side) and no params: assignment of its own
+    needing a shield,param-includes header (Sec 2.2 symmetry), and
     exactly one socket-less instance named after the shield (S3a's own
     desugaring convention, board-coordinate-s3-brief.md Sec 3).
 

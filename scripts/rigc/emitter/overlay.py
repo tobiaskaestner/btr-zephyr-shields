@@ -48,13 +48,18 @@ def _instance_extra_props(inst: Instance, dev: Device) -> List[Tuple[str, str]]:
     return kept + added
 
 
-def render_overlay(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> str:
+def render_overlay(rig: Rig, s: Solved, types: Dict[str, ConnectorType],
+                   needed_includes: Optional[List[str]] = None) -> str:
     """rig-gen.overlay's full text. rig/s/types are read-only; returns a
-    fresh string the caller owns."""
+    fresh string the caller owns. `needed_includes`
+    (`emitter._needed_param_includes`) is the caller's own decision about
+    which headers this rig's params actually need -- this function only
+    gates the quoted #include line on whether the list is non-empty; it
+    never derives the list itself."""
     out = []
-    if rig.dt_includes:
-        # Opens the file: the rig's declared parameter vocabulary reaches
-        # cpp before anything that might use it, via a quoted include
+    if needed_includes:
+        # Opens the file: the needed parameter vocabulary reaches cpp
+        # before anything that might use it, via a quoted include
         # resolved against this file's own directory (<build>/rig/, where
         # the emitter also writes rig-gen-includes.dtsi).
         out.append('#include "rig-gen-includes.dtsi"')

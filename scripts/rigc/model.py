@@ -83,6 +83,12 @@ class Device:
     cs_position: Optional[int]      # copper-fixed CS (shield,cs-position)
     collect: Optional[str] = None   # collection compatible (gpio-keys/leds): this is an ENTRY
     declared_params: List[str] = field(default_factory=list)  # shield,params: names
+    # shield,param-includes: headers -- the vocabulary declared_params' own
+    # tokens resolve against (param-vocabulary-brief.md Sec 3): a
+    # macro-only header contributes no node/property of its own, so it
+    # cannot be recovered from this device's other DTS content and must be
+    # declared explicitly, on the SAME node as the parameter it backs.
+    declared_param_includes: List[str] = field(default_factory=list)
     gpio_refs: List[GpioRef] = field(default_factory=list)
     extra_props: List[Tuple[str, str]] = field(default_factory=list)  # rendered passthrough
     src: Optional[SourceRef] = None
@@ -328,8 +334,6 @@ class Rig:
     board: str = ""
     instances: list[Instance] = field(default_factory=list)
     wires: list[Wire] = field(default_factory=list)
-    dt_includes: list[str] = field(default_factory=list)
-    dt_includes_refs: list[SourceRef] = field(default_factory=list)
     revisions: Optional[AxisDecl] = None
     variants: Optional[AxisDecl] = None
     # `revision` is the RESOLVED value (nearest-lower match already

@@ -24,7 +24,7 @@ same proof), which is integration, and no module here may mix the two.
 Board + registry pieces are fixture-local (assert_fixture_local, below); the
 per-instance parameter values are plain integers rather than zephyr,code
 macros specifically so the WHOLE fixture tree stays free of any dependency
-outside itself (no rig dt-includes: needed at all).
+outside itself (no shield,param-includes header needed at all).
 
 The honest limit, worth repeating here rather than only in the fixtures'
 own comments: this proves the SHAPE is right — that a shield authored

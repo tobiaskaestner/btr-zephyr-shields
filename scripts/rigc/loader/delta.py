@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 from ..deps import Deps, union
-from ..diag import Diagnostic, SourceRef, error
+from ..diag import Diagnostic, error
 from ..model import Instance, Wire, WireEnd
 from .binding import SocketBinding
 from .documents import Val, as_mapping, require
@@ -49,28 +49,8 @@ class Topology:
         return [self.effective[n] for n in self.order if n in self.effective]
 
 
-def union_dt_includes(headers: List[str], refs: List[SourceRef],
-                      dt_includes_v: Optional[Val],
-                      ) -> Tuple[List[str], List[SourceRef]]:
-    """dt-includes: UNIONS across delta stages -- a header already
-    present (declared by an earlier stage) is skipped, keeping that
-    stage's own SrcRef. Pure: returns NEW lists rather than mutating the
-    caller's.
-
-    Returns fresh (headers, refs) lists -- the inputs are copied,
-    never extended in place."""
-    headers = list(headers)
-    refs = list(refs)
-    if dt_includes_v is not None:
-        for h_v in dt_includes_v.value:
-            if h_v.value not in headers:
-                headers.append(h_v.value)
-                refs.append(h_v.src)
-    return headers, refs
-
-
 def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
-                   rig_name: str, dt_includes: List[str], workdir: str,
+                   rig_name: str, workdir: str,
                    include_dirs: Optional[List[str]] = None,
                    ) -> Tuple[Optional[Instance], List[Diagnostic], Deps]:
     """One `instances:` entry (base content, or an `add-instances:` item
@@ -103,10 +83,11 @@ def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
         item.value.get("pin"), name, shield)
     diags += d
     tag = f"{rig_name}_{name}"
-    params, param_refs, d = apply_params_block(
-        item.value.get("params"), name, shield, dt_includes, rig_name,
-        workdir, tag, include_dirs=include_dirs)
+    params, param_refs, d, pdeps = apply_params_block(
+        item.value.get("params"), name, shield, workdir, tag,
+        include_dirs=include_dirs)
     diags += d
+    deps = union(deps, pdeps)
 
     inst = Instance(
         name=name, shield=shield,
@@ -120,8 +101,7 @@ def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
 
 def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
                           lib: ShieldLibrary, stage: str, stage_value: str,
-                          variant: Optional[str], rig_name: str,
-                          dt_includes: List[str], workdir: str,
+                          variant: Optional[str], rig_name: str, workdir: str,
                           include_dirs: Optional[List[str]] = None,
                           ) -> Tuple[Instance, List[Diagnostic], Deps]:
     """Shallow-replace an EXISTING instance's top-level keys: a GIVEN key
@@ -185,10 +165,11 @@ def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
             context = (f"this instance's shield is '{shield.name}' "
                       f"because of variant '{variant}'")
         tag = f"{rig_name}_{inst.name}"
-        params, param_refs, d = apply_params_block(
-            params_v, inst.name, shield, dt_includes, rig_name, workdir,
-            tag, unknown_device_context=context, include_dirs=include_dirs)
+        params, param_refs, d, pdeps = apply_params_block(
+            params_v, inst.name, shield, workdir, tag,
+            unknown_device_context=context, include_dirs=include_dirs)
         diags += d
+        deps = union(deps, pdeps)
 
     new_inst = Instance(
         name=inst.name, shield=shield, socket=socket, invert=invert,
@@ -291,7 +272,7 @@ def find_wire(wires: List[Wire], frm: Optional[str],
 
 def apply_delta(delta: Val, stage: str, stage_value: str,
                 topology: Topology, binding: SocketBinding, lib: ShieldLibrary,
-                variant: Optional[str], rig_name: str, dt_includes: List[str],
+                variant: Optional[str], rig_name: str,
                 workdir: str, include_dirs: Optional[List[str]] = None,
                 ) -> Tuple[Topology, List[Diagnostic], Deps]:
     """Apply ONE delta stage ("variant" or "revision") onto the topology,
@@ -336,7 +317,7 @@ def apply_delta(delta: Val, stage: str, stage_value: str,
                 continue
             new_inst, d, idep = _apply_instance_patch(
                 item, inst, binding, lib, stage, stage_value, variant,
-                rig_name, dt_includes, workdir, include_dirs)
+                rig_name, workdir, include_dirs)
             diags += d
             deps = union(deps, idep)
             effective[name] = new_inst
@@ -347,7 +328,7 @@ def apply_delta(delta: Val, stage: str, stage_value: str,
     if add_v is not None:
         for item in add_v.value:
             added_inst, d, idep = parse_instance(
-                item, binding, lib, rig_name, dt_includes, workdir, include_dirs)
+                item, binding, lib, rig_name, workdir, include_dirs)
             diags += d
             deps = union(deps, idep)
             if added_inst is None:

@@ -417,9 +417,10 @@ ARD_DATALOGGER_FRDM_BOARD = "frdm_k64f/mk64f12/rig"
 # The artifact filenames the emitter may produce, shared by
 # test_emitted_rejects.py and test_emitted_corpus.py. Order is stable so a
 # refreeze's git diff stays readable. rig-gen-includes.dtsi is emitted only
-# when a rig declares dt-includes: (today, only lotus_buttons) --
-# assert_absent_or_refreeze covers the "correctly absent" case for every
-# other corpus rig, the same way it already does for rig-gen.conf.
+# when a rig's own parameter assignments need a header at all (today, only
+# lotus_buttons -- emitter._needed_param_includes) -- assert_absent_or_
+# refreeze covers the "correctly absent" case for every other corpus rig,
+# the same way it already does for rig-gen.conf.
 EMITTED_FILES = ("rig-gen.overlay", "rig-gen-includes.dtsi", "context.cmake",
                  "config-sheet.md", "rig-gen.conf")
 
@@ -623,8 +624,9 @@ def freeze_or_assert(golden_path: Path, content: str) -> None:
     context.cmake as a key -> value mapping, with RIG_DEPENDS as a set;
     config-sheet.md as the facts it carries (instance/socket/address/
     index/... -- see compare.py), never its prose rendering;
-    rig-gen-includes.dtsi as the ORDERED header list dt-includes:
-    declared. rig-gen.overlay compares through compare_overlay (targeted
+    rig-gen-includes.dtsi as the ORDERED header list the owning shield
+    devices' own shield,param-includes declared. rig-gen.overlay compares
+    through compare_overlay (targeted
     assertions only -- its semantics ride the zephyr.dts + dts_equiv.py
     comparison instead) EXCEPT for golden_path.parent.name (the rig's own
     golden directory) satisfying overlay_is_byte_compared -- the one rig

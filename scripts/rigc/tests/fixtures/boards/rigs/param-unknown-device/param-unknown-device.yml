@@ -2,7 +2,7 @@
 # exist on the shield at all — rule 3 (lang-param). gb_key's own required
 # parameter is correctly assigned so this fixture locks exactly one
 # violation, not two.
-dt-includes:
+dt-includes:  # retired (param-vocabulary-brief.md); kept dead on purpose, its removal would shift the golden's "at ...yml:15" anchor
   - zephyr/dt-bindings/input/input-event-codes.h
 instances:
   - name: btn

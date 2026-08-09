@@ -14,7 +14,10 @@
  * plugged into one rig need DISTINCT keys — so it is declared here via
  * shield,params with no default authored: every rig instantiating this
  * shield MUST assign it (rig-variants-revisions.md "PER-INSTANCE
- * PARAMETERS").
+ * PARAMETERS"). shield,param-includes declares the header its assigned
+ * value resolves against -- this shield's own contract, not an accident
+ * of what happens to be #included above (a macro-only header contributes
+ * no node/property of its own, so it cannot be recovered any other way).
  */
 
 #include <dt-bindings/connector/grove.h>
@@ -30,6 +33,7 @@
 				gb_key: button {
 					shield,collect = "gpio-keys";	/* an entry in the shared gpio-keys collection */
 					shield,params = "zephyr,code";	/* required: no default authored */
+					shield,param-includes = "zephyr/dt-bindings/input/input-event-codes.h";
 					gpios = <&gb_plug GROVE_SIG0 (GPIO_PULL_DOWN | GPIO_ACTIVE_HIGH)>;
 				};
 			};

@@ -37,6 +37,8 @@ import logging
 import os
 from typing import Dict, List, Optional
 
+from ..dtsio import is_int_literal
+
 log = logging.getLogger(__name__)
 
 #: The shared provenance banner every rig-gen.* artifact carries (three
@@ -67,37 +69,79 @@ def emit(rig: Rig, solved: Solved, types: Dict[str, ConnectorType], workdir: str
     ZEPHYR_INC/MODULE_INC-only search, unchanged.
 
     Returns a fresh mapping the caller owns; `rig`/`solved`/`types` are
-    read-only. `rig-gen-includes.dtsi` appears iff `rig.dt_includes` is
-    non-empty (the common corpus case gets no extra artifact and no
+    read-only. `rig-gen-includes.dtsi` appears iff `_needed_param_includes`
+    is non-empty (the common corpus case gets no extra artifact and no
     include line, zero churn); `rig-gen.conf` never appears (no
     corpus/fixture rig produces per-instance Kconfig fragments yet);
     `expectations.yml` always appears, though nothing gates its content
     (test_emitted_corpus.py's own docstring)."""
     log.info("emit(): rig '%s'", rig.name)
+    needed_includes = _needed_param_includes(rig)
     outputs = {
-        "rig-gen.overlay": render_overlay(rig, solved, types).encode("utf-8"),
+        "rig-gen.overlay": render_overlay(
+            rig, solved, types, needed_includes).encode("utf-8"),
         "config-sheet.md": render_sheet(rig, solved, types, workdir,
                                         include_dirs).encode("utf-8"),
         "expectations.yml": render_expectations(rig, solved).encode("utf-8"),
     }
-    if rig.dt_includes:
+    if needed_includes:
         outputs["rig-gen-includes.dtsi"] = _render_includes_dtsi(
-            rig.dt_includes).encode("utf-8")
+            needed_includes).encode("utf-8")
     for fname, content in outputs.items():
         log.debug("emit(): rendered %s (%d bytes)", fname, len(content))
     return outputs
 
 
-def _render_includes_dtsi(dt_includes: List[str]) -> str:
-    """The fourth generated artifact: nothing but the rig's declared
-    #include lines. rig-gen.overlay pulls this in via a QUOTED include at
-    the top of the file -- quoted-include resolution against the
-    including file's own directory means both files can simply sit
-    side-by-side in <build>/rig/ with no -I plumbing, no
+def _needed_param_includes(rig: Rig) -> List[str]:
+    """Every header this rig's own per-instance parameter assignments
+    actually need cpp to see: the union, across every instance (sorted by
+    name) and every device label it assigns params to (sorted), of the
+    owning device's own `declared_param_includes` -- but only for a
+    device that has at least one assigned property whose value is NOT a
+    bare integer literal (`dtsio.is_int_literal`), mirroring
+    `loader.params.apply_params_block`'s own short-circuit: a literal
+    never needs a header at all, in ANY code path.
+
+    This is the SOLVED-side answer to the same question
+    `loader.params.check_param_token` independently answers on the LOADER
+    side (which headers a device's own non-literal assignments need cpp
+    to preprocess): the two coincide today only because the loader passes
+    a device's WHOLE `declared_param_includes` list to `check_param_token`
+    rather than some filtered subset of it. A change to either that stops
+    doing that must update the other, or `rig-gen-includes.dtsi` and the
+    set of headers the loader actually validated will silently diverge.
+
+    Deduplicated but never REORDERED -- rig-gen-includes.dtsi's own
+    #include order can matter to cpp (a later header may rely on a macro
+    an earlier one defines), and `compare_includes_dtsi`'s own contract
+    treats it as a list, never a set. Traversal is by SORTED instance
+    name and device label (never rig-file declaration order, R7/R18), so
+    the result is deterministic regardless of authoring order.
+
+    rig is read-only; returns a fresh list the caller owns."""
+    headers: List[str] = []
+    for inst in sorted(rig.instances, key=lambda i: i.name):
+        devices_by_label = {d.label: d for d in inst.shield.devices}
+        for dev_label, props in sorted(inst.params.items()):
+            dev = devices_by_label.get(dev_label)
+            if dev is None or not any(not is_int_literal(v) for v in props.values()):
+                continue
+            for header in dev.declared_param_includes:
+                if header not in headers:
+                    headers.append(header)
+    return headers
+
+
+def _render_includes_dtsi(headers: List[str]) -> str:
+    """The fourth generated artifact: nothing but the needed #include
+    lines (`_needed_param_includes`). rig-gen.overlay pulls this in via a
+    QUOTED include at the top of the file -- quoted-include resolution
+    against the including file's own directory means both files can
+    simply sit side-by-side in <build>/rig/ with no -I plumbing, no
     EXTRA_DTC_OVERLAY_FILE entry, no ordering constraint in cmake, and no
     build_info key: the dependency is visible in the file that has it."""
     out = [f"/* {GEN} */", ""]
-    out += [f"#include <{header}>" for header in dt_includes]
+    out += [f"#include <{header}>" for header in headers]
     out.append("")
     return "\n".join(out)
 

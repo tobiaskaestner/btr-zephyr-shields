@@ -1,19 +1,18 @@
 """Unit: loader (loader/__init__.py) -- `load()`'s three-phase split
 (rigc-r45-brief.md Part A): `_resolve_metadata` (steps 2-5, the rig
 shell), `_gather_content` (steps 6-9, the content file + delta fragments
-+ rule 10 + dt-includes union), `_build_topology` (steps 10-11, stage 0
-plus the two delta stages).
++ rule 10), `_build_topology` (steps 10-11, stage 0 plus the two delta
+stages).
 
-`_resolve_metadata` is entirely cpp-free -- every test below feeds it a
-synthetic, already-parsed rig.yml document (via `documents.parse_marked`
-over a tmp file: still hermetic, no shield library, no ZEPHYR_BASE, no
-subprocess) and asserts the Rig/SocketBinding it builds. `_gather_content`
-and `_build_topology` get lighter coverage of their own SHAPE (their
-cpp-reaching branches -- a non-empty dt-includes:, a lazily-resolved
-shield revision -- are integration-only by construction, same seam as
-`loader.library`'s own eager-parse branch); every scenario here stays
-inside the cpp-free subset on purpose, so the unit suite's hermeticity
-holds."""
+`_resolve_metadata` and `_gather_content` are entirely cpp-free --
+every test below feeds them a synthetic, already-parsed rig.yml document
+(via `documents.parse_marked` over a tmp file: still hermetic, no shield
+library, no ZEPHYR_BASE, no subprocess) and asserts the values they
+build. `_build_topology` gets lighter coverage of its own SHAPE (its
+cpp-reaching branch -- a lazily-resolved shield revision -- is
+integration-only by construction, same seam as `loader.library`'s own
+eager-parse branch); every scenario here stays inside the cpp-free
+subset on purpose, so the unit suite's hermeticity holds."""
 from __future__ import annotations
 
 from textwrap import dedent
@@ -193,7 +192,7 @@ def test_resolve_metadata_reports_an_axis_collision(tmp_path: Path) -> None:
 
 def test_gather_content_rejects_a_missing_content_file(tmp_path: Path) -> None:
     rig = _rig()
-    content, diags, deps = _gather_content(rig, str(tmp_path), str(tmp_path), None)
+    content, diags, deps = _gather_content(rig, str(tmp_path))
     assert content is None
     assert len(diags) == 1
     assert diags[0].code == "lang-content"
@@ -205,10 +204,9 @@ def test_gather_content_reads_an_empty_content_file(tmp_path: Path) -> None:
         instances: []
         """)
     rig = _rig()
-    content, diags, deps = _gather_content(rig, str(tmp_path), str(tmp_path), None)
+    content, diags, deps = _gather_content(rig, str(tmp_path))
     assert diags == []
     assert content is not None
-    assert content.dt_includes == []
     assert content.deltas == Deltas(variant_v=None, revision_v=None)
     assert deps == frozenset((str(content_path),))
 
@@ -219,7 +217,7 @@ def test_gather_content_rule_10_a_nondefault_variant_contributing_nothing(
         instances: []
         """)
     rig = _rig(variant="b", variants=AxisDecl(values=["a", "b"], default="a"))
-    _content, diags, _deps = _gather_content(rig, str(tmp_path), str(tmp_path), None)
+    _content, diags, _deps = _gather_content(rig, str(tmp_path))
     assert len(diags) == 1
     assert diags[0].code == "lang-variant"
     assert "contributes nothing" in diags[0].message
@@ -234,7 +232,7 @@ def test_gather_content_finds_and_carries_the_variant_delta_fragment(
         instances: []
         """)
     rig = _rig(variant="b", variants=AxisDecl(values=["a", "b"], default="a"))
-    content, diags, deps = _gather_content(rig, str(tmp_path), str(tmp_path), None)
+    content, diags, deps = _gather_content(rig, str(tmp_path))
     assert diags == []
     assert content is not None
     assert content.deltas.variant_v is not None
@@ -251,7 +249,7 @@ def test_gather_content_finds_and_carries_the_revision_delta_fragment(
         instances: []
         """)
     rig = _rig(revision="2", revisions=AxisDecl(values=["1", "2"], default="1"))
-    content, diags, deps = _gather_content(rig, str(tmp_path), str(tmp_path), None)
+    content, diags, deps = _gather_content(rig, str(tmp_path))
     assert diags == []
     assert content is not None
     assert content.deltas.variant_v is None

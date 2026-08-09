@@ -2,9 +2,9 @@
 
 The stable contracts: delta operations over a synthetic effective
 topology (match/add/remove for instances and wires, `removed_by`
-propagation), dt-includes union (order, dedup, SrcRef retention), and
-diagnostic ORDERING on a multi-error synthetic input -- composed upward
-in document/traversal order, never accumulated into a side channel.
+propagation), and diagnostic ORDERING on a multi-error synthetic input --
+composed upward in document/traversal order, never accumulated into a
+side channel.
 
 R3 closes R2's ShieldRef seam: `parse_instance`/`apply_delta` now resolve
 `shield:` against a REAL (synthetic, hermetic) `ShieldLibrary` built
@@ -23,8 +23,7 @@ from textwrap import dedent
 from rigc.diag import SourceRef
 from rigc.loader.binding import SocketBinding
 from rigc.loader.delta import (Topology, apply_delta, find_wire,
-                               parse_instance, parse_wire, resolve_dotted,
-                               union_dt_includes)
+                               parse_instance, parse_wire, resolve_dotted)
 from rigc.loader.documents import Val, parse_marked
 from rigc.loader.library import ShieldLibrary
 from rigc.model import Device, Instance, Pad, Shield, Wire, WireEnd
@@ -72,7 +71,7 @@ def test_parse_instance_resolves_the_shield_against_the_library(tmp_path) -> Non
         shield: sh
         socket: nucleo_ard
         """)
-    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", [], str(tmp_path))
+    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
     assert diags == []
     assert inst is not None
     assert inst.name == "a"
@@ -87,7 +86,7 @@ def test_parse_instance_unknown_shield_is_rejected(tmp_path) -> None:
         shield: ghost
         socket: s
         """)
-    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", [], str(tmp_path))
+    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
     assert inst is None
     assert len(diags) == 1
     assert diags[0].code == "lang-instance-shield"
@@ -101,7 +100,7 @@ def test_parse_instance_applies_the_socket_binding(tmp_path) -> None:
         socket: ard
         """)
     inst, diags, deps = parse_instance(
-        item, SocketBinding({"ard": "nucleo_ard"}), lib, "rig", [], str(tmp_path))
+        item, SocketBinding({"ard": "nucleo_ard"}), lib, "rig", str(tmp_path))
     assert inst is not None
     assert inst.socket == "nucleo_ard"
 
@@ -116,7 +115,7 @@ def test_parse_instance_socket_is_optional(tmp_path) -> None:
         name: a
         shield: sh
         """)   # no socket:
-    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", [], str(tmp_path))
+    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
     assert diags == []
     assert inst is not None
     assert inst.socket is None
@@ -127,7 +126,7 @@ def test_parse_instance_missing_required_key_returns_diagnostic(tmp_path) -> Non
         name: a
         socket: s
         """)   # no shield:
-    inst, diags, deps = parse_instance(item, _BINDING, _library(), "rig", [], str(tmp_path))
+    inst, diags, deps = parse_instance(item, _BINDING, _library(), "rig", str(tmp_path))
     assert inst is None
     assert len(diags) == 1
     assert diags[0].code == "lang-schema"
@@ -271,41 +270,6 @@ def test_find_wire_none_endpoint_never_matches() -> None:
     assert find_wire([], None, "y.led-1") is None
 
 
-# ------------------------------------------------------------- union_dt_includes
-
-def test_union_dt_includes_appends_new_headers(tmp_path) -> None:
-    doc = _doc(tmp_path, """\
-        dt-includes: [a.h, b.h]
-        """)
-    headers, refs = union_dt_includes([], [], doc.value["dt-includes"])
-    assert headers == ["a.h", "b.h"]
-    assert len(refs) == 2
-
-
-def test_union_dt_includes_dedups_keeping_the_earlier_srcref(tmp_path) -> None:
-    doc = _doc(tmp_path, """\
-        dt-includes: [a.h]
-        """)
-    first_ref = SourceRef("earlier", 1, "dt-includes[0]")
-    headers, refs = union_dt_includes(["a.h"], [first_ref], doc.value["dt-includes"])
-    assert headers == ["a.h"]
-    assert refs == [first_ref]           # the LATER duplicate's ref is dropped
-
-
-def test_union_dt_includes_none_is_a_no_op() -> None:
-    headers, refs = union_dt_includes(["a.h"], [SourceRef("s", 1)], None)
-    assert headers == ["a.h"]
-
-
-def test_union_dt_includes_does_not_mutate_its_inputs(tmp_path) -> None:
-    doc = _doc(tmp_path, """\
-        dt-includes: [b.h]
-        """)
-    original = ["a.h"]
-    union_dt_includes(original, [], doc.value["dt-includes"])
-    assert original == ["a.h"]
-
-
 # ------------------------------------------------------------------- apply_delta
 
 def _topology_with(*names: str, shield=None) -> Topology:
@@ -315,10 +279,10 @@ def _topology_with(*names: str, shield=None) -> Topology:
 
 
 def _apply(delta, stage, stage_value, topology, lib=None, binding=_BINDING,
-          variant=None, rig_name="rig", dt_includes=(), workdir="/nonexistent"):
+          variant=None, rig_name="rig", workdir="/nonexistent"):
     return apply_delta(delta, stage, stage_value, topology, binding,
                        lib or _library(_shield("sh")), variant, rig_name,
-                       list(dt_includes), workdir)
+                       workdir)
 
 
 def test_instances_patch_matching_by_name_replaces_socket(tmp_path) -> None:

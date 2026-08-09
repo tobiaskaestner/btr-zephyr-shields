@@ -175,6 +175,29 @@ def test_declared_params_from_shield_params(tmp_path) -> None:
     assert dev.extra_props == [("compatible", 'compatible = "vnd,thing";')]
 
 
+def test_declared_param_includes_from_shield_param_includes(tmp_path) -> None:
+    shields, diags = _one_shield(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tplug: plug { #gpio-cells = <2>; };
+\t\t\ti2c {
+\t\t\t\tdev1: dev@50 {
+\t\t\t\t\tcompatible = "vnd,thing";
+\t\t\t\t\treg = <0x50>;
+\t\t\t\t\tshield,params = "vnd,threshold";
+\t\t\t\t\tshield,param-includes = "vnd/threshold.h";
+\t\t\t\t};
+\t\t\t};
+\t\t};
+""")
+    assert diags == []
+    dev = shields["fx"].devices[0]
+    assert dev.declared_param_includes == ["vnd/threshold.h"]
+    # excluded from the passthrough allowlist -- it is a rigc-only
+    # vocabulary declaration, never a real DTS property to render.
+    assert dev.extra_props == [("compatible", 'compatible = "vnd,thing";')]
+
+
 def test_authored_default_shows_up_in_extra_props(tmp_path) -> None:
     """A declared param WITH an authored default is OPTIONAL: its name
     appears among extra_props too -- the invariant check's own "may be

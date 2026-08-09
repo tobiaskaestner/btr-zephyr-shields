@@ -37,8 +37,9 @@ def render_sheet(rig: Rig, s: Solved, types: Dict[str, ConnectorType], workdir: 
                  include_dirs: Optional[List[str]] = None) -> str:
     """config-sheet.md's full text. rig/s/types are read-only; returns a
     fresh string the caller owns. workdir/include_dirs feed the params
-    table's own token resolution (a synthetic cpp/dtlib TU, shared with
-    the loader's own dt-includes validation -- see dtsio.resolve_token)."""
+    table's own token resolution (a synthetic cpp/dtlib TU, the same
+    mechanism the loader's own per-instance-parameter resolution uses --
+    see dtsio.resolve_token)."""
     out = [f"# Physical configuration sheet — rig `{rig.name}`",
            "", f"<!-- {GEN} -->", "",
            f"Board: **{rig.board}**", "",
@@ -107,15 +108,23 @@ def _params_table(rig: Rig, workdir: str,
     itself never resolves anything, so without this table a rig-assigned
     INPUT_KEY_1 would mean nothing to a reader who has not memorized the
     header. Empty (no section at all) for every rig that assigns none,
-    which is all but one of the corpus today."""
+    which is all but one of the corpus today.
+
+    Each row resolves against its OWN device's declared_param_includes
+    (param-vocabulary-brief.md) -- the vocabulary is the owning shield
+    device's, never a rig-wide list, so two rows on different devices may
+    resolve against entirely different headers."""
     rows = []
     for inst in sorted(rig.instances, key=lambda i: i.name):
+        devices_by_label = {d.label: d for d in inst.shield.devices}
         for dev_label, props in sorted(inst.params.items()):
             for prop, value in sorted(props.items()):
                 display = value
                 if not is_int_literal(value):
+                    dev = devices_by_label.get(dev_label)
+                    headers = dev.declared_param_includes if dev is not None else []
                     tag = f"sheet_{inst.name}_{dev_label}_{prop}"
-                    resolved = resolve_token(value, rig.dt_includes, workdir, tag,
+                    resolved = resolve_token(value, headers, workdir, tag,
                                             include_dirs)
                     if resolved is not None:
                         display = f"{value} ({resolved})"

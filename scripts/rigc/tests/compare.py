@@ -30,16 +30,18 @@ post-resolution, and strictly stronger than any overlay-only comparator
 could be. compare_overlay targets only the three facts that VANISH on
 resolution and that dts_equiv.py therefore cannot see: a rig-assigned
 param's verbatim macro token (zephyr.dts shows only the resolved
-number), the quoted #include that must open the file for dt-includes:
-to resolve with no -I plumbing, and the human-facing comments (gpio
-position/inverted annotations, the PWM/ADC pinctrl note) dtlib discards
-entirely when parsing. One golden directory (shield-uart-subset-frdm)
-has no zephyr.dts at all and stays byte-compared instead --
-overlay_is_byte_compared names that exception.
+number), the quoted #include that must open the file for the needed
+param-includes headers to resolve with no -I plumbing, and the
+human-facing comments (gpio position/inverted annotations, the PWM/ADC
+pinctrl note) dtlib discards entirely when parsing. One golden directory
+(shield-uart-subset-frdm) has no zephyr.dts at all and stays
+byte-compared instead -- overlay_is_byte_compared names that exception.
 
 rig-gen-includes.dtsi's contract is the ORDERED list of headers a rig's
-dt-includes: declared -- cpp include order can matter (a later header may
-depend on macros an earlier one defines), so this is a list, never a
+own parameter assignments actually need (emitter._needed_param_includes,
+param-vocabulary-brief.md -- the union of the owning shield devices' own
+declared_param_includes) -- cpp include order can matter (a later header
+may depend on macros an earlier one defines), so this is a list, never a
 set, unlike RIG_DEPENDS above. The provenance banner is its only comment
 and carries no contract, same as the other two artifacts.
 
@@ -594,8 +596,9 @@ _PARAM_TOKEN_RE = re.compile(
     r"^\s*(?P<name>[\w,.\-]+) = <(?P<token>[A-Za-z_]\w*)>;\s*$", re.MULTILINE)
 
 # The quoted include that must open the file (emitter/overlay.py:
-# render_overlay, emitted iff rig.dt_includes) -- quoted-include
-# resolution against the file's OWN directory is what lets rig-gen.overlay
+# render_overlay, emitted iff emitter._needed_param_includes(rig) is
+# non-empty) -- quoted-include resolution against the file's OWN directory
+# is what lets rig-gen.overlay
 # and rig-gen-includes.dtsi simply sit side by side in <build>/rig/ with
 # no -I plumbing; a displaced or missing include line breaks exactly that.
 _INCLUDES_LINE = '#include "rig-gen-includes.dtsi"'
@@ -757,12 +760,14 @@ def compare_overlay(expected: str, actual: str) -> Optional[str]:
 
 
 # --------------------------------------------------------------------------
-# rig-gen-includes.dtsi: nothing but the rig's declared dt-includes:,
-# emitted iff that key is non-empty (today, only lotus_buttons). Unlike
-# RIG_DEPENDS, this is compared as an ORDERED list -- it is the rig
-# author's own dt-includes: order, and cpp include order can matter (a
-# later header may rely on a macro an earlier one defines), so a
-# comparator that tolerated reordering could hide a real regression.
+# rig-gen-includes.dtsi: nothing but the headers the rig's own parameter
+# assignments actually need (emitter._needed_param_includes -- the union
+# of the owning shield devices' own declared_param_includes), emitted iff
+# that list is non-empty (today, only lotus_buttons). Unlike RIG_DEPENDS,
+# this is compared as an ORDERED list -- it is the declaring shield
+# device's own header order, and cpp include order can matter (a later
+# header may rely on a macro an earlier one defines), so a comparator
+# that tolerated reordering could hide a real regression.
 
 _INCLUDES_BANNER_RE = re.compile(r"^/\*.*\*/$")
 _INCLUDE_LINE_RE = re.compile(r"^#include <(?P<header>[^>]+)>$")
@@ -777,9 +782,11 @@ class IncludesDtsiParseError(ValueError):
 
 
 def parse_includes_dtsi(text: str) -> Tuple[str, ...]:
-    """Parse rig-gen-includes.dtsi into the ORDERED tuple of headers its
-    dt-includes: declared, in the order the rig author wrote them (and
-    emitter/__init__.py._render_includes_dtsi preserves).
+    """Parse rig-gen-includes.dtsi into the ORDERED tuple of headers the
+    rig's own parameter assignments needed
+    (emitter._needed_param_includes), in the order the declaring shield
+    device wrote them (and emitter/__init__.py._render_includes_dtsi
+    preserves).
 
     The provenance banner comment (one line, /* ... */) is recognised
     structurally as the artifact's first non-blank line but its own text

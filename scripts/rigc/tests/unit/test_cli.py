@@ -294,8 +294,9 @@ def test_out_of_scope_feature_refuses(tmp_path: Path,
 
 def _write_zero_instance_rig(tmp_path: Path) -> None:
     """A rig with zero instances needs no cpp from the emitter (no params
-    to resolve, no dt-includes to probe) -- the shape every accept-path
-    test below reuses so board reading is the only thing left to stub.
+    to resolve, no shield,param-includes header to probe) -- the shape
+    every accept-path test below reuses so board reading is the only
+    thing left to stub.
     Carries no `board:` of its own (board-coordinate-s6-brief.md Sec 11):
     every caller must pass `--board` itself now, the only source left."""
     (tmp_path / "rig.yml").write_text(
@@ -343,7 +344,7 @@ def test_accept_path_now_accepts_and_writes_artifacts(
     for fname in ("rig-gen.overlay", "config-sheet.md", "expectations.yml",
                  "context.cmake"):
         assert (out_dir / fname).is_file(), fname
-    assert not (out_dir / "rig-gen-includes.dtsi").exists()  # no dt-includes:
+    assert not (out_dir / "rig-gen-includes.dtsi").exists()  # no params: at all
     assert not (out_dir / "rig-gen.conf").exists()           # never emitted
 
     context_text = (out_dir / "context.cmake").read_text()

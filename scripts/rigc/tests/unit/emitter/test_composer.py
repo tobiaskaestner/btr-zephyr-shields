@@ -3,49 +3,104 @@ SET as a function of input, and the ONE writer. This module's subject is
 the ASSEMBLY, not any one artifact's content (those are covered where
 they are named: test_overlay.py, test_sheet.py, test_expectations.py,
 test_context.py).
+
+`_needed_param_includes` (private) is tested directly here, the same
+precedent test_loader.py already sets for `_build_topology` -- it is
+PURE (no cpp), so poking it directly keeps these tests hermetic while
+still pinning the derivation `emit()`'s own rig-gen-includes.dtsi
+decision rests on; going through `emit()` itself would also render
+config-sheet.md, which for a symbolic param value reaches cpp
+(dtsio.resolve_token) -- exactly what this module's other tests avoid.
 """
 from __future__ import annotations
 
 from pathlib import Path
 
 from rigc.analyzer import Solved
-from rigc.emitter import emit, write_artifacts
+from rigc.emitter import (GEN, _needed_param_includes, _render_includes_dtsi,
+                          emit, write_artifacts)
 from rigc.model import BoardSocket, ConnectorType, Device, Instance, Rig, Shield
 
 
-def test_rig_gen_includes_dtsi_present_iff_dt_includes_declared() -> None:
-    with_includes = Rig(name="r", board="b", instances=[],
-                        dt_includes=["dt-bindings/input/input-event-codes.h"])
-    without = Rig(name="r", board="b", instances=[])
-
-    out_with = emit(with_includes, Solved(), {}, workdir="/does-not-matter")
-    out_without = emit(without, Solved(), {}, workdir="/does-not-matter")
-
-    assert "rig-gen-includes.dtsi" in out_with
-    assert "rig-gen-includes.dtsi" not in out_without
+def _device_declaring(header_list: list) -> Device:
+    return Device(name="d", label="d", compatible=None, bus=None, group=None,
+                 reg=None, addr_from=None, cs_position=None,
+                 declared_params=["zephyr,code"],
+                 declared_param_includes=list(header_list))
 
 
-def test_rig_gen_includes_dtsi_keeps_declaration_order() -> None:
-    """The PRODUCER side of the ordered-header contract. dt-includes: order
-    is the rig author's, and cpp include order can matter, so the emitter
-    must not sort or otherwise reorder. Asserted on the exact decoded text,
-    which pins the order, the angle-bracket form and the banner together --
-    the comparator's own ordering guard is on the consuming side and cannot
-    notice the emitter losing this."""
-    # Three headers whose declared order differs from BOTH ascending and
-    # descending sort order, so any reordering the emitter might introduce
-    # changes the rendered text. Two names alone are not enough: a pair can
-    # coincide with one sort direction and make the assertion vacuous.
-    rig = Rig(name="r", board="b", instances=[],
-              dt_includes=["mmm/mid.h", "aaa/first.h", "zzz/last.h"])
+def test_needed_param_includes_is_empty_when_every_assigned_value_is_a_literal() -> None:
+    dev = _device_declaring(["dt-bindings/input/input-event-codes.h"])
+    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
+    inst = Instance(name="i1", shield=shield, socket="sock",
+                   params={"d": {"zephyr,code": "5"}})
+    rig = Rig(name="r", board="b", instances=[inst])
+
+    assert _needed_param_includes(rig) == []
+
+
+def test_needed_param_includes_collects_headers_for_a_symbolic_value() -> None:
+    dev = _device_declaring(["dt-bindings/input/input-event-codes.h"])
+    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
+    inst = Instance(name="i1", shield=shield, socket="sock",
+                   params={"d": {"zephyr,code": "INPUT_KEY_0"}})
+    rig = Rig(name="r", board="b", instances=[inst])
+
+    assert _needed_param_includes(rig) == ["dt-bindings/input/input-event-codes.h"]
+
+
+def test_needed_param_includes_keeps_the_devices_own_declaration_order() -> None:
+    """The PRODUCER side of the ordered-header contract. A device's own
+    shield,param-includes order is the shield author's, and cpp include
+    order can matter, so this derivation must not sort or otherwise
+    reorder. Three headers whose declared order differs from BOTH
+    ascending and descending sort order, so any reordering this function
+    might introduce changes the result -- two names alone are not enough:
+    a pair can coincide with one sort direction and make the assertion
+    vacuous."""
+    dev = _device_declaring(["mmm/mid.h", "aaa/first.h", "zzz/last.h"])
+    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
+    inst = Instance(name="i1", shield=shield, socket="sock",
+                   params={"d": {"zephyr,code": "INPUT_KEY_0"}})
+    rig = Rig(name="r", board="b", instances=[inst])
+
+    assert _needed_param_includes(rig) == ["mmm/mid.h", "aaa/first.h", "zzz/last.h"]
+
+
+def test_render_includes_dtsi_preserves_declaration_order() -> None:
+    """The RENDERER side of the ordered-header contract
+    (test_needed_param_includes_keeps_the_devices_own_declaration_order
+    above pins the PRODUCER side): decoded text lists the given headers in
+    the exact order handed in -- neither ascending nor descending sort
+    order, so any reordering this function might introduce changes the
+    result. Pure (no cpp), so this is unit-tested directly rather than
+    only observed through emit()."""
+    text = _render_includes_dtsi(["mmm/mid.h", "aaa/first.h", "zzz/last.h"])
+    assert text == (
+        f"/* {GEN} */\n"
+        "\n"
+        "#include <mmm/mid.h>\n"
+        "#include <aaa/first.h>\n"
+        "#include <zzz/last.h>\n"
+    )
+
+
+def test_rig_gen_includes_dtsi_is_absent_when_every_param_value_is_a_literal() -> None:
+    """emit()-level companion to test_needed_param_includes_is_empty_when_
+    every_assigned_value_is_a_literal above: a literal param value never
+    reaches cpp at all (workdir is a path that does not exist, so a
+    cpp/build attempt would fail loudly), and the artifact this device's
+    own declared_param_includes would otherwise justify simply does not
+    appear."""
+    dev = _device_declaring(["dt-bindings/input/input-event-codes.h"])
+    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
+    inst = Instance(name="i1", shield=shield, socket="sock",
+                   params={"d": {"zephyr,code": "5"}})
+    rig = Rig(name="r", board="b", instances=[inst])
 
     out = emit(rig, Solved(), {}, workdir="/does-not-matter")
-    text = out["rig-gen-includes.dtsi"].decode("utf-8")
 
-    assert text.splitlines()[2:5] == [
-        "#include <mmm/mid.h>",
-        "#include <aaa/first.h>",
-        "#include <zzz/last.h>"], text
+    assert "rig-gen-includes.dtsi" not in out
 
 
 def test_rig_gen_conf_is_never_emitted() -> None:

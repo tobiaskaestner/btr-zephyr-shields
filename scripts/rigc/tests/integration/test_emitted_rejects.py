@@ -148,8 +148,9 @@ def test_param_unknown_device_golden(tmp_path: Path) -> None:
 
 def test_param_unresolvable_golden(tmp_path: Path) -> None:
     """Synthetic fixture: per-instance-parameters rule 4 — an assigned token
-    that does not resolve against the rig's own declared dt-includes:
-    must be rejected, naming the fix."""
+    that does not resolve against the OWNING SHIELD DEVICE's own declared
+    param-includes (param-vocabulary-brief.md) must be rejected, naming
+    the fix."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-unresolvable" / "rig.yml"
     result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
@@ -164,45 +165,43 @@ def test_param_unresolvable_golden(tmp_path: Path) -> None:
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
 
 
-def test_param_no_vocabulary_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: per-instance-parameters rule 5 — a symbolic token
-    assigned by a rig that declares no dt-includes: at all. Distinct from
-    rule 4: there is no vocabulary to resolve against, so the diagnostic must
-    say that rather than blame the token, or the author is sent looking for a
-    typo that is not there."""
+def test_param_shield_no_includes_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: the direct successor of the retired param-no-
+    vocabulary case (param-vocabulary-brief.md Sec 6), now on the shield
+    side -- a shield declares shield,params with NO shield,param-includes
+    at all, and a rig assigns a symbolic (non-literal) token to it.
+    check_param_token's vocabulary is the owning device's own
+    declared_param_includes, so an empty list still reaches cpp and still
+    fails to resolve, naming the empty vocabulary rather than silently
+    accepting."""
     out_dir = tmp_path / "out"
-    rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-no-vocabulary" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
+    fixture = FIXTURES_DIR / "boards" / "rigs" / "param-shield-no-includes"
+    result = run_expand(fixture / "rig.yml", out_dir,
+                        board="nucleo_f401re/stm32f401xe/rig",
+                        shield_dirs=[fixture / "shields"])
 
     assert result.returncode != 0, (
-        "a symbolic token with no declared vocabulary must be rejected")
+        "a symbolic token against a shield declaring no param-includes "
+        "must be rejected")
     assert "[lang-dt-include]" in result.stderr, result.stderr
-    assert "dt-includes" in result.stderr, result.stderr
+    assert "does not resolve" in result.stderr, result.stderr
 
     zb = zephyr_base()
-    golden_dir = GOLDENS_DIR / "param-no-vocabulary"
+    golden_dir = GOLDENS_DIR / "param-shield-no-includes"
     freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
 
 
-def test_param_missing_header_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: per-instance-parameters rule 6 — a dt-includes:
-    entry naming a header that is not on the include path must be rejected at
-    expand time, naming the searched dirs. Guards the vocabulary declaration
-    itself: without this the failure would surface later as an unresolvable
-    token (rule 4), blaming the assignment instead of the include."""
-    out_dir = tmp_path / "out"
-    rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-missing-header" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
-
-    assert result.returncode != 0, (
-        "a dt-includes header that does not exist must be rejected")
-    assert "[lang-dt-include]" in result.stderr, result.stderr
-
-    zb = zephyr_base()
-    golden_dir = GOLDENS_DIR / "param-missing-header"
-    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
-    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+# param-no-vocabulary and param-missing-header RETIRED
+# (param-vocabulary-brief.md Sec 6): both pinned rig-level dt-includes:
+# mechanisms -- rule 5's "no vocabulary declared at all" and rule 6's
+# up-front, use-independent header existence check -- that cease to exist
+# once the vocabulary is the owning shield DEVICE's own
+# shield,param-includes. Neither fixture's own token (INPUT_KEY_0,
+# assigned to grove_btn's gb_key) fails to resolve any more: grove_btn
+# now declares the very header these fixtures assumed no rig-level
+# dt-includes: could reach, so both accept past the loader entirely and
+# their fixtures/goldens are deleted with the mechanism.
 
 
 # ---------------------------------------------------------------- V1a: qualifier rejects

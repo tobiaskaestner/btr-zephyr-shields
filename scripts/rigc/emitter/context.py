@@ -95,8 +95,8 @@ def render(rig: Rig, deps: Deps) -> bytes:
     # RIG_REVISION/RIG_VARIANT: written only when this rig actually declares
     # the corresponding axis (rig.revision/rig.variant is None otherwise) --
     # same "no declaration, no artifact, zero churn" precedent as
-    # rig-gen-includes.dtsi for dt-includes:, so an axis-less corpus rig's
-    # context.cmake stays byte-identical.
+    # rig-gen-includes.dtsi follows for its own header list, so an
+    # axis-less corpus rig's context.cmake stays byte-identical.
     if rig.revision is not None:
         lines.append(f'set(RIG_REVISION "{rig.revision}")')
         if (rig.revision_requested is not None
