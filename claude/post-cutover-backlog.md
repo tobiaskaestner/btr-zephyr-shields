@@ -129,7 +129,15 @@ All three are now CLOSED — two with no work to do, one implemented.
    outside this repo still carrying `board:` builds whatever `-b` says,
    silently.
 
-8. **Shield plurality** — pre-migration (`bridle-migration.md`).
+8. **Shield plurality** — **DONE 2026-08-10** (`605d258`,
+   `shield-plurality-brief.md`). A shield.yml may declare N shields in one
+   folder; the folder stops naming the shield wherever one exists.
+   Discovery gained a second discriminator rather than a replacement
+   (`template: true` where there is a shield.yml, the `<basename>.shield`
+   marker where there is not), so the yml-less fixtures were untouched.
+   One item moved to 7 rather than being closed here: `shield:` and
+   `shields:` are mutually exclusive only by the zephyr-side jsonschema
+   during a cmake build, never by rigc's own parse.
 
 9. **BRIDLE MIGRATION** — the goal the whole mission serves. Its
    prerequisite, the lazy shield library (item 5), is DONE: the eager scan

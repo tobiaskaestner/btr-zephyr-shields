@@ -1,6 +1,196 @@
 # Rigs — Session Handoff
 
-## RESUME (2026-08-09) — §9.6 IS FULLY DONE, BOTH PARTS. MULTI-BUS SOCKETS LANDED. TWISTER GAINED THREE SUITES, INCLUDING A NEW REAL GROVE BOARD. MULTI-PLUG SHIELDS IS A NEW, PAUSED DESIGN THREAD. NEXT = rig-schema.yaml.
+## RESUME (2026-08-10) — SHIELD PLURALITY IS DONE AND COMMITTED. BACKLOG ITEM 8 IS CLOSED. NEXT = rig-schema.yaml, THEN BRIDLE MIGRATION.
+
+### STATE AT SESSION CLOSE (2026-08-10)
+
+btr-shields HEAD **`36bf834`**. `main` is **ahead 21 of origin, NOT
+pushed** — the 18 carried in plus this session's three. **Tree is NOT
+clean, deliberately**: the same two docs as yesterday
+(`claude/bridle-migration.md` modified, `claude/multi-plug-shield-design.md`
+untracked) are still yours to review, untouched by this session.
+
+**Gate, driver-verified independently, FULL, twice** — once on the
+implementor's work, once after the review fixes: mypy **97/0**, unit
+**630**, integration **203**, coverage **93%** vs the 88 floor.
+
+| commit | what |
+|---|---|
+| `576d98c` | doc: the shield plurality brief |
+| `605d258` | **a shield.yml may declare N shields in one folder** |
+| `36bf834` | **twister: the arduino_lcd plural-folder shields, 10 -> 12 suites** |
+
+### THE RULING THAT SHAPED IT — two discriminators, one per case
+
+**Tobi, 2026-08-10, correcting `bridle-migration.md`'s own prediction**
+that the self-filter "must become the `template: true` marker": ONE rule
+cannot serve both cases. Where a folder has a shield.yml, `template: true`
+discriminates a rig template from a legacy overlay-style shield (bridle
+and upstream carry dozens, and they increasingly ship a shield.yml of
+their own). Where it has none, the `<basename>.shield` marker
+discriminates, exactly as before.
+
+**The census that forced the correction, and re-derive it before trusting
+it:** 18 shield.yml in the tree, **all 18** declaring `template: true`
+(so the corpus changes hands nowhere), against **12 yml-less FIXTURE
+folders** that rely on the marker. Requiring shield.yml for discovery
+would have meant authoring 12 new fixture files for no test value. "Zero
+new fixture shield.yml" became acceptance criterion 6 for exactly that
+reason.
+
+### WHAT WAS ALREADY TRUE — read in the tree, not recalled
+
+Three of the brief's four cost estimates turned out to be already paid:
+
+- **The schema already validates the plural form.** Upstream
+  `b836fcdd709` brought `shields:`; this project's own carried commits
+  `3f205005b99` and `8da5b3a0f60` put `template:`/`revisions:` inside the
+  SHARED `$defs/shieldSchema`, so a plural ENTRY already carries either.
+  No zephyr-side change in this slice.
+- **cmake already consumes it.** `dts.cmake:705+` collects
+  `_rig_shield_candidate_dirs_<name>` per NAME, and its collision
+  resolution constructs `${cand}/${shield_name}.shield` from the name.
+- **Identity was already name-first.** `_pick_shield` does
+  `parsed.get(name)`; only where `name` comes from changed.
+
+The one-shield-per-folder assumption really was two lines of the scan.
+
+### DECISIONS INSIDE THE SLICE, each one a decision rather than a detail
+
+- **`template: true` with no `<name>.shield` is now a loud
+  `lang-shield-template` finding** naming the entry and the path it
+  expected, where it was a silent skip. The folder's authoring intent is
+  known there, unlike the yml-less case.
+- **`promotable[name]` records what an entry DECLARED, never that a
+  template was found.** Such a name stays in `ymls`/`promotable` while
+  never entering `pending`, so `discover_shields` still reports it with
+  `template=True` and `check_promotable` still PASSES it — deliberately:
+  the scan's own finding already says precisely what is wrong, and a
+  second vocabulary would duplicate or contradict it. Promotion then
+  fails at load, where the name genuinely cannot resolve.
+- **`discover_shields` enumerates `pending` UNION `ymls`.** Without that
+  widening, a legacy shield's name would vanish from the census and
+  `check_promotable`'s "shield.yml does not declare 'template: true'"
+  branch would be unreachable, degrading to "no such shield".
+- **`revisions:` is read per ENTRY**, its `owner=` naming the declared
+  shield rather than the folder basename.
+
+### THE CORPUS EXAMPLE — `boards/shields/arduino_lcd/`
+
+Ruled in by Tobi rather than fixtures-only. **The folder is named after
+neither shield it declares** — that is the slice's real falsifier, since
+a folder named after one of them would let the old basename path keep
+working. `lcd_char_1602` (GPIO, 4-bit character LCD) and `lcd_tft_24`
+(SPI + DC/RESET, CS pool-allocated) are genuinely distinct devices no
+existing axis collapses: the RESIDUE case, which is what bridle's
+`rpi_pico_lcd` (eleven distinct LCDs in one folder) is made of.
+
+Both plug `arduino-r3`, so both promote on `frdm_k64f` and
+`nucleo_f401re` with no `:socket=` disambiguation — and
+**`test_singleton_identity_law.py`'s derived domain picked both up with
+that module BYTE-UNCHANGED, 14 cases to 16.** That is the strongest
+end-to-end evidence in the slice and it cost nothing to state.
+
+**Verified rather than assumed: one `Kconfig.shield` serves a two-name
+folder.** `zephyr/cmake/modules/kconfig.cmake` `osource`s a DIRECTORY
+glob, so the file is sourced exactly once and both `SHIELD_LCD_CHAR_1602`
+and `SHIELD_LCD_TFT_24` turn on. **Not demonstrated, and named rather
+than skipped:** per-name `<name>.conf` picking — neither shield ships a
+`.conf`, so nothing forced a positive confirmation of that path.
+
+### TWO FINDINGS APPLIED AFTER REVIEW — one reviewer's, one driver's
+
+1. **Reviewer's:** `promotable`'s "declared, not resolvable" nuance was
+   undocumented and pinned by nothing. Documented on the field, pinned by
+   `test_discover_shields_reports_a_template_entry_whose_file_is_missing`.
+2. **Driver's, and the reviewer missed it:** a `shields:` block that is
+   **not a list** — the one-dash-short typo — was dropped **SILENTLY**.
+   Every name in the folder vanished from the namespace with no
+   diagnostic, and the only later symptom was an instance's `shield:`
+   reference failing to resolve, a diagnostic blaming the innocent rig.
+   Now a `lang-schema` error with fixture and byte-exact golden
+   (`shield-plural-not-a-list`).
+
+**The implementor's report was WRONG about its own behaviour**, and its
+open question for Tobi rested on that error: it claimed a broken
+`template: true` entry was "excluded from `discover_shields()` entirely",
+but `ymls`/`promotable` are written BEFORE the file check, so the name
+survives into the census. Driver ran it to find out; the reviewer reached
+the same place independently. **An implementor's account of what it built
+is a hypothesis** — this is the third slice running where that held.
+
+### GOLDEN IMPACT — classified in advance, and it held
+
+One stderr golden changed: `shield-node-name-mismatch/stderr.txt`, one
+line, hand-edited (`RIGC_REFREEZE=1` is still BLOCKED by the harness
+permission classifier) and verified both ways. Five new golden dirs are
+pure additions. **No `context.cmake`/`RIG_DEPENDS` movement for the 14
+existing shields** — the new corpus folder is additive and nothing
+existing references it.
+
+### A PROPERTY OF THE REJECT-FIXTURE FAMILY — know it before writing another
+
+Those fixtures' rigs declare `instances: []` and `run_expand` resolves no
+real board, so **expand exits 1 EITHER WAY** — via the intended
+diagnostic, or via `phys-board` once the load gets that far. The
+`assert result.returncode != 0` line is therefore nearly vacuous; the
+stderr assertions and the golden are what discriminate. Found because the
+driver's own first negative control ran the fixture from OUTSIDE the tree
+and produced a `phys-board` exit that proved nothing. **Run controls
+in-tree.**
+
+### A BRIEF-WRITING CORRECTION, the driver's own error
+
+The brief's §9 called `test_singleton_identity_law.py` "the one
+build-marked module". **It carries no `@pytest.mark.build` at all** — its
+own docstring says so — and neither does `test_emitted_rejects.py`. This
+slice has **no build-marked module observing its criteria**, which is a
+fact about the slice, not an omission: everything it changes is
+observable without a toolchain. Naming a build module by reflex is the
+failure mode; check the marker. Recorded in the brief's own §9.
+
+### NEXT — the standing queue, one item shorter
+
+1. **`rig-schema.yaml`** (backlog item 7) — retirement debt for THREE
+   grammars (`board:`/`sockets:`, `dt-includes:`), scoped across both
+   rig.yml AND shield.yml. **Shield plurality adds to its shield.yml
+   half**: `shields:`/`shield:` mutual exclusion is enforced only by the
+   zephyr-side jsonschema during a cmake build, never by rigc's own
+   `parse_marked` — a folder authoring BOTH keys silently takes
+   `shield:` today (named in `_shield_yml_entries`'s docstring, out of
+   scope by the same reasoning that queued every other unknown-key rule
+   here).
+2. **BRIDLE MIGRATION** (item 9) — the mission goal. **Every named
+   prerequisite is now done.** Re-run the folder-by-folder triage in
+   `bridle-migration.md` against bridle's CURRENT upstream state, not the
+   pinned checkout, before estimating cost off its table.
+
+Off-sequence, unchanged and all Tobi's call: **multi-plug shields**
+(needs its own brief; root a session at `btr-shields` itself so
+`rig-implementor`/`rig-reviewer` resolve), the **i2c-port binding
+decision**, the **tutorial playground honesty debt**.
+
+### OPEN, CARRIED
+
+- **The two uncommitted docs** above, both yours to review, unchanged.
+- **Cross-folder / cross-root duplicate shield names** stay last-wins in
+  the loader, with `cmake/dts.cmake`'s own warn-and-pick for the real
+  `adafruit_data_logger` collision. Deliberately NOT hardened — only the
+  within-one-`shields:`-list duplicate is an error.
+- **Per-name `<name>.conf` picking is undemonstrated** (above).
+- Everything else carried from the 2026-08-09 block below is unchanged:
+  `_parse_exposed`'s literal 3-kind vocabulary, the unquoted
+  promotion-value repr leak, `AxisDecl.boards`/`.sockets` dead fields,
+  the stale `/tmp/rigc-*` dirs, `doc/tutorials/give-a-board-a-socket.rst`.
+
+### DISPATCH CONTRACT — confirmed again, unchanged
+
+From a session rooted at `/wrk/z/ws-up`, `rig-implementor`/`rig-reviewer`
+are **NOT** agent types; both dispatches this session ran as
+`general-purpose` on **sonnet** with the role's rules folded into the
+prompt, and both worked. The reduced gate contract held.
+
+## RESUME (2026-08-09, superseded) — §9.6 IS FULLY DONE, BOTH PARTS. MULTI-BUS SOCKETS LANDED. TWISTER GAINED THREE SUITES, INCLUDING A NEW REAL GROVE BOARD. MULTI-PLUG SHIELDS IS A NEW, PAUSED DESIGN THREAD. NEXT = rig-schema.yaml.
 
 ### STATE AT SESSION CLOSE (2026-08-09)
 
