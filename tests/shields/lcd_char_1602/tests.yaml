@@ -1,0 +1,8 @@
+tests:
+  shields.lcd_char_1602:
+    platform_allow:
+      - frdm_k64f/mk64f12/rig
+      - nucleo_f401re/stm32f401xe/rig
+    tags: shields
+    extra_args:
+      - RIG=lcd_char_1602
