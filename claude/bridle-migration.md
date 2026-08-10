@@ -238,6 +238,18 @@ Upstream permits N per folder two ways, and **bridle uses the second**:
 migration authors shield.yml for every ported shield regardless — which is
 also where `template: true` and (post-V1c) `revisions:` have to go.
 
+**CORRECTION (Tobi, 2026-08-09): upstream bridle has since adopted shield.yml
+for most of its shields — the "entirely legacy" premise above is stale.** The
+workspace's PINNED bridle checkout does not yet reflect this, which is why the
+19-folder census above still reads zero. Authoring shield.yml from scratch for
+every ported shield is therefore NOT the dominant migration cost it looked
+like — most shields will arrive with one already. **Shield plurality itself
+is unaffected and stays fully in scope**: `load_shield_library`'s one-per-folder
+lookup still cannot resolve a shield.yml `shields:` list naming N shields in
+one folder, upstream shield.yml or not. Re-run the folder-by-folder triage
+below against bridle's current upstream state, not the pinned checkout, before
+estimating cost off this table.
+
 **The triage, and it is good news.** Each multi-overlay folder decomposes
 onto an axis we already have or are building, so plurality is mostly NOT a
 gap to implement:
