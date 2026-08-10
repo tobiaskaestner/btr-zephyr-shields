@@ -753,6 +753,135 @@ def test_shield_node_name_mismatch_golden(tmp_path: Path) -> None:
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
 
 
+def test_shield_template_missing_file_golden(tmp_path: Path) -> None:
+    """Synthetic fixture (shield-plurality-brief.md Sec 3, second
+    consequence): shield.yml declares `template: true` for a name with no
+    matching `<name>.shield` beside it. Silent before this slice (the
+    folder's own basename-keyed discovery never even looked at this
+    name); loud now, because the folder's authoring intent -- this name
+    IS meant to be a rig template -- is known by name once shield.yml
+    says so. Its own exclusive shield-library scan root, because the
+    defect is reported at library-scan time for every folder scanned."""
+    out_dir = tmp_path / "out"
+    fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-template-missing-file"
+    result = run_expand(fixture / "rig.yml", out_dir,
+                        board="nucleo_f401re/stm32f401xe/rig",
+                        shield_dirs=[fixture / "shields"])
+
+    assert result.returncode != 0, (
+        "a template: true entry with no matching <name>.shield must be rejected")
+    assert "[lang-shield-template]" in result.stderr, result.stderr
+    assert "ghost_template" in result.stderr, result.stderr
+    assert "does not exist" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "shield-template-missing-file"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_shield_plural_node_name_mismatch_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: the DECLARED-name half of ruling 2
+    (shield-plurality-brief.md Sec 2) -- a `shields:` entry's own `name:`
+    (decl_beta) disagrees with its `<name>.shield` node name (wrong_node),
+    in a folder that ALSO declares a well-formed sibling entry
+    (decl_alpha) in the same list, so the mismatch is blamed on decl_beta
+    alone. test_shield_node_name_mismatch_golden above is the sibling
+    fixture for the folder-name half, which must keep working unchanged."""
+    out_dir = tmp_path / "out"
+    fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-plural-node-name-mismatch"
+    result = run_expand(fixture / "rig.yml", out_dir,
+                        board="nucleo_f401re/stm32f401xe/rig",
+                        shield_dirs=[fixture / "shields"])
+
+    assert result.returncode != 0, (
+        "a shields: entry's declared name not matching its own .shield "
+        "node name must be rejected")
+    assert "[lang-shield-name]" in result.stderr, result.stderr
+    assert "decl_beta" in result.stderr, result.stderr
+    assert "wrong_node" in result.stderr, result.stderr
+    assert "shield.yml itself declares" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "shield-plural-node-name-mismatch"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_shield_plural_duplicate_name_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: a duplicate name WITHIN one `shields:` list --
+    newly reachable only because plurality lets one list declare more
+    than one name at all (shield-plurality-brief.md Sec 4/Sec 8: a
+    duplicate ACROSS folders/roots stays the existing silent last-wins
+    policy, out of scope; this is the in-scope, single-list case). No
+    instance references either name -- the defect is scan-time and
+    unconditional, so nothing needs to reference it to trigger."""
+    out_dir = tmp_path / "out"
+    fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-plural-duplicate-name"
+    result = run_expand(fixture / "rig.yml", out_dir,
+                        board="nucleo_f401re/stm32f401xe/rig",
+                        shield_dirs=[fixture / "shields"])
+
+    assert result.returncode != 0, (
+        "a name repeated within one shields: list must be rejected")
+    assert "[lang-schema]" in result.stderr, result.stderr
+    assert "dup_name" in result.stderr, result.stderr
+    assert "declared more than once" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "shield-plural-duplicate-name"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_shield_plural_not_a_list_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: a `shields:` block authored one dash short, so
+    it parses as a mapping and yields no entries at all. The folder ships
+    a `never_declared.shield` beside it, so nothing else in the scan can
+    tell the folder meant to declare a shield -- which is exactly why a
+    silent drop here would surface only much later, as an unresolvable
+    shield: reference blaming the rig instead of this file."""
+    out_dir = tmp_path / "out"
+    fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-plural-not-a-list"
+    result = run_expand(fixture / "rig.yml", out_dir,
+                        board="nucleo_f401re/stm32f401xe/rig",
+                        shield_dirs=[fixture / "shields"])
+
+    assert result.returncode != 0, (
+        "a shields: block that is not a list must be rejected")
+    assert "[lang-schema]" in result.stderr, result.stderr
+    assert "must be a list" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "shield-plural-not-a-list"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
+def test_shield_plural_missing_name_golden(tmp_path: Path) -> None:
+    """Synthetic fixture: a `shields:` entry with no `name:` key at all --
+    rigc parses shield.yml with its own `parse_marked`, never jsonschema,
+    so a malformed entry is this code's own problem to catch
+    (shield-plurality-brief.md Sec 4). The well-formed sibling entry
+    (has_name) in the same list proves the malformed one is dropped, not
+    fatal to the whole document."""
+    out_dir = tmp_path / "out"
+    fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-plural-missing-name"
+    result = run_expand(fixture / "rig.yml", out_dir,
+                        board="nucleo_f401re/stm32f401xe/rig",
+                        shield_dirs=[fixture / "shields"])
+
+    assert result.returncode != 0, (
+        "a shields: entry with no name: must be rejected")
+    assert "[lang-schema]" in result.stderr, result.stderr
+    assert "required key 'name' is missing" in result.stderr, result.stderr
+
+    zb = zephyr_base()
+    golden_dir = GOLDENS_DIR / "shield-plural-missing-name"
+    freeze_or_assert(golden_dir / "exit_code", f"{result.returncode}\n")
+    freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
+
+
 # ---------------------------------------------------------------- board-per-variant
 
 # test_variant_board_restated_golden RETIRED (board-coordinate-s6-brief.md

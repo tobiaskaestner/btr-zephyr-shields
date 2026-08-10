@@ -1,0 +1,35 @@
+/* Shield: generic 16x2 character LCD, HD44780-class 4-bit parallel GPIO
+ * interface. Fictional vnd,* compatible -- no real Zephyr driver binding
+ * exists for this hypothetical part, matching this corpus's established
+ * style (temp_click.shield's own header says "hypothetical").
+ *
+ * shield-plurality-brief.md Sec 5's corpus example: this shield and
+ * lcd_tft_24 (SAME folder, arduino_lcd/) are two genuinely distinct
+ * devices sharing a plug type, not a variant/revision/socket axis of one
+ * another -- the residue case ontology.md's Q6 row and bridle-
+ * migration.md's rpi_pico_lcd triage describe.
+ */
+
+#include <zephyr/dt-bindings/gpio/arduino-header-r3.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/ {
+	shield-templates {
+		lcd_char_1602: lcd_char_1602 {
+			shield,plugs = "arduino-r3";
+			lc_plug: plug { #gpio-cells = <2>; };
+
+			gpio {
+				lc_lcd: lcd {
+					compatible = "vnd,lcd-char-4bit";
+					rs-gpios = <&lc_plug ARDUINO_HEADER_R3_D8 GPIO_ACTIVE_HIGH>;
+					enable-gpios = <&lc_plug ARDUINO_HEADER_R3_D9 GPIO_ACTIVE_HIGH>;
+					data-gpios = <&lc_plug ARDUINO_HEADER_R3_D4 GPIO_ACTIVE_HIGH>,
+						     <&lc_plug ARDUINO_HEADER_R3_D5 GPIO_ACTIVE_HIGH>,
+						     <&lc_plug ARDUINO_HEADER_R3_D6 GPIO_ACTIVE_HIGH>,
+						     <&lc_plug ARDUINO_HEADER_R3_D7 GPIO_ACTIVE_HIGH>;
+				};
+			};
+		};
+	};
+};

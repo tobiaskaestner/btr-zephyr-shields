@@ -31,11 +31,10 @@ a filesystem. `rigc.loader.load` is what PROVES the printed text is real
 """
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Union
-
-import yaml
 
 from .loader.library import load_shield_library
 from .loader.params import device_required_params
@@ -44,15 +43,16 @@ from .model import Shield
 
 @dataclass(frozen=True)
 class ShieldInfo:
-    """One name `discover_shields` found -- a folder carrying `<name>.
-    shield` (loader/library.py's own discovery marker, the single
-    authority for "is this a shield at all"). `template` is shield.yml's
-    own `template:` flag, ruling 5's PROMOTABLE authority, read
-    independently of library.py (which parses shield.yml only for its
-    `revisions:` axis -- Sec 4's two-authorities-on-purpose split).
-    `has_yml` distinguishes "no shield.yml at all" from "shield.yml
-    present but omits the flag" -- the two reasons `check_promotable`'s
-    error tells apart."""
+    """One name `discover_shields` found -- a rig template
+    (`loader/library.py`'s own `pending`) or a legacy shield whose
+    shield.yml merely declares metadata (never a `<name>.shield` marker
+    of its own kind that library.py resolves against). `template` is
+    THIS entry's own `template:` flag, ruling 5's PROMOTABLE authority --
+    since plurality (shield-plurality-brief.md), a name's OWN entry
+    carries this flag, not its folder's, so two names sharing one folder
+    may answer differently. `has_yml` distinguishes "no shield.yml at
+    all" from "shield.yml present but omits the flag" -- the two reasons
+    `check_promotable`'s error tells apart."""
 
     name: str
     dir: str
@@ -62,18 +62,18 @@ class ShieldInfo:
 
 def discover_shields(shield_dirs: Optional[List[str]] = None,
                      ) -> Dict[str, ShieldInfo]:
-    """Every name loader/library.py's own scan discovers -- a `<name>.
-    shield` marker file present -- keyed by name. Reuses that scan
-    verbatim (`load_shield_library`) rather than a second glob, so a name
-    this module calls a shield and a name the expander can actually
-    resolve `shield:` against never disagree.
-
-    `template` is read separately, straight off shield.yml (never parsed
-    by library.py itself, which stops at `revisions:`): `False` for a
-    shield without a shield.yml (`has_yml=False`) or one whose shield.yml
-    omits the flag (`has_yml=True`). Reuses `lib.ymls` (library.py's own
-    record of which discovered names carry a shield.yml) rather than
-    re-probing the filesystem for the same fact a second time.
+    """Every name `loader/library.py`'s own scan discovers, keyed by
+    name -- every resolvable rig template (`lib.pending`) UNION every
+    name any shield.yml under `shield_dirs` declares (`lib.ymls`), since
+    a legacy shield with metadata but no matching `<name>.shield` is
+    still a name `check_promotable` must be able to name and explain
+    (shield-plurality-brief.md Sec 3's third consequence). Reuses that
+    ONE scan verbatim (`load_shield_library`) rather than a second glob,
+    so a name this module calls a shield and a name the expander can
+    actually resolve `shield:` against never disagree; `template` reads
+    `lib.promotable` -- the same per-entry `template:` flag the scan
+    already read off shield.yml -- rather than re-opening any file this
+    module's own caller already paid to parse.
 
     `shield_dirs` defaults to the vendored shield library
     (`load_shield_library`'s own default), which is narrower than the rig
@@ -88,20 +88,20 @@ def discover_shields(shield_dirs: Optional[List[str]] = None,
     creating a real temporary directory for what is a read-only query.
 
     Discovery-time diagnostics (a malformed shield.yml `revisions:`
-    block) are discarded here: they concern a shield's REVISION axis,
+    block, a `template: true` entry with no matching `<name>.shield`)
+    are discarded here: they concern a shield's own template/axis shape,
     orthogonal to the promotability question this function answers, and
-    the real corpus carries none today. Returns a dict the caller owns."""
+    a caller that actually loads a rig (never this function alone) is
+    what surfaces them. Returns a dict the caller owns."""
     lib, _diags, _deps = load_shield_library(
         "<rigc-promote-discovery-unused>", shield_dirs)
     out: Dict[str, ShieldInfo] = {}
-    for name, pending in lib.pending.items():
+    for name in set(lib.pending) | set(lib.ymls):
         has_yml = name in lib.ymls
-        template = False
-        if has_yml:
-            with open(lib.ymls[name]) as f:
-                doc = yaml.safe_load(f) or {}
-            template = bool((doc.get("shield") or {}).get("template"))
-        out[name] = ShieldInfo(name=name, dir=pending.shield_dir,
+        shield_dir = (lib.pending[name].shield_dir if name in lib.pending
+                     else os.path.dirname(lib.ymls[name]))
+        template = lib.promotable.get(name, False) if has_yml else False
+        out[name] = ShieldInfo(name=name, dir=shield_dir,
                                template=template, has_yml=has_yml)
     return out
 

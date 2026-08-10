@@ -1,0 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0
+
+config SHIELD_LCD_CHAR_1602
+	def_bool $(shields_list_contains,lcd_char_1602)
+
+config SHIELD_LCD_TFT_24
+	def_bool $(shields_list_contains,lcd_tft_24)

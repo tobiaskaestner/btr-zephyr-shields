@@ -1,13 +1,14 @@
 """Unit: loader.library -- the shield library's VALUE-shaped contracts
-(rigc-r3-brief.md Sec 4; lazy-shield-library-brief.md): `_pick_shield`'s
-folder-name-vs-node-name decision (a pure function over already-parsed
-Shield values), `resolve()`'s three failure shapes plus lazy-parse
-memoization for BOTH axis-less base templates and revisions (exercised
-against a synthetic library VALUE, never a filesystem scan), shield.yml's
-`revisions:` axis parsing (`_load_shield_revisions`, file-based but
-cpp-free), and `load_shield_library`'s discovery breadth -- every
-discovered shield, axis-less or not, lands in `pending`, none of it
-parsed.
+(rigc-r3-brief.md Sec 4; lazy-shield-library-brief.md;
+shield-plurality-brief.md): `_pick_shield`'s declared-name-vs-node-name
+decision (a pure function over already-parsed Shield values), `resolve()`'s
+three failure shapes plus lazy-parse memoization for BOTH axis-less base
+templates and revisions (exercised against a synthetic library VALUE,
+never a filesystem scan), shield.yml's own entries (`_shield_yml_entries`,
+file-based but cpp-free -- one per `shield:` or N per `shields:`, each
+carrying its own `template:` flag and `revisions:` Val), and
+`load_shield_library`'s discovery breadth -- every discovered RIG TEMPLATE,
+axis-less or not, lands in `pending`, none of it parsed.
 
 **The cpp/unit-test seam**: every template parse, axis-less base or
 revision alike, funnels through the ONE module-level helper
@@ -39,8 +40,9 @@ import pytest
 from rigc.deps import Deps
 from rigc.diag import Diagnostic, SourceRef, error
 from rigc.model import AxisDecl, ConnectorType, Shield
+from rigc.loader.axes import parse_legacy_revision_decl
 from rigc.loader.library import (ShieldLibrary, _Pending,
-                                 _load_shield_revisions, _pick_shield,
+                                 _pick_shield, _shield_yml_entries,
                                  load_shield_library)
 
 _SRC = SourceRef("synthetic", 1, "instance 'x'")
@@ -76,79 +78,163 @@ def test_pick_shield_reports_none_when_the_template_defines_nothing() -> None:
     assert "nodes defined here: none" in diags[0].message
 
 
-# ------------------------------------------------------- _load_shield_revisions
+def test_pick_shield_mismatch_names_shield_yml_as_the_source_when_given_one(
+        ) -> None:
+    """Ruling 2 (shield-plurality-brief.md Sec 2): a mismatch on a name
+    that came FROM shield.yml (yml_path given) must say so, never claim
+    the folder as the source -- the wording the yml-less case above
+    keeps is only true when there is no shield.yml to have named it."""
+    parsed = {"other_name": _shield("other_name")}
+    shield, diags = _pick_shield(parsed, "declared", "/x/folder/declared.shield",
+                                 yml_path="/x/folder/shield.yml")
+    assert shield is None
+    assert "shield.yml itself declares" in diags[0].message
+    assert "the folder it lives in" not in diags[0].message
+    assert "other_name" in diags[0].message
 
-def test_load_shield_revisions_absent_file_declares_no_axis(tmp_path: Path) -> None:
-    decl, diags = _load_shield_revisions(str(tmp_path))
-    assert decl is None
+
+# ------------------------------------------------------- _shield_yml_entries
+
+def test_shield_yml_entries_absent_file_yields_nothing(tmp_path: Path) -> None:
+    yml_path, entries, diags = _shield_yml_entries(str(tmp_path))
+    assert yml_path is None
+    assert entries == []
     assert diags == []
 
 
-def test_load_shield_revisions_no_revisions_key_declares_no_axis(tmp_path: Path) -> None:
+def test_shield_yml_entries_singular_shield_key(tmp_path: Path) -> None:
     (tmp_path / "shield.yml").write_text(dedent("""\
         shield:
           name: fx
         """))
-    decl, diags = _load_shield_revisions(str(tmp_path))
-    assert decl is None
+    yml_path, entries, diags = _shield_yml_entries(str(tmp_path))
+    assert yml_path == str(tmp_path / "shield.yml")
     assert diags == []
+    assert [(name, promotable) for name, _v, promotable in entries] == \
+        [("fx", False)]
 
 
-def test_load_shield_revisions_parses_the_declared_axis(tmp_path: Path) -> None:
-    (tmp_path / "shield.yml").write_text(
-        dedent("""\
-        shield:
-          name: fx
-          revisions:
-            default: "1"
-            list: ["1", "2"]
+def test_shield_yml_entries_plural_shields_key_yields_one_per_entry(
+        tmp_path: Path) -> None:
+    (tmp_path / "shield.yml").write_text(dedent("""\
+        shields:
+          - name: alpha
+            template: true
+          - name: beta
         """))
-    decl, diags = _load_shield_revisions(str(tmp_path))
+    _yml_path, entries, diags = _shield_yml_entries(str(tmp_path))
     assert diags == []
-    assert decl == AxisDecl(values=["1", "2"], default="1")
+    assert [(name, promotable) for name, _v, promotable in entries] == \
+        [("alpha", True), ("beta", False)]
 
 
-def test_load_shield_revisions_bad_default_is_blamed_on_the_shield(tmp_path: Path) -> None:
-    shield_dir = tmp_path / "fx"
+def test_shield_yml_entries_a_shields_block_that_is_not_a_list_is_reported(
+        tmp_path: Path) -> None:
+    """The one-dash-short typo. It must not be a SILENT drop: the folder
+    loses every name it meant to declare, and nothing downstream can
+    attribute that loss to this file (an instance referencing the shield
+    would blame itself instead)."""
+    (tmp_path / "shield.yml").write_text(dedent("""\
+        shields:
+          name: alpha
+          template: true
+        """))
+    _yml_path, entries, diags = _shield_yml_entries(str(tmp_path))
+    assert entries == []
+    assert len(diags) == 1
+    assert diags[0].code == "lang-schema"
+    assert "'shields' must be a list" in diags[0].message
+
+
+def test_shield_yml_entries_a_shields_entry_missing_name_is_dropped(
+        tmp_path: Path) -> None:
+    (tmp_path / "shield.yml").write_text(dedent("""\
+        shields:
+          - template: true
+          - name: beta
+        """))
+    _yml_path, entries, diags = _shield_yml_entries(str(tmp_path))
+    assert [name for name, _v, _p in entries] == ["beta"]
+    assert len(diags) == 1
+    assert diags[0].code == "lang-schema"
+    assert "required key 'name' is missing" in diags[0].message
+
+
+def test_shield_yml_entries_a_repeated_name_in_one_list_is_dropped(
+        tmp_path: Path) -> None:
+    (tmp_path / "shield.yml").write_text(dedent("""\
+        shields:
+          - name: alpha
+          - name: alpha
+            template: true
+        """))
+    _yml_path, entries, diags = _shield_yml_entries(str(tmp_path))
+    assert [(name, promotable) for name, _v, promotable in entries] == \
+        [("alpha", False)]
+    assert len(diags) == 1
+    assert diags[0].code == "lang-schema"
+    assert "'alpha' is declared more than once" in diags[0].message
+
+
+# ------------------------------------------ per-entry revisions:, owner-named
+#
+# `load_shield_library`'s scan calls parse_legacy_revision_decl directly on
+# each promotable entry's own Val, owner=f"shield '{name}'" -- the fix
+# ruling 1's identity change requires (the folder basename and the
+# declared name may now differ). These prove the ENTRY-level Val
+# `_shield_yml_entries` hands back carries what that call needs, with a
+# folder name distinct from the declared name so a regression back to
+# `os.path.basename(shield_dir)` would fail here even though it kept the
+# pre-plurality fixtures (folder name == declared name) green.
+
+def test_entry_revisions_bad_default_is_blamed_on_the_declared_name(
+        tmp_path: Path) -> None:
+    shield_dir = tmp_path / "folder_name"
     shield_dir.mkdir()
-    (shield_dir / "shield.yml").write_text(
-        dedent("""\
+    (shield_dir / "shield.yml").write_text(dedent("""\
         shield:
-          name: fx
+          name: declared_name
+          template: true
           revisions:
             default: "3"
             list: ["1", "2"]
         """))
-    decl, diags = _load_shield_revisions(str(shield_dir))
+    _yml_path, entries, entry_diags = _shield_yml_entries(str(shield_dir))
+    assert entry_diags == []
+    [(name, entry_v, _promotable)] = entries
+    decl, diags = parse_legacy_revision_decl(
+        entry_v, "revisions", owner=f"shield '{name}'")
     assert decl is None
     assert len(diags) == 1
     assert diags[0].code == "lang-schema"
-    assert "shield 'fx' revisions:" in diags[0].message
+    assert "shield 'declared_name' revisions:" in diags[0].message
+    assert "folder_name" not in diags[0].message
 
 
-def test_load_shield_revisions_mapping_entry_is_blamed_on_the_shield(tmp_path: Path) -> None:
-    """A mapping entry in a shield's OWN revisions: list is illegal (only
-    a rig's variants: list allows it) -- rejected per-entry, so the
-    remaining well-formed entries still constitute a valid (partial)
-    axis. UNCHANGED by the hwmv2 slice: a shield's revisions: axis stays
-    on this pre-hwmv2 shape permanently (parse_legacy_revision_decl's own
-    docstring has the external reason), so bare names are still the only
-    legal entry."""
-    shield_dir = tmp_path / "fx"
+def test_entry_revisions_parses_from_a_plural_list_entry(tmp_path: Path) -> None:
+    shield_dir = tmp_path / "plural_folder"
     shield_dir.mkdir()
-    (shield_dir / "shield.yml").write_text(
-        dedent("""\
-        shield:
-          name: fx
-          revisions:
-            list: ["1", {name: "2", board: some/board}]
+    (shield_dir / "shield.yml").write_text(dedent("""\
+        shields:
+          - name: alpha
+            template: true
+            revisions:
+              default: "1"
+              list: ["1", "2"]
+          - name: beta
+            template: true
         """))
-    decl, diags = _load_shield_revisions(str(shield_dir))
-    assert decl == AxisDecl(values=["1"])
-    assert len(diags) == 1
-    assert diags[0].code == "lang-schema"
-    assert "shield 'fx' revisions:" in diags[0].message
-    assert "legal only in a rig's variants: list" in diags[0].message
+    _yml_path, entries, entry_diags = _shield_yml_entries(str(shield_dir))
+    assert entry_diags == []
+    by_name = {name: entry_v for name, entry_v, _p in entries}
+    decl_alpha, diags_alpha = parse_legacy_revision_decl(
+        by_name["alpha"], "revisions", owner="shield 'alpha'")
+    assert diags_alpha == []
+    assert decl_alpha == AxisDecl(values=["1", "2"], default="1")
+    decl_beta, diags_beta = parse_legacy_revision_decl(
+        by_name["beta"], "revisions", owner="shield 'beta'")
+    assert diags_beta == []
+    assert decl_beta is None
 
 
 # ------------------------------------------------------- resolve(): failure shapes
@@ -316,7 +402,7 @@ def _fake_parse_template(shield: Optional[Shield], diags: List[Diagnostic],
     ONCE per name, never enough to need a real translation unit."""
     def _fake(name: str, template: str, includes: List[str], dts_name: str,
              workdir: str, include_dirs: Optional[List[str]],
-             types: Dict[str, ConnectorType],
+             types: Dict[str, ConnectorType], yml_path: Optional[str],
              ) -> Tuple[Optional[Shield], List[Diagnostic], Deps]:
         calls.append(name)
         return shield, diags, deps
@@ -424,7 +510,7 @@ def test_resolve_shield_side_nearest_lower_stem_follows_the_resolved_value(
 
     def _fake(name: str, template: str, includes: List[str], dts_name: str,
              workdir: str, include_dirs: Optional[List[str]],
-             types: Dict[str, ConnectorType],
+             types: Dict[str, ConnectorType], yml_path: Optional[str],
              ) -> Tuple[Optional[Shield], List[Diagnostic], Deps]:
         calls.append(dts_name)
         return _shield(name), [], frozenset()
@@ -457,7 +543,7 @@ def test_resolve_nearest_lower_memoizes_under_the_resolved_key(
 
     def _fake(name: str, template: str, includes: List[str], dts_name: str,
              workdir: str, include_dirs: Optional[List[str]],
-             types: Dict[str, ConnectorType],
+             types: Dict[str, ConnectorType], yml_path: Optional[str],
              ) -> Tuple[Optional[Shield], List[Diagnostic], Deps]:
         calls.append(dts_name)
         return _shield(name), [], frozenset()
@@ -478,14 +564,19 @@ def test_resolve_nearest_lower_memoizes_under_the_resolved_key(
 # ------------------------------------------------------- load_shield_library scan
 
 def _declared_shield_folder(root: Path, name: str, revisions: str = "1") -> None:
-    """A shield folder that declares a revision: axis -- scanned but
-    deferred to `pending`, so `load_shield_library` never calls
-    parse_tu/cpp for it (keeps this whole test subprocess-free)."""
+    """A `template: true` shield folder carrying a shield.yml -- scanned
+    but deferred to `pending`, so `load_shield_library` never calls
+    parse_tu/cpp for it (keeps this whole test subprocess-free). Its own
+    `revision:` block is deliberately the WRONG key (singular, no such
+    axis exists on a shield) -- these tests exercise discovery BREADTH,
+    never a real revisions: axis, so `parse_legacy_revision_decl` reads
+    no axis here regardless (`decl is None` for every folder this
+    builds), same as before plurality."""
     d = root / name
     d.mkdir(parents=True)
     (d / f"{name}.shield").write_text(f"/* fixture: {name} */\n")
     (d / "shield.yml").write_text(
-        f"shield:\n  name: {name}\n  revision:\n"
+        f"shield:\n  name: {name}\n  template: true\n  revision:\n"
         f"    format: number\n    default: \"{revisions}\"\n"
         f"    revisions:\n      - name: \"{revisions}\"\n")
 
@@ -640,9 +731,10 @@ def test_unknown_shield_reference_still_lists_every_discovered_shield(
     assert "fx_a, fx_b, fx_c" in diags[0].message
 
 
-# NOTE: a malformed shield.yml revisions: block (`_load_shield_revisions`
-# returning decl=None from a BAD declaration, tested directly above) makes
-# `load_shield_library`'s scan treat the shield as axis-less -- exactly
+# NOTE: a malformed shield.yml revisions: block (parse_legacy_revision_decl
+# returning decl=None from a BAD declaration, tested directly above via
+# _shield_yml_entries's own entry Val) makes `load_shield_library`'s scan
+# treat the shield as axis-less -- exactly
 # the golden fixture `shield-bad-revisions-block`'s own shape -- and now,
 # same as any other axis-less shield, defers its base template's parse to
 # `resolve()`'s first reference rather than eagerly parsing it during the

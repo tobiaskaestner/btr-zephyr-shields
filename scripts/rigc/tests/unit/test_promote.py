@@ -105,14 +105,20 @@ def test_both_paths_error_names_both_offending_locations() -> None:
 def test_discover_shields_finds_the_real_corpus_and_agrees_with_template_flag() -> None:
     """Census (Sec 4): every discovered name (marker file present) whose
     shield.yml declares `template: true` shows up as promotable, and
-    every one of today's 14 corpus shields does. Falsified by mutating a
+    every one of today's 16 corpus shields does -- 14 one-per-folder plus
+    lcd_char_1602/lcd_tft_24, the plurality corpus example
+    (shield-plurality-brief.md Sec 5), TWO names out of the SAME folder
+    (boards/shields/arduino_lcd/, named neither). Falsified by mutating a
     real shield.yml, not by editing this assertion (see the mutation test
     below) -- this one just proves the real tree is clean today."""
     shields = discover_shields()
-    assert len(shields) == 14
+    assert len(shields) == 16
     for info in shields.values():
         assert info.has_yml, f"{info.name}: discovered but no shield.yml"
         assert info.template, f"{info.name}: shield.yml omits template: true"
+    assert shields["lcd_char_1602"].dir == shields["lcd_tft_24"].dir
+    assert os.path.basename(shields["lcd_char_1602"].dir) not in (
+        "lcd_char_1602", "lcd_tft_24")
 
 
 def test_discover_shields_census_is_falsified_by_a_real_mutation(tmp_path: Path) -> None:
@@ -151,6 +157,80 @@ def _purge_pycache() -> None:
     for root, dirs, _files in os.walk(shields_root):
         if "__pycache__" in dirs:
             shutil.rmtree(os.path.join(root, "__pycache__"))
+
+
+def test_discover_shields_reports_a_legacy_shield_with_no_marker_file(
+        tmp_path: Path) -> None:
+    """Sec 3's third consequence: a folder whose shield.yml declares a
+    name but omits (or falses) `template:` is discoverable here even
+    though it carries no `<name>.shield` at all -- the ONLY way
+    `check_promotable`'s 'shield.yml does not declare template: true'
+    branch stays reachable once discovery's own pending/axes are
+    template-only. Before plurality this name would be invisible to
+    discover_shields entirely (it was never in `lib.pending`)."""
+    root = tmp_path / "shields"
+    legacy_dir = root / "legacy_overlay_shield"
+    legacy_dir.mkdir(parents=True)
+    (legacy_dir / "shield.yml").write_text(textwrap.dedent("""\
+        shield:
+          name: legacy_overlay_shield
+          full_name: A classic Zephyr shield with metadata, never a template
+        """))
+    shields = discover_shields([str(root)])
+    assert shields["legacy_overlay_shield"].has_yml
+    assert not shields["legacy_overlay_shield"].template
+    err = check_promotable("legacy_overlay_shield",
+                           shields["legacy_overlay_shield"], variant=None)
+    assert err is not None
+    assert "template: true" in err
+    assert "no shield.yml" not in err
+
+
+def test_discover_shields_reports_two_plural_names_independently(
+        tmp_path: Path) -> None:
+    """Two names sharing ONE folder's `shields:` list answer the
+    promotability question SEPARATELY: `promoted` has its own `<name>.
+    shield` and `template: true`, `sibling` has neither -- proving
+    `template`/`has_yml` are read per NAME, not once per folder."""
+    root = tmp_path / "shields"
+    plural_dir = root / "plural_folder"
+    plural_dir.mkdir(parents=True)
+    (plural_dir / "shield.yml").write_text(textwrap.dedent("""\
+        shields:
+          - name: promoted
+            template: true
+          - name: sibling
+        """))
+    (plural_dir / "promoted.shield").write_text("/* fixture */\n")
+    shields = discover_shields([str(root)])
+    assert shields["promoted"].template and shields["promoted"].has_yml
+    assert not shields["sibling"].template
+    assert shields["sibling"].has_yml
+    assert shields["promoted"].dir == shields["sibling"].dir == str(plural_dir)
+
+
+def test_discover_shields_reports_a_template_entry_whose_file_is_missing(
+        tmp_path: Path) -> None:
+    """A `template: true` entry with no `<name>.shield` stays a name this
+    census REPORTS, flag and all, and `check_promotable` deliberately
+    passes it: the scan's own lang-shield-template finding already says
+    precisely what is wrong, and a second vocabulary here would either
+    duplicate it or contradict it. Promotion then fails at load, where
+    the name genuinely cannot resolve. Pins the fact that `template=True`
+    means DECLARED, never resolvable."""
+    root = tmp_path / "shields"
+    ghost_dir = root / "ghost_folder"
+    ghost_dir.mkdir(parents=True)
+    (ghost_dir / "shield.yml").write_text(textwrap.dedent("""\
+        shields:
+          - name: ghost_template
+            template: true
+        """))
+    shields = discover_shields([str(root)])
+    assert shields["ghost_template"].template
+    assert shields["ghost_template"].has_yml
+    assert check_promotable("ghost_template", shields["ghost_template"],
+                            variant=None) is None
 
 
 # ---------------------------------------------------------------- round trip (criterion 2.2)

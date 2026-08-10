@@ -1,0 +1,27 @@
+/* Shield: generic 2.4" SPI TFT LCD (ILI9341-class controller). Fictional
+ * vnd,* compatible, same style as lcd_char_1602.shield beside it. CS is
+ * pool-allocated (no shield,cs-position), same pattern as
+ * boards/shields/adafruit_winc1500's own SPI device; DC (data/command
+ * select) and RESET are dedicated GPIOs.
+ */
+
+#include <zephyr/dt-bindings/gpio/arduino-header-r3.h>
+#include <zephyr/dt-bindings/gpio/gpio.h>
+
+/ {
+	shield-templates {
+		lcd_tft_24: lcd_tft_24 {
+			shield,plugs = "arduino-r3";
+			lt_plug: plug { #gpio-cells = <2>; };
+
+			spi {
+				lt_lcd: lcd {
+					compatible = "vnd,lcd-tft-spi";
+					spi-max-frequency = <32000000>;
+					dc-gpios = <&lt_plug ARDUINO_HEADER_R3_D9 GPIO_ACTIVE_LOW>;
+					reset-gpios = <&lt_plug ARDUINO_HEADER_R3_D8 GPIO_ACTIVE_LOW>;
+				};
+			};
+		};
+	};
+};

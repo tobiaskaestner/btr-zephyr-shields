@@ -1,0 +1,9 @@
+shields:
+  - name: lcd_char_1602
+    full_name: Generic 16x2 Character LCD (GPIO, 4-bit)
+    vendor: generic
+    template: true
+  - name: lcd_tft_24
+    full_name: Generic 2.4in SPI TFT LCD
+    vendor: generic
+    template: true
