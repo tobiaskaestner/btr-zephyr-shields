@@ -60,7 +60,7 @@ from rigc.loader.library import SHIELDS_DIR, load_shield_library  # noqa: E402
 from rigc.loader.params import device_required_params  # noqa: E402
 from rigc.model import Shield  # noqa: E402
 from rigc.promote import (discover_shields,  # noqa: E402
-                          shield_declares_required_params, shield_is_multiplug)
+                          shield_declares_required_params)
 from rigc.registry import load_types  # noqa: E402
 from rigc.tests.compare import (compare_context_cmake,  # noqa: E402
                                 parse_context_cmake, split_dependency_set)
@@ -107,20 +107,71 @@ _REQUIRED_PARAM_ASSIGNMENTS: Dict[str, Dict[str, Dict[str, str]]] = {
     "pilot_alt_button": {"pab_key": {"zephyr,code": "INPUT_KEY_0"}},
 }
 
+# For a shield listed here, the census supplies exactly this slot -> board
+# socket label assignment (multi-plug-promotion-brief.md Sec 2's
+# `socket.<slot>=<value>` grammar for a plural shield, single-plug-brief's
+# own bare `socket=<value>` otherwise) on BOTH sides of the law -- the
+# fixture's own socket:/sockets: block (_materialize_fixture) and
+# --promote's own opts (_promotion_target), threaded the SAME way
+# _REQUIRED_PARAM_ASSIGNMENTS already is (Sec 4: "study how the law's
+# machinery threads promotion options for the required-param shields...
+# and thread socket.<slot>= the same way").
+#
+# The fixture board (singleton_law_board.dts) carries exactly TWO mikroBUS
+# sockets. eth_click/flash_click/temp_click/temp_hum_click are each
+# single-plug mikrobus shields that used to resolve nexus_mikrobus by
+# UNIQUE-BY-TYPE INFERENCE (the board offered exactly one candidate); the
+# second mikroBUS socket added for the two multi-plug shields below makes
+# that inference ambiguous, so every mikrobus shield now gets an EXPLICIT
+# assignment here -- to the SAME physical socket inference used to pick,
+# so their emitted artifacts do not move. can_span_click/
+# mikrobus_span_adapter each need their two same-type slots on the two
+# DISTINCT physical sockets (a shared defining label is a phys-socket
+# error, slice 1's own ruling) -- every candidate board is slot-ambiguous
+# for them by construction (multi-plug-promotion-brief.md Sec 4), so an
+# explicit assignment is mandatory, not a style choice.
+_SOCKET_ASSIGNMENTS: Dict[str, Dict[str, str]] = {
+    "eth_click": {"plug": "nexus_mikrobus"},
+    "flash_click": {"plug": "nexus_mikrobus"},
+    "temp_click": {"plug": "nexus_mikrobus"},
+    "temp_hum_click": {"plug": "nexus_mikrobus"},
+    "can_span_click": {"left": "nexus_mikrobus", "right": "nexus_mikrobus2"},
+    "mikrobus_span_adapter": {"left": "nexus_mikrobus",
+                              "right": "nexus_mikrobus2"},
+}
+
+
+def _socket_promotion_opts(shield: str) -> List[str]:
+    """The `:`-separated promotion-option fragments `_SOCKET_ASSIGNMENTS`
+    contributes for `shield` -- the single-plug spelling (bare
+    `socket=<label>`) when the entry's one key is the default slot name
+    `"plug"`, the plural spelling (`socket.<slot>=<label>`, one fragment
+    per slot) otherwise. Empty for a shield with no entry. A fresh list
+    the caller owns."""
+    assignment = _SOCKET_ASSIGNMENTS.get(shield)
+    if not assignment:
+        return []
+    if list(assignment) == ["plug"]:
+        return [f"socket={assignment['plug']}"]
+    return [f"socket.{slot}={label}" for slot, label in assignment.items()]
+
 
 def _promotion_target(shield: str) -> str:
     """The `--promote` value for `shield`, carrying its own
-    `_REQUIRED_PARAM_ASSIGNMENTS` entry as dotted CLI parameter opts when
-    it has one -- the bare name otherwise. Built straight from the same
-    table `_materialize_fixture` reads, so the two sides can never assign
-    a different value without this module's own domain table changing."""
-    assignment = _REQUIRED_PARAM_ASSIGNMENTS.get(shield)
-    if not assignment:
+    `_SOCKET_ASSIGNMENTS`/`_REQUIRED_PARAM_ASSIGNMENTS` entries (socket
+    options first, params second -- promote_shield's own printed order)
+    as CLI opts when it has either -- the bare name otherwise. Built
+    straight from the same tables `_materialize_fixture` reads, so the
+    two sides can never assign a different value without this module's
+    own domain tables changing."""
+    param_assignment = _REQUIRED_PARAM_ASSIGNMENTS.get(shield)
+    param_opts = [f"{dev_label}.{prop_name}={value}"
+                 for dev_label, props in (param_assignment or {}).items()
+                 for prop_name, value in props.items()]
+    opts = _socket_promotion_opts(shield) + param_opts
+    if not opts:
         return shield
-    opts = ":".join(f"{dev_label}.{prop_name}={value}"
-                    for dev_label, props in assignment.items()
-                    for prop_name, value in props.items())
-    return f"{shield}:{opts}"
+    return f"{shield}:{':'.join(opts)}"
 
 
 # Which eligible shields are expected to REJECT on both sides rather than
@@ -174,16 +225,23 @@ def _census() -> Tuple[List[str], Set[str]]:
     the singleton law's own domain (Sec 2.3): ELIGIBLE (no device
     declares a required, no-default `shield,params` -- OR one that does,
     with a known `_REQUIRED_PARAM_ASSIGNMENTS` entry covering every such
-    parameter, Sec 9.6 part 2 -- AND has exactly one plug, ruling 4) vs
-    EXCLUDED (a required parameter with no known assignment to supply it,
-    OR a multi-plug shield -- `promote.shield_is_multiplug`, multi-plug-
-    shield-brief.md Sec 8 criterion 5: `:socket=` is inherently
-    single-slot, so a plural shield has no promoted form to compare
-    against at all yet) -- resolved through the REAL shield library,
-    never hand-listed. Returns (sorted eligible names, excluded names) --
-    fresh values this module owns, computed once at collection time (a
-    dozen cheap dtlib parses, no cpp of any real board or app -- "nearly
-    free" per Sec 2.3)."""
+    parameter, Sec 9.6 part 2) vs EXCLUDED (a required parameter with no
+    known assignment to supply it) -- resolved through the REAL shield
+    library, never hand-listed.
+
+    The `shield_is_multiplug` exclusion (multi-plug-shield-brief.md Sec 8
+    criterion 5: a plural shield had no promoted form to compare against
+    at all) is RETIRED as of multi-plug-promotion-brief.md slice 3 --
+    `EXCLUDED` is now derived from the required-param gap alone, and both
+    multi-plug corpus shields join ELIGIBLE via their own
+    `_SOCKET_ASSIGNMENTS` entry (threaded through `_promotion_target`/
+    `_materialize_fixture` exactly like a required-param shield's dotted
+    assignment is).
+
+    Returns (sorted eligible names, excluded names) -- fresh values this
+    module owns, computed once at collection time (a dozen cheap dtlib
+    parses, no cpp of any real board or app -- "nearly free" per Sec
+    2.3)."""
     infos = discover_shields(_SHIELD_DIRS)
     templated = sorted(name for name, info in infos.items() if info.template)
     types, _deps = load_types()
@@ -211,7 +269,7 @@ def _census() -> Tuple[List[str], Set[str]]:
             required_param_gap = shield_declares_required_params(shield) and not (
                 assignment is not None and
                 _assignment_covers_every_required_param(shield, assignment))
-            if required_param_gap or shield_is_multiplug(shield):
+            if required_param_gap:
                 excluded.add(name)
             else:
                 eligible.append(name)
@@ -221,34 +279,28 @@ def _census() -> Tuple[List[str], Set[str]]:
 ELIGIBLE, EXCLUDED = _census()
 
 
-def test_excluded_set_is_exactly_the_required_param_shields() -> None:
-    """Criterion 3 (original) + multi-plug-shield-brief.md Sec 8
-    criterion 5: the domain is DERIVED (Sec 2.3), never hand-listed --
-    this pins only what today's derivation yields. grove_btn and
-    pilot_alt_button each declare a `shield,params` `zephyr,code` name
-    with no authored default, but both now have a
-    `_REQUIRED_PARAM_ASSIGNMENTS` entry (Sec 9.6 part 2's `<device>.
-    <prop>=<value>` CLI grammar gives a promoted rig a real way to
-    satisfy it), so the required-param gap contributes nothing today.
-    `can_span_click`/`mikrobus_span_adapter` (the two multi-plug corpus
-    shields -- slice 2, multi-plug-carrier-brief.md, adds the second: a
-    plural carrier re-exporting an exposed socket is STILL a plural
-    shield, `shield_is_multiplug`'s predicate doesn't care whether one
-    declares an exposed socket or not) are the two members: ruling 4
-    (promotion of a plural shield is its own future slice) -- `:socket=`
-    is inherently single-slot, and this set visibly SHRINKS again the
-    day that slice lands, the S4 pattern. This assertion can only grow
-    again the day a new required-param shield lands with no entry
-    supplied for it yet, or a new multi-plug shield joins the corpus."""
-    assert EXCLUDED == {"can_span_click", "mikrobus_span_adapter"}, (
-        f"excluded set is {sorted(EXCLUDED)}, expected exactly "
-        "['can_span_click', 'mikrobus_span_adapter'] -- a set naming a NEW "
-        "required-param shield means either add a "
-        "_REQUIRED_PARAM_ASSIGNMENTS entry or an existing one stopped "
-        "covering every one of its shield's required parameters (fix the "
-        "entry, don't paper over it); a set missing either multi-plug "
-        "shield means promotion of a multi-plug shield started working -- "
-        "update this pin deliberately, with the reason, don't just widen it")
+def test_excluded_set_is_now_empty() -> None:
+    """Criterion 2 (multi-plug-promotion-brief.md): the domain is DERIVED
+    (Sec 2.3), never hand-listed -- this pins only what today's
+    derivation yields. grove_btn and pilot_alt_button each declare a
+    `shield,params` `zephyr,code` name with no authored default, but
+    both now have a `_REQUIRED_PARAM_ASSIGNMENTS` entry (Sec 9.6 part
+    2's `<device>.<prop>=<value>` CLI grammar gives a promoted rig a
+    real way to satisfy it), so the required-param gap contributes
+    nothing today. `can_span_click`/`mikrobus_span_adapter` (the two
+    multi-plug corpus shields) used to be EXCLUDED by ruling 4's own
+    plurality gate (`:socket=` was inherently single-slot) -- that gate
+    is RETIRED as of this slice, and both now have a
+    `_SOCKET_ASSIGNMENTS` entry of their own, so `EXCLUDED` shrinks to
+    `set()`, the S4 pattern realized. This assertion can only grow again
+    the day a new required-param shield lands with no entry supplied for
+    it yet."""
+    assert EXCLUDED == set(), (
+        f"excluded set is {sorted(EXCLUDED)}, expected set() -- a "
+        "non-empty set names a NEW required-param shield with no "
+        "_REQUIRED_PARAM_ASSIGNMENTS entry yet (or an existing entry that "
+        "stopped covering every one of its shield's required parameters -- "
+        "fix the entry, don't paper over it)")
 
 
 def _materialize_fixture(name: str, tmp_path: Path) -> Path:
@@ -263,12 +315,15 @@ def _materialize_fixture(name: str, tmp_path: Path) -> Path:
     named after the shield (S3a's own desugaring convention,
     board-coordinate-s3-brief.md Sec 3).
 
-    A `name` with a `_REQUIRED_PARAM_ASSIGNMENTS` entry gets that exact
-    assignment appended as a params: block, in the SAME shape `promote.
+    A `name` with a `_SOCKET_ASSIGNMENTS` entry gets a socket:/sockets:
+    block appended (single-plug/plural spelling per the entry's own
+    shape, `promote.promote_shield`'s identical rule), and a `name` with
+    a `_REQUIRED_PARAM_ASSIGNMENTS` entry gets that exact assignment
+    appended as a params: block, in the SAME shape `promote.
     promote_shield` prints on the other side of the law (Sec 2.2
-    symmetry) -- the value the promoted side supplies via its own dotted
-    CLI opts and the value this fixture assigns must be the identical
-    string for the comparison to prove anything.
+    symmetry) -- the value the promoted side supplies via its own CLI
+    opts and the value this fixture assigns must be the identical string
+    for the comparison to prove anything.
 
     Returns the written rig.yml's path; the content file
     (`<name>.yml`, matching promote.PromotedRig's own naming) sits
@@ -280,6 +335,14 @@ def _materialize_fixture(name: str, tmp_path: Path) -> Path:
     rig_yml = rig_dir / "rig.yml"
     rig_yml.write_text(rig_tmpl.format(name=name))
     content = content_tmpl.format(name=name)
+    sockets = _SOCKET_ASSIGNMENTS.get(name)
+    if sockets:
+        if list(sockets) == ["plug"]:
+            content += f"    socket: {sockets['plug']}\n"
+        else:
+            content += "    sockets:\n"
+            for slot, label in sockets.items():
+                content += f"      {slot}: {label}\n"
     assignment = _REQUIRED_PARAM_ASSIGNMENTS.get(name)
     if assignment:
         content += "    params:\n"

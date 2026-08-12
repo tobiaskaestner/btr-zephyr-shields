@@ -33,7 +33,7 @@ from __future__ import annotations
 
 import os
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
@@ -137,30 +137,40 @@ class PromotedRig:
 #: from the command line; and `shield`, which is the target itself.
 #:
 #: A key containing a literal `.` is never a member of this tuple, and
-#: never will be: it is a `<device>.<prop>` parameter assignment, a
-#: DIFFERENT grammar category reached by different syntax (see
-#: `ParsedPromotionOpts`), not a new fixed keyword growing this set.
+#: never will be: it is either a `<device>.<prop>` parameter assignment
+#: or, when the device-label half is exactly `socket`, a per-slot
+#: `socket.<slot>=<value>` option (multi-plug-promotion-brief.md Sec 2)
+#: -- a REFINEMENT of this one existing key, not a new fixed keyword
+#: growing this set. Consequence, made loud rather than latent: a shield
+#: device labeled literally `socket` can no longer receive a promotion
+#: parameter through this grammar (verified against the real corpus and
+#: every fixture, 2026-08-12: no such device label exists anywhere).
 _PROMOTION_OPTS = ("socket",)
 
 
 @dataclass(frozen=True)
 class ParsedPromotionOpts:
     """A parsed promotion target's `:`-separated assignment list, split
-    into its two grammar categories: `fixed`, the closed `_PROMOTION_OPTS`
-    keywords (today just socket), and `params`, every `<device>.<prop>=
-    <value>` assignment -- device label -> property name -> value, the
-    identical shape `Instance.params` (model.py) already carries, so
-    `promote_shield` can print it with the SAME structure a real rig.yml's
-    own params: block already uses. A flat `Dict[str, str]` cannot hold
-    both without overloading one key namespace with two unrelated
-    meanings, so the two live in separate fields rather than one mapping.
+    into its three grammar categories: `fixed`, the closed
+    `_PROMOTION_OPTS` keywords other than the slot form (today just bare
+    `socket=`, single-plug only); `sockets`, every `socket.<slot>=<value>`
+    slot assignment (slot name -> board socket label, plural shields
+    only, multi-plug-promotion-brief.md Sec 2); and `params`, every other
+    `<device>.<prop>=<value>` assignment -- device label -> property name
+    -> value, the identical shape `Instance.params` (model.py) already
+    carries, so `promote_shield` can print it with the SAME structure a
+    real rig.yml's own params: block already uses. A flat `Dict[str, str]`
+    cannot hold all three without overloading one key namespace with
+    unrelated meanings, so each lives in its own field.
 
-    Both are fresh dicts the caller owns."""
+    All three are fresh dicts/mappings the caller owns."""
     fixed: Dict[str, str]
     params: Dict[str, Dict[str, str]]
+    sockets: Dict[str, str] = field(default_factory=dict)
 
 
 def parse_promotion_opts(opts: Optional[str], target: str,
+                         shield: Optional[Shield] = None,
                          ) -> Union[ParsedPromotionOpts, str]:
     """Parse the `:`-separated assignment list a promotion target may
     carry -- `<shield>[@rev][:<key>=<value>[:<key>=<value>...]]` -- into
@@ -182,18 +192,39 @@ def parse_promotion_opts(opts: Optional[str], target: str,
     need), so a comma-separated list could never carry the parameter
     syntax this grammar is designed to grow into.
 
-    A key containing a literal `.` is routed to `params` instead of
-    checked against `_PROMOTION_OPTS`: split on the FIRST dot only
-    (`str.partition`, never `str.split`) into a device label and a
+    A key containing a literal `.` is split on the FIRST dot only
+    (`str.partition`, never `str.split`), into a device label and a
     property name, everything after the first dot -- dots included --
-    staying part of the property name. Devicetree property names may
-    legally contain a literal `.` themselves (rare, but the grammar does
-    not forbid it); shield-local device labels in this corpus never do,
-    so the first dot is always the real boundary between the two."""
+    staying part of the property name (devicetree property names may
+    legally contain a literal `.` themselves; shield-local device labels
+    in this corpus never do, so the first dot is always the real
+    boundary). When the device-label half is exactly `socket`, the
+    property-name half is a SLOT name, not a property, and the
+    assignment routes to `sockets` -- reserved unconditionally, never
+    checked against a shield's real device labels (`promote_shield`
+    never validates device/property existence either; that stays the
+    loader's job).
+
+    `shield`, when given -- the caller's own already-resolved
+    `resolve_for_promotion` result -- supplies the slot-validation
+    context the `socket.<slot>=`/bare-`socket=` grammar needs against
+    ITS real slots (multi-plug-promotion-brief.md Sec 2): a bare
+    `socket=` on a plural shield, a `socket.<slot>=` on a single-plug
+    one, and a `socket.<slot>=` naming a slot the shield does not have
+    are each refused with their own sentence. `None` (the default) skips
+    all three checks -- backward-compatible for a caller that has not
+    resolved the shield at all, the same defaulting shape
+    `check_promotable`'s own retired `plug_count` parameter used
+    before this slice. A duplicate slot assignment within one target is
+    refused unconditionally, needing no shield at all (it is a property
+    of the target string alone, exactly like a duplicate fixed key or
+    parameter)."""
     if not opts:
-        return ParsedPromotionOpts(fixed={}, params={})
+        return ParsedPromotionOpts(fixed={}, params={}, sockets={})
     fixed: Dict[str, str] = {}
     params: Dict[str, Dict[str, str]] = {}
+    sockets: Dict[str, str] = {}
+    plural = shield is not None and shield_is_multiplug(shield)
     for assignment in opts.split(":"):
         key, sep, value = assignment.partition("=")
         if not sep:
@@ -207,6 +238,24 @@ def parse_promotion_opts(opts: Optional[str], target: str,
                 return (f"'{target}': promotion parameter '{key}' is not "
                         f"'<device>.<prop>=<value>' -- both the device "
                         f"label and the property name must be non-empty")
+            if dev_label == "socket":
+                slot_name = prop_name
+                if shield is not None and not plural:
+                    return (f"'{target}': shield has a single plug -- use "
+                            f"socket=<label>, not socket.{slot_name}="
+                            f"<label>")
+                if shield is not None and slot_name not in shield.plugs:
+                    return (f"'{target}': socket.{slot_name} names unknown "
+                            f"slot '{slot_name}' -- known slots: "
+                            f"{', '.join(shield.plugs)}")
+                if slot_name in sockets:
+                    return (f"'{target}': slot 'socket.{slot_name}' given "
+                            f"more than once")
+                if not value:
+                    return (f"'{target}': promotion slot option "
+                            f"'socket.{slot_name}=' has an empty value")
+                sockets[slot_name] = value
+                continue
             if prop_name in params.get(dev_label, {}):
                 return (f"'{target}': parameter '{dev_label}.{prop_name}' "
                         f"given more than once")
@@ -218,6 +267,11 @@ def parse_promotion_opts(opts: Optional[str], target: str,
         if key not in _PROMOTION_OPTS:
             return (f"'{target}': unknown promotion option '{key}' "
                     f"(known keys: {', '.join(_PROMOTION_OPTS)})")
+        if key == "socket" and plural:
+            assert shield is not None  # plural is only True when shield is
+            return (f"'{target}': shield plugs {len(shield.plugs)} "
+                    f"sockets -- use socket.<slot>=<label> (slots: "
+                    f"{', '.join(shield.plugs)}), not bare socket=<label>")
         if key in fixed:
             return (f"'{target}': promotion option '{key}' given more "
                     f"than once")
@@ -225,11 +279,12 @@ def parse_promotion_opts(opts: Optional[str], target: str,
             return (f"'{target}': promotion option '{key}=' has an empty "
                     f"value")
         fixed[key] = value
-    return ParsedPromotionOpts(fixed=fixed, params=params)
+    return ParsedPromotionOpts(fixed=fixed, params=params, sockets=sockets)
 
 
 def promote_shield(name: str, revision: Optional[str] = None,
                    socket: Optional[str] = None,
+                   sockets: Optional[Dict[str, str]] = None,
                    params: Optional[Dict[str, Dict[str, str]]] = None,
                    ) -> PromotedRig:
     """The natural mapping `a -> [a]` (ruling 4), written out: a rig.yml
@@ -243,20 +298,38 @@ def promote_shield(name: str, revision: Optional[str] = None,
     time, once a board is actually in play).
 
     `socket`, when given, emits `socket: <label>` on that instance and
-    inference never runs for it. This is what makes a shield promotable
-    onto a board carrying MORE THAN ONE socket of its type, where
-    inference is right to refuse: measured 2026-08-08, four mikrobus
-    shields (eth_click, flash_click, temp_click, temp_hum_click) could
-    not be promoted onto mikroe_quail at all, because quail offers four
+    inference never runs for it -- the single-plug spelling, BYTE-
+    UNTOUCHED by the slot form below (multi-plug-promotion-brief.md Sec
+    2's own criterion). This is what makes a shield promotable onto a
+    board carrying MORE THAN ONE socket of its type, where inference is
+    right to refuse: measured 2026-08-08, four mikrobus shields
+    (eth_click, flash_click, temp_click, temp_hum_click) could not be
+    promoted onto mikroe_quail at all, because quail offers four
     mikrobus sockets and the desugared instance named none of them.
 
-    The label is BOARD-SPECIFIC (`quail_sock1`, not `mikrobus`), and
-    that is correct rather than a regression of S5: S5 moved board-
-    specific labels out of CONTENT, which must stay portable. An
-    invocation already names the board -- it is the one place a
-    board-specific label belongs. This function does not check that the
-    label exists on the board; that is the analyzer's job, and it
-    already renders the candidates (error[phys-socket]).
+    `sockets`, when given (slot name -> board socket label, the identical
+    shape `ParsedPromotionOpts.sockets`/`Instance.sockets` both carry,
+    minus the unassigned slots -- those stay OMITTED, per `Instance.
+    sockets`'s own "missing slot -> None, left to inference" contract),
+    prints a `sockets:` block instead, one entry per GIVEN slot, in the
+    same shape a persisted plural instance's own `sockets:` map already
+    uses -- the plural counterpart of `socket`, and mutually exclusive
+    with it by construction (a caller threading `ParsedPromotionOpts`
+    populates at most one of the two, since `parse_promotion_opts` itself
+    refuses a bare `socket=` on a plural shield and a `socket.<slot>=` on
+    a single-plug one). This function does not itself enforce the
+    exclusion -- it is a pure printer, and validating its own arguments'
+    mutual consistency would be a second authority for a rule
+    `parse_promotion_opts` already owns; a caller passing both gets
+    `sockets:` printed and `socket` silently ignored.
+
+    Neither `socket` nor a `sockets` entry is checked to exist on any
+    board; that is the analyzer's job, and it already renders the
+    candidates (error[phys-socket]). The label(s) are BOARD-SPECIFIC
+    (`quail_sock1`, not `mikrobus`), and that is correct rather than a
+    regression of S5: S5 moved board-specific labels out of CONTENT,
+    which must stay portable. An invocation already names the board --
+    it is the one place a board-specific label belongs.
 
     The instance is named after THE SHIELD ITSELF, never a placeholder
     like "inst": instance names reach config-sheet.md
@@ -295,7 +368,11 @@ def promote_shield(name: str, revision: Optional[str] = None,
     content = ("instances:\n"
               f"  - name: {name}\n"
               f"    shield: {shield_ref}\n")
-    if socket is not None:
+    if sockets:
+        content += "    sockets:\n"
+        for slot_name, label in sockets.items():
+            content += f"      {slot_name}: {label}\n"
+    elif socket is not None:
         content += f"    socket: {socket}\n"
     if params:
         content += "    params:\n"
@@ -308,30 +385,32 @@ def promote_shield(name: str, revision: Optional[str] = None,
 
 def shield_is_multiplug(shield: Shield) -> bool:
     """Whether `shield` declares more than one plug (multi-plug-shield-
-    brief.md ruling 4): the eligibility predicate `check_promotable`'s
-    plurality gate applies, and the singleton-identity-law census's own
-    domain split reads directly -- never a hand-listed shield name, so
-    the day promotion of a plural shield lands, this predicate (and every
-    set it feeds) shrinks on its own. Pure: `shield` is read-only."""
+    brief.md ruling 4). `check_promotable`'s own plurality gate READ this
+    (retired, multi-plug-promotion-brief.md slice 3: a plural shield
+    promotes now, per slot) -- the surviving caller is `parse_promotion_
+    opts`, which needs exactly this fact to decide whether a bare
+    `socket=` or a `socket.<slot>=` is the shield's legal spelling. Pure:
+    `shield` is read-only."""
     return len(shield.plugs) > 1
 
 
 def resolve_for_promotion(name: str, shield_dirs: Optional[List[str]] = None,
                           ) -> Optional[Shield]:
-    """Resolve `name`'s own template -- the IO edge a promotability check
+    """Resolve `name`'s own template -- the IO edge a promotion caller
     reaches for when it needs a fact `discover_shields`'s cheap scan does
-    not carry (its own plug count, `shield_is_multiplug`): a SEPARATE,
-    small parse from `discover_shields`'s own scan, on purpose, since
-    that scan is deliberately lazy (module docstring, `loader/
-    library.py`) and answering "is this shield plural" needs the
+    not carry (its real slot names, for `parse_promotion_opts`'s
+    slot-validation grammar and `promote_shield`'s own `sockets:` map): a
+    SEPARATE, small parse from `discover_shields`'s own scan, on purpose,
+    since that scan is deliberately lazy (module docstring, `loader/
+    library.py`) and answering "what are this shield's slots" needs the
     template's actual plug nodes.
 
     Returns the resolved Shield, or None when resolution fails for any
     reason (an unknown name, a malformed template) -- the caller's own
-    subsequent `check_promotable`/`promote_shield`/`loader.load` call is
-    what surfaces the real diagnostic; this function exists only to
-    answer the plug-count question cheaply and is not itself a
-    diagnostic source. The caller owns the returned Shield.
+    subsequent `promote_shield`/`loader.load` call is what surfaces the
+    real diagnostic; this function exists only to answer the slot
+    question cheaply and is not itself a diagnostic source. The caller
+    owns the returned Shield.
 
     Unlike `discover_shields`'s own inert placeholder workdir, this
     function actually PARSES the template (cpp + dtlib), so it needs a
@@ -340,12 +419,12 @@ def resolve_for_promotion(name: str, shield_dirs: Optional[List[str]] = None,
     with tempfile.TemporaryDirectory(prefix="rigc-promote-plug-count-") as workdir:
         lib, _diags, _deps = load_shield_library(workdir, shield_dirs)
         shield, _diags2, _deps2 = lib.resolve(
-            name, "promotion plug-count probe", SourceRef("<promote>", 0))
+            name, "promotion slot probe", SourceRef("<promote>", 0))
         return shield
 
 
-def check_promotable(name: str, info: ShieldInfo, variant: Optional[str],
-                     plug_count: int = 1) -> Optional[str]:
+def check_promotable(name: str, info: ShieldInfo,
+                     variant: Optional[str]) -> Optional[str]:
     """Whether `name` -- already known to `discover_shields` (`info` is
     its own entry, read-only to this call) -- may be promoted at all, in
     the order a user's own target string is checked: a `/variant` names
@@ -354,13 +433,13 @@ def check_promotable(name: str, info: ShieldInfo, variant: Optional[str],
     shield has to select from), then `template: true` (ruling 5's
     promotability gate, Sec 4), naming whichever of the two ways a shield
     falls short of it -- missing shield.yml entirely, or one that omits
-    the flag -- then plurality (ruling 4, multi-plug-shield-brief.md Sec
-    6): a shield plugging more than one socket has no single `:socket=`
-    slot to promote onto, a separate future slice's own design question.
-    `plug_count` is the caller's own `len(shield.plugs)` of the resolved
-    template (`resolve_for_promotion`) -- defaults to 1 (no plurality
-    gate) for a caller that has not resolved the shield at all, so this
-    check stays backward-compatible for anything not yet threading it.
+    the flag. Ruling 4's plurality gate (multi-plug-shield-brief.md Sec
+    6: "a shield plugging more than one socket has no single `:socket=`
+    slot to promote onto") is RETIRED as of multi-plug-promotion-
+    brief.md slice 3: a plural shield promotes now, per slot
+    (`socket.<slot>=<label>`) -- `parse_promotion_opts` is where that
+    grammar's own refusals live (bare `socket=` on a plural shield,
+    `socket.<slot>=` on a single-plug one, an unknown slot), not here.
 
     Returns an error message naming why promotion is refused, or None
     when `promote_shield` may run. Pure: makes no filesystem call of its
@@ -375,9 +454,6 @@ def check_promotable(name: str, info: ShieldInfo, variant: Optional[str],
                    "shield.yml does not declare 'template: true'")
         return (f"shield '{name}' is discoverable but not promotable to "
                 f"a rig -- {missing}")
-    if plug_count > 1:
-        return (f"shield '{name}' plugs {plug_count} sockets -- "
-                "multi-plug shields cannot be promoted (yet)")
     return None
 
 

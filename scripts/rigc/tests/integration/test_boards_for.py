@@ -140,6 +140,50 @@ def test_boards_for_a_promoted_shield_naming_its_socket_answers_that_board() -> 
     assert socketed.stdout.strip() == "mikroe_quail/stm32f427xx/rig"
 
 
+def test_boards_for_a_bare_plural_shield_answers_empty_the_per_slot_ambiguity() -> None:
+    """multi-plug-promotion-brief.md Sec 3/7: `can_span_click` plugs two
+    mikroBUS slots, and quail offers FOUR mikroBUS sockets -- per-slot
+    inference (multi-plug-shield-brief.md Sec 4) refuses on EACH slot
+    independently (several candidates, no tie-break), so a bare target
+    answers no board at all. This is the ambiguity refusal working
+    correctly, not a gap (the brief's own words) -- the explicit
+    socket.<slot>= form below is the answer, not a smarter inference."""
+    result = _run("--boards-for", "can_span_click")
+    assert result.returncode == 0, (
+        f"--boards-for can_span_click: exit {result.returncode}\n"
+        f"{result.stderr}")
+    assert result.stdout.strip() == ""
+
+
+def test_boards_for_a_plural_shield_with_slot_options_answers_the_named_board() -> None:
+    """The slot-optioned counterpart of the ambiguity test above -- the
+    SAME shield answers nothing bare and mikroe_quail once the target
+    names which two of quail's four mikroBUS sockets its slots mean,
+    asserted as a pair for the same reason
+    test_boards_for_a_promoted_shield_naming_its_socket_answers_that_board
+    is: either half alone is satisfiable by a stub."""
+    bare = _run("--boards-for", "can_span_click")
+    optioned = _run(
+        "--boards-for",
+        "can_span_click:socket.left=quail_sock2:socket.right=quail_sock3")
+
+    assert optioned.returncode == 0, (
+        f"exit {optioned.returncode}\n{optioned.stderr}")
+    assert bare.stdout.strip() == ""
+    assert optioned.stdout.strip() == "mikroe_quail/stm32f427xx/rig"
+
+
+def test_boards_for_a_bare_socket_on_a_plural_shield_is_refused() -> None:
+    """The slot-form's own negative control at query level: a bare
+    socket= (the single-plug spelling) is refused for a plural shield
+    with parse_promotion_opts's own sentence, not silently ignored or
+    misread as naming one of the two slots."""
+    result = _run("--boards-for", "can_span_click:socket=quail_sock2")
+    assert result.returncode != 0
+    assert "plugs 2 sockets" in result.stderr
+    assert "socket.<slot>=" in result.stderr
+
+
 def test_boards_for_a_promoted_shield_with_a_required_param_answers_once_assigned() -> None:
     """The dotted `<device>.<prop>=<value>` promotion-option grammar's own
     falsifier (Sec 9.6 part 2), the same shape the socket= pair above

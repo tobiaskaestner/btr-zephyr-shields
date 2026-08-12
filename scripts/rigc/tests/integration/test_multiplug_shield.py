@@ -28,10 +28,10 @@ from textwrap import dedent
 
 import pytest
 
-from conftest import (FIXTURES_DIR, REPO_ROOT, SHIELD_DIR, WEST_EXE,
-                      WEST_TOPDIR, assert_fixture_local, plain_build_for,
-                      render_argv, run_expand, subprocess_timeout,
-                      write_rerun_script, zephyr_base)
+from conftest import (FIXTURES_DIR, REPO_ROOT, RIG_EXPAND_COMPILE,
+                      SHIELD_DIR, WEST_EXE, WEST_TOPDIR, assert_fixture_local,
+                      plain_build_for, render_argv, run_expand,
+                      subprocess_timeout, write_rerun_script, zephyr_base)
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
@@ -413,12 +413,23 @@ def test_can_span_click_shared_controller_two_slot_contract(
     assert "canspan/log_flash: CS index 1" in sheet
 
 
-def test_can_span_click_is_excluded_from_the_singleton_law_and_promotion() -> None:
-    """Ruling 4 (Sec 6): a multi-plug shield cannot be promoted -- pinned
-    here from the promotion seam's OWN angle (test_singleton_identity_law.py
-    pins the census side, criterion 5)."""
+def test_can_span_click_is_now_promotable_with_explicit_slot_options() -> None:
+    """Ruling 4's plurality gate is RETIRED as of multi-plug-promotion-
+    brief.md slice 3 -- the mechanism this test used to pin
+    (check_promotable's own plug_count refusal) is gone, and this test
+    flips with it (mechanism and tests together) rather than merely
+    dying: it now pins the POSITIVE fact, from the promotion seam's own
+    angle (test_singleton_identity_law.py pins the census side,
+    criterion 2 -- EXCLUDED == set()). can_span_click still needs
+    explicit slot options to promote onto quail at all (four mikroBUS
+    candidates per slot kills per-slot inference by construction,
+    exactly as it does for the persisted rig's own sockets: map) -- a
+    bare socket= is refused for a DIFFERENT reason (the plural-shield
+    grammar refusal, parse_promotion_opts's own sentence), pinned here
+    too so the two refusal reasons are never confused for one another."""
     from rigc.promote import (check_promotable, discover_shields,
-                              resolve_for_promotion, shield_is_multiplug)
+                              parse_promotion_opts, resolve_for_promotion,
+                              shield_is_multiplug)
 
     shields = discover_shields([str(SHIELD_DIR)])
     assert "can_span_click" in shields
@@ -428,12 +439,25 @@ def test_can_span_click_is_excluded_from_the_singleton_law_and_promotion() -> No
     assert resolved is not None
     assert shield_is_multiplug(resolved) is True
 
-    err = check_promotable("can_span_click", shields["can_span_click"], None,
-                           plug_count=len(resolved.plugs))
-    assert err is not None
-    assert "can_span_click" in err
-    assert "plugs 2 sockets" in err
-    assert "cannot be promoted" in err
+    # The plug-count gate is gone: check_promotable no longer refuses a
+    # multi-plug shield at all.
+    assert check_promotable("can_span_click", shields["can_span_click"],
+                            None) is None
+
+    # A bare socket= is still refused -- not by check_promotable any
+    # more, but by parse_promotion_opts's own plural-shield sentence.
+    bare = parse_promotion_opts("socket=quail_sock2", "can_span_click",
+                                resolved)
+    assert isinstance(bare, str)
+    assert "plugs 2 sockets" in bare
+    assert "socket.<slot>=" in bare
+
+    # The slot-optioned form parses clean.
+    optioned = parse_promotion_opts(
+        "socket.left=quail_sock2:socket.right=quail_sock3",
+        "can_span_click", resolved)
+    assert not isinstance(optioned, str)
+    assert optioned.sockets == {"left": "quail_sock2", "right": "quail_sock3"}
 
 
 # ---------------------------------------------------------------- build round-trip
@@ -494,3 +518,109 @@ def test_can_span_click_build_round_trip(
     spi3_ctrl = zephyr_dts.split("spi3:")[1].split("\n\t};")[0]
     assert "canspan_log_flash: log_flash@0 {" in spi3_ctrl
     assert "cs-gpios = < &quail_sock3" in spi3_ctrl
+
+
+# --------------------------------------------------- the promoted round trip
+
+
+def _run_can_span_click_promoted(
+        out_dir: Path, tmp_path_factory: "pytest.TempPathFactory",
+        ) -> "subprocess.CompletedProcess[str]":
+    """The --promote counterpart of _run_can_span_click: the SAME two
+    board sockets (quail_sock2/quail_sock3), named via the slot-optioned
+    promotion grammar (multi-plug-promotion-brief.md Sec 2) instead of a
+    persisted sockets: map -- run through the real CLI exactly as
+    cmake's --promote seam (rigs.py's PromotedTarget.promotion_target)
+    would invoke it. run_expand has no --promote mode (it always takes a
+    rig_yml PATH), so this builds the argv directly rather than
+    stretching that helper to cover a shape it was never meant to."""
+    plain_build = plain_build_for(_QUAIL_BOARD, tmp_path_factory)
+    zb = zephyr_base()
+    env = dict(os.environ)
+    env["ZEPHYR_BASE"] = zb
+    env["PYTHONPATH"] = str(REPO_ROOT / "scripts")
+    cmd = [sys.executable, "-m", RIG_EXPAND_COMPILE, "expand",
+          "--promote",
+          "can_span_click:socket.left=quail_sock2:socket.right=quail_sock3",
+          "--shield-dir", str(SHIELD_DIR),
+          "--board", _QUAIL_BOARD,
+          "--board-dts", str(_QUAIL_BOARD_DTS),
+          "--build-info", str(plain_build.build_info),
+          "--out-dir", str(out_dir)]
+    return subprocess.run(cmd, cwd=str(REPO_ROOT), env=env,
+                          capture_output=True, text=True,
+                          timeout=subprocess_timeout(120))
+
+
+@pytest.mark.build
+def test_can_span_click_promoted_round_trip_matches_the_persisted_cross_plug_facts(
+        tmp_path: Path, tmp_path_factory: "pytest.TempPathFactory") -> None:
+    """Acceptance criterion 3 (multi-plug-promotion-brief.md): the
+    promoted form of can_span_click, given the ONLY spelling its own
+    four-candidate-per-slot ambiguity leaves it (explicit
+    socket.left=/socket.right= options), produces the SAME cross-plug/CS
+    facts test_can_span_click_cross_plug_cs_and_nexus already pins for
+    the persisted quail_can_span rig -- can0's CS from the LEFT socket's
+    own pool, log_flash's from the RIGHT's, can0's int-gpios through the
+    RIGHT socket's nexus (the cross-plug falsifier, named here again
+    rather than trusted from the golden alone). The promoted instance is
+    named after the shield itself (promote_shield's own contract), never
+    "canspan" -- every label below substitutes that one name; the
+    structural facts (which socket, which pool index, which nexus) do
+    not move."""
+    out_dir = tmp_path / "out"
+    result = _run_can_span_click_promoted(out_dir, tmp_path_factory)
+
+    assert result.returncode == 0, (
+        f"promoted can_span_click on quail: expected accept\n"
+        f"--- stderr ---\n{result.stderr}")
+
+    overlay = (out_dir / "rig-gen.overlay").read_text()
+
+    # can0 on spi1 (LEFT/quail_sock2's own bus), CS index 0 at quail_sock2.
+    spi1_block = overlay.split("&spi1 {")[1].split("};")[0]
+    assert "can_span_click_can0: can0@0 {" in spi1_block
+    assert "cs-gpios = <&quail_sock2 2 1" in spi1_block
+    # THE cross-plug falsifier: can0's INT line resolves through the
+    # RIGHT socket's own nexus, not the LEFT socket its bus sits on.
+    assert "int-gpios = <&quail_sock3 7 0x1>;" in spi1_block
+
+    # log_flash on spi3 (RIGHT/quail_sock3's own bus), CS index 0 at
+    # quail_sock3 -- the SAME index as can0's, on a DIFFERENT physical
+    # socket/bus: the negative control survives promotion too.
+    spi3_block = overlay.split("&spi3 {")[1].split("};")[0]
+    assert "can_span_click_log_flash: log_flash@0 {" in spi3_block
+    assert "cs-gpios = <&quail_sock3 2 1" in spi3_block
+
+    sheet = (out_dir / "config-sheet.md").read_text()
+    assert "| can_span_click | can_span_click | left: quail_sock2 |" in sheet
+    assert "| can_span_click | can_span_click | right: quail_sock3 |" in sheet
+    assert "can_span_click/can0: CS index 0" in sheet
+    assert "can_span_click/log_flash: CS index 0" in sheet
+
+
+def test_can_span_click_promotion_refuses_a_bare_socket_naming_the_slots(
+        tmp_path: Path) -> None:
+    """The negative control for the test above: a bare socket= (the
+    single-plug spelling) is refused for THIS shield with its own
+    sentence, naming both real slots -- proving the promoted round trip
+    above passed BECAUSE of the slot-optioned grammar, not despite it.
+    Driven through the real CLI (not parse_promotion_opts in-process)
+    since the refusal must fire at cli.py's own --promote seam too, the
+    caller multi-plug-promotion-brief.md Sec 3 flagged as missing from
+    its own predicted list."""
+    env = dict(os.environ)
+    env["ZEPHYR_BASE"] = zephyr_base()
+    env["PYTHONPATH"] = str(REPO_ROOT / "scripts")
+    result = subprocess.run(
+        [sys.executable, "-m", RIG_EXPAND_COMPILE, "expand",
+         "--promote", "can_span_click:socket=quail_sock2",
+         "--shield-dir", str(SHIELD_DIR),
+         "--board", _QUAIL_BOARD, "--board-dts", str(_QUAIL_BOARD_DTS),
+         "--out-dir", str(tmp_path / "out")],
+        cwd=str(REPO_ROOT), env=env, capture_output=True, text=True,
+        timeout=subprocess_timeout(60))
+    assert result.returncode != 0
+    assert "plugs 2 sockets" in result.stderr
+    assert "socket.<slot>=" in result.stderr
+    assert "left" in result.stderr and "right" in result.stderr

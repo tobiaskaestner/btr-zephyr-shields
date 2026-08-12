@@ -335,15 +335,31 @@ def _expand(args: argparse.Namespace) -> int:
             # parses it, so this is the one parser for the option
             # grammar no matter how many options it grows.
             shield_name, _, opt_text = args.promote.partition(":")
+            # Resolved here, ahead of parse_promotion_opts's own
+            # slot-validation grammar (multi-plug-promotion-brief.md Sec
+            # 2: a bare socket= on a plural shield, a socket.<slot>= on
+            # a single-plug one, an unknown slot) -- this cmake-seam
+            # caller was missing from the brief's own predicted call-site
+            # list (verified by grep, multi-plug-promotion-brief.md Sec
+            # 3's own recorded lesson: run every caller, do not trust a
+            # brief's list). check_promotable is deliberately NOT called
+            # here: list_rigs.py/west_commands/rigs.py already validated
+            # promotability before ever forwarding a target this far
+            # (list_rigs.PromotedTarget.promotion_target, cli.py's own
+            # module docstring), and this is the one entry point every
+            # OTHER caller's --promote value already passed through --
+            # duplicating the check here would be a second authority for
+            # the same fact.
+            resolved = promote.resolve_for_promotion(shield_name, shield_dirs)
             opts = promote.parse_promotion_opts(
-                opt_text or None, args.promote)
+                opt_text or None, args.promote, resolved)
             if isinstance(opts, str):
                 # No SourceRef: the offending text is argv, not a file,
                 # and the message already quotes the target verbatim.
                 return _reject([diag_error("lang-promote-opts", opts)])
             promoted = promote.promote_shield(
                 shield_name, args.revision, socket=opts.fixed.get("socket"),
-                params=opts.params or None)
+                sockets=opts.sockets or None, params=opts.params or None)
             rig_path = os.path.join(workdir, "rig.yml")
             with open(rig_path, "w") as f:
                 f.write(promoted.rig_yml)

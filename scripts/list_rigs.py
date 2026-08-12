@@ -363,13 +363,14 @@ def resolve_target(target, args):
         sys.exit(f'ERROR: {promote.both_paths_error(name, rig.dir, shields[name].dir)}')
 
     if rig is None and name in shields:
-        # Resolved here, ahead of check_promotable's own plurality gate
-        # (multi-plug-shield-brief.md Sec 6): discover_shields' scan is
-        # deliberately lazy and never opens the template itself, so the
-        # plug count needs its own small parse.
+        # Resolved here, ahead of check_promotable (multi-plug-shield-
+        # brief.md Sec 6) and of parse_promotion_opts's own slot-
+        # validation grammar (multi-plug-promotion-brief.md Sec 2):
+        # discover_shields' scan is deliberately lazy and never opens
+        # the template itself, so the shield's real slot names need
+        # their own small parse.
         resolved = promote.resolve_for_promotion(name, shield_dirs)
-        plug_count = len(resolved.plugs) if resolved is not None else 1
-        err = promote.check_promotable(name, shields[name], variant, plug_count)
+        err = promote.check_promotable(name, shields[name], variant)
         if err is not None:
             sys.exit(f'ERROR: {err}')
         # Parsed HERE, at resolution time, so a malformed option is a
@@ -378,7 +379,7 @@ def resolve_target(target, args):
         # discarded: rigc re-parses the same text from --promote, and
         # ONE parser owning the grammar is the point (see
         # PromotedTarget). What this call buys is the early refusal.
-        parsed = promote.parse_promotion_opts(opts, target)
+        parsed = promote.parse_promotion_opts(opts, target, resolved)
         if isinstance(parsed, str):
             sys.exit(f'ERROR: {parsed}')
         return PromotedTarget(name=name, revision=revision, opts=opts)

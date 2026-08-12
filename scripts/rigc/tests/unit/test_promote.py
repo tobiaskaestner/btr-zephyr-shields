@@ -84,33 +84,19 @@ def test_a_promotable_shield_with_no_variant_passes() -> None:
     assert check_promotable("adafruit_data_logger", info, variant=None) is None
 
 
-def test_a_multiplug_shield_is_refused_naming_the_plug_count() -> None:
-    """Ruling 4 (multi-plug-shield-brief.md Sec 6): `:socket=` is
-    inherently single-slot, so a shield plugging more than one socket
-    has no slot to promote onto -- refused with its own sentence."""
+def test_a_multiplug_shield_is_now_promotable() -> None:
+    """Ruling 4's plurality gate is RETIRED as of multi-plug-promotion-
+    brief.md slice 3 (per-slot promotion, socket.<slot>=<label>) -- this
+    test used to pin check_promotable's own plug_count refusal
+    (multi-plug-shield-brief.md Sec 6) and flips with it (mechanism and
+    tests together) rather than dying outright: check_promotable no
+    longer takes a plug_count at all, and never refuses a multi-plug
+    shield on that basis. The slot-optioned grammar's own refusals
+    (bare socket= on a plural shield, an unknown slot) now live in
+    parse_promotion_opts -- see the socket.<slot>= section below."""
     info = ShieldInfo(name="can_span_click", dir="/m/boards/shields/can_span_click",
                      template=True, has_yml=True)
-    err = check_promotable("can_span_click", info, variant=None, plug_count=2)
-    assert err is not None
-    assert "can_span_click" in err
-    assert "plugs 2 sockets" in err
-    assert "cannot be promoted" in err
-
-
-def test_plug_count_defaults_to_one_no_plurality_gate() -> None:
-    """A caller that has not resolved the shield at all (the default)
-    never trips the plurality gate -- backward-compatible for every
-    existing call site until it threads a real plug_count."""
-    info = ShieldInfo(name="adafruit_data_logger", dir="/m/boards/shields/adafruit_data_logger",
-                     template=True, has_yml=True)
-    assert check_promotable("adafruit_data_logger", info, variant=None) is None
-
-
-def test_a_single_plug_shield_with_plug_count_one_still_passes() -> None:
-    info = ShieldInfo(name="adafruit_data_logger", dir="/m/boards/shields/adafruit_data_logger",
-                     template=True, has_yml=True)
-    assert check_promotable("adafruit_data_logger", info, variant=None,
-                            plug_count=1) is None
+    assert check_promotable("can_span_click", info, variant=None) is None
 
 
 # ---------------------------------------------------------------- shield_is_multiplug
@@ -156,9 +142,9 @@ def test_discover_shields_finds_the_real_corpus_and_agrees_with_template_flag() 
     (boards/shields/arduino_lcd/, named neither); can_span_click and
     mikrobus_span_adapter (the multi-plug corpus shields -- multi-plug-
     shield-brief.md and multi-plug-carrier-brief.md's own examples) are
-    two of the 16 -- still DISCOVERABLE and `template: true` (this
-    census predicate has no plurality concept at all), even though each
-    is refused downstream by check_promotable's own plug_count gate.
+    two of the 16 -- DISCOVERABLE, `template: true`, and (as of
+    multi-plug-promotion-brief.md slice 3) genuinely promotable too,
+    this census predicate having no plurality concept at all.
     Falsified by mutating a real shield.yml, not by editing this
     assertion (see the mutation test below) -- this one just proves the
     real tree is clean today."""
@@ -464,6 +450,166 @@ def test_a_socketed_promoted_shield_round_trips_through_the_loader(
     assert diags == []
     assert rig is not None
     assert rig.instances[0].sockets["plug"] == "quail_sock1"
+
+
+# --------------------- socket.<slot>= per-slot promotion grammar (multi-plug-promotion-brief.md Sec 2)
+
+_PLURAL_SHIELD = Shield(name="can_span_click", label="can_span_click",
+                       plugs={"left": "mikrobus", "right": "mikrobus"})
+_SINGLE_SHIELD = Shield(name="flash_click", label="flash_click",
+                       plugs={"plug": "mikrobus"})
+
+
+def test_socket_dot_slot_parses_as_a_slot_assignment_not_a_param() -> None:
+    """The socket. dotted-key prefix is RESERVED (Sec 2): unlike every
+    other dotted key, it never routes to params -- even with no shield
+    given to validate the slot name against (the reservation is
+    unconditional, purely syntactic)."""
+    parsed = parse_promotion_opts("socket.left=quail_sock2", "t")
+    assert parsed == ParsedPromotionOpts(
+        fixed={}, params={}, sockets={"left": "quail_sock2"})
+
+
+def test_two_slot_assignments_compose() -> None:
+    parsed = parse_promotion_opts(
+        "socket.left=quail_sock2:socket.right=quail_sock3", "t")
+    assert parsed == ParsedPromotionOpts(
+        fixed={}, params={},
+        sockets={"left": "quail_sock2", "right": "quail_sock3"})
+
+
+def test_a_repeated_slot_is_refused_rather_than_last_wins() -> None:
+    """Mirrors the fixed-key and dotted-param duplicate refusals above --
+    today's `fixed` dict would otherwise silently last-win, and the same
+    would be true of a naively-built sockets dict."""
+    err = parse_promotion_opts("socket.left=a:socket.left=b", "t")
+    assert isinstance(err, str)
+    assert "given more than once" in err
+
+
+def test_a_slot_assignment_with_an_empty_value_is_refused() -> None:
+    err = parse_promotion_opts("socket.left=", "t")
+    assert isinstance(err, str)
+    assert "empty value" in err
+
+
+def test_a_bare_socket_on_a_plural_shield_is_refused_naming_the_slots() -> None:
+    err = parse_promotion_opts("socket=quail_sock2", "t", _PLURAL_SHIELD)
+    assert isinstance(err, str)
+    assert "plugs 2 sockets" in err
+    assert "socket.<slot>=" in err
+    assert "left" in err and "right" in err
+
+
+def test_a_bare_socket_on_a_single_plug_shield_is_unaffected() -> None:
+    """Byte-untouched (Sec 2's own criterion): a resolved single-plug
+    shield's bare socket= parses exactly as it did before this slice."""
+    parsed = parse_promotion_opts("socket=quail_sock1", "t", _SINGLE_SHIELD)
+    assert parsed == ParsedPromotionOpts(
+        fixed={"socket": "quail_sock1"}, params={}, sockets={})
+
+
+def test_a_dotted_slot_on_a_single_plug_shield_is_refused_pointing_at_the_bare_form() -> None:
+    err = parse_promotion_opts("socket.plug=quail_sock1", "t", _SINGLE_SHIELD)
+    assert isinstance(err, str)
+    assert "single plug" in err
+    assert "socket=<label>" in err
+
+
+def test_an_unknown_slot_names_the_real_slots() -> None:
+    err = parse_promotion_opts("socket.bogus=quail_sock2", "t", _PLURAL_SHIELD)
+    assert isinstance(err, str)
+    assert "unknown slot 'bogus'" in err
+    assert "left" in err and "right" in err
+
+
+def test_a_slot_assignment_with_no_slot_name_is_malformed() -> None:
+    err = parse_promotion_opts("socket.=quail_sock2", "t", _PLURAL_SHIELD)
+    assert isinstance(err, str)
+    assert "<device>.<prop>" in err
+
+
+def test_no_shield_given_skips_slot_validation_but_still_parses() -> None:
+    """`shield=None` (the default) is the backward-compatible case,
+    mirroring check_promotable's own retired plug_count default: a
+    caller that has not resolved the shield at all gets neither the
+    plural-bare refusal nor the unknown-slot refusal, but the slot
+    assignment still parses (routing is unconditional -- only
+    VALIDATION against real slot names needs the shield)."""
+    parsed = parse_promotion_opts("socket.anything=quail_sock2", "t")
+    assert parsed == ParsedPromotionOpts(
+        fixed={}, params={}, sockets={"anything": "quail_sock2"})
+    bare = parse_promotion_opts("socket=quail_sock2", "t")
+    assert bare == ParsedPromotionOpts(
+        fixed={"socket": "quail_sock2"}, params={}, sockets={})
+
+
+def test_promote_shield_with_a_sockets_map_emits_the_plural_form() -> None:
+    promoted = promote_shield(
+        "can_span_click",
+        sockets={"left": "quail_sock2", "right": "quail_sock3"})
+    assert promoted.content == (
+        "instances:\n"
+        "  - name: can_span_click\n"
+        "    shield: can_span_click\n"
+        "    sockets:\n"
+        "      left: quail_sock2\n"
+        "      right: quail_sock3\n")
+
+
+def test_promote_shield_prefers_the_sockets_map_when_both_are_given() -> None:
+    """Documented behavior (promote_shield's own docstring), not a
+    validated invariant -- parse_promotion_opts is what actually keeps
+    the two mutually exclusive by construction; this pins the printer's
+    own precedence directly."""
+    promoted = promote_shield(
+        "can_span_click", socket="ignored_single_form",
+        sockets={"left": "quail_sock2", "right": "quail_sock3"})
+    assert "socket: ignored_single_form" not in promoted.content
+    assert "sockets:" in promoted.content
+
+
+def test_promote_shield_with_a_sockets_map_and_params_orders_sockets_first() -> None:
+    promoted = promote_shield(
+        "can_span_click",
+        sockets={"left": "quail_sock2", "right": "quail_sock3"},
+        params={"can0": {"spi-max-frequency": "1000000"}})
+    assert promoted.content == (
+        "instances:\n"
+        "  - name: can_span_click\n"
+        "    shield: can_span_click\n"
+        "    sockets:\n"
+        "      left: quail_sock2\n"
+        "      right: quail_sock3\n"
+        "    params:\n"
+        "      can0:\n"
+        "        spi-max-frequency: 1000000\n")
+
+
+def test_promote_shield_with_a_sockets_map_round_trips_through_the_loader(
+        tmp_path: Path) -> None:
+    """The plural counterpart of test_a_socketed_promoted_shield_round_
+    trips_through_the_loader: the synthesized sockets: block is not
+    merely well-formed, it LOADS, and both slot assignments reach the
+    instance the loader builds -- against the REAL can_span_click
+    template already in the corpus (slice 1/2), not a fixture stand-in."""
+    promoted = promote_shield(
+        "can_span_click",
+        sockets={"left": "quail_sock2", "right": "quail_sock3"})
+    rig_dir = tmp_path / "rig"
+    rig_dir.mkdir()
+    (rig_dir / "rig.yml").write_text(promoted.rig_yml)
+    (rig_dir / promoted.content_name).write_text(promoted.content)
+
+    types, _deps = load_types()
+    rig, diags, _load_deps = loader.load(
+        str(rig_dir / "rig.yml"), str(tmp_path / "workdir"), types=types,
+        board="some_board")
+
+    assert diags == [], diags
+    assert rig is not None
+    assert rig.instances[0].sockets == {
+        "left": "quail_sock2", "right": "quail_sock3"}
 
 
 # ---------------------------------- <device>.<prop> parameter assignments (Sec 9.6 part 2)

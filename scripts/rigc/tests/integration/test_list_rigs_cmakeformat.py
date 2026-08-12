@@ -46,6 +46,37 @@ def test_cmakeformat_line_for_a_revved_promoted_shield() -> None:
         "REVISION;2;VARIANT;NOTFOUND;PROMOTED;i2c_sensor")
 
 
+def test_cmakeformat_line_for_a_slot_optioned_plural_shield_target() -> None:
+    """multi-plug-promotion-brief.md Sec 3: the `{PROMOTED}` line for a
+    plural shield's slot-optioned target -- whole-line pin, following
+    the revved-promoted precedent above (test_cmakeformat_line_for_a_
+    revved_promoted_shield's own docstring: it caught a real desugaring
+    bug once, which is why whole-line). `resolve_target` forwards the
+    raw opts text VERBATIM into `PromotedTarget.promotion_target`
+    (cmake never parses the option grammar -- rigc's own --promote does,
+    once), so the socket.<slot>= spelling survives this seam untouched."""
+    result = _run("--rig=can_span_click:socket.left=quail_sock2:"
+                 "socket.right=quail_sock3",
+                 f"--cmakeformat={_CMAKEFORMAT}")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == (
+        "NAME;can_span_click;DIR;NOTFOUND;BOARD;NOTFOUND;"
+        "REVISION;NOTFOUND;VARIANT;NOTFOUND;"
+        "PROMOTED;can_span_click:socket.left=quail_sock2:"
+        "socket.right=quail_sock3")
+
+
+def test_cmakeformat_line_for_a_bare_socket_on_a_plural_shield_is_refused() -> None:
+    """The cmake seam's own refusal for the same malformed target
+    test_boards_for.py pins at query level -- `resolve_target` reaches
+    `parse_promotion_opts` with the resolved shield's real slots, so the
+    plural-shield sentence fires here too, before any expander runs."""
+    result = _run("--rig=can_span_click:socket=quail_sock2",
+                  f"--cmakeformat={_CMAKEFORMAT}")
+    assert result.returncode != 0
+    assert "plugs 2 sockets" in result.stderr
+
+
 def test_cmakeformat_line_for_a_persisted_rig_is_unchanged() -> None:
     """Criterion 4 (board-coordinate-s3b-brief.md): a real rig's own line
     carries PROMOTED;NOTFOUND and is otherwise byte-identical to what this

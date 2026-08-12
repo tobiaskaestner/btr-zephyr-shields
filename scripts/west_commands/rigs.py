@@ -236,27 +236,27 @@ class Rigs(WestCommand):
                 name, rig.dir, shields[name].dir))
 
         if name in shields:
-            # Resolved here, ahead of check_promotable's own plurality
-            # gate (multi-plug-shield-brief.md Sec 6) -- discover_shields'
-            # scan is deliberately lazy and never opens the template
-            # itself, so the plug count needs its own small parse. Shared
-            # by both --boards-for and --explain, since both go through
-            # this one method (the S3a lesson this method was extracted
-            # to end: one namespace rule, not two independently-worded
-            # ones).
+            # Resolved here, ahead of check_promotable (multi-plug-
+            # shield-brief.md Sec 6) and of parse_promotion_opts's own
+            # slot-validation grammar (multi-plug-promotion-brief.md Sec
+            # 2) -- discover_shields' scan is deliberately lazy and never
+            # opens the template itself, so the shield's real slot names
+            # need their own small parse. Shared by both --boards-for and
+            # --explain, since both go through this one method (the S3a
+            # lesson this method was extracted to end: one namespace
+            # rule, not two independently-worded ones).
             resolved = promote.resolve_for_promotion(
                 name, self._shield_dirs(args))
-            plug_count = len(resolved.plugs) if resolved is not None else 1
-            err = promote.check_promotable(
-                name, shields[name], variant, plug_count)
+            err = promote.check_promotable(name, shields[name], variant)
             if err is not None:
                 sys.exit(f'ERROR: {err}')
-            opts = promote.parse_promotion_opts(opt_text, target)
+            opts = promote.parse_promotion_opts(opt_text, target, resolved)
             if isinstance(opts, str):
                 sys.exit(f'ERROR: {opts}')
             return name, revision, opts, shields[name]
 
-        return name, revision, promote.ParsedPromotionOpts(fixed={}, params={}), None
+        return name, revision, promote.ParsedPromotionOpts(
+            fixed={}, params={}, sockets={}), None
 
     def _boards_for(self, args):
         """`--boards-for`'s implementation: resolve TARGET against
@@ -317,6 +317,7 @@ class Rigs(WestCommand):
             if shield is not None:
                 promoted = promote.promote_shield(
                     name, revision, socket=opts.fixed.get('socket'),
+                    sockets=opts.sockets or None,
                     params=opts.params or None)
                 rig_yml = os.path.join(workdir, list_rigs.RIG_YML)
                 with open(rig_yml, 'w') as f:
@@ -379,6 +380,7 @@ class Rigs(WestCommand):
         if shield is not None:
             promoted = promote.promote_shield(
                 name, revision, socket=opts.fixed.get('socket'),
+                sockets=opts.sockets or None,
                 params=opts.params or None)
             self._print_pair(('rig.yml', promoted.rig_yml),
                              (promoted.content_name, promoted.content))

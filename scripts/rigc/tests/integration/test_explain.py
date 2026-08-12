@@ -140,6 +140,40 @@ def test_explain_a_promoted_shield_with_params_shows_them_on_the_instance() -> N
         """)
 
 
+def test_explain_a_promoted_plural_shield_with_slot_options_shows_the_sockets_map() -> None:
+    """The slot-qualified `socket.<slot>=<label>` promotion-option grammar
+    (multi-plug-promotion-brief.md Sec 2), printed the same way the
+    single-plug `socket=` case above is: --explain is the oracle for what
+    a plural shield's sockets: block actually desugars to -- and this is
+    the one caller of that threading (`_explain`'s own promote_shield
+    call) the other query-surface tests do not reach."""
+    result = _run("--explain",
+                 "can_span_click:socket.left=quail_sock2:socket.right=quail_sock3")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == textwrap.dedent("""\
+        # rig.yml
+        rig:
+          name: can_span_click
+
+        # can_span_click.yml
+        instances:
+          - name: can_span_click
+            shield: can_span_click
+            sockets:
+              left: quail_sock2
+              right: quail_sock3
+        """)
+
+
+def test_explain_a_bare_socket_on_a_plural_shield_is_refused_naming_the_slots() -> None:
+    """The bare-on-plural refusal, through --explain's own path: the
+    sentence names both the dotted form and the shield's real slots."""
+    result = _run("--explain", "can_span_click:socket=quail_sock2")
+    assert result.returncode != 0
+    assert "use socket.<slot>=<label> (slots: left, right)" in result.stderr
+    assert "not bare socket=<label>" in result.stderr
+
+
 def test_explain_promotion_options_on_a_persisted_rig_are_refused() -> None:
     """Decision 1, on the other query surface -- and it must be the SAME
     refusal: the message comes from list_rigs, which the cmake seam uses

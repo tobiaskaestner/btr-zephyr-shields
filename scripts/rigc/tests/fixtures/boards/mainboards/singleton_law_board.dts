@@ -31,7 +31,10 @@
  * the union of what EVERY eligible shield of a given plug type actually
  * claims (adafruit_data_logger, adafruit_winc1500, arduino_uno_click,
  * i2c_mux / eth_click, flash_click, temp_click, temp_hum_click /
- * grove_led, grove_light, grove_servo / i2c_sensor), not just one.
+ * grove_led, grove_light, grove_servo / i2c_sensor), not just one. A
+ * SECOND, independent mikroBUS socket (multi-plug-promotion-brief.md
+ * slice 3) exists so can_span_click/mikrobus_span_adapter's two same-
+ * type slots each get a distinct physical socket to resolve to.
  */
 / {
 	model = "Singleton Law Fixture Board";
@@ -39,6 +42,20 @@
 
 	nexus_i2c: i2c_ctrl { };
 	nexus_spi: spi_ctrl { };
+	/* A SECOND, independent i2c/spi controller pair -- multi-plug-
+	 * promotion-brief.md Sec 4's own two multi-plug corpus shields
+	 * (can_span_click, mikrobus_span_adapter) each need TWO DISTINCT
+	 * mikroBUS sockets to assign their two same-type slots to (a
+	 * shared defining label is a phys-socket error, slice 1's own
+	 * ruling). A second connector_mikrobus below wires to THESE, not
+	 * to nexus_i2c/nexus_spi, mirroring the real corpus's own
+	 * quail_sock2/quail_sock3 shape (two independent buses) rather
+	 * than the shared-controller variant (quail_sock1/quail_sock2) --
+	 * the more representative case for a fixture that exists to prove
+	 * per-slot CS/bus independence, not re-prove the shared-controller
+	 * contract test_multiplug_shield.py's own build tests already own. */
+	nexus_i2c2: i2c_ctrl2 { };
+	nexus_spi2: spi_ctrl2 { };
 	nexus_gpio: gpio_ctrl { #gpio-cells = <2>; };
 	nexus_pwm: pwm_ctrl { #pwm-cells = <2>; };
 	nexus_adc: adc_ctrl { #io-channel-cells = <1>; };
@@ -100,6 +117,30 @@
 			   <MIKROBUS_INT 0 &nexus_gpio 34 0>;
 		socket,i2c = <&nexus_i2c>;
 		socket,spi = <&nexus_spi>;
+	};
+
+	/* A second, physically DISTINCT mikroBUS socket (multi-plug-
+	 * promotion-brief.md Sec 4): same shape as nexus_mikrobus above,
+	 * wired to the second, independent i2c/spi pair declared with it.
+	 * Every existing single-plug mikrobus shield (eth_click,
+	 * flash_click, temp_click, temp_hum_click) keeps resolving to
+	 * nexus_mikrobus alone -- an EXPLICIT socket: assignment now
+	 * (_SOCKET_ASSIGNMENTS, below), not unique-by-type inference,
+	 * since a second mikroBUS candidate would otherwise make that
+	 * inference ambiguous for all four. The resolved physical socket
+	 * is unchanged, so their emitted artifacts do not move. */
+	nexus_mikrobus2: connector_mikrobus2 {
+		compatible = "socket,mikrobus";
+		#gpio-cells = <2>;
+		gpio-map-mask = <0xffffffff 0xffffffc0>;
+		gpio-map-pass-thru = <0 0x3f>;
+		gpio-map = <MIKROBUS_AN  0 &nexus_gpio 50 0>,
+			   <MIKROBUS_RST 0 &nexus_gpio 51 0>,
+			   <MIKROBUS_CS  0 &nexus_gpio 52 0>,
+			   <MIKROBUS_PWM 0 &nexus_gpio 53 0>,
+			   <MIKROBUS_INT 0 &nexus_gpio 54 0>;
+		socket,i2c = <&nexus_i2c2>;
+		socket,spi = <&nexus_spi2>;
 	};
 
 	/* Grove: both signal positions, plus pwm-map/io-channel-map for

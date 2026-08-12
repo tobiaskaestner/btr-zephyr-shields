@@ -260,3 +260,39 @@ def test_mikrobus_span_adapter_build_round_trip(
     span_combined_node = zephyr_dts.split("span_combined:")[1].split("\n\t};")[0]
     assert "&quail_sock2" in span_combined_node
     assert "&quail_sock3" in span_combined_node
+
+
+def test_mikrobus_span_adapter_is_now_promotable_with_explicit_slot_options() -> None:
+    """Ruling 4's plurality gate is RETIRED as of multi-plug-promotion-
+    brief.md slice 3, for a carrier exactly as for an ordinary plural
+    shield (the gate never distinguished the two) -- the mechanism this
+    test used to pin (check_promotable's own plug_count refusal) is
+    gone, and this test flips with it rather than merely dying, mirroring
+    can_span_click's own flip in test_multiplug_shield.py
+    (test_singleton_identity_law.py pins the census side, criterion 2 --
+    EXCLUDED == set())."""
+    from rigc.promote import (check_promotable, discover_shields,
+                              parse_promotion_opts, resolve_for_promotion,
+                              shield_is_multiplug)
+
+    shields = discover_shields([str(SHIELD_DIR)])
+    assert "mikrobus_span_adapter" in shields
+    assert shields["mikrobus_span_adapter"].template is True
+
+    resolved = resolve_for_promotion("mikrobus_span_adapter", [str(SHIELD_DIR)])
+    assert resolved is not None
+    assert shield_is_multiplug(resolved) is True
+
+    assert check_promotable("mikrobus_span_adapter",
+                            shields["mikrobus_span_adapter"], None) is None
+
+    bare = parse_promotion_opts("socket=quail_sock2", "mikrobus_span_adapter",
+                                resolved)
+    assert isinstance(bare, str)
+    assert "plugs 2 sockets" in bare
+
+    optioned = parse_promotion_opts(
+        "socket.left=quail_sock2:socket.right=quail_sock3",
+        "mikrobus_span_adapter", resolved)
+    assert not isinstance(optioned, str)
+    assert optioned.sockets == {"left": "quail_sock2", "right": "quail_sock3"}
