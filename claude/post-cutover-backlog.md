@@ -151,6 +151,144 @@ All three are now CLOSED — two with no work to do, one implemented.
    it answers promoted shields too (`8887163`). Nothing in rig.yml names a
    board; the invocation is the only source.
 
+28. **PIN PROMOTION — the config-element grammar**
+   (`pin-promotion-brief.md`). BRIEFED and RULED 2026-08-12, **parked
+   here deliberately rather than dispatched** (Tobi, same day): it goes
+   behind the standing queue above, not ahead of it.
+
+   *(Numbered 28 because these numbers are stable identifiers that
+   briefs and handoffs cite by value — "backlog item 7", "item 9". A
+   new item appends; it never renumbers. Its PLACE in section C is what
+   says where it sits in the queue.)*
+
+   **The gap.** Promotion can assign a socket, a slot and a device
+   property; it cannot assign a **config element** — a strap or a
+   routing jumper. So a shield whose jumper selection is mandatory
+   passes `check_promotable`, desugars cleanly, and then always fails
+   analysis with no command line that works. `adafruit_winc1500` is the
+   only such shield in the corpus and is the sole member of
+   `test_singleton_identity_law.py`'s `EXPECTED_REJECTING` for exactly
+   this reason. Four plausible spellings were probed at HEAD `7b6d583`
+   and each fails on its own sentence — the grammar is absent, not
+   merely undocumented.
+
+   **Ruled (Tobi, 2026-08-12), all four as recommended:** the spelling
+   is `pin.<element>=<value>`, reserving the device-half `pin` exactly
+   as `socket` is reserved for slots — a REFINEMENT of the existing
+   `<device>.<prop>` partition, so `_PROMOTION_OPTS` stays the closed
+   one-tuple; ONE namespace for straps and jumpers, leaving
+   `apply_pin_block`'s dispatch the sole authority; NO element-name
+   validation in `parse_promotion_opts` (`lang-pin` already names the
+   offender and lists the elements); normalization stays the loader's.
+
+   The rule those make explicit, worth carrying forward because it
+   predicts the shape of any future route: **the reserved device-half
+   names the instance-level KEY the assignment routes to** — `socket` →
+   `socket:`/`sockets:`, `pin` → `pin:`, everything else → `params:`.
+
+   **TWO sub-rulings inside the slice are still OPEN** and belong to
+   whoever picks it up, before dispatch rather than during: whether the
+   strap-value type check is in scope (§5), and whether the identity
+   law's reject branch is kept or deleted once `EXPECTED_REJECTING`
+   empties (§7).
+
+   **A REAL PRE-EXISTING CRASH found while briefing, and it is not
+   gated on this slice** (§5 of the brief): a strap value YAML does not
+   parse as an int reaches `f"{want:#04x}"` at
+   `analyzer/addresses.py:233` and raises an unhandled `ValueError`.
+   `Instance.pins` is typed `Dict[str, int]` and nothing enforces it.
+   Driver-reproduced from an AUTHORED rig, so it is reachable today —
+   this grammar would only make it a one-keystroke typo instead of a
+   hand-edited YAML mistake. If the slice stays parked a long time,
+   this is separable and cheap.
+
+   **The residual, named so it is not rediscovered:** `invert:` is the
+   LAST instance-level key with no CLI route, and it has a real user
+   (`lotus_buttons`). Under the same rule it would be a fixed key, not
+   a dotted one. Its own slice, not folded in here.
+
+   **SEQUENCING — read item 29 first.** If the `pin:` → `config:`
+   rename is wanted, it must land BEFORE this slice: this grammar bakes
+   `pin.` into a user-facing CLI surface and into the reserved-half
+   rule. Afterwards it is two migrations instead of one.
+
+29. **THE rig→shield REFERENCE VOCABULARY — consistency, explainability,
+   grep-ability.** Raised by Tobi 2026-08-12 while clarifying the
+   ontology behind item 28. Not a defect anyone has hit: every
+   diagnostic involved already lists the valid names. It is a
+   **learnability and navigability** item, and it has three distinct
+   parts that want ruling together.
+
+   **(a) One concept, three names.** `ontology.md` calls it a
+   **configuration element**; the shield DTS declares it under
+   `config { }`; the rig assigns it under `pin:`. The rig-side name is
+   the odd one and it is actively misleading for half the cases —
+   `pin: { addr_strap: 0x49 }` assigns an **I²C address**, not a pin.
+   (`pin:` is right only for the jumper kind, where a position IS a
+   pin.) `config:` is the name the rest of the model already uses.
+
+   **(b) Naming authority differs per assignment block, and NOTHING
+   says so.** Conv. 5 (`conventions.md`) establishes that every
+   rig→below reference is "a string resolved by the loader" — but
+   never says WHICH string, and the two blocks answer differently:
+
+   | rig block | resolves against | example |
+   |---|---|---|
+   | `params:` | the device's DTS **LABEL** | `gb_key: button { … }` → `params: { gb_key: … }` |
+   | `pin:` | the config element's **NODE NAME** | `w_irq_jmp: irq-jmp { … }` → `pin: { irq_jmp: … }` |
+
+   Driver-probed, not inferred — the label is **rejected** on the
+   `pin:` side:
+
+   ```
+   $ pin: { w_irq_jmp: D2 }
+   error[lang-pin]: pin names no config element 'w_irq_jmp' of shield 'adafruit_winc1500'
+       config elements of 'adafruit_winc1500': irq-jmp
+   ```
+
+   `irq_jmp` resolves only because `loader/params.py:227` tries
+   `cfg_name.replace("_","-")` before the raw name.
+
+   **(c) The config-element side is NOT greppable, and the device side
+   IS** — which is why the asymmetry has gone unnoticed. Given
+   `params: { gb_key: … }` the literal `gb_key` appears verbatim in the
+   shield. Given `pin: { irq_jmp: … }` **no literal is shared with the
+   shield at all**: the shield carries the label `w_irq_jmp` and the
+   node name `irq-jmp`, neither of which is the rig's string.
+
+   Grepping the underscore form *appears* to work — `w_irq_jmp`
+   contains `irq_jmp`, `tc_addr_strap` contains `addr_strap` — but that
+   is a **coincidence of both corpus config elements happening to be
+   labelled `<prefix>_<underscored node name>`, not a contract**. A
+   shield author who labels a config node anything else breaks the
+   lookup in both directions: rig → shield, and "which rigs assign this
+   element".
+
+   **Explainability, measured:** `grep -rln 'pin:' doc/` → **no
+   match**. The Sphinx user tree documents `pin:` nowhere. It is
+   covered only in `conventions.md` (the position-selection section,
+   and Conv. 5's naming rule), which is a design document, not user
+   documentation.
+
+   **Options, NONE ruled** — they are not exclusive:
+   - Rename `pin:` → `config:`, aligning the rig with the model. A
+     grammar retirement: 3 corpus rigs, item 28's `pin.<element>=`
+     promotion grammar becomes `config.<element>=`, plus goldens.
+     **If ruled this way it belongs with item 7**, which is already the
+     home for every retired-key/unknown-key debt, rather than standing
+     alone.
+   - Fix the naming authority: pick LABEL or NODE NAME for both blocks
+     and state it as a numbered convention. Label-everywhere is the
+     cheaper migration (devices already use it) but config nodes would
+     then need labels to be mandatory.
+   - Keep both spellings and make the rule explicit: document the
+     normalization in Conv. 5 and give `doc/` a page.
+
+   **Sequencing:** settle this BEFORE item 28 ships if the rename is
+   wanted, since item 28's grammar bakes `pin.` into a user-facing CLI
+   surface and into `_PROMOTION_OPTS`'s reserved-half rule. After that
+   it is a second migration instead of one.
+
 ---
 
 ## D. Test and coverage debt C2 created or exposed
