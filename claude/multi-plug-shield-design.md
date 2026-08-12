@@ -24,16 +24,20 @@ the rest of this document, then `claude/multi-bus-socket-brief.md`
 applies here, but because §2-§4 of that brief is the concrete shape
 "verify every path, don't reason abstractly" produces.
 
-**Concrete next action:** slice 2. Slice 1 (mating + per-slot
-resolution, brief `claude/multi-plug-shield-brief.md`) LANDED 2026-08-12
-as `99fd59c` + corpus `b2b5630`, reviewed and gated. The slice-2 brief —
-multi-parent re-export, `claude/multi-plug-carrier-brief.md` — is
-written from two further rulings (Tobi, 2026-08-12): an exposed socket
-MAY combine same-kind buses from different parents via the multi-bus
-qualified-role vocabulary, and the corpus example is a mikrobus
-span-carrier on quail re-exporting one mixed-parent socket (the
-combined-two-SPI case is fixture-only on fixture-multibus). Promotion
-(R4) remains the thread's last unbriefed slice.
+**Thread status (2026-08-12, close of day): slices 1-3 are ALL DONE** —
+each implemented, reviewed, fix-rounded, full-gate-verified. Slice 1
+(mating + per-slot resolution, `multi-plug-shield-brief.md`), slice 2
+(multi-parent re-export, `multi-plug-carrier-brief.md`), slice 3
+(per-slot promotion `socket.<slot>=`, `multi-plug-promotion-brief.md` —
+retires ruling R4's deferral; the singleton law's EXCLUDED is back to
+set() with both multi-plug corpus shields comparing byte-for-byte;
+twister 12→13). Slice 4 — LIST promotion, `-DRIG='a;b'` — was ruled
+2026-08-12 (semicolon separator mirroring upstream SHIELD's list idiom;
+duplicates `[a,a]` REFUSED first, extension later): see
+`multi-plug-list-brief.md`. Still parked, demand-driven: via-routed
+wires from a plural instance, routing jumpers on plural shields,
+phys-ambiguous-bus pass-through widening. Sphinx docs do not yet cover
+any of the multi-plug grammar.
 
 ## 0. CONFIRMED 2026-08-12 — rulings, direction, and the verified trace
 
