@@ -363,6 +363,13 @@ ACCEPT_CASES: List[RigCase] = [
     # already; this is that same pairing PROMOTED into the permanent
     # corpus, so the emitted/resolved golden machinery protects it too).
     RigCase("quail_can_span", "mikroe_quail/stm32f427xx/rig", True),
+    # multi-plug-carrier-brief.md Sec 7's corpus example: mikrobus_span_
+    # adapter re-exports ONE mixed-parent socket,mikrobus from two of
+    # quail's own mikroBUS sockets, with the EXISTING eth_click plugged
+    # on it (test_multiplug_carrier.py's own ad-hoc rig exercises the
+    # same shield/board pair already; this is that same pairing PROMOTED
+    # into the permanent corpus).
+    RigCase("quail_eth_span", "mikroe_quail/stm32f427xx/rig", True),
     RigCase("nucleo_wifi_logger_ok", "nucleo_f401re/stm32f401xe/rig", True),
     RigCase("frdm_eth_nest", "frdm_k64f/mk64f12/rig", True),
     RigCase("nucleo_mux_farm", "nucleo_f401re/stm32f401xe/rig", True),

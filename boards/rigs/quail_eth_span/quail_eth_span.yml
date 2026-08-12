@@ -1,0 +1,18 @@
+# The multi-plug-carrier corpus example (multi-plug-carrier-brief.md
+# Sec 7): mikrobus_span_adapter plugs TWO of quail's own mikroBUS
+# sockets (left -> quail_sock2, right -> quail_sock3) and re-exports ONE
+# ordinary socket,mikrobus combining them. eth_click (BYTE-UNTOUCHED)
+# plugs the combined socket exactly as it would a real board socket --
+# its SPI/CS chain resolves through the LEFT parent (quail_sock2) while
+# its int-gpios chains through the RIGHT (quail_sock3), the cross-plug
+# falsifier one level up from can_span_click's own cross-plug DEVICE ref.
+
+instances:
+  - name: span
+    shield: mikrobus_span_adapter
+    sockets:
+      left: quail_sock2
+      right: quail_sock3
+  - name: eth_mod
+    shield: eth_click
+    socket: span.combined
