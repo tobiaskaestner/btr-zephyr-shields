@@ -1,0 +1,6 @@
+tests:
+  shields.can_span_click:
+    platform_allow: mikroe_quail/stm32f427xx/rig
+    tags: shields
+    extra_args:
+      - RIG=can_span_click:socket.left=quail_sock2:socket.right=quail_sock3
