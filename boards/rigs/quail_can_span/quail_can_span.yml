@@ -1,0 +1,17 @@
+# The multi-plug corpus example (multi-plug-shield-brief.md Sec 7):
+# can_span_click plugs TWO of quail's four mikroBUS sockets at once.
+# can0 sits on the LEFT plug's own SPI bus (-> spi1) but its INT line is
+# copper on the RIGHT plug (-> quail_sock3) -- the cross-plug falsifier
+# (ruling 2). log_flash sits entirely on the RIGHT plug's own SPI bus
+# (-> spi3). Two independent SPI buses give both devices their own
+# CS-pool namespace for free (both land at CS index 0, on two different
+# physical sockets). can_span_click's four-candidate-per-slot mikroBUS
+# shape kills per-slot inference by construction, so the explicit
+# sockets: map below is mandatory, not a style choice.
+
+instances:
+  - name: canspan
+    shield: can_span_click
+    sockets:
+      left: quail_sock2
+      right: quail_sock3

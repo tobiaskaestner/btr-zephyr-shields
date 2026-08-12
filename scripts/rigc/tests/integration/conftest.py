@@ -357,6 +357,12 @@ ACCEPT_CASES: List[RigCase] = [
     RigCase("nucleo_datalogger", "nucleo_f401re/stm32f401xe/rig", True),
     RigCase("quail_temp_farm", "mikroe_quail/stm32f427xx/rig", True),
     RigCase("quail_sockets", "mikroe_quail/stm32f427xx/rig", True),
+    # multi-plug-shield-brief.md Sec 7's corpus example: can_span_click
+    # plugs two of quail's own mikroBUS sockets at once (test_multiplug_
+    # shield.py's own ad-hoc rig exercises the same shield/board pair
+    # already; this is that same pairing PROMOTED into the permanent
+    # corpus, so the emitted/resolved golden machinery protects it too).
+    RigCase("quail_can_span", "mikroe_quail/stm32f427xx/rig", True),
     RigCase("nucleo_wifi_logger_ok", "nucleo_f401re/stm32f401xe/rig", True),
     RigCase("frdm_eth_nest", "frdm_k64f/mk64f12/rig", True),
     RigCase("nucleo_mux_farm", "nucleo_f401re/stm32f401xe/rig", True),
