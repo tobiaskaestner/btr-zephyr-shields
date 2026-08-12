@@ -18,18 +18,21 @@ from ..model import BoardSocket, Device, Instance
 
 #: The stable allocation order: (the sort key's socket component, then
 #: instance name, then device name). The socket component is the
-#: instance's own AUTHORED reference string -- not the resolved
-#: BoardSocket's label -- wherever the instance declared one; only an
-#: inferred instance (Instance.socket is None, socket-inference-brief.md)
-#: falls back to the resolved label, since it has no authored string to
-#: sort by (the same declared-else-resolved shape config-sheet.md's
-#: socket column uses).
+#: AUTHORED reference string of `dev`'s OWN slot (`dev.plug` -- never
+#: the resolved BoardSocket's label) wherever the instance declared one;
+#: only a slot left to inference (`Instance.sockets[slot] is None`,
+#: socket-inference-brief.md) falls back to the resolved label, since it
+#: has no authored string to sort by (the same declared-else-resolved
+#: shape config-sheet.md's socket column uses).
 AllocationKey = Tuple[str, str, str]
 
 
 def allocation_key(inst: Instance, dev: Device, socket: BoardSocket) -> AllocationKey:
-    """socket is the instance's OWN already-resolved BoardSocket (every
-    caller has one in hand from the same scope member); read-only, used
-    only as the None fallback below."""
-    ref = inst.socket if inst.socket is not None else socket.label
+    """socket is `dev`'s OWN already-resolved BoardSocket (every caller
+    has one in hand from the same scope member, resolved through
+    `dev.plug`'s slot); read-only, used only as the None fallback below."""
+    slot = dev.plug or "plug"
+    ref = inst.sockets.get(slot)
+    if ref is None:
+        ref = socket.label
     return (ref, inst.name, dev.name)

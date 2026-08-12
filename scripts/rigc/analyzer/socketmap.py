@@ -1,0 +1,84 @@
+"""The ONE seam every pass and emitter module resolves "the socket a
+reference/device targets" through, now that a resolution is keyed per
+SLOT rather than per instance (multi-plug-shield-brief.md Sec 3):
+`SocketResolution.sockets`/`Solved.sockets` moved from `Dict[str,
+BoardSocket]` (instance name -> socket) to `Sockets` below (instance name
+-> slot name -> socket).
+
+Three functions, matching the two granularities Sec 2's ruling
+distinguishes -- PER-REFERENCE (a gpio/pwm/adc claim names its own plug by
+phandle) and PER-BUS-GROUP (a device's bus binds to exactly one plug) --
+plus the slot-enumeration helper the per-slot renderers (sheet.py) need.
+This is the `buskind.py` precedent one level up: one shared implementation
+so a caller gating behavior on "which slot does this belong to" cannot
+drift into three copies of the same lookup, which is also what makes the
+acceptance grep (`grep -rn "sockets\\.get(inst\\.name)\\|sockets\\[inst"
+scripts/rigc/analyzer scripts/rigc/emitter` finding only this module and
+sockets.py's own resolution pass) hold.
+
+Every function here is read-only over its arguments and returns a
+reference into the resolution map it was handed, never a copy -- the
+returned `BoardSocket` is owned by whichever pass built the map
+(analyzer/sockets.py's `resolve_sockets`), never by the caller."""
+from __future__ import annotations
+
+from typing import Dict, List, Optional
+
+from ..model import BoardSocket, Device, GpioRef, Instance
+
+#: instance name -> slot name -> resolved board socket. A slot absent
+#: from the inner map never resolved (skip-don't-abort, exactly as a
+#: missing instance entry did before plurality) -- the analyzer already
+#: reported why, and every reader here treats absence as None rather
+#: than a KeyError.
+Sockets = Dict[str, Dict[str, BoardSocket]]
+
+
+def slots_of(sockets: Sockets, inst: Instance) -> List[str]:
+    """Every slot of `inst` that resolved to a physical socket, in the
+    shield's own plug authoring order (`Shield.plugs`' own dict order) --
+    a slot missing from the result never resolved. Used by the per-slot
+    renderers (emitter/sheet.py) to enumerate what to display; never by
+    an analyzer pass, which reaches a socket through `for_ref`/
+    `for_bus_device` instead. `sockets`/`inst` are read-only; returns a
+    fresh list the caller owns."""
+    resolved = sockets.get(inst.name, {})
+    return [slot for slot in inst.shield.plugs if slot in resolved]
+
+
+def for_ref(sockets: Sockets, inst: Instance, ref: GpioRef) -> Optional[BoardSocket]:
+    """The resolved `BoardSocket` `ref` claims through -- keyed by
+    `ref.plug`, the slot the reference's own phandle named
+    (`shields.py`'s `_parse_pos_ref`), NEVER the device's own bus slot: a
+    cross-plug reference (multi-plug-shield-brief.md Sec 2 ruling 2) can
+    name a plug other than the one its device's bus binds to. Returns
+    None when that slot of this instance never resolved (the analyzer
+    already reported why -- the caller's own skip-don't-abort guard, not
+    an error here). `sockets`/`inst`/`ref` are read-only."""
+    return sockets.get(inst.name, {}).get(ref.plug)
+
+
+def for_bus_device(sockets: Sockets, inst: Instance, dev: Device) -> Optional[BoardSocket]:
+    """The resolved `BoardSocket` `dev`'s own BUS binds to -- keyed by
+    `dev.plug`, the slot its bus group nests under. Calling this on a
+    plain-group device (`dev.plug` is None, since it has no bus of its
+    own to bind) is a caller bug; every caller already filters to
+    bus-kind devices before reaching here (analyzer/cs.py, analyzer/
+    addresses.py, emitter/overlay.py's `_bus_devices`). Returns None when
+    that slot never resolved. `sockets`/`inst`/`dev` are read-only."""
+    assert dev.plug is not None, (
+        f"for_bus_device called on plain-group device '{dev.name}' "
+        "(no bus, no plug slot to look up)")
+    return sockets.get(inst.name, {}).get(dev.plug)
+
+
+def for_slot(sockets: Sockets, inst: Instance, slot: str) -> Optional[BoardSocket]:
+    """The resolved `BoardSocket` of `inst`'s own named `slot`, directly --
+    the primitive `for_ref`/`for_bus_device` both delegate to, and the one
+    a caller reaches for when neither a `GpioRef` nor a `Device` is in
+    hand (analyzer/wires.py's pad-based routes, which resolve through a
+    single-plug instance's own one slot after checking plurality itself --
+    a plural FROM instance is refused before this is ever called, S6).
+    Returns None when that slot never resolved. `sockets`/`inst` are
+    read-only."""
+    return sockets.get(inst.name, {}).get(slot)

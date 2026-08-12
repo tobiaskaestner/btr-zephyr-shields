@@ -581,8 +581,8 @@ def _generated_sheet() -> str:
     from rigc.analyzer import Solved
     from rigc.diag import SourceRef
     from rigc.emitter.sheet import render_sheet
-    from rigc.model import (BoardSocket, ConnectorType, Instance, Rig, Shield,
-                            Wire, WireEnd)
+    from rigc.model import (BoardSocket, ConnectorType, Device, Instance, Rig,
+                            Shield, Wire, WireEnd)
 
     src = SourceRef("f.yml", 1, "k")
     ctype = ConnectorType(
@@ -593,13 +593,16 @@ def _generated_sheet() -> str:
         gpio_map={0: ("gpioa", 3, 0)}, buses={})
     unmapped = BoardSocket(
         label="sock2", path="/s2", type_name="t", gpio_map={}, buses={})
-    shield = Shield(name="flash_click", label="fc", plugs="t")
-    insts = [Instance(name="flash_a", shield=shield, socket="sock1"),
-            Instance(name="flash_b", shield=shield, socket="sock2")]
+    nor = Device(name="nor", label="nor", compatible=None, bus="spi",
+                group=None, reg=None, addr_from=None, cs_position=None)
+    shield = Shield(name="flash_click", label="fc", plugs={"plug": "t"},
+                    devices=[nor])
+    insts = [Instance(name="flash_a", shield=shield, sockets={"plug": "sock1"}),
+            Instance(name="flash_b", shield=shield, sockets={"plug": "sock2"})]
     frm = WireEnd(instance_name="a", node="node1", src=src)
     to = WireEnd(instance_name="b", node="node2", src=src)
     solved = Solved(
-        sockets={"flash_a": mapped, "flash_b": unmapped},
+        sockets={"flash_a": {"plug": mapped}, "flash_b": {"plug": unmapped}},
         cs={("flash_a", "nor"): (0, 0), ("flash_b", "nor"): (1, 9)},
         wires=[Wire(frm=frm, to=to, route=7, src=src),
                Wire(frm=frm, to=to, route="adhoc", src=src)])
@@ -664,15 +667,15 @@ def _generated_overlay() -> str:
                 reg=None, addr_from=None, cs_position=None,
                 gpio_refs=[ref, ref2],
                 extra_props=[("zephyr,code", "zephyr,code = <INPUT_KEY_0>;")])
-    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
-    inst = Instance(name="i1", shield=shield, socket="sock", invert=True,
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"}, invert=True,
                    params={"d": {"zephyr,code": "INPUT_KEY_9"}})
     rig = Rig(name="r", instances=[inst])
     ctype = ConnectorType(name="t", positions={}, index2name={5: "D2", 6: "D3"},
                          bus_proxies=[], stackable=False, cs_pool={})
     socket = BoardSocket(label="sock", path="/s", type_name="t", gpio_map={},
                         buses={})
-    solved = Solved(sockets={"i1": socket}, controllers={"tcc0": "pwm"})
+    solved = Solved(sockets={"i1": {"plug": socket}}, controllers={"tcc0": "pwm"})
     return render_overlay(rig, solved, {"t": ctype}, needed_includes=["rig-params.h"])
 
 

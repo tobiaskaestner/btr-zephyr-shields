@@ -19,8 +19,9 @@ from __future__ import annotations
 from typing import Dict, Iterator, List, Optional, Tuple, cast
 
 from ..analyzer import Solved
+from ..analyzer.socketmap import for_bus_device, for_ref, slots_of
 from ..buskind import is_bus_kind
-from ..model import BoardSocket, ConnectorType, Device, Instance, Rig
+from ..model import BoardSocket, ConnectorType, Device, GpioRef, Instance, Rig
 from . import GEN
 
 
@@ -81,14 +82,14 @@ def render_overlay(rig: Rig, s: Solved, types: Dict[str, ConnectorType],
         if not devs:
             continue
         out.append(f"&{s.bus_label[bus_path]} {{")
-        for inst, dev, socket in sorted(devs, key=lambda m: s.addr[(m[0].name, m[1].name)]):
+        for inst, dev, _socket in sorted(devs, key=lambda m: s.addr[(m[0].name, m[1].name)]):
             addr = s.addr[(inst.name, dev.name)]
             label = f"{inst.name}_{dev.label}"
             if label in mux_channels:                # scope-creating interposer (R26)
-                out += _mux_node(rig, s, types, inst, dev, socket, addr,
+                out += _mux_node(rig, s, types, inst, dev, addr,
                                  mux_channels[label])
             else:
-                out += _device_node(s, types, inst, dev, socket,
+                out += _device_node(s, types, inst, dev,
                                     unit=f"{addr:x}", reg=f"<{addr:#04x}>")
         out.append("};")
         out.append("")
@@ -102,9 +103,9 @@ def render_overlay(rig: Rig, s: Solved, types: Dict[str, ConnectorType],
         cs = ", ".join(f"<&{_nexus(sock)} {pos} 1 /* ACTIVE_LOW */>"
                        for sock, pos in entries)
         out.append(f"\tcs-gpios = {cs};")
-        for inst, dev, socket in sorted(devs, key=lambda m: s.cs[(m[0].name, m[1].name)][0]):
+        for inst, dev, _socket in sorted(devs, key=lambda m: s.cs[(m[0].name, m[1].name)][0]):
             index, _pos = s.cs[(inst.name, dev.name)]
-            out += _device_node(s, types, inst, dev, socket,
+            out += _device_node(s, types, inst, dev,
                                 unit=str(index), reg=f"<{index}>")
         out.append("};")
         out.append("")
@@ -122,16 +123,14 @@ def render_overlay(rig: Rig, s: Solved, types: Dict[str, ConnectorType],
     # clash mypy (rightly) flags, not just a style choice.
     root_nodes: List[str] = []
     for inst in sorted(rig.instances, key=lambda i: i.name):
-        plain_socket = s.sockets.get(inst.name)
         plain_devs = [d for d in inst.shield.devices
                      if d.bus is None and d.collect is None]
-        if not plain_devs or plain_socket is None:
+        if not plain_devs or not slots_of(s.sockets, inst):
             continue
         root_nodes.append(f"\t{inst.name} {{")
         for plain_dev in sorted(plain_devs, key=lambda d: d.name):
             root_nodes += ["\t" + line
-                           for line in _device_node(
-                               s, types, inst, plain_dev, plain_socket)]
+                           for line in _device_node(s, types, inst, plain_dev)]
         root_nodes.append("\t};")
     if root_nodes:
         out += ["/ {", *root_nodes, "};", ""]
@@ -165,14 +164,13 @@ def _collections(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[s
     compatible into one node each -- the idiomatic gpio-keys/gpio-leds shape,
     where the compatible sits on the parent and each module is a child entry.
     (Merging into a board-provided collection of the same compatible: parked.)"""
-    groups: Dict[str, List[Tuple[Instance, Device, BoardSocket]]] = {}
+    groups: Dict[str, List[Tuple[Instance, Device]]] = {}
     for inst in rig.instances:
-        socket = s.sockets.get(inst.name)
-        if socket is None:
+        if not slots_of(s.sockets, inst):
             continue
         for dev in inst.shield.devices:
             if dev.collect is not None:
-                groups.setdefault(dev.collect, []).append((inst, dev, socket))
+                groups.setdefault(dev.collect, []).append((inst, dev))
     if not groups:
         return []
 
@@ -180,15 +178,15 @@ def _collections(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[s
     for compat in sorted(groups):
         node = _sanitize(compat)
         out += [f"\t{node}: {node} {{", f'\t\tcompatible = "{compat}";']
-        for inst, dev, socket in sorted(groups[compat], key=lambda m: m[0].name):
-            out += ["\t" + line for line in _collection_entry(s, types, inst, dev, socket)]
+        for inst, dev in sorted(groups[compat], key=lambda m: m[0].name):
+            out += ["\t" + line for line in _collection_entry(s, types, inst, dev)]
         out.append("\t};")
     out += ["};", ""]
     return out
 
 
 def _collection_entry(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
-                      dev: Device, socket: BoardSocket) -> List[str]:
+                      dev: Device) -> List[str]:
     """One child of a collection node: the module's gpio signal. Node name and
     label are the composed <instance>_<shield label> -- unique per (instance,
     device), so an instance may contribute several entries (a shield with two
@@ -201,8 +199,9 @@ def _collection_entry(s: Solved, types: Dict[str, ConnectorType], inst: Instance
     # aggregation only composes the label/gpio, it must not drop the rest.
     for _pname, rendered in _instance_extra_props(inst, dev):
         lines.append(f"\t\t{rendered}")
-    ctype = types[socket.type_name]
     for ref in dev.gpio_refs:
+        socket = _ref_socket(s, inst, ref)
+        ctype = types[socket.type_name]
         pos = s.positions.get((inst.name, dev.name, ref.prop), ref.position)
         # The analyzer resolves every gpio ref's position (fixed or
         # jumper-routed) before an accepted rig ever reaches the emitter;
@@ -234,11 +233,11 @@ def _bus_devices(rig: Rig, s: Solved, kind: str, bus_path: str,
     names simply yields nothing (the loader/analyzer already rejected
     that shield, phys-subset)."""
     for inst in rig.instances:
-        socket = s.sockets.get(inst.name)
-        if socket is None:
-            continue
         for dev in inst.shield.devices:
             if dev.bus is None or not is_bus_kind(dev.bus, kind):
+                continue
+            socket = for_bus_device(s.sockets, inst, dev)
+            if socket is None:
                 continue
             bus_ref = socket.buses.get(dev.bus)
             if bus_ref is None or bus_ref.path != bus_path:
@@ -246,8 +245,21 @@ def _bus_devices(rig: Rig, s: Solved, kind: str, bus_path: str,
             yield inst, dev, socket
 
 
+def _ref_socket(s: Solved, inst: Instance, ref: GpioRef) -> BoardSocket:
+    """`ref`'s own resolved socket (per-reference granularity, ruling 2) --
+    a cross-plug reference's slot may differ from its device's own bus
+    slot, so every gpio/pwm/adc ref renderer resolves through THIS, never
+    the device's bus socket. An accepted rig has every ref's slot
+    resolved by construction; a None here would mean that guarantee
+    broke, the same invariant `_device_node`'s own position asserts
+    already document."""
+    socket = for_ref(s.sockets, inst, ref)
+    assert socket is not None
+    return socket
+
+
 def _mux_node(rig: Rig, s: Solved, types: Dict[str, ConnectorType], inst: Instance,
-             dev: Device, socket: BoardSocket, addr: int,
+             dev: Device, addr: int,
              channels: List[Tuple[object, str]]) -> List[str]:
     """A scope-creating interposer device (S8 I2C mux): the device node on the
     parent bus, with one child channel bus per scope, each hosting that scope's
@@ -269,17 +281,17 @@ def _mux_node(rig: Rig, s: Solved, types: Dict[str, ConnectorType], inst: Instan
                   "\t\t\t#address-cells = <1>;", "\t\t\t#size-cells = <0>;"]
         members = sorted(_bus_devices(rig, s, "i2c", scope_path),
                          key=lambda m: s.addr[(m[0].name, m[1].name)])
-        for si, sd, ss in members:
+        for si, sd, _ss in members:
             sa = s.addr[(si.name, sd.name)]
             lines += ["\t\t" + ln for ln in _device_node(
-                s, types, si, sd, ss, unit=f"{sa:x}", reg=f"<{sa:#04x}>")]
+                s, types, si, sd, unit=f"{sa:x}", reg=f"<{sa:#04x}>")]
         lines.append("\t\t};")
     lines.append("\t};")
     return lines
 
 
 def _device_node(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
-                 dev: Device, socket: BoardSocket, unit: Optional[str] = None,
+                 dev: Device, unit: Optional[str] = None,
                  reg: Optional[str] = None) -> List[str]:
     label = f"{inst.name}_{dev.label}"
     name = f"{dev.name}@{unit}" if unit is not None else dev.name
@@ -288,8 +300,13 @@ def _device_node(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
         lines.append(f"\t\t{rendered}")
     if reg is not None:
         lines.append(f"\t\treg = {reg};")
-    ctype = types[socket.type_name]
     for ref in dev.gpio_refs:
+        # PER-REFERENCE resolution (ruling 2): a cross-plug ref's own
+        # slot may differ from this device's own bus slot, so each ref
+        # looks up ITS OWN socket rather than sharing one across the
+        # whole device.
+        socket = _ref_socket(s, inst, ref)
+        ctype = types[socket.type_name]
         if ref.function == "gpio":
             # Conv. 3: rewrite &plug (or the routing jumper, R6) to the socket's
             # nexus -- a real board node, or a synthesized carrier nexus (R19,
@@ -380,8 +397,9 @@ def _synth_nexus_nodes(s: Solved) -> List[str]:
         synth[sock.nexus_label] = sock
         visit(sock.parent)                 # a carrier stacked on a carrier
 
-    for sock in s.sockets.values():
-        visit(sock)
+    for per_inst in s.sockets.values():
+        for sock in per_inst.values():
+            visit(sock)
     if not synth:
         return []
 

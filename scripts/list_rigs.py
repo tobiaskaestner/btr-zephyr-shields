@@ -355,14 +355,21 @@ def resolve_target(target, args):
     name, revision, variant, opts = parse_rig_target(target)
     rigs = find_rigs(args)
     rig = next((r for r in rigs if r.name == name), None)
-    shields = promote.discover_shields(
-        [str(Path(root) / 'boards' / 'shields') for root in args.board_roots])
+    shield_dirs = [str(Path(root) / 'boards' / 'shields')
+                  for root in args.board_roots]
+    shields = promote.discover_shields(shield_dirs)
 
     if rig is not None and name in shields:
         sys.exit(f'ERROR: {promote.both_paths_error(name, rig.dir, shields[name].dir)}')
 
     if rig is None and name in shields:
-        err = promote.check_promotable(name, shields[name], variant)
+        # Resolved here, ahead of check_promotable's own plurality gate
+        # (multi-plug-shield-brief.md Sec 6): discover_shields' scan is
+        # deliberately lazy and never opens the template itself, so the
+        # plug count needs its own small parse.
+        resolved = promote.resolve_for_promotion(name, shield_dirs)
+        plug_count = len(resolved.plugs) if resolved is not None else 1
+        err = promote.check_promotable(name, shields[name], variant, plug_count)
         if err is not None:
             sys.exit(f'ERROR: {err}')
         # Parsed HERE, at resolution time, so a malformed option is a

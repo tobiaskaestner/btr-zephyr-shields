@@ -27,8 +27,8 @@ def _dev(name: str, reg=None) -> Device:
 
 
 def _inst(name: str, socket: str, *devices: Device) -> Instance:
-    shield = Shield(name="sh", label="sh", plugs="t", devices=list(devices))
-    return Instance(name=name, shield=shield, socket=socket)
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=list(devices))
+    return Instance(name=name, shield=shield, sockets={"plug": socket})
 
 
 def test_analyze_assembles_every_pass_into_one_solved_value() -> None:
@@ -43,7 +43,7 @@ def test_analyze_assembles_every_pass_into_one_solved_value() -> None:
     solved, diags = analyze(rig, board, {"t": _ctype()})
 
     assert diags == []
-    assert solved.sockets["i1"].label == "ard"
+    assert solved.sockets["i1"]["plug"].label == "ard"
     assert solved.addr[("i1", "sensor")] == 0x50
 
 

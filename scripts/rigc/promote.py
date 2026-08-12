@@ -32,10 +32,12 @@ a filesystem. `rigc.loader.load` is what PROVES the printed text is real
 from __future__ import annotations
 
 import os
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List, Optional, Union
 
+from .diag import SourceRef
 from .loader.library import load_shield_library
 from .loader.params import device_required_params
 from .model import Shield
@@ -304,8 +306,46 @@ def promote_shield(name: str, revision: Optional[str] = None,
     return PromotedRig(rig_yml=rig_yml, content_name=f"{name}.yml", content=content)
 
 
+def shield_is_multiplug(shield: Shield) -> bool:
+    """Whether `shield` declares more than one plug (multi-plug-shield-
+    brief.md ruling 4): the eligibility predicate `check_promotable`'s
+    plurality gate applies, and the singleton-identity-law census's own
+    domain split reads directly -- never a hand-listed shield name, so
+    the day promotion of a plural shield lands, this predicate (and every
+    set it feeds) shrinks on its own. Pure: `shield` is read-only."""
+    return len(shield.plugs) > 1
+
+
+def resolve_for_promotion(name: str, shield_dirs: Optional[List[str]] = None,
+                          ) -> Optional[Shield]:
+    """Resolve `name`'s own template -- the IO edge a promotability check
+    reaches for when it needs a fact `discover_shields`'s cheap scan does
+    not carry (its own plug count, `shield_is_multiplug`): a SEPARATE,
+    small parse from `discover_shields`'s own scan, on purpose, since
+    that scan is deliberately lazy (module docstring, `loader/
+    library.py`) and answering "is this shield plural" needs the
+    template's actual plug nodes.
+
+    Returns the resolved Shield, or None when resolution fails for any
+    reason (an unknown name, a malformed template) -- the caller's own
+    subsequent `check_promotable`/`promote_shield`/`loader.load` call is
+    what surfaces the real diagnostic; this function exists only to
+    answer the plug-count question cheaply and is not itself a
+    diagnostic source. The caller owns the returned Shield.
+
+    Unlike `discover_shields`'s own inert placeholder workdir, this
+    function actually PARSES the template (cpp + dtlib), so it needs a
+    real scratch directory -- a fresh `TemporaryDirectory`, removed
+    before this returns (D10: no workdir left behind for a query)."""
+    with tempfile.TemporaryDirectory(prefix="rigc-promote-plug-count-") as workdir:
+        lib, _diags, _deps = load_shield_library(workdir, shield_dirs)
+        shield, _diags2, _deps2 = lib.resolve(
+            name, "promotion plug-count probe", SourceRef("<promote>", 0))
+        return shield
+
+
 def check_promotable(name: str, info: ShieldInfo, variant: Optional[str],
-                     ) -> Optional[str]:
+                     plug_count: int = 1) -> Optional[str]:
     """Whether `name` -- already known to `discover_shields` (`info` is
     its own entry, read-only to this call) -- may be promoted at all, in
     the order a user's own target string is checked: a `/variant` names
@@ -314,7 +354,13 @@ def check_promotable(name: str, info: ShieldInfo, variant: Optional[str],
     shield has to select from), then `template: true` (ruling 5's
     promotability gate, Sec 4), naming whichever of the two ways a shield
     falls short of it -- missing shield.yml entirely, or one that omits
-    the flag.
+    the flag -- then plurality (ruling 4, multi-plug-shield-brief.md Sec
+    6): a shield plugging more than one socket has no single `:socket=`
+    slot to promote onto, a separate future slice's own design question.
+    `plug_count` is the caller's own `len(shield.plugs)` of the resolved
+    template (`resolve_for_promotion`) -- defaults to 1 (no plurality
+    gate) for a caller that has not resolved the shield at all, so this
+    check stays backward-compatible for anything not yet threading it.
 
     Returns an error message naming why promotion is refused, or None
     when `promote_shield` may run. Pure: makes no filesystem call of its
@@ -329,6 +375,9 @@ def check_promotable(name: str, info: ShieldInfo, variant: Optional[str],
                    "shield.yml does not declare 'template: true'")
         return (f"shield '{name}' is discoverable but not promotable to "
                 f"a rig -- {missing}")
+    if plug_count > 1:
+        return (f"shield '{name}' plugs {plug_count} sockets -- "
+                "multi-plug shields cannot be promoted (yet)")
     return None
 
 

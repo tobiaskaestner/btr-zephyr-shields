@@ -41,13 +41,13 @@ def _device(label: str, declared_params=(), extra_props=()) -> Device:
 
 
 def _shield(*devices: Device, name: str = "sh") -> Shield:
-    shield = Shield(name=name, label=name, plugs="fixture-type", src=_SRC)
+    shield = Shield(name=name, label=name, plugs={"plug": "fixture-type"}, src=_SRC)
     shield.devices.extend(devices)
     return shield
 
 
 def _inst(name: str, shield: Shield, params=None) -> Instance:
-    inst = Instance(name=name, shield=shield, socket="s", src=_SRC)
+    inst = Instance(name=name, shield=shield, sockets={"plug": "s"}, src=_SRC)
     if params is not None:
         inst.params = params
     return inst

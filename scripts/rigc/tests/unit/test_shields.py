@@ -72,7 +72,7 @@ def test_basic_identity(tmp_path) -> None:
     shield = shields["fx"]
     assert shield.name == "fx"
     assert shield.label == "fx"
-    assert shield.plugs == "fixture-type"
+    assert shield.plugs == {"plug": "fixture-type"}
 
 
 def test_unknown_connector_type_is_rejected(tmp_path) -> None:
@@ -601,3 +601,380 @@ def test_exposed_socket_bus_prop_must_be_plug_or_device(tmp_path) -> None:
 """)
     assert len(diags) == 1
     assert diags[0].code == "lang-exposed"
+
+
+# ---------------------------------------------------------------- plural plugs (multi-plug-shield-brief.md)
+
+# A second connector type distinct from _PLUG_TYPE, so a two-slot shield
+# naming one of each proves per-slot resolution against genuinely
+# different types, never accidentally sharing one ConnectorType object.
+_PLUG_TYPE_2 = ConnectorType(
+    name="fixture-type-2",
+    positions={"Q0": Position(name="Q0", index=0, function="gpio")},
+    index2name={0: "Q0"},
+    bus_proxies=["i2c"],
+    stackable=True,
+    cs_pool={},
+)
+_PLURAL_TYPES = {"fixture-type": _PLUG_TYPE, "fixture-type-2": _PLUG_TYPE_2}
+
+
+def test_single_form_device_plug_defaults_to_the_default_slot(tmp_path) -> None:
+    """Single form normalizes to one slot, literally named 'plug' -- every
+    device (bus or plain) records it, not just bus devices, since there
+    is only one plug to belong to."""
+    shields, diags = _one_shield(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tplug: plug { #gpio-cells = <2>; };
+\t\t\ti2c {
+\t\t\t\tdev1: dev@50 { compatible = "vnd,thing"; reg = <0x50>; };
+\t\t\t};
+\t\t\tgpio {
+\t\t\t\tbtn: button { gpios = <&plug 0 1>; };
+\t\t\t};
+\t\t};
+""")
+    assert diags == []
+    shield = shields["fx"]
+    assert shield.plugs == {"plug": "fixture-type"}
+    bus_dev = next(d for d in shield.devices if d.name == "dev")
+    plain_dev = next(d for d in shield.devices if d.name == "button")
+    assert bus_dev.plug == "plug"
+    assert plain_dev.plug == "plug"
+    assert plain_dev.gpio_refs[0].plug == "plug"
+
+
+def test_plural_shield_two_plugs_and_bus_membership(tmp_path) -> None:
+    """The can_span_click shape: two plugs of the SAME connector type,
+    each with its own bus group nested under it -- the plug node NAME is
+    the slot, and each bus device records its OWN plug's slot."""
+    dt = _dt(tmp_path, """
+\t\tfx: fx {
+\t\t\tleft_plug: left {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\ti2c {
+\t\t\t\t\tdev_l: devl@10 { compatible = "vnd,thing"; reg = <0x10>; };
+\t\t\t\t};
+\t\t\t};
+\t\t\tright_plug: right {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\ti2c {
+\t\t\t\t\tdev_r: devr@20 { compatible = "vnd,thing"; reg = <0x20>; };
+\t\t\t\t};
+\t\t\t};
+\t\t};
+""")
+    shields, diags = parse_shields(dt, _PLURAL_TYPES)
+    assert diags == []
+    shield = shields["fx"]
+    assert shield.plugs == {"left": "fixture-type", "right": "fixture-type"}
+    dev_l = next(d for d in shield.devices if d.name == "devl")
+    dev_r = next(d for d in shield.devices if d.name == "devr")
+    assert dev_l.plug == "left"
+    assert dev_r.plug == "right"
+
+
+def test_plural_shield_cross_plug_gpio_ref_records_the_named_plug(tmp_path) -> None:
+    """Ruling 2 (per-reference granularity): a device on the LEFT plug's
+    bus may still carry a gpio ref naming the RIGHT plug -- the phandle
+    widens from "must be THIS shield's plug" to "one of this shield's
+    plugs", and GpioRef.plug records which one, independent of the
+    device's own bus slot."""
+    dt = _dt(tmp_path, """
+\t\tfx: fx {
+\t\t\tleft_plug: left {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\tspi {
+\t\t\t\t\tdevl: devl { compatible = "vnd,thing";
+\t\t\t\t\t\tint-gpios = <&right_plug 0 1>;
+\t\t\t\t\t};
+\t\t\t\t};
+\t\t\t};
+\t\t\tright_plug: right {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t};
+""")
+    shields, diags = parse_shields(dt, _PLURAL_TYPES)
+    assert diags == []
+    dev = shields["fx"].devices[0]
+    assert dev.plug == "left"          # the device's OWN bus slot
+    ref = dev.gpio_refs[0]
+    assert ref.plug == "right"         # the CROSS-PLUG reference's own slot
+    assert ref.position == 0
+
+
+def test_plural_shield_two_different_connector_types(tmp_path) -> None:
+    """The acq_bridge shape: two plugs of DIFFERENT connector types."""
+    dt = _dt(tmp_path, """
+\t\tfx: fx {
+\t\t\tard: ard {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t\tmb: mb {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type-2";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t};
+""")
+    shields, diags = parse_shields(dt, _PLURAL_TYPES)
+    assert diags == []
+    assert shields["fx"].plugs == {"ard": "fixture-type", "mb": "fixture-type-2"}
+
+
+def test_plural_shield_unknown_connector_type_on_one_plug(tmp_path) -> None:
+    dt = _dt(tmp_path, """
+\t\tfx: fx {
+\t\t\tleft_plug: left {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "no-such-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t\tright_plug: right {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t};
+""")
+    shields, diags = parse_shields(dt, _PLURAL_TYPES)
+    assert len(diags) == 1
+    assert diags[0].code == "lang-shield-type"
+    assert "left" in diags[0].message
+    assert "no-such-type" in diags[0].message
+
+
+def test_plain_group_device_is_plug_agnostic_in_the_plural_form(tmp_path) -> None:
+    """Sec 2 placement rule: a plain (non-bus) device group stays
+    template-level in a plural shield, and its device is plug-AGNOSTIC
+    (plug is None) -- its own refs each carry their own plug instead."""
+    dt = _dt(tmp_path, """
+\t\tfx: fx {
+\t\t\tleft_plug: left {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t\tright_plug: right {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t\tgpio {
+\t\t\t\tbtn: button { gpios = <&left_plug 0 1>; };
+\t\t\t};
+\t\t};
+""")
+    shields, diags = parse_shields(dt, _PLURAL_TYPES)
+    assert diags == []
+    dev = shields["fx"].devices[0]
+    assert dev.bus is None
+    assert dev.plug is None
+    assert dev.group == "gpio"
+    assert dev.gpio_refs[0].plug == "left"
+
+
+def test_mixing_single_and_plural_forms_is_rejected(tmp_path) -> None:
+    dt = _dt(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tleft_plug: left {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type-2";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t};
+""")
+    shields, diags = parse_shields(dt, _PLURAL_TYPES)
+    assert len(diags) == 1
+    assert diags[0].code == "lang-shield-plurality"
+    assert "never both" in diags[0].message
+    assert shields["fx"].plugs == {}
+
+
+def test_plural_plug_named_plug_is_rejected(tmp_path) -> None:
+    """The reserved single-form default slot name may not be reused by a
+    plural shield's own plug node."""
+    dt = _dt(tmp_path, """
+\t\tfx: fx {
+\t\t\tplug: plug {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t\tright_plug: right {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t};
+""")
+    shields, diags = parse_shields(dt, _PLURAL_TYPES)
+    assert len(diags) == 1
+    assert diags[0].code == "lang-shield-plurality"
+    assert "'plug'" in diags[0].message
+
+
+def test_plural_shield_template_level_bus_group_is_rejected(tmp_path) -> None:
+    """Sec 2 placement rule: a plural shield's bus groups must nest under
+    their owning plug -- a bus-shaped group at TEMPLATE level is a loud
+    lang-shield-proxy error naming the candidate plugs."""
+    dt = _dt(tmp_path, """
+\t\tfx: fx {
+\t\t\tleft_plug: left {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t\tright_plug: right {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t\ti2c {
+\t\t\t\tdev1: dev@50 { compatible = "vnd,thing"; reg = <0x50>; };
+\t\t\t};
+\t\t};
+""")
+    shields, diags = parse_shields(dt, _PLURAL_TYPES)
+    assert len(diags) == 1
+    assert diags[0].code == "lang-shield-proxy"
+    assert "template level" in diags[0].message
+    assert "left" in diags[0].message and "right" in diags[0].message
+
+
+def test_plural_shield_plain_group_nested_under_a_plug_is_rejected(tmp_path) -> None:
+    """The reverse of the template-level case above: a plain (non-bus,
+    not even bus-kind-named) group nested UNDER a plug is not a bus this
+    plug's ctype could ever allow, so it is rejected -- reviewer finding
+    4. Before this fix it was silently accepted, recording Device.plug =
+    slot and contradicting the invariant that a plain-group device is
+    plug-agnostic (plug is None)."""
+    dt = _dt(tmp_path, """
+\t\tfx: fx {
+\t\t\tleft_plug: left {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\tgpio {
+\t\t\t\t\tbtn: button { gpios = <&left_plug 0 1>; };
+\t\t\t\t};
+\t\t\t};
+\t\t\tright_plug: right {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t};
+""")
+    shields, diags = parse_shields(dt, _PLURAL_TYPES)
+    assert len(diags) == 1
+    assert diags[0].code == "lang-shield-proxy"
+    assert ("plug 'left' has a 'gpio' group nested under it -- plain "
+           "device groups belong at template level" in diags[0].message)
+    dev = shields["fx"].devices[0]
+    assert dev.plug is None
+
+
+def test_plural_shield_routing_jumper_is_rejected(tmp_path) -> None:
+    """Sec 4/6: routing jumpers have no plug axis, so a plural shield
+    declaring one is refused outright this slice."""
+    dt = _dt(tmp_path, """
+\t\tfx: fx {
+\t\t\tleft_plug: left {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t\tright_plug: right {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t\tconfig {
+\t\t\t\tirq_jmp: irq-jmp {
+\t\t\t\t\t#gpio-cells = <1>;
+\t\t\t\t\tshield,position-domain = <0 0>, <1 1>;
+\t\t\t\t};
+\t\t\t};
+\t\t};
+""")
+    shields, diags = parse_shields(dt, _PLURAL_TYPES)
+    assert len(diags) == 1
+    assert diags[0].code == "lang-shield-plurality"
+    assert "jumper" in diags[0].message
+    assert shields["fx"].jumpers == {}
+
+
+def test_plural_shield_exposed_socket_is_rejected(tmp_path) -> None:
+    """Sec 6: exposed sockets (carriers) are refused outright on a plural
+    shield this slice -- multi-plug carriers are their own future slice."""
+    dt = _dt(tmp_path, """
+\t\tfx: fx {
+\t\t\tleft_plug: left {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t\tright_plug: right {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t\tmb1 {
+\t\t\t\tcompatible = "socket,mikrobus";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\tsocket,i2c = <&left_plug>;
+\t\t\t};
+\t\t};
+""")
+    shields, diags = parse_shields(dt, _PLURAL_TYPES)
+    assert len(diags) == 1
+    assert diags[0].code == "lang-shield-plurality"
+    assert "future slice" in diags[0].message
+    assert shields["fx"].exposes == {}
+
+
+def test_plural_shield_straps_are_unaffected_template_level_facts(tmp_path) -> None:
+    """Straps (address-domain, bus-scoped) are NOT refused on a plural
+    shield -- only routing jumpers are (Sec 4)."""
+    dt = _dt(tmp_path, """
+\t\tfx: fx {
+\t\t\tleft_plug: left {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\ti2c {
+\t\t\t\t\tdevl: devl@addr_strap {
+\t\t\t\t\t\tcompatible = "vnd,thing";
+\t\t\t\t\t\tshield,addr-from = <&addr_strap>;
+\t\t\t\t\t};
+\t\t\t\t};
+\t\t\t};
+\t\t\tright_plug: right {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t\tconfig {
+\t\t\t\taddr_strap: addr-strap {
+\t\t\t\t\tshield,domain = <0x48 0>, <0x49 1>;
+\t\t\t\t};
+\t\t\t};
+\t\t};
+""")
+    shields, diags = parse_shields(dt, _PLURAL_TYPES)
+    assert diags == []
+    assert "addr-strap" in shields["fx"].straps

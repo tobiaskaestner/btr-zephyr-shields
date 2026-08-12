@@ -39,6 +39,7 @@ from ..diag import Diagnostic, error
 from ..model import BoardSocket, ConnectorType, Device, Instance, Rig
 from .gpio import NetClaim, NetKey, Nets, soc_net
 from .ordering import allocation_key
+from .socketmap import Sockets, for_bus_device
 
 log = logging.getLogger(__name__)
 
@@ -119,18 +120,18 @@ class CsAllocation:
     nets: Nets = field(default_factory=dict)                                  # NEW claims only
 
 
-def allocate_cs(rig: Rig, sockets: Dict[str, BoardSocket],
+def allocate_cs(rig: Rig, sockets: Sockets,
                 types: Dict[str, ConnectorType], nets_before: Nets,
                 ) -> Tuple[CsAllocation, List[Diagnostic]]:
     diags: List[Diagnostic] = []
     result = CsAllocation()
     scopes: Dict[str, List[Tuple[Instance, Device, BoardSocket]]] = {}
     for inst in rig.instances:
-        socket = sockets.get(inst.name)
-        if socket is None:
-            continue
         for dev in inst.shield.devices:
-            if not is_bus_kind(dev.bus, "spi") or dev.bus not in socket.buses:
+            if not is_bus_kind(dev.bus, "spi"):
+                continue
+            socket = for_bus_device(sockets, inst, dev)
+            if socket is None or dev.bus not in socket.buses:
                 continue
             bus = socket.buses[dev.bus]
             result.bus_label[bus.path] = bus.label

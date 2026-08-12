@@ -70,8 +70,8 @@ def test_soc_net_unrouted_position_stays_socket_local() -> None:
 
 
 def _inst(name="i") -> Instance:
-    return Instance(name=name, shield=Shield(name="s", label="s", plugs="t"),
-                    socket="sock")
+    return Instance(name=name, shield=Shield(name="s", label="s", plugs={"plug": "t"}),
+                    sockets={"plug": "sock"})
 
 
 def _dev(name="d") -> Device:
@@ -155,7 +155,7 @@ def test_collect_gpio_nets_registers_a_fixed_position_claim() -> None:
     inst.shield.devices.append(dev)
     rig = Rig(name="r", instances=[inst])
 
-    result, diags = collect_gpio_nets(rig, {"logger_1": socket}, {"t": _ctype()})
+    result, diags = collect_gpio_nets(rig, {"logger_1": {"plug": socket}}, {"t": _ctype()})
 
     assert diags == []
     key = ("soc", "gpioa", 5)
@@ -194,7 +194,7 @@ def test_collect_gpio_nets_jumper_deferred_position_needs_a_pin_selection() -> N
     inst.shield.jumpers["irq_jmp"] = jmp
     rig = Rig(name="r", instances=[inst])
 
-    result, diags = collect_gpio_nets(rig, {"wifi_1": socket}, {"t": _ctype()})
+    result, diags = collect_gpio_nets(rig, {"wifi_1": {"plug": socket}}, {"t": _ctype()})
 
     assert result.nets == {}
     assert len(diags) == 1
@@ -212,7 +212,7 @@ def test_collect_gpio_nets_channel_ref_registers_pin_and_channel_claims() -> Non
     inst.shield.devices.append(dev)
     rig = Rig(name="r", instances=[inst])
 
-    result, diags = collect_gpio_nets(rig, {"servo_1": socket}, {"t": _ctype()})
+    result, diags = collect_gpio_nets(rig, {"servo_1": {"plug": socket}}, {"t": _ctype()})
 
     assert diags == []
     assert ("soc", "gpioa", 3) in result.nets            # PIN net
@@ -231,7 +231,7 @@ def test_collect_gpio_nets_channel_ref_missing_map_entry_is_phys_function() -> N
     inst.shield.devices.append(dev)
     rig = Rig(name="r", instances=[inst])
 
-    result, diags = collect_gpio_nets(rig, {"servo_1": socket}, {"t": _ctype()})
+    result, diags = collect_gpio_nets(rig, {"servo_1": {"plug": socket}}, {"t": _ctype()})
 
     assert result.nets == {}
     assert len(diags) == 1
@@ -252,7 +252,7 @@ def test_collect_gpio_nets_nonzero_pwm_flags_is_phys_function() -> None:
     inst.shield.devices.append(dev)
     rig = Rig(name="r", instances=[inst])
 
-    result, diags = collect_gpio_nets(rig, {"servo_1": socket}, {"t": _ctype()})
+    result, diags = collect_gpio_nets(rig, {"servo_1": {"plug": socket}}, {"t": _ctype()})
 
     assert result.nets == {}
     assert len(diags) == 1

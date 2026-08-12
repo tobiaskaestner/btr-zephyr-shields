@@ -272,7 +272,7 @@ def test_boards_for_bus_subset_gap_does_not_conform() -> None:
     socket = BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
                          gpio_map={}, buses={})
     board = Board(name="b", sockets={"ard": socket})
-    shield = Shield(name="sh", label="sh", plugs="arduino-r3",
+    shield = Shield(name="sh", label="sh", plugs={"plug": "arduino-r3"},
                     devices=[_device_needing("uart")])
     inst = _inst("i1", "ard", shield)
     rig = Rig(name="r", instances=[inst])

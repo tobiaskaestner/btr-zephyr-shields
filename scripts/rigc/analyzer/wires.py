@@ -15,10 +15,11 @@ from __future__ import annotations
 from typing import Dict, List, Tuple
 
 from ..diag import Diagnostic, error
-from ..model import BoardSocket, ConnectorType, Instance, Rig, Wire
+from ..model import ConnectorType, Instance, Rig, Wire
+from .socketmap import Sockets, for_slot
 
 
-def check_wires(rig: Rig, sockets: Dict[str, BoardSocket],
+def check_wires(rig: Rig, sockets: Sockets,
                 types: Dict[str, ConnectorType],
                 ) -> Tuple[List[Wire], List[Diagnostic]]:
     """The wire pass (R22): endpoints against resolved sockets, route
@@ -63,7 +64,21 @@ def check_wires(rig: Rig, sockets: Dict[str, BoardSocket],
         if isinstance(route, str) and route != "adhoc":
             # route: via <position name> -- resolved to the connector
             # type's own position INDEX, through the FROM end's socket.
-            socket = sockets.get(wire.frm.instance_name)
+            # Ambiguous for a plural FROM instance (which of its several
+            # plugs would the position even be relative to?) -- refused
+            # loudly rather than guessed at (multi-plug-shield-brief.md
+            # Sec 4/6); ad-hoc routes never reach this branch at all.
+            frm_inst = by_name.get(wire.frm.instance_name)
+            if frm_inst is not None and len(frm_inst.shield.plugs) > 1:
+                diags.append(error(
+                    "phys-wire",
+                    f"route 'via {route}': instance '{frm_inst.name}' plugs "
+                    f"more than one socket -- via-routing is not supported "
+                    "for a multi-plug instance yet",
+                    (wire.src,)))
+                resolved.append(wire)
+                continue
+            socket = for_slot(sockets, frm_inst, "plug") if frm_inst is not None else None
             ctype = types[socket.type_name] if socket is not None else None
             if ctype is not None and route in ctype.positions:
                 route = ctype.positions[route].index

@@ -13,8 +13,8 @@ def _dev(name: str, label: str) -> Device:
 
 
 def _inst(name: str, *devices: Device) -> Instance:
-    shield = Shield(name="sh", label="sh", plugs="t", devices=list(devices))
-    return Instance(name=name, shield=shield, socket="sock")
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=list(devices))
+    return Instance(name=name, shield=shield, sockets={"plug": "sock"})
 
 
 def test_distinct_instance_names_never_collide() -> None:

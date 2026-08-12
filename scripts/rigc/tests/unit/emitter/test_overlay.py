@@ -43,10 +43,10 @@ def _plain_dev(**kwargs: object) -> Device:
 def test_gpio_ref_flips_the_active_level_when_the_instance_inverts() -> None:
     ref = GpioRef(prop="int-gpios", position=5, flags=0x1, src=_SRC, function="gpio")
     dev = _plain_dev(gpio_refs=[ref])
-    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
-    inst = Instance(name="i1", shield=shield, socket="sock", invert=True)
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"}, invert=True)
     rig = Rig(name="r", instances=[inst])
-    s = Solved(sockets={"i1": _socket()})
+    s = Solved(sockets={"i1": {"plug": _socket()}})
 
     text = render_overlay(rig, s, {"t": _ctype()})
 
@@ -56,10 +56,10 @@ def test_gpio_ref_flips_the_active_level_when_the_instance_inverts() -> None:
 def test_gpio_ref_keeps_flags_unchanged_when_not_inverted() -> None:
     ref = GpioRef(prop="int-gpios", position=5, flags=0x1, src=_SRC, function="gpio")
     dev = _plain_dev(gpio_refs=[ref])
-    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
-    inst = Instance(name="i1", shield=shield, socket="sock")
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
-    s = Solved(sockets={"i1": _socket()})
+    s = Solved(sockets={"i1": {"plug": _socket()}})
 
     text = render_overlay(rig, s, {"t": _ctype()})
 
@@ -70,10 +70,10 @@ def test_pwm_ref_omits_flags_and_renders_position_and_period() -> None:
     ref = GpioRef(prop="pwms", position=2, flags=0, src=_SRC, function="pwm",
                  period=1000)
     dev = _plain_dev(name="dev", label="dev", gpio_refs=[ref])
-    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
-    inst = Instance(name="i1", shield=shield, socket="sock")
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
-    s = Solved(sockets={"i1": _socket()},
+    s = Solved(sockets={"i1": {"plug": _socket()}},
               channels={("i1", "dev", "pwms"): ("pwm", "pwm0", 0, 1000, 0, 2)})
 
     text = render_overlay(rig, s, {"t": _ctype()})
@@ -89,10 +89,10 @@ def test_nonzero_pwm_flags_raise_assertionerror_never_silently_emitted() -> None
     ref = GpioRef(prop="pwms", position=2, flags=0, src=_SRC, function="pwm",
                  period=1000)
     dev = _plain_dev(name="dev", label="dev", gpio_refs=[ref])
-    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
-    inst = Instance(name="i1", shield=shield, socket="sock")
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
-    s = Solved(sockets={"i1": _socket()},
+    s = Solved(sockets={"i1": {"plug": _socket()}},
               channels={("i1", "dev", "pwms"): ("pwm", "pwm0", 0, 1000, 0x1, 2)})
 
     with pytest.raises(AssertionError, match="nonzero PWM flags"):
@@ -102,10 +102,10 @@ def test_nonzero_pwm_flags_raise_assertionerror_never_silently_emitted() -> None
 def test_adc_ref_renders_position_only_no_flags_no_period() -> None:
     ref = GpioRef(prop="io-channels", position=3, flags=0, src=_SRC, function="adc")
     dev = _plain_dev(name="dev", label="dev", gpio_refs=[ref])
-    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
-    inst = Instance(name="i1", shield=shield, socket="sock")
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
-    s = Solved(sockets={"i1": _socket()},
+    s = Solved(sockets={"i1": {"plug": _socket()}},
               channels={("i1", "dev", "io-channels"): ("adc", "adc0", 0, None, 0, 3)})
 
     text = render_overlay(rig, s, {"t": _ctype()})
@@ -118,12 +118,12 @@ def test_instance_params_replace_an_existing_prop_and_add_a_new_one() -> None:
         label="dev",
         extra_props=[("zephyr,code", "zephyr,code = <INPUT_KEY_0>;"),
                     ("label", 'label = "btn";')])
-    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
-    inst = Instance(name="i1", shield=shield, socket="sock",
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"},
                    params={"dev": {"zephyr,code": "INPUT_KEY_9",
                                   "debounce-interval-ms": "30"}})
     rig = Rig(name="r", instances=[inst])
-    s = Solved(sockets={"i1": _socket()})
+    s = Solved(sockets={"i1": {"plug": _socket()}})
 
     text = render_overlay(rig, s, {"t": _ctype()})
 
@@ -135,10 +135,10 @@ def test_instance_params_replace_an_existing_prop_and_add_a_new_one() -> None:
 
 def test_sdhc_spi_slot_device_gets_a_sdmmc_child_node() -> None:
     dev = _plain_dev(name="sd", label="sd", compatible="zephyr,sdhc-spi-slot")
-    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
-    inst = Instance(name="i1", shield=shield, socket="sock")
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
-    s = Solved(sockets={"i1": _socket()})
+    s = Solved(sockets={"i1": {"plug": _socket()}})
 
     text = render_overlay(rig, s, {"t": _ctype()})
 
@@ -148,10 +148,10 @@ def test_sdhc_spi_slot_device_gets_a_sdmmc_child_node() -> None:
 
 def test_devices_without_the_sdmmc_compatible_get_no_extra_child() -> None:
     dev = _plain_dev(name="sd", label="sd", compatible="something-else")
-    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
-    inst = Instance(name="i1", shield=shield, socket="sock")
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
-    s = Solved(sockets={"i1": _socket()})
+    s = Solved(sockets={"i1": {"plug": _socket()}})
 
     text = render_overlay(rig, s, {"t": _ctype()})
 
@@ -167,9 +167,9 @@ def test_render_overlay_is_deterministic_under_a_shuffled_instance_order() -> No
         sockets = {}
         for name in order:
             dev = _plain_dev(name="d", label="d")
-            shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
-            insts.append(Instance(name=name, shield=shield, socket="sock"))
-            sockets[name] = _socket()
+            shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+            insts.append(Instance(name=name, shield=shield, sockets={"plug": "sock"}))
+            sockets[name] = {"plug": _socket()}
         rig = Rig(name="r", instances=insts)
         s = Solved(sockets=sockets)
         return render_overlay(rig, s, {"t": _ctype()})
@@ -183,14 +183,14 @@ def _mux_rig_and_solved(channel_order: list[int]) -> Tuple[Rig, Solved]:
     list above (R26: each channel is a NEW address scope)."""
     dev = _plain_dev(name="mux", label="mux", bus="i2c",
                      extra_props=[("compatible", 'compatible = "ti,tca9548a";')])
-    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
-    inst = Instance(name="i1", shield=shield, socket="sock")
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     socket = BoardSocket(label="sock", path="/s", type_name="t", gpio_map={},
                          buses={"i2c": BusRef(label="i2c1", path="/i2c1")})
     scopes: Dict[str, Tuple[str, object]] = {
         f"/i2c1/ch{channel}": ("i1_mux", channel) for channel in channel_order}
     return (Rig(name="r", instances=[inst]),
-            Solved(sockets={"i1": socket}, addr={("i1", "mux"): 0x70},
+            Solved(sockets={"i1": {"plug": socket}}, addr={("i1", "mux"): 0x70},
                    bus_label={"/i2c1": "i2c1"}, scopes=scopes))
 
 
@@ -247,7 +247,7 @@ def test_carrier_exported_socket_synthesizes_a_chained_gpio_nexus() -> None:
                         nexus_rows=[(0, "carrier_nexus", 3), (1, "carrier_nexus", 4)],
                         parent=parent)
     rig = Rig(name="r", instances=[])
-    s = Solved(sockets={"i1": child})
+    s = Solved(sockets={"i1": {"plug": child}})
 
     text = render_overlay(rig, s, {"t": _ctype()})
 
@@ -268,6 +268,6 @@ def test_board_sockets_synthesize_no_nexus_node() -> None:
     route, and emitting one would shadow the board's own node."""
     rig = Rig(name="r", instances=[])
 
-    text = render_overlay(rig, Solved(sockets={"i1": _socket()}), {"t": _ctype()})
+    text = render_overlay(rig, Solved(sockets={"i1": {"plug": _socket()}}), {"t": _ctype()})
 
     assert "gpio-map" not in text

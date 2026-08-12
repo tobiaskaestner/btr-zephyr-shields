@@ -420,7 +420,9 @@ def load(rig_path: str, workdir: str,
         rig.instances = topology.instances()
         rig.wires = topology.wires
         for inst in rig.instances:
-            socket_desc = inst.socket if inst.socket is not None else "(inferred)"
+            socket_desc = ", ".join(
+                f"{slot}={ref if ref is not None else '(inferred)'}"
+                for slot, ref in inst.sockets.items())
             log.info("rig '%s': instance '%s' requires shield '%s', "
                      "mated to socket '%s'",
                      rig.name, inst.name, inst.shield.name, socket_desc)

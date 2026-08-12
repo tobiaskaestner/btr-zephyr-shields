@@ -33,14 +33,26 @@ def test_wire_signals_come_from_solved_wires_not_rig_wires() -> None:
 
 
 def test_addr_and_cs_entries_are_sorted_and_carry_the_probe_check() -> None:
-    from rigc.model import BoardSocket, BusRef
+    """A real backing Instance/Device (unlike the flat-socket-map days):
+    `for_bus_device` resolves through `Device.plug`, so the socket lookup
+    now needs the actual device object, not just its name -- see
+    `test_cs_entry_resolves_a_named_bus_through_the_backing_device` for
+    the qualified-bus twin of this same shape."""
+    from rigc.model import BoardSocket, BusRef, Device, Instance, Shield
 
-    rig = Rig(name="r", board="b", instances=[])
+    sensor = Device(name="sensor", label="sensor", compatible=None, bus="i2c",
+                    group=None, reg=None, addr_from=None, cs_position=None)
+    flash = Device(name="flash", label="flash", compatible=None, bus="spi",
+                   group=None, reg=None, addr_from=None, cs_position=None)
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"},
+                    devices=[sensor, flash])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
+    rig = Rig(name="r", board="b", instances=[inst])
+    socket = BoardSocket(label="s1", path="/s1", type_name="t", gpio_map={},
+                        buses={"i2c": BusRef("i2c1", "/i2c1"),
+                              "spi": BusRef("spi1", "/spi1")})
     s = Solved(
-        sockets={"i1": BoardSocket(label="s1", path="/s1", type_name="t",
-                                   gpio_map={}, buses={
-                                       "i2c": BusRef("i2c1", "/i2c1"),
-                                       "spi": BusRef("spi1", "/spi1")})},
+        sockets={"i1": {"plug": socket}},
         addr={("i1", "sensor"): 0x50},
         cs={("i1", "flash"): (0, 5)})
 
@@ -57,18 +69,18 @@ def test_cs_entry_resolves_a_named_bus_through_the_backing_device() -> None:
     connector type's own role-suffixed variant) resolves through THAT
     qualified key, never the bare "spi" -- exercised with a real backing
     Instance/Device so the lookup this module does by name actually
-    finds one, unlike the synthetic-Solved test above."""
+    finds one."""
     from rigc.model import BoardSocket, BusRef, Device, Instance, Shield
 
     dev = Device(name="drv8825", label="drv8825", compatible=None,
                 bus="spi-motors", group=None, reg=None, addr_from=None,
                 cs_position=None)
-    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
-    inst = Instance(name="i1", shield=shield, socket="sock")
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", board="b", instances=[inst])
     socket = BoardSocket(label="sock", path="/s", type_name="t", gpio_map={},
                         buses={"spi-motors": BusRef("spi2", "/spi2")})
-    s = Solved(sockets={"i1": socket}, cs={("i1", "drv8825"): (0, 11)})
+    s = Solved(sockets={"i1": {"plug": socket}}, cs={("i1", "drv8825"): (0, 11)})
 
     text = render_expectations(rig, s)
 

@@ -64,7 +64,16 @@ class GpioRef:
       fixed position  -- <&plug POSITION flags>: position is position.
       deferred (R6)   -- <&jumper flags>: position selected by a routing
                         jumper, jumper names it and position is None
-                        until the analyzer resolves the rig's selection."""
+                        until the analyzer resolves the rig's selection.
+
+    `plug` is the SLOT this reference resolves through -- the shield's own
+    plug node the phandle actually named (`shields.py`'s `_parse_pos_ref`
+    already validates the phandle against a plug; this records WHICH one),
+    granularity PER-REFERENCE rather than per-device: a device sitting on
+    one plug's bus may still carry a gpio ref that names a DIFFERENT plug
+    (a cross-plug reference, multi-plug-shield-brief.md Sec 2). `"plug"`
+    (the single form's own default slot name) for every reference of a
+    single-plug shield."""
 
     prop: str
     position: Optional[int]
@@ -73,6 +82,7 @@ class GpioRef:
     jumper: Optional[str] = None
     function: str = "gpio"          # gpio | pwm | adc
     period: Optional[int] = None    # pwm only: the period cell, passed through
+    plug: str = "plug"
 
 
 @dataclass
@@ -85,6 +95,13 @@ class Device:
     reg: Optional[int]              # authored = 1-element domain (address authority rule)
     addr_from: Optional[str]        # strap name -- deferred address, explicit not absent
     cs_position: Optional[int]      # copper-fixed CS (shield,cs-position)
+    # the slot THIS device's own BUS group nests under -- None for a
+    # plain (non-bus) group device, which is plug-AGNOSTIC (its own gpio
+    # refs each carry their own plug instead, multi-plug-shield-brief.md
+    # Sec 2's placement rule); "plug" for any bus device of a single-plug
+    # shield. Never consulted for a plain-group device (nothing reads it
+    # without first checking `bus` is not None).
+    plug: Optional[str] = "plug"
     collect: Optional[str] = None   # collection compatible (gpio-keys/leds): this is an ENTRY
     declared_params: List[str] = field(default_factory=list)  # shield,params: names
     # shield,param-includes: headers -- the vocabulary declared_params' own
@@ -156,7 +173,15 @@ class ExposedSocket:
 class Shield:
     name: str                       # node name: "adafruit-data-logger"
     label: str                      # DTS label: data_logger
-    plugs: str                      # consumed connector type, by string
+    # slot name -> consumed connector type, in AUTHORING order
+    # (multi-plug-shield-brief.md Sec 3). The single-plug authored form
+    # (template-level `shield,plugs`) normalizes to the one-entry
+    # `{"plug": "<type>"}` at parse time, the node's own reserved name --
+    # so this is a Dict of exactly one entry for every shield until a
+    # plural one is authored, and every consumer keys through it rather
+    # than assuming a bare string. `len(plugs) > 1` IS the plurality
+    # discriminator this slice's rendering/refusal rules gate on.
+    plugs: Dict[str, str]
     devices: List[Device] = field(default_factory=list)
     pads: Dict[str, Pad] = field(default_factory=dict)
     straps: Dict[str, Strap] = field(default_factory=dict)
@@ -215,14 +240,18 @@ class Wire:
 class Instance:
     name: str
     shield: Shield
-    # already resolved through a SocketBinding; None means the author
-    # declared no socket: at all, so it is not yet resolved to a physical
-    # one -- the analyzer infers it iff exactly one board socket mates the
-    # shield's plug type (socket-inference-brief.md). The loader carries
-    # the absence through unresolved rather than picking one itself: it
-    # never sees the board, which is precisely what lets it stay ignorant
-    # of board identity everywhere else.
-    socket: Optional[str]
+    # slot name -> authored reference, each already resolved through a
+    # SocketBinding (multi-plug-shield-brief.md Sec 2). A slot mapped to
+    # None means the author declared no reference for THAT slot, so it is
+    # not yet resolved to a physical socket -- the analyzer infers it iff
+    # exactly one board socket mates the slot's own connector type
+    # (socket-inference-brief.md), now per slot. The loader carries the
+    # absence through unresolved rather than picking one itself: it never
+    # sees the board, which is precisely what lets it stay ignorant of
+    # board identity everywhere else. The single-plug form's own shape is
+    # `{"plug": <value-or-None>}` -- one entry, same default slot name
+    # Shield.plugs normalizes to.
+    sockets: Dict[str, Optional[str]]
     invert: bool = False            # flip the active level of the module's gpio signals
     pins: Dict[str, int] = field(default_factory=dict)          # strap name -> pinned address
     pin_refs: Dict[str, SourceRef] = field(default_factory=dict)

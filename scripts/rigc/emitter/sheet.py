@@ -9,28 +9,88 @@ not memorized the header.
 Wires section is the one place in this module a wire's raw `Rig` data
 would silently diverge from what got resolved -- `solved.wires` carries
 the route already resolved to a connector-type position index.
+
+**Slot qualifier rendered only for a plural shield** (multi-plug-shield-
+brief.md Sec 4, the rule load-bearing for acceptance criterion 1): a
+single-plug instance's Socket-assignment row is byte-identical to every
+row this module emitted before plurality existed; a plural instance
+gets one row per slot, its socket cell spelled `<slot>: <ref-or-label>`.
 """
 from __future__ import annotations
 
 from typing import Dict, List, Optional
 
 from ..analyzer import Solved
+from ..analyzer.socketmap import for_bus_device, for_ref, for_slot
 from ..dtsio import is_int_literal, resolve_token
-from ..model import ConnectorType, Instance, Rig
+from ..model import BoardSocket, ConnectorType, Device, Instance, Rig, Strap
 from . import GEN
 
 
-def _socket_display(inst: Instance, s: Solved) -> str:
-    """The socket name a bench instruction shows: the instance's own
-    declared reference wherever it authored one, else the label
-    inference resolved to (socket-inference-brief.md Sec 7) --
-    `s.sockets[inst.name]` is always present here, since the emitter
-    only ever runs on an accepted rig where every instance's socket
+def _socket_display(inst: Instance, s: Solved, slot: str) -> str:
+    """The socket name a bench instruction shows for one slot: the
+    instance's own declared reference wherever it authored one for that
+    slot, else the label inference resolved to (socket-inference-
+    brief.md Sec 7) -- `for_slot` always finds an entry here, since the
+    emitter only ever runs on an accepted rig where every slot's socket
     already resolved. Read-only over its arguments; returns a plain str
     the caller owns."""
-    if inst.socket is not None:
-        return inst.socket
-    return s.sockets[inst.name].label
+    ref = inst.sockets.get(slot)
+    if ref is not None:
+        return ref
+    socket = for_slot(s.sockets, inst, slot)
+    return socket.label if socket is not None else "?"
+
+
+def _strap_owner_slot(inst: Instance, strap: Strap) -> str:
+    """The slot the device THIS strap resolves an address for sits on --
+    straps are address-domain and bus-scoped, unaffected by plurality
+    (multi-plug-shield-brief.md Sec 4), but still need a slot to display
+    a socket cell for. Falls back to `"plug"` (the single-plug default)
+    when no device of `inst`'s shield actually names this strap, which
+    never happens for an accepted rig but keeps this total."""
+    dev = next((d for d in inst.shield.devices if d.addr_from == strap.name), None)
+    if dev is not None and dev.plug is not None:
+        return dev.plug
+    return "plug"
+
+
+def _find_instance(rig: Rig, name: str) -> Optional[Instance]:
+    return next((i for i in rig.instances if i.name == name), None)
+
+
+def _find_device(inst: Instance, name: str) -> Optional[Device]:
+    return next((d for d in inst.shield.devices if d.name == name), None)
+
+
+def _device_socket(rig: Rig, s: Solved, inst_name: str, dev_name: str,
+                   ) -> Optional[BoardSocket]:
+    """The resolved socket `dev_name`'s own bus binds to, recovered by
+    name since `Solved.cs` keys by plain strings, never the Device
+    object itself -- the same recovery `emitter/expectations.py`'s
+    `_bus_name` performs, routed through the ONE accessor
+    (analyzer/socketmap.py)."""
+    inst = _find_instance(rig, inst_name)
+    dev = _find_device(inst, dev_name) if inst is not None else None
+    if inst is None or dev is None:
+        return None
+    return for_bus_device(s.sockets, inst, dev)
+
+
+def _ref_socket(rig: Rig, s: Solved, inst_name: str, dev_name: str, prop: str,
+                ) -> Optional[BoardSocket]:
+    """The resolved socket the `prop` gpio/pwm/adc ref of `dev_name`
+    claims through -- per-reference granularity (ruling 2), so a
+    cross-plug ref's own slot is what this recovers, never the device's
+    bus slot."""
+    inst = _find_instance(rig, inst_name)
+    dev = _find_device(inst, dev_name) if inst is not None else None
+    if inst is None or dev is None:
+        return None
+    ref = next((r for r in dev.gpio_refs if r.prop == prop), None)
+    if ref is None:
+        return None
+    return for_ref(s.sockets, inst, ref)
 
 
 def render_sheet(rig: Rig, s: Solved, types: Dict[str, ConnectorType], workdir: str,
@@ -46,22 +106,34 @@ def render_sheet(rig: Rig, s: Solved, types: Dict[str, ConnectorType], workdir: 
            "## Socket assignment", "",
            "| instance | shield | socket |", "|---|---|---|"]
     for inst in sorted(rig.instances, key=lambda i: i.name):
-        out.append(f"| {inst.name} | {inst.shield.name} | {_socket_display(inst, s)} |")
+        if len(inst.shield.plugs) <= 1:
+            slot = next(iter(inst.shield.plugs), "plug")
+            out.append(f"| {inst.name} | {inst.shield.name} | "
+                       f"{_socket_display(inst, s, slot)} |")
+        else:
+            for slot in inst.shield.plugs:
+                out.append(f"| {inst.name} | {inst.shield.name} | "
+                           f"{slot}: {_socket_display(inst, s, slot)} |")
 
     if s.straps or s.jumpers_set:
         out += ["", "## Straps / jumpers", ""]
         for inst, strap, state, addr in sorted(
                 s.straps, key=lambda t: (t[0].name, t[1].name)):
             sheet = strap.sheet_label or strap.name
+            slot = _strap_owner_slot(inst, strap)
             out.append(
-                f"- **{inst.name}** ({_socket_display(inst, s)}): set **{sheet}** to state "
+                f"- **{inst.name}** ({_socket_display(inst, s, slot)}): set **{sheet}** to state "
                 f"{state} → device address {addr:#04x}")
         for inst, jmp, jmp_state, pos in sorted(
                 s.jumpers_set, key=lambda t: (t[0].name, t[1].name)):
+            # Routing jumpers are refused outright on a plural shield
+            # (Sec 6) -- "plug" is always this instance's one slot here.
             sheet = jmp.sheet_label or jmp.name
-            posname = types[s.sockets[inst.name].type_name].posname(pos)
+            socket = for_slot(s.sockets, inst, "plug")
+            assert socket is not None
+            posname = types[socket.type_name].posname(pos)
             out.append(
-                f"- **{inst.name}** ({_socket_display(inst, s)}): set **{sheet}** to state "
+                f"- **{inst.name}** ({_socket_display(inst, s, 'plug')}): set **{sheet}** to state "
                 f"{jmp_state} → routed to pin {posname}")
 
     if s.channels:
@@ -74,7 +146,8 @@ def render_sheet(rig: Rig, s: Solved, types: Dict[str, ConnectorType], workdir: 
         # share a variable name of two different types.
         for (inst_name, dev_name, prop), (fn, ctrl, ch, _p, _f, pos) in sorted(
                 s.channels.items()):
-            socket = s.sockets[inst_name]
+            socket = _ref_socket(rig, s, inst_name, dev_name, prop)
+            assert socket is not None
             posname = types[socket.type_name].posname(pos)
             out.append(f"- {inst_name}/{dev_name} ({socket.label} {posname}) → "
                        f"{fn.upper()} {ctrl} ch{ch}: mux the pin to the controller")
@@ -91,7 +164,8 @@ def render_sheet(rig: Rig, s: Solved, types: Dict[str, ConnectorType], workdir: 
     if s.cs:
         out += ["", "## Chip-selects", ""]
         for (inst_name, dev_name), (index, pos) in sorted(s.cs.items()):
-            socket = s.sockets[inst_name]
+            socket = _device_socket(rig, s, inst_name, dev_name)
+            assert socket is not None
             posname = types[socket.type_name].posname(pos)
             mapping = socket.gpio_map.get(pos)
             soc = f" → SoC {mapping[0]} pin {mapping[1]}" if mapping else ""

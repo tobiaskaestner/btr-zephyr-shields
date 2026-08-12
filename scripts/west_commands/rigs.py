@@ -236,7 +236,19 @@ class Rigs(WestCommand):
                 name, rig.dir, shields[name].dir))
 
         if name in shields:
-            err = promote.check_promotable(name, shields[name], variant)
+            # Resolved here, ahead of check_promotable's own plurality
+            # gate (multi-plug-shield-brief.md Sec 6) -- discover_shields'
+            # scan is deliberately lazy and never opens the template
+            # itself, so the plug count needs its own small parse. Shared
+            # by both --boards-for and --explain, since both go through
+            # this one method (the S3a lesson this method was extracted
+            # to end: one namespace rule, not two independently-worded
+            # ones).
+            resolved = promote.resolve_for_promotion(
+                name, self._shield_dirs(args))
+            plug_count = len(resolved.plugs) if resolved is not None else 1
+            err = promote.check_promotable(
+                name, shields[name], variant, plug_count)
             if err is not None:
                 sys.exit(f'ERROR: {err}')
             opts = promote.parse_promotion_opts(opt_text, target)

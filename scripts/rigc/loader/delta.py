@@ -19,7 +19,7 @@ from typing import Dict, List, Optional, Tuple
 
 from ..deps import Deps, union
 from ..diag import Diagnostic, error
-from ..model import Instance, Wire, WireEnd
+from ..model import Instance, Shield, Wire, WireEnd
 from .binding import SocketBinding
 from .documents import Val, as_mapping, require
 from .library import ShieldLibrary
@@ -49,6 +49,68 @@ class Topology:
         return [self.effective[n] for n in self.order if n in self.effective]
 
 
+def _parse_sockets_block(item: Val, shield: Shield, binding: SocketBinding,
+                         inst_name: str) -> Tuple[Dict[str, Optional[str]],
+                                                  List[Diagnostic]]:
+    """`socket:`/`sockets:` -> `Instance.sockets` (multi-plug-shield-brief.md
+    Sec 2): a single-plug shield takes `socket:` (byte-identical to
+    before plurality -- one entry keyed `"plug"`); a plural shield takes
+    `sockets:`, a slot name -> reference MAPPING, each value resolved
+    through `binding.get` exactly like `socket:` does. The two keys are
+    mutually exclusive, and each is legal only for the matching shield
+    SHAPE -- enforced here, in rigc's own parser, rather than deferred to
+    a schema (the ruling this repeats on purpose: the `shields:`/
+    `shield:` mutual-exclusion debt shape is not repeated here). An
+    unknown slot name is a loud error listing the shield's real slots.
+    Omitted slots (plural) or an omitted `socket:` (single) carry None --
+    unresolved, left to per-slot inference.
+
+    Returns (sockets, diagnostics): `sockets` always has exactly one
+    entry per slot of `shield.plugs` (`Instance.sockets`'s own contract),
+    a fresh dict the caller owns."""
+    socket_v = item.value.get("socket")
+    sockets_v = item.value.get("sockets")
+    plural = len(shield.plugs) > 1
+
+    if socket_v is not None and sockets_v is not None:
+        return ({slot: None for slot in shield.plugs}, [error(
+            "lang-instance-socket",
+            f"instance '{inst_name}': declares both socket: and sockets: "
+            "-- mutually exclusive (socket: is the single-plug spelling, "
+            "sockets: the plural one)", (item.src,))])
+
+    diags: List[Diagnostic] = []
+    if socket_v is not None and plural:
+        diags.append(error(
+            "lang-instance-socket",
+            f"instance '{inst_name}': shield '{shield.name}' plugs "
+            f"{len(shield.plugs)} sockets -- use sockets: (a slot -> "
+            "socket map), not socket:", (socket_v.src,)))
+    if sockets_v is not None and not plural:
+        diags.append(error(
+            "lang-instance-socket",
+            f"instance '{inst_name}': shield '{shield.name}' has a single "
+            "plug -- use socket:, not sockets:", (sockets_v.src,)))
+
+    if plural:
+        raw: Dict[str, str] = {}
+        if sockets_v is not None and isinstance(sockets_v.value, dict):
+            for slot_name, slot_v in sockets_v.value.items():
+                if slot_name not in shield.plugs:
+                    diags.append(error(
+                        "lang-instance-socket",
+                        f"instance '{inst_name}': sockets: names unknown "
+                        f"slot '{slot_name}' of shield '{shield.name}'\n"
+                        f"slots: {', '.join(shield.plugs)}", (slot_v.src,)))
+                    continue
+                raw[slot_name] = slot_v.value
+        return ({slot: binding.get(raw[slot]) if slot in raw else None
+                for slot in shield.plugs}, diags)
+
+    value = socket_v.value if socket_v is not None else None
+    return {"plug": binding.get(value) if value is not None else None}, diags
+
+
 def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
                    rig_name: str, workdir: str,
                    include_dirs: Optional[List[str]] = None,
@@ -76,7 +138,8 @@ def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
     diags += d
     if shield is None:
         return None, diags, deps
-    socket_v = item.value.get("socket")
+    sockets_map, d = _parse_sockets_block(item, shield, binding, name)
+    diags += d
 
     inv_v = item.value.get("invert")
     pins, pin_refs, jumpers, jumper_refs, d = apply_pin_block(
@@ -90,12 +153,11 @@ def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
     deps = union(deps, pdeps)
 
     inst = Instance(
-        name=name, shield=shield,
-        socket=binding.get(socket_v.value) if socket_v is not None else None,
+        name=name, shield=shield, sockets=sockets_map,
         invert=bool(inv_v.value) if inv_v is not None else False,
         pins=pins, pin_refs=pin_refs, jumpers=jumpers, jumper_refs=jumper_refs,
         params=params, param_refs=param_refs, src=item.src)
-    log.debug("instance '%s': shield=%r socket=%r", name, shield.name, inst.socket)
+    log.debug("instance '%s': shield=%r sockets=%r", name, shield.name, inst.sockets)
     return inst, diags, deps
 
 
@@ -110,6 +172,9 @@ def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
     before, it wholesale replaces it. When shield changes, the OLD params
     are keyed to the OLD shield's devices and are therefore meaningless
     against the new one, so they are dropped rather than carried forward.
+    The OLD sockets map is carried forward the same way UNLESS the new
+    shield's slot-name set differs from it, in which case it is reset the
+    same way params are (see the sockets_map assignment below).
 
     Returns a NEW Instance (never mutates the one it was handed), always
     preserving the ORIGINAL `src` -- so a diagnostic raised many delta
@@ -130,9 +195,23 @@ def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
         shield = new_shield
         shield_changed = True
 
-    socket = inst.socket
-    if "socket" in item.value:
-        socket = binding.get(item.value["socket"].value)
+    # `socket:`/`sockets:` REPLACES WHOLESALE, the `params:` rule -- never
+    # a per-key merge (multi-plug-shield-brief.md Sec 2). Absent from
+    # this patch item, the OLD sockets carry forward untouched, even
+    # across a shield change -- the same "unspecified key inherits"
+    # shape pins/jumpers already use (reproduced as-is above), rather
+    # than an implicit reset. EXCEPT: when the shield changed to one
+    # whose slot names differ from the carried-forward map's keys, the
+    # old map is meaningless against the new shield (same reasoning as
+    # the params reset below) -- reset it to unresolved-per-slot rather
+    # than let stale keys silently fall back to per-slot inference with
+    # no diagnostic.
+    sockets_map = inst.sockets
+    if shield_changed and set(sockets_map) != set(shield.plugs):
+        sockets_map = {slot: None for slot in shield.plugs}
+    if "socket" in item.value or "sockets" in item.value:
+        sockets_map, d = _parse_sockets_block(item, shield, binding, inst.name)
+        diags += d
 
     invert = inst.invert
     if "invert" in item.value:
@@ -172,11 +251,11 @@ def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
         deps = union(deps, pdeps)
 
     new_inst = Instance(
-        name=inst.name, shield=shield, socket=socket, invert=invert,
+        name=inst.name, shield=shield, sockets=sockets_map, invert=invert,
         pins=pins, pin_refs=pin_refs, jumpers=jumpers, jumper_refs=jumper_refs,
         params=params, param_refs=param_refs, src=inst.src)
-    log.debug("instance '%s': shield=%r socket=%r (%s stage '%s')",
-             inst.name, shield.name, socket, stage, stage_value)
+    log.debug("instance '%s': shield=%r sockets=%r (%s stage '%s')",
+             inst.name, shield.name, sockets_map, stage, stage_value)
     return new_inst, diags, deps
 
 

@@ -29,8 +29,8 @@ def _dev(name: str, cs_position=None) -> Device:
 
 
 def _inst(name: str, *devices: Device) -> Instance:
-    shield = Shield(name="sh", label="sh", plugs="t", devices=list(devices))
-    return Instance(name=name, shield=shield, socket="sock")
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=list(devices))
+    return Instance(name=name, shield=shield, sockets={"plug": "sock"})
 
 
 def test_copper_fixed_device_is_placed_at_its_authored_position() -> None:
@@ -39,7 +39,7 @@ def test_copper_fixed_device_is_placed_at_its_authored_position() -> None:
     rig = Rig(name="r", instances=[inst])
     socket = _socket(gpio_map={16: ("gpiod", 0, 0)})
 
-    result, diags = allocate_cs(rig, {"logger": socket}, {"t": _ctype()}, {})
+    result, diags = allocate_cs(rig, {"logger": {"plug": socket}}, {"t": _ctype()}, {})
 
     assert diags == []
     assert result.cs[("logger", "sdhc")] == (0, 16)
@@ -52,7 +52,7 @@ def test_pool_allocated_device_picks_the_type_default_pool() -> None:
     rig = Rig(name="r", instances=[inst])
     socket = _socket(gpio_map={16: ("gpiod", 0, 0)})   # cs_pool=None -> ctype fallback
 
-    result, diags = allocate_cs(rig, {"adapter": socket}, {"t": _ctype()}, {})
+    result, diags = allocate_cs(rig, {"adapter": {"plug": socket}}, {"t": _ctype()}, {})
 
     assert diags == []
     assert result.cs[("adapter", "eth")] == (0, 16)
@@ -64,7 +64,7 @@ def test_socket_cs_pool_override_wins_over_the_type_default() -> None:
     rig = Rig(name="r", instances=[inst])
     socket = _socket(cs_pool=[9], gpio_map={9: ("gpiod", 3, 0)})
 
-    result, _diags = allocate_cs(rig, {"adapter": socket}, {"t": _ctype()}, {})
+    result, _diags = allocate_cs(rig, {"adapter": {"plug": socket}}, {"t": _ctype()}, {})
 
     assert result.cs[("adapter", "eth")] == (0, 9)
 
@@ -74,7 +74,7 @@ def test_exhaustion_across_a_shared_scope_is_phys_cs() -> None:
     insts = [_inst(f"i{i}", devs[i]) for i in range(4)]
     rig = Rig(name="r", instances=insts)
     socket = _socket(gpio_map={p: (f"gpio{p}", p, 0) for p in (16, 15, 14)})
-    sockets = {f"i{i}": socket for i in range(4)}
+    sockets = {f"i{i}": {"plug": socket} for i in range(4)}
 
     result, diags = allocate_cs(rig, sockets, {"t": _ctype()}, {})
 
@@ -93,7 +93,7 @@ def test_position_with_no_gpio_map_entry_is_phys_cs() -> None:
     rig = Rig(name="r", instances=[inst])
     socket = _socket(gpio_map={})     # no entry for position 16
 
-    result, diags = allocate_cs(rig, {"logger": socket}, {"t": _ctype()}, {})
+    result, diags = allocate_cs(rig, {"logger": {"plug": socket}}, {"t": _ctype()}, {})
 
     assert len(diags) == 1
     assert diags[0].code == "phys-cs"
@@ -115,7 +115,7 @@ def test_prior_nets_from_the_gpio_pass_count_as_already_taken() -> None:
                                         role="listener", socket=socket,
                                         position=16)]}
 
-    result, diags = allocate_cs(rig, {"adapter": socket}, {"t": _ctype()}, nets_before)
+    result, diags = allocate_cs(rig, {"adapter": {"plug": socket}}, {"t": _ctype()}, nets_before)
 
     assert diags == []
     assert result.cs[("adapter", "eth")] == (0, 15)   # skipped the taken D10 (16)
@@ -153,7 +153,7 @@ def test_allocate_cs_never_mutates_the_gpio_passes_nets(  # R4 review, D1
                           role="listener", socket=socket, position=16)
     nets_before = {shared_key: [gpio_claim]}
 
-    result, _diags = allocate_cs(rig, {"logger": socket}, {"t": _ctype()},
+    result, _diags = allocate_cs(rig, {"logger": {"plug": socket}}, {"t": _ctype()},
                                  nets_before)
 
     # The caller's value is untouched...

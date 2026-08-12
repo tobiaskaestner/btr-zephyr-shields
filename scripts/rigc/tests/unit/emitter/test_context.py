@@ -14,7 +14,7 @@ from rigc.model import AxisDecl, Instance, Rig, Shield
 
 def _shield(name: str, revisions: "AxisDecl | None" = None,
            revision: "str | None" = None) -> Shield:
-    return Shield(name=name, label=name, plugs="t",
+    return Shield(name=name, label=name, plugs={"plug": "t"},
                  revisions=revisions, revision=revision)
 
 
@@ -41,7 +41,7 @@ def test_cmake_list_escape_backslash_runs_first_so_its_own_escapes_survive() -> 
 
 
 def test_axis_less_rig_omits_revision_variant_and_shield_revisions() -> None:
-    inst = Instance(name="i1", shield=_shield("sh"), socket="sock")
+    inst = Instance(name="i1", shield=_shield("sh"), sockets={"plug": "sock"})
     rig = Rig(name="r", board="b", instances=[inst])
 
     out = render(rig, frozenset()).decode("utf-8")
@@ -57,7 +57,7 @@ def test_axis_less_rig_omits_revision_variant_and_shield_revisions() -> None:
 def test_declared_axes_and_shield_revision_all_appear_resolved() -> None:
     shield = _shield("sh", revisions=AxisDecl(values=["1", "2"], default="1"),
                      revision="2")
-    inst = Instance(name="i1", shield=shield, socket="sock")
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", board="b", instances=[inst],
              revisions=AxisDecl(values=["1", "2"], default="1"), revision="2",
              variants=AxisDecl(values=["x"], default="x"), variant="x")
@@ -71,9 +71,9 @@ def test_declared_axes_and_shield_revision_all_appear_resolved() -> None:
 
 def test_rig_shields_is_distinct_in_rig_declaration_order() -> None:
     sh_a, sh_b = _shield("a"), _shield("b")
-    insts = [Instance(name="i1", shield=sh_b, socket="s"),
-            Instance(name="i2", shield=sh_a, socket="s"),
-            Instance(name="i3", shield=sh_b, socket="s")]   # repeats "b"
+    insts = [Instance(name="i1", shield=sh_b, sockets={"plug": "s"}),
+            Instance(name="i2", shield=sh_a, sockets={"plug": "s"}),
+            Instance(name="i3", shield=sh_b, sockets={"plug": "s"})]   # repeats "b"
     rig = Rig(name="r", board="board", instances=insts)
 
     out = render(rig, frozenset()).decode("utf-8")

@@ -11,11 +11,11 @@ the blueprint's own pass order (`analyzer.py:91-99`) -- sockets -> gpio
 nets -> addresses -> CS -> wires -> net conflicts -> labels.
 
 **Skip-don't-abort** is the observable contract this composer preserves
-structurally rather than by convention: an instance whose socket never
+structurally rather than by convention: a slot whose socket never
 resolved (analyzer/sockets.py's `resolve_sockets`) is simply absent from
 `resolution.sockets`, and every later pass already guards its own lookup
-(`sockets.get(inst.name)`) -- there is no separate "abort" path to avoid
-taking.
+through the accessor family (analyzer/socketmap.py's `for_ref`/
+`for_bus_device`) -- there is no separate "abort" path to avoid taking.
 
 **Solved is the emitter's input contract** (Sec 2): a frozen value
 (the blueprint's `Solved` minus `rig`/`board`/`types` -- those are
@@ -58,7 +58,13 @@ class Solved:
     rebinding a field on a model another pass already produced is this
     codebase's recurring failure mode, and here it is now a TypeError."""
 
-    sockets: Dict[str, BoardSocket] = field(default_factory=dict)          # instance -> socket
+    # instance -> slot -> socket (multi-plug-shield-brief.md Sec 3);
+    # consumed ONLY through analyzer/socketmap.py's accessor family
+    # (acceptance criterion 6) -- every downstream pass and emitter
+    # module reaches a socket through `for_ref`/`for_bus_device`/
+    # `for_slot`/`slots_of`, never a bare per-instance dict lookup of
+    # this map's own two levels.
+    sockets: Dict[str, Dict[str, BoardSocket]] = field(default_factory=dict)
     addr: Dict[Tuple[str, str], int] = field(default_factory=dict)         # (inst, dev) -> address
     straps: List[Tuple[Instance, Strap, int, int]] = field(default_factory=list)   # (inst, strap, state, addr)
     cs: Dict[Tuple[str, str], Tuple[int, int]] = field(default_factory=dict)       # (inst, dev) -> (index, position)

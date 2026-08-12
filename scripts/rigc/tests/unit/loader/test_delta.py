@@ -32,7 +32,7 @@ _BINDING = SocketBinding()
 
 
 def _shield(name: str = "sh", pads=(), devices=()) -> Shield:
-    shield = Shield(name=name, label=name, plugs="synthetic-type",
+    shield = Shield(name=name, label=name, plugs={"plug": "synthetic-type"},
                     src=SourceRef("synthetic", 1))
     for pad_name in pads:
         shield.pads[pad_name] = Pad(name=pad_name, label=pad_name, role="bidir", of=None)
@@ -53,7 +53,12 @@ def _library(*shields: Shield) -> ShieldLibrary:
 
 def _inst(name: str, shield: Shield, socket: str = "s") -> Instance:
     src = SourceRef("synthetic", 1, name)
-    return Instance(name=name, shield=shield, socket=socket, src=src)
+    return Instance(name=name, shield=shield, sockets={"plug": socket}, src=src)
+
+
+def _plural_shield(name: str = "sh2", plugs=None) -> Shield:
+    return Shield(name=name, label=name, plugs=dict(plugs or {"left": "t", "right": "t"}),
+                 src=SourceRef("synthetic", 1))
 
 
 def _doc(tmp_path, text: str, name: str = "d.yml") -> Val:
@@ -76,7 +81,7 @@ def test_parse_instance_resolves_the_shield_against_the_library(tmp_path) -> Non
     assert inst is not None
     assert inst.name == "a"
     assert inst.shield.name == "sh"
-    assert inst.socket == "nucleo_ard"
+    assert inst.sockets["plug"] == "nucleo_ard"
 
 
 def test_parse_instance_unknown_shield_is_rejected(tmp_path) -> None:
@@ -102,7 +107,7 @@ def test_parse_instance_applies_the_socket_binding(tmp_path) -> None:
     inst, diags, deps = parse_instance(
         item, SocketBinding({"ard": "nucleo_ard"}), lib, "rig", str(tmp_path))
     assert inst is not None
-    assert inst.socket == "nucleo_ard"
+    assert inst.sockets["plug"] == "nucleo_ard"
 
 
 def test_parse_instance_socket_is_optional(tmp_path) -> None:
@@ -118,7 +123,7 @@ def test_parse_instance_socket_is_optional(tmp_path) -> None:
     inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
     assert diags == []
     assert inst is not None
-    assert inst.socket is None
+    assert inst.sockets["plug"] is None
 
 
 def test_parse_instance_missing_required_key_returns_diagnostic(tmp_path) -> None:
@@ -130,6 +135,118 @@ def test_parse_instance_missing_required_key_returns_diagnostic(tmp_path) -> Non
     assert inst is None
     assert len(diags) == 1
     assert diags[0].code == "lang-schema"
+
+
+# ---------------------------------------------------------- sockets:/socket: (multi-plug-shield-brief.md Sec 2)
+
+def test_parse_instance_plural_shield_builds_the_sockets_map(tmp_path) -> None:
+    lib = _library(_plural_shield("sh2"))
+    item = _doc(tmp_path, """\
+        name: a
+        shield: sh2
+        sockets:
+          left: quail_sock2
+          right: quail_sock3
+        """)
+    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
+    assert diags == []
+    assert inst is not None
+    assert inst.sockets == {"left": "quail_sock2", "right": "quail_sock3"}
+
+
+def test_parse_instance_plural_shield_omitted_slot_carries_none(tmp_path) -> None:
+    lib = _library(_plural_shield("sh2"))
+    item = _doc(tmp_path, """\
+        name: a
+        shield: sh2
+        sockets:
+          left: quail_sock2
+        """)   # "right" omitted -> None, left to per-slot inference
+    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
+    assert diags == []
+    assert inst is not None
+    assert inst.sockets == {"left": "quail_sock2", "right": None}
+
+
+def test_parse_instance_socket_on_a_plural_shield_is_rejected(tmp_path) -> None:
+    lib = _library(_plural_shield("sh2"))
+    item = _doc(tmp_path, """\
+        name: a
+        shield: sh2
+        socket: quail_sock2
+        """)
+    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
+    assert inst is not None
+    assert len(diags) == 1
+    assert diags[0].code == "lang-instance-socket"
+    assert "plugs 2 sockets" in diags[0].message
+
+
+def test_parse_instance_sockets_on_a_single_plug_shield_is_rejected(tmp_path) -> None:
+    lib = _library(_shield("sh"))
+    item = _doc(tmp_path, """\
+        name: a
+        shield: sh
+        sockets:
+          plug: quail_sock1
+        """)
+    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
+    assert inst is not None
+    assert len(diags) == 1
+    assert diags[0].code == "lang-instance-socket"
+    assert "single plug" in diags[0].message
+
+
+def test_parse_instance_both_socket_and_sockets_keys_is_rejected(tmp_path) -> None:
+    lib = _library(_plural_shield("sh2"))
+    item = _doc(tmp_path, """\
+        name: a
+        shield: sh2
+        socket: quail_sock2
+        sockets:
+          left: quail_sock2
+        """)
+    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
+    assert inst is not None
+    assert len(diags) == 1
+    assert diags[0].code == "lang-instance-socket"
+    assert "mutually exclusive" in diags[0].message
+
+
+def test_parse_instance_sockets_unknown_slot_is_rejected(tmp_path) -> None:
+    lib = _library(_plural_shield("sh2"))
+    item = _doc(tmp_path, """\
+        name: a
+        shield: sh2
+        sockets:
+          bogus: quail_sock2
+        """)
+    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
+    assert inst is not None
+    assert len(diags) == 1
+    assert diags[0].code == "lang-instance-socket"
+    assert "unknown slot 'bogus'" in diags[0].message
+    assert "left" in diags[0].message and "right" in diags[0].message
+
+
+def test_apply_delta_sockets_patch_replaces_wholesale_never_merges(tmp_path) -> None:
+    """The params: rule: sockets: on a patch REPLACES the whole map, never
+    a per-key merge -- an omitted slot on the RESTATED map still carries
+    None, even though the base instance had it resolved."""
+    delta = _doc(tmp_path, """\
+        instances: [{name: a, sockets: {left: quail_sock9}}]
+        """)
+    lib = _library(_plural_shield("sh2"))
+    base = Instance(name="a", shield=_plural_shield("sh2"),
+                   sockets={"left": "quail_sock2", "right": "quail_sock3"},
+                   src=SourceRef("synthetic", 1, "a"))
+    topology = Topology(effective={"a": base}, order=["a"])
+    new_topology, diags, deps = apply_delta(
+        delta, "variant", "b", topology, _BINDING, lib, None, "rig", str(tmp_path))
+    assert diags == []
+    assert new_topology.effective["a"].sockets == {"left": "quail_sock9", "right": None}
+    # the ORIGINAL is untouched
+    assert topology.effective["a"].sockets == {"left": "quail_sock2", "right": "quail_sock3"}
 
 
 # --------------------------------------------------------------- resolve_dotted
@@ -292,10 +409,10 @@ def test_instances_patch_matching_by_name_replaces_socket(tmp_path) -> None:
     topology = _topology_with("a")
     new_topology, diags, deps = _apply(delta, "variant", "b", topology)
     assert diags == []
-    assert new_topology.effective["a"].socket == "new_ard"
+    assert new_topology.effective["a"].sockets["plug"] == "new_ard"
     # the ORIGINAL topology's instance is untouched -- a new value, not a
     # mutation of the one handed in.
-    assert topology.effective["a"].socket == "s"
+    assert topology.effective["a"].sockets["plug"] == "s"
 
 
 def test_instances_patch_unknown_name_is_rejected(tmp_path) -> None:
@@ -458,6 +575,47 @@ def test_instance_patch_shield_swap_drops_the_old_params(tmp_path) -> None:
     new_topology, diags, deps = _apply(delta, "variant", "b", topology, lib=lib)
     assert diags == []
     assert new_topology.effective["a"].params == {}
+
+
+def test_instance_patch_shield_swap_to_differently_shaped_shield_resets_stale_sockets(
+        tmp_path) -> None:
+    """Reviewer finding 3: swapping to a shield whose slot-name set
+    differs from the carried-forward sockets map (single<->plural, or
+    between differently-shaped plurals) with no `sockets:`/`socket:`
+    restatement must not leave stale keys behind -- every slot would
+    otherwise silently fall back to per-slot inference with no
+    diagnostic. Mirrors the params reset immediately above."""
+    old_shield = _plural_shield("sh2", plugs={"left": "t", "right": "t"})
+    new_shield = _shield("sh3")   # single-plug: one slot, named "plug"
+    topology = _topology_with("a", shield=old_shield)
+    topology.effective["a"].sockets = {"left": "quail_sock2", "right": "quail_sock3"}
+    delta = _doc(tmp_path, """\
+        instances: [{name: a, shield: sh3}]
+        """)
+    lib = _library(old_shield, new_shield)
+    new_topology, diags, deps = _apply(delta, "variant", "b", topology, lib=lib)
+    assert diags == []
+    assert new_topology.effective["a"].sockets == {"plug": None}
+
+
+def test_instance_patch_shield_swap_to_same_shaped_shield_carries_sockets_forward(
+        tmp_path) -> None:
+    """The existing behavior must not change: swapping between two
+    shields whose slot-name SETS match (same shape) carries the sockets
+    map forward untouched, exactly like pins/jumpers do on a shield swap
+    with no matching restatement key."""
+    old_shield = _plural_shield("sh2", plugs={"left": "t", "right": "t"})
+    new_shield = _plural_shield("sh3", plugs={"left": "t2", "right": "t2"})
+    topology = _topology_with("a", shield=old_shield)
+    topology.effective["a"].sockets = {"left": "quail_sock2", "right": "quail_sock3"}
+    delta = _doc(tmp_path, """\
+        instances: [{name: a, shield: sh3}]
+        """)
+    lib = _library(old_shield, new_shield)
+    new_topology, diags, deps = _apply(delta, "variant", "b", topology, lib=lib)
+    assert diags == []
+    assert new_topology.effective["a"].sockets == {
+        "left": "quail_sock2", "right": "quail_sock3"}
 
 
 def test_instance_patch_params_without_shield_change_runs_the_restate_check(

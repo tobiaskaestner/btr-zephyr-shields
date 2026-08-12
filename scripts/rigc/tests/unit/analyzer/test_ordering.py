@@ -10,8 +10,8 @@ from rigc.model import BoardSocket, Device, Instance, Shield
 
 
 def _inst(name: str, socket: str | None) -> Instance:
-    return Instance(name=name, shield=Shield(name="s", label="s", plugs="t"),
-                    socket=socket)
+    return Instance(name=name, shield=Shield(name="s", label="s", plugs={"plug": "t"}),
+                    sockets={"plug": socket})
 
 
 def _dev(name: str) -> Device:

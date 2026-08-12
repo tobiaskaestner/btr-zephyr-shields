@@ -268,7 +268,7 @@ def test_build_topology_resolves_an_instance_from_an_already_cached_shield(
     including a wire between two of its nodes, stays cpp-free here."""
     from rigc.model import Device, Pad, Shield
 
-    shield = Shield(name="sh", label="sh", plugs="fixture-type",
+    shield = Shield(name="sh", label="sh", plugs={"plug": "fixture-type"},
                     pads={"a": Pad(name="a", label="a", role="driver", of=None),
                           "b": Pad(name="b", label="b", role="listener", of=None)})
     lib = ShieldLibrary(shields={"sh": shield}, axes={"sh": None}, pending={},
@@ -300,8 +300,8 @@ def test_build_topology_unions_deps_across_variant_substitution(
     RIG_SHIELDS lists only pilot_alt_button."""
     from rigc.model import Shield
 
-    sh_a = Shield(name="sh_a", label="sh_a", plugs="fixture-type")
-    sh_b = Shield(name="sh_b", label="sh_b", plugs="fixture-type")
+    sh_a = Shield(name="sh_a", label="sh_a", plugs={"plug": "fixture-type"})
+    sh_b = Shield(name="sh_b", label="sh_b", plugs={"plug": "fixture-type"})
     lib = ShieldLibrary(
         shields={"sh_a": sh_a, "sh_b": sh_b}, axes={"sh_a": None, "sh_b": None},
         pending={}, ymls={"sh_a": "/fake/sh_a/shield.yml",

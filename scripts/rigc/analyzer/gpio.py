@@ -27,6 +27,7 @@ from typing import Dict, List, Optional, Tuple
 from ..diag import Diagnostic, SourceRef, error
 from ..model import (BoardSocket, ConnectorType, Device, GpioRef, Instance,
                      Jumper, Rig)
+from .socketmap import Sockets, for_ref
 
 _DRIVER_HINTS = ("int", "irq")
 
@@ -107,11 +108,14 @@ class GpioNets:
     controllers: Dict[str, str] = field(default_factory=dict)
 
 
-def collect_gpio_nets(rig: Rig, sockets: Dict[str, BoardSocket],
+def collect_gpio_nets(rig: Rig, sockets: Sockets,
                       types: Dict[str, ConnectorType],
                       ) -> Tuple[GpioNets, List[Diagnostic]]:
     """The gpio/pwm/adc claim-collection pass (R22/R23): every device
-    ref and pad resolves through its socket's maps into net claims.
+    ref resolves through ITS OWN plug's socket (`ref.plug`, PER-REFERENCE
+    granularity, multi-plug-shield-brief.md Sec 2 ruling 2) into net
+    claims -- a device sitting on one plug's bus may still carry a
+    cross-plug reference to another.
 
     Returns (nets, diagnostics): a fresh claim map the caller owns --
     later passes read it but must never append into its lists (R4
@@ -127,12 +131,12 @@ def collect_gpio_nets(rig: Rig, sockets: Dict[str, BoardSocket],
             socket=socket, position=position, src=src))
 
     for inst in rig.instances:
-        socket = sockets.get(inst.name)
-        if socket is None:
-            continue
-        ctype = types[socket.type_name]
         for dev in inst.shield.devices:
             for ref in dev.gpio_refs:
+                socket = for_ref(sockets, inst, ref)
+                if socket is None:
+                    continue
+                ctype = types[socket.type_name]
                 if ref.function == "gpio":
                     _collect_gpio(inst, dev, ref, socket, ctype, result, claim, diags)
                 else:

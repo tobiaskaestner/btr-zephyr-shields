@@ -36,6 +36,7 @@ from ..buskind import is_bus_kind
 from ..diag import Diagnostic, error
 from ..model import BoardSocket, Device, Instance, Rig, Strap
 from .ordering import allocation_key
+from .socketmap import Sockets, for_bus_device
 
 log = logging.getLogger(__name__)
 
@@ -134,17 +135,17 @@ class AddressAllocation:
     bus_label: Dict[str, str] = field(default_factory=dict)                # bus path -> label
 
 
-def allocate_addresses(rig: Rig, sockets: Dict[str, BoardSocket],
+def allocate_addresses(rig: Rig, sockets: Sockets,
                        ) -> Tuple[AddressAllocation, List[Diagnostic]]:
     diags: List[Diagnostic] = []
     result = AddressAllocation()
     scopes: Dict[str, List[Tuple[Instance, Device, BoardSocket]]] = {}
     for inst in rig.instances:
-        socket = sockets.get(inst.name)
-        if socket is None:
-            continue
         for dev in inst.shield.devices:
-            if not is_bus_kind(dev.bus, "i2c") or dev.bus not in socket.buses:
+            if not is_bus_kind(dev.bus, "i2c"):
+                continue
+            socket = for_bus_device(sockets, inst, dev)
+            if socket is None or dev.bus not in socket.buses:
                 continue
             bus = socket.buses[dev.bus]
             result.bus_label[bus.path] = bus.label

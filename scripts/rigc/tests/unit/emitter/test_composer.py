@@ -31,8 +31,8 @@ def _device_declaring(header_list: list) -> Device:
 
 def test_needed_param_includes_is_empty_when_every_assigned_value_is_a_literal() -> None:
     dev = _device_declaring(["dt-bindings/input/input-event-codes.h"])
-    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
-    inst = Instance(name="i1", shield=shield, socket="sock",
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"},
                    params={"d": {"zephyr,code": "5"}})
     rig = Rig(name="r", board="b", instances=[inst])
 
@@ -41,8 +41,8 @@ def test_needed_param_includes_is_empty_when_every_assigned_value_is_a_literal()
 
 def test_needed_param_includes_collects_headers_for_a_symbolic_value() -> None:
     dev = _device_declaring(["dt-bindings/input/input-event-codes.h"])
-    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
-    inst = Instance(name="i1", shield=shield, socket="sock",
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"},
                    params={"d": {"zephyr,code": "INPUT_KEY_0"}})
     rig = Rig(name="r", board="b", instances=[inst])
 
@@ -59,8 +59,8 @@ def test_needed_param_includes_keeps_the_devices_own_declaration_order() -> None
     a pair can coincide with one sort direction and make the assertion
     vacuous."""
     dev = _device_declaring(["mmm/mid.h", "aaa/first.h", "zzz/last.h"])
-    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
-    inst = Instance(name="i1", shield=shield, socket="sock",
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"},
                    params={"d": {"zephyr,code": "INPUT_KEY_0"}})
     rig = Rig(name="r", board="b", instances=[inst])
 
@@ -93,8 +93,8 @@ def test_rig_gen_includes_dtsi_is_absent_when_every_param_value_is_a_literal() -
     own declared_param_includes would otherwise justify simply does not
     appear."""
     dev = _device_declaring(["dt-bindings/input/input-event-codes.h"])
-    shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
-    inst = Instance(name="i1", shield=shield, socket="sock",
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"},
                    params={"d": {"zephyr,code": "5"}})
     rig = Rig(name="r", board="b", instances=[inst])
 
@@ -137,10 +137,10 @@ def test_emit_is_deterministic_under_a_shuffled_instance_order() -> None:
         for name in order:
             dev = Device(name="d", label="d", compatible=None, bus=None,
                         group=None, reg=None, addr_from=None, cs_position=None)
-            shield = Shield(name="sh", label="sh", plugs="t", devices=[dev])
-            insts.append(Instance(name=name, shield=shield, socket="sock"))
-            sockets[name] = BoardSocket(label="sock", path="/s", type_name="t",
-                                        gpio_map={}, buses={})
+            shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+            insts.append(Instance(name=name, shield=shield, sockets={"plug": "sock"}))
+            sockets[name] = {"plug": BoardSocket(label="sock", path="/s", type_name="t",
+                                              gpio_map={}, buses={})}
         rig = Rig(name="r", board="b", instances=insts)
         s = Solved(sockets=sockets)
         return emit(rig, s, {"t": ctype}, workdir="/does-not-matter")

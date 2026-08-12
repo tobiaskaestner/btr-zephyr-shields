@@ -161,11 +161,11 @@ def test_compose_socket_no_cs_pool_override_leaves_the_composed_bus_none() -> No
 
 
 def _shield(plugs="arduino-r3", exposes=None) -> Shield:
-    return Shield(name="sh", label="sh", plugs=plugs, exposes=exposes or {})
+    return Shield(name="sh", label="sh", plugs={"plug": plugs}, exposes=exposes or {})
 
 
 def _inst(name: str, socket: str | None, shield: Shield) -> Instance:
-    return Instance(name=name, shield=shield, socket=socket)
+    return Instance(name=name, shield=shield, sockets={"plug": socket})
 
 
 def test_resolve_sockets_finds_a_direct_board_socket() -> None:
@@ -178,7 +178,7 @@ def test_resolve_sockets_finds_a_direct_board_socket() -> None:
     resolution, diags = resolve_sockets(rig, board, {"arduino-r3": _ctype()})
 
     assert diags == []
-    assert resolution.sockets["i1"].label == "ard"
+    assert resolution.sockets["i1"]["plug"].label == "ard"
 
 
 def test_resolve_sockets_finds_a_board_socket_by_its_conventional_alias() -> None:
@@ -197,7 +197,7 @@ def test_resolve_sockets_finds_a_board_socket_by_its_conventional_alias() -> Non
     resolution, diags = resolve_sockets(rig, board, {"arduino-r3": _ctype()})
 
     assert diags == []
-    assert resolution.sockets["i1"].label == "nucleo_ard"
+    assert resolution.sockets["i1"]["plug"].label == "nucleo_ard"
 
 
 def test_resolve_sockets_still_finds_the_socket_by_its_defining_label() -> None:
@@ -216,7 +216,7 @@ def test_resolve_sockets_still_finds_the_socket_by_its_defining_label() -> None:
     resolution, diags = resolve_sockets(rig, board, {"arduino-r3": _ctype()})
 
     assert diags == []
-    assert resolution.sockets["i1"].label == "nucleo_ard"
+    assert resolution.sockets["i1"]["plug"].label == "nucleo_ard"
 
 
 def test_resolve_sockets_unknown_board_socket_is_phys_socket() -> None:
@@ -240,7 +240,7 @@ def test_resolve_sockets_plug_type_mismatch_is_phys_mating() -> None:
 
     resolution, diags = resolve_sockets(rig, board, {"mikrobus": _ctype()})
 
-    assert resolution.sockets["i1"] is not None    # the socket still resolves
+    assert resolution.sockets["i1"]["plug"] is not None    # the socket still resolves
     assert len(diags) == 1
     assert diags[0].code == "phys-mating"
 
@@ -278,7 +278,7 @@ def test_resolve_sockets_carrier_chain_composes() -> None:
         rig, board, {"arduino-r3": _ctype(), "mikrobus": _ctype("mikrobus")})
 
     assert diags == []
-    assert resolution.sockets["eth_1"].gpio_map[2] == ("gpiod", 0, 0)
+    assert resolution.sockets["eth_1"]["plug"].gpio_map[2] == ("gpiod", 0, 0)
 
 
 def test_resolve_sockets_cyclic_carrier_reference_is_stack_guarded() -> None:
@@ -393,7 +393,7 @@ def test_resolve_sockets_infers_the_sole_mating_candidate_silently() -> None:
         rig, board, {"arduino-r3": _ctype(), "mikrobus": _ctype("mikrobus")})
 
     assert diags == []
-    assert resolution.sockets["i1"].label == "ard"
+    assert resolution.sockets["i1"]["plug"].label == "ard"
 
 
 def test_resolve_sockets_inference_zero_candidates_names_plug_type_and_offerings() -> None:
@@ -483,3 +483,148 @@ def test_resolve_sockets_inference_obeys_the_existing_stacking_rule() -> None:
 def _ctype(name: str = "arduino-r3", stackable: bool = True) -> ConnectorType:
     return ConnectorType(name=name, positions={}, index2name={}, bus_proxies=[],
                         stackable=stackable, cs_pool={})
+
+
+# ---------------------------------------------------------------- per-slot resolution (multi-plug-shield-brief.md Sec 4)
+
+
+def _plural_shield(plugs: dict, devices=None) -> Shield:
+    from rigc.model import Device
+    return Shield(name="sh", label="sh", plugs=dict(plugs),
+                  devices=list(devices) if devices else [])
+
+
+def _plural_inst(name: str, sockets: dict, shield: Shield) -> Instance:
+    return Instance(name=name, shield=shield, sockets=dict(sockets))
+
+
+def test_resolve_sockets_per_slot_inference_resolves_each_slot_independently() -> None:
+    """Two slots of DIFFERENT types, neither named in sockets: -- each
+    infers against its OWN board candidates, independently."""
+    board = Board(name="b", sockets={
+        "ard": BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
+                          gpio_map={}, buses={}),
+        "mb": BoardSocket(label="mb", path="/mb", type_name="mikrobus",
+                         gpio_map={}, buses={})})
+    shield = _plural_shield({"a": "arduino-r3", "b": "mikrobus"})
+    inst = _plural_inst("i1", {"a": None, "b": None}, shield)
+    rig = Rig(name="r", instances=[inst])
+
+    resolution, diags = resolve_sockets(
+        rig, board, {"arduino-r3": _ctype(), "mikrobus": _ctype("mikrobus")})
+
+    assert diags == []
+    assert resolution.sockets["i1"]["a"].label == "ard"
+    assert resolution.sockets["i1"]["b"].label == "mb"
+
+
+def test_resolve_sockets_per_slot_inference_ambiguity_is_slot_qualified() -> None:
+    """Two same-type slots on a board with two candidates: BOTH slots
+    refuse independently -- no bipartite matching, no tie-break between
+    slots (Sec 4)."""
+    board = Board(name="b", sockets={
+        "ard1": BoardSocket(label="ard1", path="/ard1", type_name="arduino-r3",
+                           gpio_map={}, buses={}),
+        "ard2": BoardSocket(label="ard2", path="/ard2", type_name="arduino-r3",
+                           gpio_map={}, buses={})})
+    shield = _plural_shield({"left": "arduino-r3", "right": "arduino-r3"})
+    inst = _plural_inst("i1", {"left": None, "right": None}, shield)
+    rig = Rig(name="r", instances=[inst])
+
+    resolution, diags = resolve_sockets(rig, board, {"arduino-r3": _ctype()})
+
+    assert "i1" not in resolution.sockets
+    assert len(diags) == 2
+    assert all(d.code == "phys-socket" for d in diags)
+    assert any("slot 'left'" in d.message for d in diags)
+    assert any("slot 'right'" in d.message for d in diags)
+
+
+def test_resolve_sockets_per_slot_subset_needed_from_that_slots_own_devices_only() -> None:
+    """Sec 4: a bus needed only by slot 'right' must never be demanded of
+    slot 'left''s socket -- the ACCEPT half (both slots' own needs are
+    satisfied by their own sockets)."""
+    from rigc.model import Device
+
+    board = Board(name="b", sockets={
+        "sock_l": BoardSocket(label="sock_l", path="/l", type_name="t",
+                             gpio_map={}, buses={}),
+        "sock_r": BoardSocket(label="sock_r", path="/r", type_name="t",
+                             gpio_map={}, buses={"i2c": BusRef("i2c1", "/i2c1")})})
+    right_dev = Device(name="d", label="d", compatible=None, bus="i2c",
+                       group=None, reg=0x10, addr_from=None, cs_position=None,
+                       plug="right")
+    shield = _plural_shield({"left": "t", "right": "t"}, devices=[right_dev])
+    inst = _plural_inst("i1", {"left": "sock_l", "right": "sock_r"}, shield)
+    rig = Rig(name="r", instances=[inst])
+
+    _resolution, diags = resolve_sockets(rig, board, {"t": _ctype("t")})
+
+    assert diags == []
+
+
+def test_resolve_sockets_per_slot_subset_gap_names_the_right_slot_and_socket() -> None:
+    """The REJECT twin: slot 'right''s own device needs i2c, but the
+    socket named for 'right' does not offer it -- phys-subset names slot
+    'right', never 'left' (which has no bus needs of its own at all)."""
+    from rigc.model import Device
+
+    board = Board(name="b", sockets={
+        "sock_l": BoardSocket(label="sock_l", path="/l", type_name="t",
+                             gpio_map={}, buses={"i2c": BusRef("i2c1", "/i2c1")}),
+        "sock_r": BoardSocket(label="sock_r", path="/r", type_name="t",
+                             gpio_map={}, buses={})})   # no i2c on the right socket
+    right_dev = Device(name="d", label="d", compatible=None, bus="i2c",
+                       group=None, reg=0x10, addr_from=None, cs_position=None,
+                       plug="right")
+    shield = _plural_shield({"left": "t", "right": "t"}, devices=[right_dev])
+    inst = _plural_inst("i1", {"left": "sock_l", "right": "sock_r"}, shield)
+    rig = Rig(name="r", instances=[inst])
+
+    _resolution, diags = resolve_sockets(rig, board, {"t": _ctype("t")})
+
+    assert len(diags) == 1
+    assert diags[0].code == "phys-subset"
+    assert "slot 'right'" in diags[0].message
+    assert "sock_r" in diags[0].message
+    assert "slot 'left'" not in diags[0].message
+
+
+def test_resolve_sockets_distinct_slots_resolving_to_one_physical_socket_is_rejected() -> None:
+    """Sec 4: one physical connector cannot take two plugs at once --
+    checked regardless of the stackability census (which would only
+    catch this as a non-stackable-type collision, with a message that
+    counts instances rather than slots)."""
+    board = Board(name="b", sockets={
+        "sock": BoardSocket(label="sock", path="/s", type_name="t",
+                           gpio_map={}, buses={})})
+    shield = _plural_shield({"x": "t", "y": "t"})
+    inst = _plural_inst("i1", {"x": "sock", "y": "sock"}, shield)
+    rig = Rig(name="r", instances=[inst])
+
+    _resolution, diags = resolve_sockets(
+        rig, board, {"t": _ctype("t", stackable=True)})
+
+    # stackable=True suppresses the OTHER (stackability) diagnostic, so
+    # the dedicated dup-socket check is the falsifier this test isolates:
+    # mutation-check by deleting it and confirming this goes to [].
+    assert len(diags) == 1
+    assert diags[0].code == "phys-socket"
+    assert "'x'" in diags[0].message and "'y'" in diags[0].message
+    assert "sock" in diags[0].message
+
+
+def test_resolve_sockets_single_slot_shield_diagnostics_stay_unqualified() -> None:
+    """Criterion 1's load-bearing property, pinned directly: a single-
+    slot shield's own diagnostics carry NO slot qualifier -- byte-
+    identical to every diagnostic this module emitted before plurality."""
+    board = Board(name="b", sockets={})
+    shield = _plural_shield({"plug": "arduino-r3"})
+    inst = _plural_inst("i1", {"plug": None}, shield)
+    rig = Rig(name="r", instances=[inst])
+
+    _resolution, diags = resolve_sockets(rig, board, {"arduino-r3": _ctype()})
+
+    assert len(diags) == 1
+    assert diags[0].message.startswith("instance 'i1': shield 'sh'")
+    assert "slot" not in diags[0].message

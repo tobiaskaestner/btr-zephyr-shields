@@ -60,7 +60,7 @@ from rigc.loader.library import SHIELDS_DIR, load_shield_library  # noqa: E402
 from rigc.loader.params import device_required_params  # noqa: E402
 from rigc.model import Shield  # noqa: E402
 from rigc.promote import (discover_shields,  # noqa: E402
-                          shield_declares_required_params)
+                          shield_declares_required_params, shield_is_multiplug)
 from rigc.registry import load_types  # noqa: E402
 from rigc.tests.compare import (compare_context_cmake,  # noqa: E402
                                 parse_context_cmake, split_dependency_set)
@@ -174,12 +174,16 @@ def _census() -> Tuple[List[str], Set[str]]:
     the singleton law's own domain (Sec 2.3): ELIGIBLE (no device
     declares a required, no-default `shield,params` -- OR one that does,
     with a known `_REQUIRED_PARAM_ASSIGNMENTS` entry covering every such
-    parameter, Sec 9.6 part 2) vs EXCLUDED (a required parameter with no
-    known assignment to supply it) -- resolved through the REAL shield
-    library, never hand-listed. Returns (sorted eligible names, excluded
-    names) -- fresh values this module owns, computed once at collection
-    time (a dozen cheap dtlib parses, no cpp of any real board or app --
-    "nearly free" per Sec 2.3)."""
+    parameter, Sec 9.6 part 2 -- AND has exactly one plug, ruling 4) vs
+    EXCLUDED (a required parameter with no known assignment to supply it,
+    OR a multi-plug shield -- `promote.shield_is_multiplug`, multi-plug-
+    shield-brief.md Sec 8 criterion 5: `:socket=` is inherently
+    single-slot, so a plural shield has no promoted form to compare
+    against at all yet) -- resolved through the REAL shield library,
+    never hand-listed. Returns (sorted eligible names, excluded names) --
+    fresh values this module owns, computed once at collection time (a
+    dozen cheap dtlib parses, no cpp of any real board or app -- "nearly
+    free" per Sec 2.3)."""
     infos = discover_shields(_SHIELD_DIRS)
     templated = sorted(name for name, info in infos.items() if info.template)
     types, _deps = load_types()
@@ -204,9 +208,10 @@ def _census() -> Tuple[List[str], Set[str]]:
                 f"{name}: failed to resolve for the singleton-law census -- "
                 f"{diags}")
             assignment = _REQUIRED_PARAM_ASSIGNMENTS.get(name)
-            if shield_declares_required_params(shield) and not (
-                    assignment is not None and
-                    _assignment_covers_every_required_param(shield, assignment)):
+            required_param_gap = shield_declares_required_params(shield) and not (
+                assignment is not None and
+                _assignment_covers_every_required_param(shield, assignment))
+            if required_param_gap or shield_is_multiplug(shield):
                 excluded.add(name)
             else:
                 eligible.append(name)
@@ -217,21 +222,30 @@ ELIGIBLE, EXCLUDED = _census()
 
 
 def test_excluded_set_is_exactly_the_required_param_shields() -> None:
-    """Criterion 3: the domain is DERIVED (Sec 2.3), never hand-listed --
+    """Criterion 3 (original) + multi-plug-shield-brief.md Sec 8
+    criterion 5: the domain is DERIVED (Sec 2.3), never hand-listed --
     this pins only what today's derivation yields. grove_btn and
     pilot_alt_button each declare a `shield,params` `zephyr,code` name
     with no authored default, but both now have a
     `_REQUIRED_PARAM_ASSIGNMENTS` entry (Sec 9.6 part 2's `<device>.
     <prop>=<value>` CLI grammar gives a promoted rig a real way to
-    satisfy it), so EXCLUDED is empty today. This assertion can only
-    GROW again the day a new required-param shield lands with no entry
-    supplied for it yet."""
-    assert EXCLUDED == set(), (
-        f"excluded set is {sorted(EXCLUDED)}, expected exactly [] -- a "
-        "non-empty excluded set means either a new required-param shield "
-        "landed with no _REQUIRED_PARAM_ASSIGNMENTS entry yet (add one), "
-        "or an existing entry stopped covering every one of its shield's "
-        "required parameters (fix the entry, don't paper over it)")
+    satisfy it), so the required-param gap contributes nothing today.
+    `can_span_click` (the multi-plug corpus shield) is the one member:
+    ruling 4 (promotion of a plural shield is its own future slice) --
+    `:socket=` is inherently single-slot, and this set visibly SHRINKS
+    again the day that slice lands, the S4 pattern. This assertion can
+    only grow again the day a new required-param shield lands with no
+    entry supplied for it yet, or a new multi-plug shield joins the
+    corpus."""
+    assert EXCLUDED == {"can_span_click"}, (
+        f"excluded set is {sorted(EXCLUDED)}, expected exactly "
+        "['can_span_click'] -- a set naming a NEW required-param shield "
+        "means either add a _REQUIRED_PARAM_ASSIGNMENTS entry or an "
+        "existing one stopped covering every one of its shield's required "
+        "parameters (fix the entry, don't paper over it); a set missing "
+        "'can_span_click' means promotion of a multi-plug shield started "
+        "working -- update this pin deliberately, with the reason, don't "
+        "just widen it")
 
 
 def _materialize_fixture(name: str, tmp_path: Path) -> Path:

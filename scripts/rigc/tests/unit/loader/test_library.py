@@ -49,7 +49,7 @@ _SRC = SourceRef("synthetic", 1, "instance 'x'")
 
 
 def _shield(name: str) -> Shield:
-    return Shield(name=name, label=name, plugs="fixture-type",
+    return Shield(name=name, label=name, plugs={"plug": "fixture-type"},
                   src=SourceRef("synthetic", 1))
 
 

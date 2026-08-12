@@ -84,6 +84,51 @@ def test_a_promotable_shield_with_no_variant_passes() -> None:
     assert check_promotable("adafruit_data_logger", info, variant=None) is None
 
 
+def test_a_multiplug_shield_is_refused_naming_the_plug_count() -> None:
+    """Ruling 4 (multi-plug-shield-brief.md Sec 6): `:socket=` is
+    inherently single-slot, so a shield plugging more than one socket
+    has no slot to promote onto -- refused with its own sentence."""
+    info = ShieldInfo(name="can_span_click", dir="/m/boards/shields/can_span_click",
+                     template=True, has_yml=True)
+    err = check_promotable("can_span_click", info, variant=None, plug_count=2)
+    assert err is not None
+    assert "can_span_click" in err
+    assert "plugs 2 sockets" in err
+    assert "cannot be promoted" in err
+
+
+def test_plug_count_defaults_to_one_no_plurality_gate() -> None:
+    """A caller that has not resolved the shield at all (the default)
+    never trips the plurality gate -- backward-compatible for every
+    existing call site until it threads a real plug_count."""
+    info = ShieldInfo(name="adafruit_data_logger", dir="/m/boards/shields/adafruit_data_logger",
+                     template=True, has_yml=True)
+    assert check_promotable("adafruit_data_logger", info, variant=None) is None
+
+
+def test_a_single_plug_shield_with_plug_count_one_still_passes() -> None:
+    info = ShieldInfo(name="adafruit_data_logger", dir="/m/boards/shields/adafruit_data_logger",
+                     template=True, has_yml=True)
+    assert check_promotable("adafruit_data_logger", info, variant=None,
+                            plug_count=1) is None
+
+
+# ---------------------------------------------------------------- shield_is_multiplug
+
+def test_shield_is_multiplug_true_for_two_plugs() -> None:
+    from rigc.promote import shield_is_multiplug
+
+    shield = Shield(name="sh", label="sh", plugs={"left": "t", "right": "t"})
+    assert shield_is_multiplug(shield) is True
+
+
+def test_shield_is_multiplug_false_for_the_single_plug_default_slot() -> None:
+    from rigc.promote import shield_is_multiplug
+
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"})
+    assert shield_is_multiplug(shield) is False
+
+
 # ---------------------------------------------------------------- namespace rule
 
 def test_both_paths_error_names_both_offending_locations() -> None:
@@ -105,14 +150,18 @@ def test_both_paths_error_names_both_offending_locations() -> None:
 def test_discover_shields_finds_the_real_corpus_and_agrees_with_template_flag() -> None:
     """Census (Sec 4): every discovered name (marker file present) whose
     shield.yml declares `template: true` shows up as promotable, and
-    every one of today's 16 corpus shields does -- 14 one-per-folder plus
+    every one of today's 17 corpus shields does -- 15 one-per-folder plus
     lcd_char_1602/lcd_tft_24, the plurality corpus example
     (shield-plurality-brief.md Sec 5), TWO names out of the SAME folder
-    (boards/shields/arduino_lcd/, named neither). Falsified by mutating a
-    real shield.yml, not by editing this assertion (see the mutation test
+    (boards/shields/arduino_lcd/, named neither); can_span_click (multi-
+    plug-shield-brief.md's own corpus example) is one of the 15 -- still
+    DISCOVERABLE and `template: true` (this census predicate has no
+    plurality concept at all), even though it is refused downstream by
+    check_promotable's own plug_count gate. Falsified by mutating a real
+    shield.yml, not by editing this assertion (see the mutation test
     below) -- this one just proves the real tree is clean today."""
     shields = discover_shields()
-    assert len(shields) == 16
+    assert len(shields) == 17
     for info in shields.values():
         assert info.has_yml, f"{info.name}: discovered but no shield.yml"
         assert info.template, f"{info.name}: shield.yml omits template: true"
@@ -264,7 +313,7 @@ def test_promoted_shield_round_trips_through_the_loader_with_no_diagnostics(
     assert rig is not None
     assert [inst.name for inst in rig.instances] == ["adafruit_data_logger"]
     assert rig.instances[0].shield.name == "adafruit_data_logger"
-    assert rig.instances[0].socket is None
+    assert rig.instances[0].sockets["plug"] is None
 
 
 # ---------------------------------------------------------------- census predicate (Sec 2.3)
@@ -279,7 +328,7 @@ def _device(label: str, declared_params: List[str],
 
 def _shield(*devices: Device) -> Shield:
     return Shield(name="fixture_shield", label="fixture_shield",
-                 plugs="grove", devices=list(devices))
+                 plugs={"plug": "grove"}, devices=list(devices))
 
 
 def test_a_device_with_a_required_param_makes_the_shield_ineligible() -> None:
@@ -412,7 +461,7 @@ def test_a_socketed_promoted_shield_round_trips_through_the_loader(
 
     assert diags == []
     assert rig is not None
-    assert rig.instances[0].socket == "quail_sock1"
+    assert rig.instances[0].sockets["plug"] == "quail_sock1"
 
 
 # ---------------------------------- <device>.<prop> parameter assignments (Sec 9.6 part 2)
