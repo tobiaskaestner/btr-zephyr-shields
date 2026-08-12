@@ -1,9 +1,11 @@
 # Multi-plug shields — a shield mating more than one socket at once
 
-**Status:** design exploration started 2026-08-09, paused here for a fresh
-session to pick up. NOT a brief — no ruling, no scope trace verified
-end-to-end, no acceptance criteria. This document exists to hold what's
-been established so the exploration doesn't have to be re-derived.
+**Status:** design exploration started 2026-08-09; **rulings confirmed
+with Tobi 2026-08-12 (§0 below)** — the direction, granularity, and slice
+boundaries are now decided; the consumer trace §5 asked for is done and
+recorded there. Still NOT a brief: spellings, model shapes, fixtures, and
+acceptance criteria remain to be written. This document exists to hold
+what's been established so the exploration doesn't have to be re-derived.
 
 ## RESUME HERE
 
@@ -14,22 +16,240 @@ discovered when the session's own working directory is at or below that
 directory, and this exploration will eventually need both once it reaches
 brief stage.
 
-**Read, in order:** this document in full, then
-`claude/multi-bus-socket-brief.md` (already implemented, reviewed,
-fixed, and committed as `eef9836`/`b9c3be3`) as the METHOD template — not
-because its content applies here, but because §2-§4 of that brief is the
-concrete shape "verify every path, don't reason abstractly" produces, and
-this document is not yet at that level of rigor.
+**Read, in order:** §0 below (the 2026-08-12 rulings + verified trace —
+it supersedes §2's line numbers and answers §5's questions 1 and 2), then
+the rest of this document, then `claude/multi-bus-socket-brief.md`
+(already implemented, reviewed, fixed, and committed as
+`eef9836`/`b9c3be3`) as the METHOD template — not because its content
+applies here, but because §2-§4 of that brief is the concrete shape
+"verify every path, don't reason abstractly" produces.
 
-**Concrete next action:** §5 question 2 below — trace how far
-`sockets.get(inst.name)`'s single-socket-per-instance assumption
-propagates through `cs.py`/`addresses.py`/the emitter, the same way the
-multi-bus brief's §4 was built (grep every call site, read it, cite
-file:line, don't assume the core survives unchanged just because it did
-for the bus case). Do this against the CURRENT tree — `model.py`,
-`analyzer/cs.py`, `analyzer/sockets.py`, `board_edt.py` all changed
-between when §2 below was written and the multi-bus-socket commits
-landing; the line numbers in §2 have not been re-verified since.
+**Concrete next action:** DISPATCH. The slice-1 brief exists —
+**`claude/multi-plug-shield-brief.md`** (2026-08-12; mating + per-slot
+resolution only, re-export and promotion ruled out per §0 R4/R5), and
+Tobi ruled the same day that this slice jumps AHEAD of rig-schema.yaml
+in the standing queue. §0.5's open spellings are decided in that brief
+(driver decisions, flagged for veto there).
+
+## 0. CONFIRMED 2026-08-12 — rulings, direction, and the verified trace
+
+Design session Tobi + driver, 2026-08-12, working over two inline
+hypothetical shields (§0.4, confirmed "ok with all three" as matching the
+remembered hardware's shape).
+
+### 0.1 Rulings
+
+1. **Slot names are the plug NODE NAMES, and the shield owns them.** A
+   shield declares N plug nodes (today exactly one, under the reserved
+   name `plug` — `shields.py:81`), each declaring its own connector type.
+   Rig side: a `sockets:` map, slot name → board socket label, alongside
+   the unchanged single-plug `socket:` (mutually exclusive — and enforce
+   that in rigc's own parser from day one, not only jsonschema; the
+   `shields:`/`shield:` gap queued in rig-schema.yaml is the debt shape
+   not to repeat).
+2. **Granularity is PER-REFERENCE, not per-device.** Cross-plug gpio refs
+   are real hardware (confirmed against Tobi's remembered boards; both
+   §0.4 shields carry one deliberately). A bus DEVICE's bus binds to
+   exactly one plug — that half is a fact, not a ruling. Author-facing
+   syntax for per-reference slot selection already exists and needs no
+   invention: the phandle. `shields.py:292/315` already validates
+   `target.path == plug.path` and then DISCARDS which plug matched; the
+   change is widening "must be THIS shield's plug" to "one of this
+   shield's plugs" and keeping the answer on `GpioRef`.
+3. **The model.py freeze is NOT a constraint here** (Tobi: "it served
+   well to this point, but we extend strictly beyond rigexp's original
+   feature set"). `Shield.plugs` may change shape.
+4. **Promotion of a multi-plug shield is a SEPARATE SLICE.** Until then,
+   the S4 pattern applies: an asserted exclusion that visibly shrinks.
+   (`:socket=` is inherently single-slot; a multi-plug shield promotes
+   only where a board offers ALL slot types — its own design question.)
+5. **Multi-parent re-export (`compose_socket`) is a SEPARATE SLICE.**
+   Slice 1 of this thread is mating + per-slot resolution only, which is
+   fixture-provable end-to-end without touching composition.
+
+### 0.2 Direction (agreed shape, not yet a brief)
+
+- **Additive grammar, uniform model.** The authored single-plug form
+  stays byte-identical; PLURALITY OF PLUG NODES is the discriminator — no
+  `type: multi-socket` marker (a second discriminator alongside the
+  visible arity would own a marker↔shape consistency rule forever). The
+  loader normalizes a single-plug shield to one default slot, so there is
+  ONE pipeline — no parallel single/multi path (the drift `buskind.py`
+  exists to kill, not to be reintroduced one level up).
+- **A list is the wrong generalization.** `can_span_click` (§0.4) plugs
+  TWO SOCKETS OF THE SAME TYPE; positional identity cannot tell them
+  apart, only the shield's own names can. Map with named slots — the same
+  ruling shape as multi-bus role names (`socket,spi-sensors`, never
+  `socket,spi[1]`).
+- **Diagnostics render the slot qualifier only for a plural shield**
+  (the qualified-bus-name precedent: `spi` bare when there is one,
+  role-qualified when there are two). Zero movement in existing
+  byte-exact stderr goldens BY CONSTRUCTION — acceptance criterion 1 of
+  the eventual brief.
+
+### 0.3 The consumer trace, run 2026-08-12 (supersedes §2's line numbers)
+
+Model anchor points in the current tree: `Shield.plugs: str`
+`model.py:159`; `Instance.socket: Optional[str]` `model.py:225`;
+`SocketResolution.sockets: Dict[str, BoardSocket]` keyed by bare
+`inst.name` `analyzer/sockets.py:48`.
+
+**Every downstream consumer has the same shape** — fetch the instance's
+one socket, then loop devices — at 13 sites: `cs.py:129`, `gpio.py:130`,
+`addresses.py:143`, `wires.py:66`, `overlay.py:125/170/237`,
+`sheet.py:33/62/77/94`, `expectations.py:42/48`. Under ruling 2 the
+lookup moves into the per-REFERENCE loop (gpio) / per-BUS-GROUP
+(bus devices), through ONE shared accessor (the `buskind.py` precedent is
+the anti-drift device). Mechanical, but 13 sites is 13 sites.
+
+**Per-slot logic needed inside `resolve_sockets` itself:**
+
+- Inference (`sockets.py:148`) goes per slot: unique candidate of the
+  slot's type resolves silently, zero/many refuses — the existing
+  strictness, per slot. §0.4's `can_span_click` kills inference by
+  construction (four mikrobus candidates per slot), so its explicit
+  `sockets:` map is mandatory, which is correct behavior, not a gap.
+- Mating (`sockets.py:254`) per slot.
+- Subset exposure (`sockets.py:265`) MUST go per slot: needed buses
+  computed from the slot's own bus groups, or a bus needed only by slot
+  `aux` would be demanded of slot `main`'s socket.
+- The exclusivity/stackability census (`sockets.py:274`) falls out
+  naturally once each slot's resolved socket lands in `per_socket`.
+
+**Parser:** bus groups are recognized by NAME against the single ctype's
+`bus_proxies` (`shields.py:118`); with two plugs that needs a per-group
+plug binding (spelling TBD, §0.4 uses a placeholder property). The plug
+node lookup is the literal reserved name (`shields.py:81`).
+
+**Not traced yet (out of slice 1 anyway):** the cmake/promotion surface
+(ruled out by R4) and multi-parent composition (R5).
+
+### 0.4 The two confirmatory shields (hypothetical; every spelling is a
+placeholder to be designed at brief time)
+
+**Shield A — `acq_bridge`: Arduino R3 + mikroBUS at once.**
+
+```dts
+/ {
+	shield-templates {
+		acq_bridge: acq_bridge {
+			/* DELTA 1: no template-level shield,plugs string; N plug
+			 * nodes, each declaring its own connector type. The node
+			 * names ARE the shield-owned slot names. */
+			ard_plug: ard {
+				compatible = "shield,plug";
+				shield,plugs = "arduino-r3";
+				#gpio-cells = <2>;
+			};
+			mb_plug: mb {
+				compatible = "shield,plug";
+				shield,plugs = "mikrobus";
+				#gpio-cells = <2>;
+			};
+
+			/* DELTA 2: both plug types offer i2c/spi, so a bus group
+			 * must say which plug its bus copper comes from. */
+			i2c {
+				shield,plug = <&ard_plug>;
+				adc_fe: adc_fe {
+					compatible = "ti,ads1115";
+					drdy-gpios = <&ard_plug ARDUINO_HEADER_R3_D2 GPIO_ACTIVE_LOW>;
+				};
+			};
+			spi {
+				shield,plug = <&mb_plug>;
+				radio: radio {
+					compatible = "semtech,sx1276";
+					spi-max-frequency = <8000000>;
+					reset-gpios = <&mb_plug MIKROBUS_RST GPIO_ACTIVE_LOW>;
+					dio0-gpios  = <&mb_plug MIKROBUS_INT GPIO_ACTIVE_HIGH>;
+					/* CROSS-PLUG REF (ruling 2): TX-sync copper to an
+					 * Arduino pin. */
+					sync-gpios  = <&ard_plug ARDUINO_HEADER_R3_D3 GPIO_ACTIVE_HIGH>;
+				};
+			};
+		};
+	};
+};
+```
+
+```yaml
+instances:
+  - name: acq
+    shield: acq_bridge
+    sockets:            # DELTA 3: slot -> board socket label
+      ard: nucleo_ard
+      mb:  nucleo_mb    # no corpus board hosts both types today
+```
+
+On a board offering exactly one socket of each type, both slots resolve
+by per-slot inference with no `sockets:` at all.
+
+**Shield B — `can_span_click`: two of quail's four mikroBUS sockets.**
+Two plugs of the SAME type — the case that rules out a positional list.
+
+```dts
+/ {
+	shield-templates {
+		can_span_click: can_span_click {
+			left_plug: left {
+				compatible = "shield,plug";
+				shield,plugs = "mikrobus";
+				#gpio-cells = <2>;
+			};
+			right_plug: right {
+				compatible = "shield,plug";
+				shield,plugs = "mikrobus";
+				#gpio-cells = <2>;
+			};
+
+			/* Two bus groups of the SAME kind — Device.bus's bare kind
+			 * string collides here; only the plug binding disambiguates. */
+			spi {
+				shield,plug = <&left_plug>;
+				can0: can0 {
+					compatible = "microchip,mcp2515";
+					spi-max-frequency = <10000000>;
+					/* CROSS-PLUG REF: INT is copper on the RIGHT socket */
+					int-gpios = <&right_plug MIKROBUS_INT GPIO_ACTIVE_LOW>;
+				};
+			};
+			spi2 {
+				shield,plug = <&right_plug>;
+				log_flash: log_flash {
+					compatible = "jedec,spi-nor";
+					spi-max-frequency = <20000000>;
+				};
+			};
+		};
+	};
+};
+```
+
+```yaml
+instances:
+  - name: canspan
+    shield: can_span_click
+    sockets:
+      left:  quail_sock2
+      right: quail_sock3
+```
+
+### 0.5 Still open before a slice-1 brief exists
+
+- Exact spellings: the plug-node compatible, the bus-group→plug binding
+  property, the second same-kind bus group's node name (interacts with
+  how `Device.bus`'s qualified names are parsed today), the `sockets:`
+  key in rig.yml (vs `socket:` mutual exclusion diagnostics).
+- Model shapes: `Shield.plugs` map (slot → type), `GpioRef` slot field,
+  where the bus group's plug binding lives (`Device`? a bus-group
+  entity?), `Instance.sockets` map, `SocketResolution` re-keying (key
+  `(inst, slot)` vs nested map — decide WITH the accessor design).
+- Fixture plan + golden classification (new fixtures additive; criterion
+  1 is zero movement in existing stderr goldens).
+- Which of §0.4's shields becomes the corpus example vs fixture-only —
+  `can_span_click` on quail is buildable against a REAL board today and
+  exercises same-type slots, cross-plug refs, and dead inference at once.
 
 ## 1. The motivating scenario
 
