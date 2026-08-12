@@ -24,12 +24,16 @@ the rest of this document, then `claude/multi-bus-socket-brief.md`
 applies here, but because §2-§4 of that brief is the concrete shape
 "verify every path, don't reason abstractly" produces.
 
-**Concrete next action:** DISPATCH. The slice-1 brief exists —
-**`claude/multi-plug-shield-brief.md`** (2026-08-12; mating + per-slot
-resolution only, re-export and promotion ruled out per §0 R4/R5), and
-Tobi ruled the same day that this slice jumps AHEAD of rig-schema.yaml
-in the standing queue. §0.5's open spellings are decided in that brief
-(driver decisions, flagged for veto there).
+**Concrete next action:** slice 2. Slice 1 (mating + per-slot
+resolution, brief `claude/multi-plug-shield-brief.md`) LANDED 2026-08-12
+as `99fd59c` + corpus `b2b5630`, reviewed and gated. The slice-2 brief —
+multi-parent re-export, `claude/multi-plug-carrier-brief.md` — is
+written from two further rulings (Tobi, 2026-08-12): an exposed socket
+MAY combine same-kind buses from different parents via the multi-bus
+qualified-role vocabulary, and the corpus example is a mikrobus
+span-carrier on quail re-exporting one mixed-parent socket (the
+combined-two-SPI case is fixture-only on fixture-multibus). Promotion
+(R4) remains the thread's last unbriefed slice.
 
 ## 0. CONFIRMED 2026-08-12 — rulings, direction, and the verified trace
 
