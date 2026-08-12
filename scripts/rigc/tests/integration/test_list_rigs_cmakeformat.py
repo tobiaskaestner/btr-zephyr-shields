@@ -18,6 +18,24 @@ from pathlib import Path
 
 from conftest import REPO_ROOT, WEST_TOPDIR, subprocess_timeout
 
+
+def _cmake_list_escape(value: str) -> str:
+    """A test-local copy of `list_rigs._cmake_list_escape` -- duplicated
+    rather than imported so this module (analyzed by mypy under `scripts/
+    rigc`) never pulls the untyped `list_rigs.py` script into mypy's
+    graph; this file already drives that module as a real subprocess for
+    everything else, so a bare-bones copy of its one pure helper is the
+    lowest-risk way to compute the SAME expected escaped bytes without a
+    second authority for what escaping means -- both must produce
+    identical output for `test_cmakeformat_line_for_a_list_target`'s own
+    assertion to mean anything, which is exactly what this docstring pins
+    down as the contract between the two copies."""
+    escaped = value
+    for _ in range(2):
+        escaped = escaped.replace(";", "\\;")
+    return escaped
+
+
 _LIST_RIGS = REPO_ROOT / "scripts" / "list_rigs.py"
 _VENV_PYTHON = WEST_TOPDIR / ".venv" / "bin" / "python3"
 _CMAKEFORMAT = "{NAME};{DIR};{BOARD};{REVISION};{VARIANT};{PROMOTED}"
@@ -144,3 +162,59 @@ def test_bare_rig_flag_with_no_cmakeformat_still_prints_just_the_name() -> None:
     shield_result = _run("--rig=adafruit_data_logger")
     assert shield_result.returncode == 0, shield_result.stderr
     assert shield_result.stdout.strip() == "adafruit_data_logger"
+
+
+# --------------------------------------------------- list promotion (slice 4)
+
+def test_cmakeformat_line_for_a_list_target() -> None:
+    """multi-plug-list-brief.md Sec 4: the `{PROMOTED}` value for a list
+    target is the raw `;`-joined text, escaped via `_cmake_list_escape`
+    (the ONE field this hazard ever touches -- NAME is the `+`-joined
+    desugared rig name, which never contains a `;`). Whole-line pin,
+    following the revved-promoted precedent (it caught a real
+    desugaring bug once, which is why whole-line)."""
+    result = _run("--rig=eth_click;flash_click", f"--cmakeformat={_CMAKEFORMAT}")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == (
+        "NAME;eth_click+flash_click;DIR;NOTFOUND;BOARD;NOTFOUND;"
+        "REVISION;NOTFOUND;VARIANT;NOTFOUND;"
+        f"PROMOTED;{_cmake_list_escape('eth_click;flash_click')}")
+
+
+def test_cmakeformat_line_for_a_list_target_with_per_element_options() -> None:
+    raw = "eth_click:socket=quail_sock1;flash_click:socket=quail_sock2"
+    result = _run(f"--rig={raw}", f"--cmakeformat={_CMAKEFORMAT}")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == (
+        "NAME;eth_click+flash_click;DIR;NOTFOUND;BOARD;NOTFOUND;"
+        "REVISION;NOTFOUND;VARIANT;NOTFOUND;"
+        f"PROMOTED;{_cmake_list_escape(raw)}")
+
+
+def test_a_list_target_with_a_duplicate_element_is_refused() -> None:
+    result = _run("--rig=eth_click;eth_click", f"--cmakeformat={_CMAKEFORMAT}")
+    assert result.returncode != 0
+    assert "eth_click" in result.stderr
+    assert "more than once" in result.stderr
+
+
+def test_a_list_target_with_a_persisted_rig_element_is_refused() -> None:
+    """Every element must be a SHIELD (Sec 2): naming a real, persisted
+    rig inside a list gets its own sentence, distinct from the ordinary
+    "promotion options on a persisted rig" refusal a bare rig target
+    hits (that refusal is about OPTIONS on a single rig target; this one
+    is about a rig appearing as one element of a list at all)."""
+    result = _run("--rig=eth_click;nucleo_datalogger",
+                  f"--cmakeformat={_CMAKEFORMAT}")
+    assert result.returncode != 0
+    assert "nucleo_datalogger" in result.stderr
+    assert "names a persisted rig" in result.stderr
+    assert "every element of a list promotion target must be a shield" in result.stderr
+
+
+def test_a_list_target_with_an_unknown_element_is_refused() -> None:
+    result = _run("--rig=eth_click;no_such_shield_at_all",
+                  f"--cmakeformat={_CMAKEFORMAT}")
+    assert result.returncode != 0
+    assert "no_such_shield_at_all" in result.stderr
+    assert "does not name a discoverable shield" in result.stderr

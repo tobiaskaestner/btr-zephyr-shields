@@ -117,7 +117,11 @@ class Rigs(WestCommand):
                  rig existing for it. A promoted shield may name the
                  socket it plugs -- "<shield>:socket=<label>" -- which is
                  what makes a shield askable at all on a board carrying
-                 more than one socket of its type. This is NOT a promise
+                 more than one socket of its type. TARGET may also be a
+                 `;`-separated LIST of shields (multi-plug-list-brief.md),
+                 e.g. "eth_click;temp_click" -- answers boards where the
+                 WHOLE desugared rig resolves clean, socket exclusivity
+                 across elements included. This is NOT a promise
                  the rig
                  actually builds on a listed board -- GPIO position
                  routing, CS-pool allocation, address domains and net
@@ -258,6 +262,61 @@ class Rigs(WestCommand):
         return name, revision, promote.ParsedPromotionOpts(
             fixed={}, params={}, sockets={}), None
 
+    def _resolve_list_target(self, args, target):
+        """The list-promotion branch of the Sec 5 namespace rule
+        (multi-plug-list-brief.md), shared by `--explain` and
+        `--boards-for` for the SAME reason `_resolve_both_namespaces`
+        itself is shared: two independently-worded list validations is
+        exactly the divergence risk this thread keeps re-finding.
+
+        Splits `target` on `;` and resolves/validates every element
+        exactly as `_resolve_both_namespaces` already does for a single
+        target (namespace collision via `promote.both_paths_error`,
+        promotability via `promote.check_promotable`, the slot/param
+        grammar via `promote.parse_promotion_opts`), plus the two checks
+        a list adds: every element must be a SHIELD (`promote.list_
+        element_is_a_rig_error`/`promote.list_element_not_a_shield_
+        error`), and no shield name may repeat across elements
+        (`promote.check_list_no_duplicate_elements`).
+
+        Exits via `sys.exit` on every refusal, matching every other
+        resolution failure this command reports. Returns the composed
+        `PromotedRig` (`promote.promote_shield_list`) the caller owns."""
+        from rigc import promote
+
+        rigs_by_name = {r.name: r for r in list_rigs.find_rigs(args)}
+        shields = promote.discover_shields(self._shield_dirs(args))
+
+        elements = []
+        for element in target.split(';'):
+            name, revision, variant, opt_text = list_rigs.parse_rig_target(element)
+            rig = rigs_by_name.get(name)
+            if rig is not None and name in shields:
+                sys.exit('ERROR: ' + promote.both_paths_error(
+                    name, rig.dir, shields[name].dir))
+            if rig is not None:
+                sys.exit('ERROR: ' + promote.list_element_is_a_rig_error(
+                    name, target, rig.dir))
+            if name not in shields:
+                sys.exit('ERROR: ' + promote.list_element_not_a_shield_error(
+                    name, target))
+            resolved = promote.resolve_for_promotion(
+                name, self._shield_dirs(args))
+            err = promote.check_promotable(name, shields[name], variant)
+            if err is not None:
+                sys.exit(f'ERROR: {err}')
+            opts = promote.parse_promotion_opts(opt_text, element, resolved)
+            if isinstance(opts, str):
+                sys.exit(f'ERROR: {opts}')
+            elements.append((name, revision, opts))
+
+        dup_err = promote.check_list_no_duplicate_elements(
+            [name for name, _revision, _opts in elements], target)
+        if dup_err is not None:
+            sys.exit(f'ERROR: {dup_err}')
+
+        return promote.promote_shield_list(elements)
+
     def _boards_for(self, args):
         """`--boards-for`'s implementation: resolve TARGET against
         BOTH namespaces (_resolve_both_namespaces, the same Sec 5 rule
@@ -307,25 +366,38 @@ class Rigs(WestCommand):
         from rigc.diag import has_errors, render
         from rigc.registry import load_types
 
-        name, revision, opts, shield = self._resolve_both_namespaces(
-            args, args.boards_for)
-        variant = None
-
-        types, _types_deps = load_types()
-        workdir = tempfile.mkdtemp(prefix='rigs-boards-for-')
-        try:
+        # A list target (multi-plug-list-brief.md) never reaches
+        # `_resolve_both_namespaces` at all: `list_rigs.parse_rig_target`
+        # would happily swallow the whole `;`-joined text as a single
+        # bogus "name" (its own name group excludes `@`/`/`/`:`, never
+        # `;`), so the check happens here, first, exactly as `resolve_
+        # target`'s own list branch checks before ever calling `parse_
+        # rig_target` on the whole string.
+        if ';' in args.boards_for:
+            promoted = self._resolve_list_target(args, args.boards_for)
+            revision = None
+        else:
+            name, revision, opts, shield = self._resolve_both_namespaces(
+                args, args.boards_for)
+            promoted = None
             if shield is not None:
                 promoted = promote.promote_shield(
                     name, revision, socket=opts.fixed.get('socket'),
                     sockets=opts.sockets or None,
                     params=opts.params or None)
+                revision = None
+        variant = None
+
+        types, _types_deps = load_types()
+        workdir = tempfile.mkdtemp(prefix='rigs-boards-for-')
+        try:
+            if promoted is not None:
                 rig_yml = os.path.join(workdir, list_rigs.RIG_YML)
                 with open(rig_yml, 'w') as f:
                     f.write(promoted.rig_yml)
                 with open(os.path.join(workdir, promoted.content_name),
                           'w') as f:
                     f.write(promoted.content)
-                revision = None
             else:
                 # Not a shield name at all: an ordinary rig target,
                 # including the "does not resolve" exit
@@ -370,9 +442,19 @@ class Rigs(WestCommand):
         filesystem); a persisted rig's are read verbatim off disk.
         --explain never applies a fragment or resolves an axis into the
         printed text (Sec 6's own scope line) -- unlike --boards-for,
-        this needs no $ZEPHYR_BASE pin and no workdir at all."""
+        this needs no $ZEPHYR_BASE pin and no workdir at all.
+
+        A list target (multi-plug-list-brief.md) never reaches `_resolve_
+        both_namespaces` -- `_resolve_list_target` is TARGET's own
+        validation, checked first, exactly as `--boards-for` does."""
         from rigc import promote
         from rigc.loader.documents import content_file_name
+
+        if ';' in args.explain:
+            promoted = self._resolve_list_target(args, args.explain)
+            self._print_pair(('rig.yml', promoted.rig_yml),
+                             (promoted.content_name, promoted.content))
+            return
 
         name, revision, opts, shield = self._resolve_both_namespaces(
             args, args.explain)

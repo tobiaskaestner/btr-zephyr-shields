@@ -43,6 +43,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import textwrap
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
@@ -509,3 +510,119 @@ def test_singleton_law_holds(shield: str, tmp_path: Path) -> None:
         (promoted_out / "context.cmake").read_text(),
         shield)
     assert context_report is None, f"{shield}: context.cmake mismatch\n{context_report}"
+
+
+# ------------------------------- list promotion's induction step (slice 4)
+#
+# multi-plug-list-brief.md Sec 5: the law's real acceptance criterion for
+# list promotion is the SAME shape as the singleton law above, generalized
+# to N instances -- promoted `[a;b]` compares byte-for-byte against the
+# two-instance rig.yml carrying the identical assignments. A SMALL fixed
+# set of representative pairs (never a full N x N census: the composition
+# is mechanical once the singleton law already holds for each element
+# individually, per multi-plug-list-brief.md's own "everything below the
+# desugaring seam is unchanged" framing) -- written directly against this
+# module's own `_run`/EMITTED_FILES/_context_cmake_mismatch machinery
+# rather than through `_materialize_fixture`/`_promotion_target` (both
+# scoped to exactly ONE shield's own census entry, Sec 4's own domain
+# table shape, which does not generalize to an N-element list without
+# rewriting those tables' own keys -- extending IN this module, per the
+# brief's own "implementor's call" option, since the machinery these two
+# tests need (_run, EMITTED_FILES, _context_cmake_mismatch) is already
+# here and needs no change of its own).
+#
+# Both cases below are the ACCEPT branch, asserted explicitly (Sec 5's own
+# partition-pinning rule: a comparison law's reject branch checks nothing,
+# so which branch a case takes must be pinned, not merely observed).
+
+def _assert_list_law_holds(fixture_content: str, promoted_target: str,
+                           rig_name: str, tmp_path: Path) -> None:
+    """One list-law comparison: write `fixture_content` under a rig named
+    `rig_name` (matching the promoted side's own desugared name, per Sec
+    2.1's parity argument the singleton law already relies on), run both
+    sides, and assert the ACCEPT branch plus every emitted artifact
+    byte-for-byte, exactly mirroring `test_singleton_law_holds`'s own
+    comparison shape one level up (N instances instead of one)."""
+    fixture_rig_dir = tmp_path / "fixture-rig"
+    fixture_rig_dir.mkdir()
+    (fixture_rig_dir / "rig.yml").write_text(f"rig:\n  name: {rig_name}\n")
+    (fixture_rig_dir / f"{rig_name}.yml").write_text(fixture_content)
+
+    fixture_out = tmp_path / "fixture-out"
+    promoted_out = tmp_path / "promoted-out"
+    fixture_result = _run(str(fixture_rig_dir / "rig.yml"), out_dir=fixture_out)
+    promoted_result = _run("--promote", promoted_target, out_dir=promoted_out)
+
+    assert fixture_result.returncode == 0, (
+        f"{rig_name}: the fixture side must take the ACCEPT branch, or "
+        f"this test proves nothing about the law's induction step\n"
+        f"--- stderr ---\n{fixture_result.stderr}")
+    assert promoted_result.returncode == 0, (
+        f"{rig_name}: the promoted list target must accept too\n"
+        f"--- stderr ---\n{promoted_result.stderr}")
+
+    for fname in EMITTED_FILES:
+        fixture_file = fixture_out / fname
+        promoted_file = promoted_out / fname
+        assert fixture_file.is_file() == promoted_file.is_file(), (
+            f"{rig_name}: {fname} present on one side only "
+            f"(fixture={fixture_file.is_file()}, promoted={promoted_file.is_file()})")
+        if not fixture_file.is_file():
+            continue
+        expected = fixture_file.read_text()
+        actual = promoted_file.read_text()
+        assert expected == actual, (
+            f"{rig_name}: {fname} mismatch\n--- fixture ---\n{expected}\n"
+            f"--- promoted ---\n{actual}")
+
+    context_report = _context_cmake_mismatch(
+        (fixture_out / "context.cmake").read_text(),
+        (promoted_out / "context.cmake").read_text(), rig_name)
+    assert context_report is None, f"{rig_name}: context.cmake mismatch\n{context_report}"
+
+
+def test_list_law_holds_for_two_single_plug_shields_with_explicit_sockets(
+        tmp_path: Path) -> None:
+    """Sec 5 case 1: two single-plug shields (eth_click, flash_click),
+    each with an explicit `socket:`, on the law fixture board's own two
+    DISTINCT mikroBUS sockets (nexus_mikrobus/nexus_mikrobus2 -- the
+    second one exists on this fixture specifically so two same-type
+    single-plug shields can each get their own physical socket, per the
+    module docstring/_SOCKET_ASSIGNMENTS comment above)."""
+    _assert_list_law_holds(
+        textwrap.dedent("""\
+            instances:
+              - name: eth_click
+                shield: eth_click
+                socket: nexus_mikrobus
+              - name: flash_click
+                shield: flash_click
+                socket: nexus_mikrobus2
+            """),
+        "eth_click:socket=nexus_mikrobus;flash_click:socket=nexus_mikrobus2",
+        "eth_click+flash_click", tmp_path)
+
+
+def test_list_law_holds_for_a_multiplug_element_composed_with_a_single_plug_one(
+        tmp_path: Path) -> None:
+    """Sec 5 case 2: can_span_click (a multi-plug shield, slot-optioned
+    per multi-plug-promotion-brief.md's own `socket.<slot>=` grammar,
+    slices 1-3 of this thread) alongside grove_led (an ordinary single-
+    plug shield, socket-LESS -- the fixture board's one grove socket
+    resolves it by unique-by-type inference on both sides identically)
+    -- composing slices 1-3 with slice 4 in one comparison, per Sec 5's
+    own instruction."""
+    _assert_list_law_holds(
+        textwrap.dedent("""\
+            instances:
+              - name: can_span_click
+                shield: can_span_click
+                sockets:
+                  left: nexus_mikrobus
+                  right: nexus_mikrobus2
+              - name: grove_led
+                shield: grove_led
+            """),
+        "can_span_click:socket.left=nexus_mikrobus:socket.right=nexus_mikrobus2;"
+        "grove_led",
+        "can_span_click+grove_led", tmp_path)

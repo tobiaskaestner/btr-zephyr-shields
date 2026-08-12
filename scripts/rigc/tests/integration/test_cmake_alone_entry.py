@@ -629,6 +629,55 @@ def test_cmake_alone_promoted_shield_with_a_socket_configures_where_the_bare_for
         assert other not in overlay
 
 
+@pytest.mark.build
+def test_cmake_alone_list_target_configures_with_both_shields(
+        tmp_path: Path) -> None:
+    """multi-plug-list-brief.md Sec 4 -- the module observing the cmake-
+    list hazard, with its own list-target case: `-DRIG='a;b'` carries a
+    literal `;` all the way from the invocation, through list_rigs.py's
+    own `--rig=` resolution (boards.cmake's Step 1) and its `{PROMOTED}`
+    cmakeformat value, to dts.cmake's `--promote` forwarding into the
+    real expander subprocess -- EVERY hop an unquoted expansion could
+    silently corrupt (Sec 4's own warning). A configure that succeeds
+    and lands BOTH shields' own labels in the emitted overlay is the
+    only proof that the whole chain carried the value intact rather than
+    truncating it at the first embedded `;`."""
+    raw = "eth_click:socket=quail_sock1;flash_click:socket=quail_sock2"
+    build_dir = tmp_path / "list-target"
+    result = _run_cmake_alone(build_dir, [
+        f"-DRIG={raw}",
+        "-DBOARD=mikroe_quail/stm32f427xx/rig",
+    ])
+    assert result.returncode == 0, (
+        "expected -DRIG='<shield-a>;<shield-b>' to configure\n"
+        f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
+        f"--- stderr ---\n{result.stderr}")
+
+    with open(build_dir / "build_info.yml") as f:
+        info = yaml.safe_load(f)
+    rig_info = info["cmake"]["vendor-specific"]["rig"]
+    # The WHOLE raw target, `;` intact -- build_info records what was
+    # asked for, which is exactly the value a corrupted cmake seam would
+    # have truncated at the first shield.
+    assert rig_info["promoted-shield"] == raw
+    assert rig_info["board"] == "mikroe_quail/stm32f427xx/rig"
+    assert "eth_click" in rig_info["shields"]
+    assert "flash_click" in rig_info["shields"]
+    assert "yml" not in rig_info
+    assert "content-yml" not in rig_info
+
+    # Both shields' own instance labels, and both named sockets, reached
+    # the emitted overlay -- a configure that silently dropped the
+    # second element would satisfy every assertion above (build_info's
+    # own "shields" key comes from RIG_SHIELDS, populated by context.cmake
+    # off the LOADED rig -- a real end-to-end signal, not an echo of RIG).
+    overlay = (build_dir / "rig" / "rig-gen.overlay").read_text()
+    assert "eth_click" in overlay
+    assert "flash_click" in overlay
+    assert "quail_sock1" in overlay
+    assert "quail_sock2" in overlay
+
+
 def test_cmake_alone_promoted_shield_without_a_board_is_fatal(
         tmp_path: Path) -> None:
     """Criterion 2.3: a promoted shield declares no board and has no axis

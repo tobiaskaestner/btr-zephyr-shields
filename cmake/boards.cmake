@@ -49,9 +49,13 @@ include(extensions)
 # the invocation is the only source of BOARD.
 if(DEFINED RIG)
   list(TRANSFORM BOARD_ROOT PREPEND "--board-root=" OUTPUT_VARIABLE _rig_broot_args)
+  # "--rig=${RIG}" MUST be quoted (multi-plug-list-brief.md Sec 4): a
+  # list promotion target legitimately contains a `;`, and an UNQUOTED
+  # expansion here would list-split it into several execute_process
+  # COMMAND arguments, handing list_rigs.py only the first element.
   execute_process(
     COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_LIST_DIR}/../scripts/list_rigs.py
-      ${_rig_broot_args} --rig=${RIG}
+      ${_rig_broot_args} "--rig=${RIG}"
       --cmakeformat={NAME}\;{DIR}\;{BOARD}\;{REVISION}\;{VARIANT}\;{PROMOTED}
     OUTPUT_VARIABLE _rig_resolve_out
     ERROR_VARIABLE _rig_resolve_err

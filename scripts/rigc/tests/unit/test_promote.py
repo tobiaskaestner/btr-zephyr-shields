@@ -18,8 +18,11 @@ from rigc.diag import has_errors
 from rigc.dtsio import MODULE_ROOT
 from rigc.model import Device, Shield
 from rigc.promote import (ParsedPromotionOpts, ShieldInfo, both_paths_error,
-                          check_promotable, parse_promotion_opts,
-                          discover_shields, promote_shield,
+                          check_list_no_duplicate_elements, check_promotable,
+                          parse_promotion_opts, discover_shields,
+                          list_element_is_a_rig_error,
+                          list_element_not_a_shield_error, promote_shield,
+                          promote_shield_list,
                           shield_declares_required_params)
 from rigc.registry import load_types
 
@@ -762,3 +765,125 @@ def test_a_promoted_shield_missing_its_required_param_still_rejects(
 
     assert has_errors(diags)
     assert any("required" in d.message for d in diags), diags
+
+
+# ------------------------------------------------- list promotion (slice 4)
+
+def test_promote_shield_list_of_one_is_byte_identical_to_promote_shield() -> None:
+    """Sec 8 criterion 1, at the unit level: a one-element list renders
+    through the IDENTICAL `_render_instance` helper `promote_shield`
+    itself uses, so this must be byte-for-byte the same PromotedRig --
+    proven directly, not merely asserted by construction."""
+    single = promote_shield("flash_click", socket="quail_sock1")
+    listed = promote_shield_list(
+        [("flash_click", None,
+          ParsedPromotionOpts(fixed={"socket": "quail_sock1"}, params={}))])
+    assert listed.rig_yml == single.rig_yml
+    assert listed.content_name == single.content_name
+    assert listed.content == single.content
+
+
+def test_promote_shield_list_composes_two_elements_under_one_rig() -> None:
+    listed = promote_shield_list([
+        ("eth_click", None,
+         ParsedPromotionOpts(fixed={"socket": "quail_sock1"}, params={})),
+        ("flash_click", None,
+         ParsedPromotionOpts(fixed={"socket": "quail_sock2"}, params={})),
+    ])
+    assert listed.rig_yml == "rig:\n  name: eth_click+flash_click\n"
+    assert listed.content_name == "eth_click+flash_click.yml"
+    assert listed.content == (
+        "instances:\n"
+        "  - name: eth_click\n"
+        "    shield: eth_click\n"
+        "    socket: quail_sock1\n"
+        "  - name: flash_click\n"
+        "    shield: flash_click\n"
+        "    socket: quail_sock2\n")
+
+
+def test_promote_shield_list_threads_revision_sockets_and_params_per_element() -> None:
+    """Every element carries its OWN revision/sockets-map/params,
+    independently -- the per-element grammar composing over N elements,
+    never one axis shared across the whole list."""
+    listed = promote_shield_list([
+        ("i2c_sensor", "2",
+         ParsedPromotionOpts(fixed={}, params={})),
+        ("can_span_click", None,
+         ParsedPromotionOpts(
+             fixed={}, params={},
+             sockets={"left": "quail_sock2", "right": "quail_sock3"})),
+    ])
+    assert listed.content == (
+        "instances:\n"
+        "  - name: i2c_sensor\n"
+        "    shield: i2c_sensor@2\n"
+        "  - name: can_span_click\n"
+        "    shield: can_span_click\n"
+        "    sockets:\n"
+        "      left: quail_sock2\n"
+        "      right: quail_sock3\n")
+
+
+def test_promote_shield_list_round_trips_through_the_loader(
+        tmp_path: Path) -> None:
+    listed = promote_shield_list([
+        ("eth_click", None,
+         ParsedPromotionOpts(fixed={"socket": "quail_sock1"}, params={})),
+        ("flash_click", None,
+         ParsedPromotionOpts(fixed={"socket": "quail_sock2"}, params={})),
+    ])
+    rig_dir = tmp_path / "rig"
+    rig_dir.mkdir()
+    (rig_dir / "rig.yml").write_text(listed.rig_yml)
+    (rig_dir / listed.content_name).write_text(listed.content)
+
+    types, _deps = load_types()
+    rig, diags, _load_deps = loader.load(
+        str(rig_dir / "rig.yml"), str(tmp_path / "workdir"), types=types,
+        board="some_board")
+
+    assert diags == [], diags
+    assert rig is not None
+    assert rig.name == "eth_click+flash_click"
+    assert [inst.name for inst in rig.instances] == ["eth_click", "flash_click"]
+    assert rig.instances[0].sockets["plug"] == "quail_sock1"
+    assert rig.instances[1].sockets["plug"] == "quail_sock2"
+
+
+# --------------------------------------------- list duplicate/namespace refusals
+
+def test_check_list_no_duplicate_elements_passes_on_unique_names() -> None:
+    assert check_list_no_duplicate_elements(
+        ["eth_click", "flash_click"], "eth_click;flash_click") is None
+
+
+def test_check_list_no_duplicate_elements_names_the_repeated_shield() -> None:
+    err = check_list_no_duplicate_elements(
+        ["eth_click", "eth_click"], "eth_click;eth_click")
+    assert isinstance(err, str)
+    assert "eth_click" in err
+    assert "more than once" in err
+
+
+def test_check_list_no_duplicate_elements_names_the_first_repeat() -> None:
+    err = check_list_no_duplicate_elements(
+        ["a", "b", "a", "b"], "a;b;a;b")
+    assert isinstance(err, str)
+    assert "'a'" in err
+
+
+def test_list_element_is_a_rig_error_names_the_element_target_and_rig_dir() -> None:
+    msg = list_element_is_a_rig_error(
+        "quail_temp_farm", "eth_click;quail_temp_farm",
+        Path("/some/boards/rigs/quail_temp_farm"))
+    assert "quail_temp_farm" in msg
+    assert "eth_click;quail_temp_farm" in msg
+    assert "/some/boards/rigs/quail_temp_farm" in msg
+    assert "shield" in msg
+
+
+def test_list_element_not_a_shield_error_names_the_element_and_target() -> None:
+    msg = list_element_not_a_shield_error("no_such_thing", "eth_click;no_such_thing")
+    assert "no_such_thing" in msg
+    assert "eth_click;no_such_thing" in msg

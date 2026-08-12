@@ -317,6 +317,78 @@ class PromotedTarget:
         return f"{self.name}:{self.opts}" if self.opts else self.name
 
 
+@dataclass(frozen=True)
+class PromotedListTarget:
+    """A `-DRIG=<target>` that resolved as a LIST of promoted shields
+    (multi-plug-list-brief.md): `target` splits on `;` into two or more
+    elements, each independently validated exactly as a single promoted
+    shield already is (namespace collision via `promote.both_paths_
+    error`, promotability via `promote.check_promotable`, the slot/param
+    grammar via `promote.parse_promotion_opts`) plus the two checks a
+    list adds -- every element must be a SHIELD, never a persisted rig,
+    and no shield name may repeat across elements
+    (`promote.list_element_is_a_rig_error`/`promote.check_list_no_
+    duplicate_elements`). `resolve_target`'s third possible return
+    value, alongside `Rig` and `PromotedTarget`.
+
+    `name` is the desugared rig's own identity (Sec 2's ruling): every
+    element's shield name joined with `+`, the identical string
+    `rigc.promote.promote_shield_list` writes into the synthesized
+    rig.yml's own `name:` field.
+
+    `raw` is `target` itself, VERBATIM -- unlike a single-shield
+    `PromotedTarget`, a list has no single shield revision to exclude
+    onto a separate `{REVISION}` key (each element carries its OWN
+    `@rev`, already inline in `raw`), so there is nothing left to strip;
+    `raw` IS the `--promote` value this desugars to, and `cli.py`'s own
+    list branch reparses it the identical way (split on `;`, then each
+    element exactly as a single `--promote` target already parses).
+
+    `dump_rig_target` tells this apart from `Rig`/`PromotedTarget` by
+    type, rendering `{PROMOTED}=raw` (escaped, see `_cmake_list_
+    escape`), `{NAME}=name`, `{DIR}=NOTFOUND`, `{BOARD}=NOTFOUND`,
+    `{REVISION}=NOTFOUND`, `{VARIANT}=NOTFOUND` -- a list promotion has
+    no revision/variant axis of its own to select (each element's own
+    `@rev`, if any, already travels inside `raw`)."""
+    name: str
+    raw: str
+
+    @property
+    def promotion_target(self):
+        """The `--promote` value: `raw`, verbatim -- see the class
+        docstring for why a list needs no revision-stripping the way a
+        single-shield `PromotedTarget` does."""
+        return self.raw
+
+
+def _cmake_list_escape(value: str) -> str:
+    """Escape every literal `;` in `value` TWICE over, for embedding as
+    the `{PROMOTED}` field of this module's own `--cmakeformat` line
+    (`dump_rig_target`) when `value` is a list promotion target's raw
+    text (the only value any cmakeformat field ever carries a literal
+    `;` in -- NAME/DIR/BOARD/REVISION/VARIANT never do: shield/rig
+    names, paths and axis values). Verified empirically against this
+    tree's own CMake (4.3): `cmake/boards.cmake`'s and `cmake/dts.cmake`'s
+    own Step 1/Step 3 each reconstruct NAME/DIR/.../PROMOTED from one
+    `execute_process` capture via `cmake_parse_arguments(... ${captured})`
+    -- and `cmake_parse_arguments` itself consumes TWO levels of
+    unquoted-list-expansion internally, not the one a naive reading of
+    "one unquoted hop, one escape level" would predict, so the value
+    must survive two rounds of un-escaping to land back as ONE token
+    (`_RIG_RESOLVED_PROMOTED`/`_RIG_FALLBACK_PROMOTED`). `cmake/
+    dts.cmake` then escapes it AGAIN, twice more, of its own accord
+    (its own comment, right before `list(APPEND _rig_debug_argv
+    --promote ...)`) to survive the TWO further unquoted hops composing
+    and running the actual expander command makes.
+
+    A value with no `;` at all round-trips through this as an identity
+    (nothing to escape). Returns a fresh string the caller owns."""
+    escaped = value
+    for _ in range(2):
+        escaped = escaped.replace(";", "\\;")
+    return escaped
+
+
 def resolve_target(target, args):
     """The actual `-DRIG=<target>` entry point for cmake/boards.cmake's
     and cmake/dts.cmake's forks (board-coordinate-s3b-brief.md ruling 3),
@@ -341,13 +413,30 @@ def resolve_target(target, args):
     rig_target` UNCHANGED -- reused rather than re-derived, per design
     rule 1 (cmake/rig resolution semantics live in exactly one place).
 
+    A target containing `;` (multi-plug-list-brief.md) is a LIST
+    promotion target, delegated to `_resolve_list_target` in full --
+    checked FIRST, before `target` is ever handed to `parse_rig_target`
+    (whose own `[^@/:]+` name group happily swallows a literal `;` as
+    part of a bogus "name", which is exactly why a one-element list
+    -- no `;` present at all -- must fall through UNCHANGED to the
+    single-target code below rather than through any generalized
+    N-element path: splitting on a separator that is not there changes
+    nothing, so this file's existing single-target behavior stays
+    byte-identical by construction (Sec 8 criterion 1), never by a
+    second code path merely proven to agree with it.
+
     Returns the resolved `Rig` (identical to a bare `resolve_rig_target`
-    call) or a `PromotedTarget` the caller owns; `dump_rig_target` tells
-    them apart by `isinstance`. Exits via `sys.exit` on every failure
-    mode (unresolved target, both-paths collision, an unpromotable or
-    `/variant`-qualified shield), matching every other resolution failure
-    in this module, so a cmake `execute_process` caller sees a clean
+    call), a `PromotedTarget`, or a `PromotedListTarget` -- the caller
+    owns whichever came back; `dump_rig_target` tells all three apart by
+    `isinstance`. Exits via `sys.exit` on every failure mode (unresolved
+    target, both-paths collision, an unpromotable or `/variant`-
+    qualified shield, a list element naming a rig, a duplicate shield
+    name across elements), matching every other resolution failure in
+    this module, so a cmake `execute_process` caller sees a clean
     nonzero exit + stderr with no traceback."""
+    if ';' in target:
+        return _resolve_list_target(target, args)
+
     from rigc import promote  # local: a bare `--list`/`--json` listing
     # (this module's OTHER entry point) never needs rigc's own import
     # graph, so it stays untouched by anything importable here.
@@ -387,6 +476,55 @@ def resolve_target(target, args):
     return resolve_rig_target(target, args)
 
 
+def _resolve_list_target(target, args):
+    """`resolve_target`'s list-promotion branch (multi-plug-list-brief.md
+    Sec 2): split `target` on `;` and resolve/validate every element
+    exactly as a single target already does above -- namespace
+    collision via `promote.both_paths_error`, promotability via
+    `promote.check_promotable`, the slot/param grammar via `promote.
+    parse_promotion_opts` -- plus the two checks a list adds: every
+    element must be a SHIELD (`promote.list_element_is_a_rig_error` when
+    it names a persisted rig instead, `promote.list_element_not_a_
+    shield_error` when it names neither), and no shield name may repeat
+    across elements (`promote.check_list_no_duplicate_elements`).
+
+    Exits via `sys.exit` on every refusal, matching every other
+    resolution failure in this module. Returns a `PromotedListTarget`
+    naming the desugared rig (`resolve_target`'s own third return
+    shape)."""
+    from rigc import promote
+
+    rigs_by_name = {r.name: r for r in find_rigs(args)}
+    shield_dirs = [str(Path(root) / 'boards' / 'shields')
+                  for root in args.board_roots]
+    shields = promote.discover_shields(shield_dirs)
+
+    names = []
+    for element in target.split(';'):
+        name, _revision, variant, opt_text = parse_rig_target(element)
+        rig = rigs_by_name.get(name)
+        if rig is not None and name in shields:
+            sys.exit(f'ERROR: {promote.both_paths_error(name, rig.dir, shields[name].dir)}')
+        if rig is not None:
+            sys.exit(f'ERROR: {promote.list_element_is_a_rig_error(name, target, rig.dir)}')
+        if name not in shields:
+            sys.exit(f'ERROR: {promote.list_element_not_a_shield_error(name, target)}')
+        resolved = promote.resolve_for_promotion(name, shield_dirs)
+        err = promote.check_promotable(name, shields[name], variant)
+        if err is not None:
+            sys.exit(f'ERROR: {err}')
+        parsed = promote.parse_promotion_opts(opt_text, element, resolved)
+        if isinstance(parsed, str):
+            sys.exit(f'ERROR: {parsed}')
+        names.append(name)
+
+    dup_err = promote.check_list_no_duplicate_elements(names, target)
+    if dup_err is not None:
+        sys.exit(f'ERROR: {dup_err}')
+
+    return PromotedListTarget(name='+'.join(names), raw=target)
+
+
 def parse_args():
     parser = argparse.ArgumentParser(allow_abbrev=False)
     add_args(parser)
@@ -414,8 +552,9 @@ def add_args_formatting(parser):
                               'available keys: {NAME}, {DIR}, {BOARD}, '
                               '{REVISION}, {VARIANT}, {PROMOTED} (the '
                               'shield name when --rig resolved as a '
-                              'promoted shield rather than a persisted '
-                              'rig, NOTFOUND otherwise)')
+                              'promoted shield, the raw `;`-joined '
+                              'target when it resolved as a promoted '
+                              'list, NOTFOUND otherwise)')
 
 
 def dump_rigs(rigs, args):
@@ -435,22 +574,37 @@ def dump_rigs(rigs, args):
 
 
 def dump_rig_target(resolved, args):
-    """Renders a `resolve_target` answer -- either a `Rig` (unchanged
-    from before promoted shields existed) or a `PromotedTarget` -- via
+    """Renders a `resolve_target` answer -- a `Rig` (unchanged from
+    before promoted shields existed), a `PromotedTarget`, or a
+    `PromotedListTarget` (multi-plug-list-brief.md) -- via
     `--cmakeformat`, or just the resolved name without it. A
-    `PromotedTarget` has no folder and no variant of its own by
-    construction (Sec 3/Sec 5); `{PROMOTED}` is the shield name for one
-    and NOTFOUND for an ordinary `Rig`, so a cmake caller tells the two
-    apart on that key alone without needing to special-case DIR being
-    empty. `{BOARD}` is unconditionally NOTFOUND for BOTH -- neither a
-    promoted shield nor, since board-coordinate-s6-brief.md Sec 11, a
-    persisted rig has one of its own to declare; the key stays in the
-    format string only because cmake/boards.cmake's fork still parses
-    it."""
+    `PromotedTarget`/`PromotedListTarget` has no folder and no variant
+    of its own by construction (Sec 3/Sec 5); `{PROMOTED}` is the shield
+    name (or, for a list, the raw target text) for one of those and
+    NOTFOUND for an ordinary `Rig`, so a cmake caller tells them apart
+    on that key alone without needing to special-case DIR being empty.
+    `{BOARD}` is unconditionally NOTFOUND for ALL THREE -- neither a
+    promoted shield, a promoted list, nor, since board-coordinate-
+    s6-brief.md Sec 11, a persisted rig has one of its own to declare;
+    the key stays in the format string only because cmake/boards.cmake's
+    fork still parses it.
+
+    A `PromotedListTarget`'s own `{PROMOTED}` value is the ONE field
+    ever escaped (`_cmake_list_escape`) -- its raw text legitimately
+    carries a `;`, which every other field/branch here never does."""
     if args.cmakeformat is not None:
         def notfound(x):
             return x or 'NOTFOUND'
-        if isinstance(resolved, PromotedTarget):
+        if isinstance(resolved, PromotedListTarget):
+            info = args.cmakeformat.format(
+                NAME='NAME;' + resolved.name,
+                DIR='DIR;NOTFOUND',
+                BOARD='BOARD;NOTFOUND',
+                REVISION='REVISION;NOTFOUND',
+                VARIANT='VARIANT;NOTFOUND',
+                PROMOTED='PROMOTED;' + _cmake_list_escape(resolved.promotion_target),
+            )
+        elif isinstance(resolved, PromotedTarget):
             info = args.cmakeformat.format(
                 NAME='NAME;' + resolved.name,
                 DIR='DIR;NOTFOUND',

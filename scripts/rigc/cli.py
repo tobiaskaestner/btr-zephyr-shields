@@ -32,6 +32,12 @@ means the SHIELD's own revision (baked into the synthesized content
 file), never a rig-level axis -- a promoted rig declares no revisions:
 of its own, so it is never forwarded to `loader.load`.
 
+`--promote`'s value may also be a `;`-separated LIST of shield targets
+(multi-plug-list-brief.md): `promote.promote_shield_list` synthesizes
+the N-instance pair instead, and `--revision` plays no part (each
+element carries its own `@rev` inline in the list text, since one
+scalar flag cannot carry N per-element revisions).
+
 Exit vocabulary (rigc-r1-brief.md Sec 1): 0 accept, 1 rejected input,
 2 usage error (argparse's own), 3 not implemented (see unimplemented.py).
 
@@ -68,9 +74,10 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+import re
 import shutil
 import sys
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 from . import analyzer, boarddt, loader, promote
 from .deps import union as deps_union
@@ -94,6 +101,36 @@ WORKDIR_NAME = "rigc-generated"
 #: a second stderr handler -- each call starts from a clean slate and
 #: re-derives the CURRENT environment's answer.
 _OWN_HANDLER = "_rigc_cli_handler"
+
+#: One element of a `;`-split `--promote` LIST value (multi-plug-list-
+#: brief.md): `<shield>[@rev][:opts]`, no `/variant` (every element must
+#: be a shield, which has no variant axis to select -- list_rigs.py's/
+#: west_commands/rigs.py's own namespace resolution already refused one
+#: before this ever runs, `check_promotable`'s own gate). Package-local
+#: rather than importing `list_rigs.py`'s own `_RIG_TARGET_RE`: that
+#: module is a standalone script outside this package, already importing
+#: `rigc.promote` the other way, so importing it back here would cycle.
+_LIST_ELEMENT_RE = re.compile(r"^([^@:]+)(@[^@:]+)?(:(.+))?$")
+
+
+def _split_list_element(element: str) -> Tuple[str, Optional[str], Optional[str]]:
+    """Parse one list-promotion element into (name, revision, opt_text).
+    A malformed element (the regex fails to match at all -- practically
+    unreachable via the west/cmake front doors, which already validated
+    every element before ever forwarding this value, but this CLI is
+    also directly invocable on its own) falls back to treating the
+    WHOLE text as the name: `promote.resolve_for_promotion`'s own
+    failure to resolve it, surfaced once the synthesized `shield:`
+    reference reaches the loader, is what a caller sees -- the same
+    "trust the upstream namespace validation" boundary the single-
+    element `--promote` branch below already keeps."""
+    m = _LIST_ELEMENT_RE.match(element)
+    if not m:
+        return element, None, None
+    name = m.group(1)
+    revision = m.group(2)[1:] if m.group(2) else None
+    opt_text = m.group(4)
+    return name, revision, opt_text
 
 
 def _configure_logging(verbosity: int = 0) -> None:
@@ -330,36 +367,65 @@ def _expand(args: argparse.Namespace) -> int:
         revision = args.revision
         if args.promote is not None:
             # --promote's value is the promotion TARGET, not a bare
-            # shield name: `<shield>[@rev][:<key>=<value>...]`. cmake
-            # forwards list_rigs' `{PROMOTED}` here opaquely and never
-            # parses it, so this is the one parser for the option
-            # grammar no matter how many options it grows.
-            shield_name, _, opt_text = args.promote.partition(":")
-            # Resolved here, ahead of parse_promotion_opts's own
-            # slot-validation grammar (multi-plug-promotion-brief.md Sec
-            # 2: a bare socket= on a plural shield, a socket.<slot>= on
-            # a single-plug one, an unknown slot) -- this cmake-seam
-            # caller was missing from the brief's own predicted call-site
-            # list (verified by grep, multi-plug-promotion-brief.md Sec
-            # 3's own recorded lesson: run every caller, do not trust a
-            # brief's list). check_promotable is deliberately NOT called
-            # here: list_rigs.py/west_commands/rigs.py already validated
-            # promotability before ever forwarding a target this far
-            # (list_rigs.PromotedTarget.promotion_target, cli.py's own
-            # module docstring), and this is the one entry point every
-            # OTHER caller's --promote value already passed through --
-            # duplicating the check here would be a second authority for
-            # the same fact.
-            resolved = promote.resolve_for_promotion(shield_name, shield_dirs)
-            opts = promote.parse_promotion_opts(
-                opt_text or None, args.promote, resolved)
-            if isinstance(opts, str):
-                # No SourceRef: the offending text is argv, not a file,
-                # and the message already quotes the target verbatim.
-                return _reject([diag_error("lang-promote-opts", opts)])
-            promoted = promote.promote_shield(
-                shield_name, args.revision, socket=opts.fixed.get("socket"),
-                sockets=opts.sockets or None, params=opts.params or None)
+            # shield name: `<shield>[@rev][:<key>=<value>...]`, or (multi-
+            # plug-list-brief.md) a `;`-separated LIST of such targets.
+            # cmake forwards list_rigs' `{PROMOTED}` here opaquely and
+            # never parses it, so this is the one parser for the option
+            # grammar no matter how many options -- or elements -- it
+            # grows.
+            if ";" in args.promote:
+                # A list target carries EACH element's own `@rev` inline
+                # (unlike the single-target branch below): there is no
+                # single scalar `--revision` flag that could carry N
+                # separate per-element revisions, so a list's `--promote`
+                # value is never revision-stripped the way a single
+                # target's is (list_rigs.PromotedListTarget's own
+                # docstring). check_promotable/the rig-in-a-list/
+                # duplicate refusals are deliberately NOT re-checked
+                # here, mirroring the single-element branch's own "trust
+                # the upstream namespace validation" boundary --
+                # list_rigs.py/west_commands/rigs.py already ran them
+                # before ever forwarding a target this far.
+                elements = []
+                for element in args.promote.split(";"):
+                    shield_name, elem_revision, opt_text = _split_list_element(element)
+                    resolved = promote.resolve_for_promotion(shield_name, shield_dirs)
+                    opts = promote.parse_promotion_opts(opt_text, element, resolved)
+                    if isinstance(opts, str):
+                        return _reject([diag_error("lang-promote-opts", opts)])
+                    elements.append((shield_name, elem_revision, opts))
+                dup_err = promote.check_list_no_duplicate_elements(
+                    [name for name, _rev, _opts in elements], args.promote)
+                if dup_err is not None:
+                    return _reject([diag_error("lang-promote-opts", dup_err)])
+                promoted = promote.promote_shield_list(elements)
+            else:
+                shield_name, _, opt_text = args.promote.partition(":")
+                # Resolved here, ahead of parse_promotion_opts's own
+                # slot-validation grammar (multi-plug-promotion-brief.md Sec
+                # 2: a bare socket= on a plural shield, a socket.<slot>= on
+                # a single-plug one, an unknown slot) -- this cmake-seam
+                # caller was missing from the brief's own predicted call-site
+                # list (verified by grep, multi-plug-promotion-brief.md Sec
+                # 3's own recorded lesson: run every caller, do not trust a
+                # brief's list). check_promotable is deliberately NOT called
+                # here: list_rigs.py/west_commands/rigs.py already validated
+                # promotability before ever forwarding a target this far
+                # (list_rigs.PromotedTarget.promotion_target, cli.py's own
+                # module docstring), and this is the one entry point every
+                # OTHER caller's --promote value already passed through --
+                # duplicating the check here would be a second authority for
+                # the same fact.
+                resolved = promote.resolve_for_promotion(shield_name, shield_dirs)
+                opts = promote.parse_promotion_opts(
+                    opt_text or None, args.promote, resolved)
+                if isinstance(opts, str):
+                    # No SourceRef: the offending text is argv, not a file,
+                    # and the message already quotes the target verbatim.
+                    return _reject([diag_error("lang-promote-opts", opts)])
+                promoted = promote.promote_shield(
+                    shield_name, args.revision, socket=opts.fixed.get("socket"),
+                    sockets=opts.sockets or None, params=opts.params or None)
             rig_path = os.path.join(workdir, "rig.yml")
             with open(rig_path, "w") as f:
                 f.write(promoted.rig_yml)

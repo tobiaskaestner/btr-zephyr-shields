@@ -35,7 +35,7 @@ import os
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 from .diag import SourceRef
 from .loader.library import load_shield_library
@@ -282,6 +282,40 @@ def parse_promotion_opts(opts: Optional[str], target: str,
     return ParsedPromotionOpts(fixed=fixed, params=params, sockets=sockets)
 
 
+def _render_instance(name: str, revision: Optional[str] = None,
+                     socket: Optional[str] = None,
+                     sockets: Optional[Dict[str, str]] = None,
+                     params: Optional[Dict[str, Dict[str, str]]] = None,
+                     ) -> str:
+    """One `instances:` list entry, exactly the text `promote_shield`
+    prints for its single instance -- factored out so `promote_shield`
+    (unchanged behavior) and `promote_shield_list` (multi-plug-list-
+    brief.md) render every instance through the identical code, which is
+    what makes a one-element list byte-identical to `promote_shield`'s
+    own output BY CONSTRUCTION rather than by two hand-synchronized
+    string builders. See `promote_shield`'s own docstring for what each
+    argument means; this function differs only in returning the ONE
+    instance's own block (`  - name: ...` through its trailing
+    `params:`, if any) rather than a full `PromotedRig`.
+
+    Returns a fresh string the caller owns, always ending in `\\n`."""
+    shield_ref = f"{name}@{revision}" if revision else name
+    block = f"  - name: {name}\n    shield: {shield_ref}\n"
+    if sockets:
+        block += "    sockets:\n"
+        for slot_name, label in sockets.items():
+            block += f"      {slot_name}: {label}\n"
+    elif socket is not None:
+        block += f"    socket: {socket}\n"
+    if params:
+        block += "    params:\n"
+        for dev_label, props in params.items():
+            block += f"      {dev_label}:\n"
+            for prop_name, value in props.items():
+                block += f"        {prop_name}: {value}\n"
+    return block
+
+
 def promote_shield(name: str, revision: Optional[str] = None,
                    socket: Optional[str] = None,
                    sockets: Optional[Dict[str, str]] = None,
@@ -363,24 +397,49 @@ def promote_shield(name: str, revision: Optional[str] = None,
     Pure over its arguments: no filesystem, no promotability or
     namespace decision (the caller's job, via `check_promotable`,
     before this ever runs). Returns a PromotedRig the caller owns."""
-    shield_ref = f"{name}@{revision}" if revision else name
     rig_yml = f"rig:\n  name: {name}\n"
-    content = ("instances:\n"
-              f"  - name: {name}\n"
-              f"    shield: {shield_ref}\n")
-    if sockets:
-        content += "    sockets:\n"
-        for slot_name, label in sockets.items():
-            content += f"      {slot_name}: {label}\n"
-    elif socket is not None:
-        content += f"    socket: {socket}\n"
-    if params:
-        content += "    params:\n"
-        for dev_label, props in params.items():
-            content += f"      {dev_label}:\n"
-            for prop_name, value in props.items():
-                content += f"        {prop_name}: {value}\n"
+    content = "instances:\n" + _render_instance(
+        name, revision, socket=socket, sockets=sockets, params=params)
     return PromotedRig(rig_yml=rig_yml, content_name=f"{name}.yml", content=content)
+
+
+def promote_shield_list(
+        elements: List[Tuple[str, Optional[str], "ParsedPromotionOpts"]],
+        ) -> PromotedRig:
+    """The list generalization of `promote_shield`'s `a -> [a]` mapping
+    (multi-plug-list-brief.md Sec 2): N `(name, revision, parsed opts)`
+    triples -- one per `;`-separated target element, already resolved
+    and validated by the caller (every element a real, promotable
+    shield; no duplicate name; never a persisted rig -- `list_rigs.py`'s
+    and `west_commands/rigs.py`'s own namespace resolution, this
+    function trusts entirely and re-checks nothing) -- desugar to ONE
+    synthetic rig carrying N instances, one per element, in the given
+    order.
+
+    Each instance is rendered by the IDENTICAL `_render_instance` helper
+    `promote_shield` itself uses, so a single-element list is byte-
+    identical to a bare `promote_shield` call by construction (Sec 8
+    criterion 1) rather than by two string builders kept in sync by
+    hand.
+
+    The desugared rig's own NAME -- the string that reaches artifacts
+    and RIG_* provenance -- is every element's shield name joined with
+    `+` (Sec 2's ruling): deterministic, and filename-/cmake-safe since
+    a shield name is itself restricted to that same safe character set.
+    The content file's name follows `PromotedRig`'s own convention
+    (`<rig-name>.yml`), exactly as `promote_shield` already does for one
+    name.
+
+    Pure: no filesystem, no duplicate/namespace validation of its own.
+    Returns a PromotedRig the caller owns."""
+    rig_name = "+".join(name for name, _revision, _opts in elements)
+    content = "instances:\n" + "".join(
+        _render_instance(name, revision, socket=opts.fixed.get("socket"),
+                         sockets=opts.sockets or None,
+                         params=opts.params or None)
+        for name, revision, opts in elements)
+    return PromotedRig(rig_yml=f"rig:\n  name: {rig_name}\n",
+                       content_name=f"{rig_name}.yml", content=content)
 
 
 def shield_is_multiplug(shield: Shield) -> bool:
@@ -495,3 +554,70 @@ def both_paths_error(name: str, rig_dir: Path, shield_dir: str) -> str:
     return (f"'{name}' names both a rig ({rig_dir}) and a shield "
             f"({shield_dir}) -- rename one; a name that is both "
             "is ambiguous by construction, never guessed between")
+
+
+def list_element_is_a_rig_error(name: str, target: str,
+                                rig_dir: Union[str, Path]) -> str:
+    """The list-promotion grammar's own "every element must be a SHIELD"
+    ruling (multi-plug-list-brief.md Sec 2), spelled out for the specific
+    element `name` of the `;`-separated `target` that names a persisted
+    rig with no colliding same-named shield (a collision is `both_paths_
+    error`'s own branch instead, checked by the caller BEFORE this one --
+    a rig is already a container, and a list mixing containers with
+    elements has no coherent desugaring, so an element naming one is
+    refused regardless of whether that name is ALSO a shield).
+
+    `rig_dir` is the DISCOVERED rig folder (`list_rigs.find_rigs`'s own
+    `Rig.dir`), never reconstructed from `name`, mirroring `both_paths_
+    error`'s own discipline of naming only paths a caller actually found.
+
+    Pure: builds a message from its three arguments alone."""
+    return (f"'{target}': list element '{name}' names a persisted rig "
+            f"({rig_dir}), not a shield -- every element of a list "
+            f"promotion target must be a shield; a rig is already a "
+            f"container, and a list mixing containers with elements has "
+            f"no coherent desugaring")
+
+
+def list_element_not_a_shield_error(name: str, target: str) -> str:
+    """The list-promotion grammar's refusal for an element that names
+    NEITHER a persisted rig nor a discoverable shield (a plain unknown
+    name, or a typo) -- the residual case `list_element_is_a_rig_error`/
+    `both_paths_error` do not cover, still needing its own sentence
+    naming the offending element and the whole target it came from
+    rather than falling through to a generic "target does not resolve"
+    message that never mentions WHICH element was the problem.
+
+    Pure: builds a message from its two arguments alone."""
+    return (f"'{target}': list element '{name}' does not name a "
+            f"discoverable shield")
+
+
+def check_list_no_duplicate_elements(names: List[str],
+                                     target: str) -> Optional[str]:
+    """Ruling 2 of the list grammar (multi-plug-list-brief.md Sec 1):
+    `[a, a]` is REFUSED, not desugared -- a repeated shield name has no
+    instance-naming rule yet (instance name = shield name is the
+    singleton desugaring's own fixed convention, and two instances
+    cannot share one name), so a list naming the same shield twice is a
+    loud error rather than a silent last-wins or an invented suffix.
+
+    Needs no namespace/discovery information at all -- a duplicate is a
+    property of the target STRING alone, checkable the moment every
+    element's bare name is known, which is why every caller (`list_rigs.
+    py`'s cmake seam, `west_commands/rigs.py`'s `--explain`/
+    `--boards-for`, `cli.py`'s own `--promote`) can run this identically
+    over its own already-split element names.
+
+    Returns an error message naming the FIRST name seen more than once,
+    or None when every name in `names` is unique. Pure: makes no
+    filesystem call of its own."""
+    seen = set()
+    for name in names:
+        if name in seen:
+            return (f"'{target}': shield '{name}' is named more than "
+                    f"once in this list -- list promotion needs one "
+                    f"instance per element (indexed naming for a "
+                    f"repeated shield is future work)")
+        seen.add(name)
+    return None

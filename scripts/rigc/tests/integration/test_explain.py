@@ -181,3 +181,76 @@ def test_explain_promotion_options_on_a_persisted_rig_are_refused() -> None:
     result = _run("--explain", "nucleo_datalogger:socket=arduino_r3")
     assert result.returncode != 0
     assert "persisted rig" in result.stderr
+
+
+# --------------------------------------------------- list promotion (slice 4)
+
+def test_explain_a_list_target_prints_the_desugared_n_instance_pair() -> None:
+    """multi-plug-list-brief.md Sec 3: --explain prints the N-instance
+    desugared pair -- the rig's own name is every element's shield name
+    joined with `+`, and the content file carries one instance per
+    element, each with its own socket, in order."""
+    result = _run(
+        "--explain",
+        "eth_click:socket=quail_sock1;flash_click:socket=quail_sock2")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == textwrap.dedent("""\
+        # rig.yml
+        rig:
+          name: eth_click+flash_click
+
+        # eth_click+flash_click.yml
+        instances:
+          - name: eth_click
+            shield: eth_click
+            socket: quail_sock1
+          - name: flash_click
+            shield: flash_click
+            socket: quail_sock2
+        """)
+
+
+def test_explain_a_list_target_with_a_duplicate_element_is_refused() -> None:
+    """Ruling 2 (Sec 1): [a, a] is refused first, with its own sentence."""
+    result = _run("--explain", "eth_click;eth_click")
+    assert result.returncode != 0
+    assert "eth_click" in result.stderr
+    assert "more than once" in result.stderr
+
+
+def test_explain_a_list_target_with_a_persisted_rig_element_is_refused() -> None:
+    """Every element must be a SHIELD (Sec 2): a persisted rig inside a
+    list is refused with its own sentence naming it."""
+    result = _run("--explain", "eth_click;nucleo_datalogger")
+    assert result.returncode != 0
+    assert "nucleo_datalogger" in result.stderr
+    assert "names a persisted rig" in result.stderr
+    assert "every element of a list promotion target must be a shield" in result.stderr
+
+
+def test_explain_a_list_target_with_a_multiplug_element_composes() -> None:
+    """The per-element grammar (multi-plug-promotion-brief.md Sec 2)
+    composes over N list elements unchanged: can_span_click's own
+    socket.<slot>= sockets: map, alongside a single-plug shield's bare
+    socket:."""
+    result = _run(
+        "--explain",
+        "can_span_click:socket.left=quail_sock2:socket.right=quail_sock3;"
+        "flash_click:socket=quail_sock1")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == textwrap.dedent("""\
+        # rig.yml
+        rig:
+          name: can_span_click+flash_click
+
+        # can_span_click+flash_click.yml
+        instances:
+          - name: can_span_click
+            shield: can_span_click
+            sockets:
+              left: quail_sock2
+              right: quail_sock3
+          - name: flash_click
+            shield: flash_click
+            socket: quail_sock1
+        """)

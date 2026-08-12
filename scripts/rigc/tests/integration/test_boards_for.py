@@ -283,6 +283,55 @@ def test_boards_for_a_name_that_is_both_a_rig_and_a_shield_is_an_error_naming_bo
     assert str(rig_dir) in result.stderr
 
 
+def test_boards_for_a_list_target_answers_a_board_hosting_both() -> None:
+    """multi-plug-list-brief.md Sec 3, the positive half: a board
+    answers iff the WHOLE desugared rig resolves clean -- mikroe_quail
+    hosts eth_click and flash_click on two of its four distinct mikroBUS
+    sockets simultaneously, so the list target answers it."""
+    result = _run(
+        "--boards-for",
+        "eth_click:socket=quail_sock1;flash_click:socket=quail_sock2")
+    assert result.returncode == 0, (
+        f"--boards-for <list>: exit {result.returncode}\n{result.stderr}")
+    assert result.stdout.strip() == "mikroe_quail/stm32f427xx/rig"
+
+
+def test_boards_for_a_list_target_answers_nothing_on_socket_exclusivity() -> None:
+    """The negative half, with the REASON asserted (Sec 3's own
+    requirement), not just the emptiness: two elements naming the SAME
+    non-stackable mikroBUS socket refuse via the existing exclusivity
+    census message -- mikroe_quail hosts EITHER shield alone (the
+    positive test above, and test_boards_for_a_promoted_shield_naming_
+    its_socket_answers_that_board), but not both pinned to the same
+    physical socket at once."""
+    result = _run(
+        "--boards-for",
+        "eth_click:socket=quail_sock1;flash_click:socket=quail_sock1")
+    assert result.returncode == 0, (
+        f"--boards-for <list>: exit {result.returncode}\n{result.stderr}")
+    assert result.stdout.strip() == ""
+
+    each_alone = _run("--boards-for", "eth_click:socket=quail_sock1")
+    assert each_alone.stdout.strip() == "mikroe_quail/stm32f427xx/rig", (
+        "mikroe_quail must be censused and answer for eth_click ALONE, or "
+        "the empty list answer above proves nothing about exclusivity\n"
+        f"--- stdout ---\n{each_alone.stdout}")
+
+
+def test_boards_for_a_list_target_with_a_duplicate_element_is_refused() -> None:
+    result = _run("--boards-for", "eth_click;eth_click")
+    assert result.returncode != 0
+    assert "eth_click" in result.stderr
+    assert "more than once" in result.stderr
+
+
+def test_boards_for_a_list_target_with_a_persisted_rig_element_is_refused() -> None:
+    result = _run("--boards-for", "eth_click;nucleo_datalogger")
+    assert result.returncode != 0
+    assert "nucleo_datalogger" in result.stderr
+    assert "names a persisted rig" in result.stderr
+
+
 def test_west_rigs_with_no_flag_still_lists_every_rig_unchanged() -> None:
     """Acceptance criterion 2: --boards-for absent behaves exactly as
     today -- the same rig NAMES, one per line. Asserting the count alone

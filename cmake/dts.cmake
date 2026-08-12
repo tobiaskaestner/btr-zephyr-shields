@@ -265,9 +265,14 @@ else()
 
   list(TRANSFORM BOARD_ROOT PREPEND "--board-root=" OUTPUT_VARIABLE _rig_board_root_args)
 
+  # "--rig=${RIG}" MUST be quoted (multi-plug-list-brief.md Sec 4): a
+  # list promotion target legitimately contains a `;`, and an UNQUOTED
+  # expansion here would list-split it into several execute_process
+  # COMMAND arguments, handing list_rigs.py only the first element --
+  # the SAME hazard boards.cmake's own Step 1 call guards against.
   execute_process(
     COMMAND ${PYTHON_EXECUTABLE} ${_RIG_BTR_ROOT}/scripts/list_rigs.py
-      ${_rig_board_root_args} --rig=${RIG}
+      ${_rig_board_root_args} "--rig=${RIG}"
       --cmakeformat={NAME}\;{DIR}\;{BOARD}\;{REVISION}\;{VARIANT}\;{PROMOTED}
     OUTPUT_VARIABLE _rig_fallback_out
     ERROR_VARIABLE _rig_fallback_err
@@ -476,7 +481,24 @@ else()
   # slot, and rigc synthesizes the pair itself, into its OWN workdir,
   # rather than cmake ever writing one into the source tree.
   if(_rig_promoted)
-    list(APPEND _rig_debug_argv --promote "${_rig_promoted}")
+    # _rig_promoted may legitimately carry a `;` now (a list promotion
+    # target, multi-plug-list-brief.md Sec 4) -- list_rigs.py's own
+    # {PROMOTED} value already survived ONE escaped round trip through
+    # cmake_parse_arguments above (this file's Step 3 / boards.cmake's
+    # Step 1), landing back here as the real, un-escaped string. TWO
+    # MORE unquoted-list-expansion hops still stand between here and the
+    # actual subprocess argv -- composing _rig_cmd below (`set(_rig_cmd
+    # ... ${_rig_debug_argv})`) and the execute_process(COMMAND
+    # ${_rig_cmd} ...) that runs it -- so the value is escaped TWICE
+    # more here, mirroring list_rigs.py's own `_cmake_list_escape`
+    # (verified empirically against this tree's CMake: each unquoted hop
+    # consumes exactly one level of `\;` -> `;`, so two hops need two
+    # levels). A value with no `;` at all round-trips through this as an
+    # identity.
+    set(_rig_promoted_listsafe "${_rig_promoted}")
+    string(REPLACE ";" "\;" _rig_promoted_listsafe "${_rig_promoted_listsafe}")
+    string(REPLACE ";" "\;" _rig_promoted_listsafe "${_rig_promoted_listsafe}")
+    list(APPEND _rig_debug_argv --promote "${_rig_promoted_listsafe}")
   else()
     list(APPEND _rig_debug_argv "${_rig_yml}")
   endif()
@@ -1001,7 +1023,28 @@ if(_rig_content_yml)
   build_info(vendor-specific rig content-yml VALUE "${_rig_content_yml}")
 endif()
 if(_rig_promoted)
-  build_info(vendor-specific rig promoted-shield VALUE "${_rig_promoted}")
+  # _rig_promoted may legitimately carry a `;` now (a list promotion
+  # target, multi-plug-list-brief.md Sec 4). Zephyr's own build_info()/
+  # yaml_set() (extensions.cmake/yaml.cmake) chain the value through
+  # TWO MORE unquoted-list-expansion hops of their own beyond this
+  # file's control -- build_info()'s `set(arg_list ${ARGV})`, then
+  # yaml_set()'s own `cmake_parse_arguments(... "NAME;VALUE" ... ${ARGN})`
+  # (a single-value keyword, and cmake_parse_arguments itself consumes
+  # TWO levels internally, empirically, the same non-obvious behavior
+  # this file's own `_rig_promoted_listsafe` comment already names).
+  # FIVE levels of `\;` -> `;` escaping survive that whole chain intact
+  # -- verified empirically against a standalone build_info()/yaml_set()
+  # call in this tree's actual zephyr checkout (four is NOT enough; the
+  # value truncates silently at the first element). This is NOT a
+  # documented CMake/Zephyr contract, only a measured fact about the
+  # current implementations of both macros -- fragile against a version
+  # bump of either, flagged prominently in the slice 4 handoff report
+  # for exactly that reason.
+  set(_rig_promoted_buildinfo "${_rig_promoted}")
+  foreach(_rig_bi_escape_pass RANGE 1 5)
+    string(REPLACE ";" "\;" _rig_promoted_buildinfo "${_rig_promoted_buildinfo}")
+  endforeach()
+  build_info(vendor-specific rig promoted-shield VALUE "${_rig_promoted_buildinfo}")
 endif()
 build_info(vendor-specific rig board-dts VALUE "${_rig_board_dts}")
 build_info(vendor-specific rig shields VALUE "${_rig_shields_joined}")
