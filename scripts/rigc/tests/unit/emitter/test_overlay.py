@@ -245,7 +245,7 @@ def test_carrier_exported_socket_synthesizes_a_chained_gpio_nexus() -> None:
     child = BoardSocket(label="click", path="/c/k", type_name="t", gpio_map={},
                         buses={}, nexus_label="click_nexus",
                         nexus_rows=[(0, "carrier_nexus", 3), (1, "carrier_nexus", 4)],
-                        parent=parent)
+                        parents={"plug": parent})
     rig = Rig(name="r", instances=[])
     s = Solved(sockets={"i1": {"plug": child}})
 
@@ -259,7 +259,7 @@ def test_carrier_exported_socket_synthesizes_a_chained_gpio_nexus() -> None:
             "\t\tgpio-map = <0 0 &carrier_nexus 3 0>,\n"
             "\t\t\t   <1 0 &carrier_nexus 4 0>;\n"
             "\t};") in text
-    # the parent is reached through child.parent, never through s.sockets
+    # the parent is reached through child.parents, never through s.sockets
     assert "\tcarrier_nexus: carrier_nexus {" in text
 
 

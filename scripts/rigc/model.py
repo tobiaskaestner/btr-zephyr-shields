@@ -157,14 +157,36 @@ class Jumper:
 
 @dataclass
 class ExposedSocket:
-    """A socket a carrier/interposer shield re-exports (R19)."""
+    """A socket a carrier/interposer shield re-exports (R19), now
+    potentially composed from SEVERAL named parents (multi-plug-carrier-
+    brief.md Sec 1 ruling 1): a plural carrier's exposed socket may pass
+    through or scope-create buses sourced from different plugs, and each
+    gpio-map row may resolve through a different plug too."""
 
     name: str                       # node name -- what the rig references after the dot
     label: str
     type_name: str                  # from compatible "socket,<type>"
-    gpio_map: Dict[int, Tuple[int, int]]   # exposed position -> (parent plug position, flags)
-    buses: Dict[str, object]        # kind -> "plug" (pass-through, S6) | ("scope", dev-label) (S8)
-    cs_pool: object = None          # authored override, else type default
+    # exposed position -> (parent SLOT, parent plug position, flags) --
+    # the phandle a gpio-map row already carries names WHICH of the
+    # carrier's plugs the row resolves through (widened exactly as
+    # GpioRef.plug widens "must be THIS shield's plug" to "one of this
+    # shield's plugs"); "plug" for every row of a single-plug carrier
+    # (byte-identical to the pre-slice shape once the slot is dropped).
+    gpio_map: Dict[int, Tuple[str, int, int]]
+    # kind (bare, or role-suffixed per the multi-bus vocabulary) ->
+    # ("plug", parent SLOT) pass-through (S6, widened one level up) |
+    # ("scope", dev-label) new scope (S8, UNCHANGED shape -- the scope
+    # root is a device, which already carries its own slot via
+    # Device.plug, so no third marker dimension is needed there).
+    buses: Dict[str, object]
+    # per-qualified-bus authored cs-pool override, keyed the same way
+    # BoardSocket.buses/ConnectorType.cs_pool are (kind, or kind-role) --
+    # a bare "socket,cs-pool" property (every carrier's own spelling
+    # today) parses into the "spi" entry, since CS only ever applies to
+    # SPI: byte-identical to the old flat-list meaning for any carrier
+    # that authors it (none in the corpus do today). Absent from the
+    # dict = no override, same as the old None.
+    cs_pool: Dict[str, List[int]] = field(default_factory=dict)
     channel: object = None          # mux channel index (scope-creating interposer, S8)
     src: Optional[SourceRef] = None
 
@@ -299,7 +321,16 @@ class BoardSocket:
     # so the analyzer/emitter SYNTHESIZE one that chains to its parent's.
     nexus_label: Optional[str] = None
     nexus_rows: Optional[List[Tuple[int, str, int]]] = None  # [(child_pos, parent_nexus_label, parent_pos)]
-    parent: Optional["BoardSocket"] = None       # parent BoardSocket (transitive synthesis)
+    # parent BoardSocket per SLOT of the carrier that synthesized this
+    # socket (multi-plug-carrier-brief.md Sec 3) -- empty for a real
+    # board socket. A single-plug carrier's composition still produces
+    # exactly one entry (slot "plug" for the single-plug authored form);
+    # a plural carrier's composition carries one entry per slot the
+    # carrier declares, regardless of how many of them any one exposed
+    # row/bus actually draws from. Exactly ONE consumer: emitter/
+    # overlay.py's transitive `visit`, which walks every parent for the
+    # nexus-chain synthesis (a carrier stacked on a carrier).
+    parents: Dict[str, "BoardSocket"] = field(default_factory=dict)
     src: Optional[SourceRef] = None
 
 

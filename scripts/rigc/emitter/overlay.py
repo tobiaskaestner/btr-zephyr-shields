@@ -395,7 +395,8 @@ def _synth_nexus_nodes(s: Solved) -> List[str]:
             return
         assert sock.nexus_label is not None
         synth[sock.nexus_label] = sock
-        visit(sock.parent)                 # a carrier stacked on a carrier
+        for parent in sock.parents.values():   # a carrier stacked on carrier(s)
+            visit(parent)
 
     for per_inst in s.sockets.values():
         for sock in per_inst.values():

@@ -150,18 +150,20 @@ def test_both_paths_error_names_both_offending_locations() -> None:
 def test_discover_shields_finds_the_real_corpus_and_agrees_with_template_flag() -> None:
     """Census (Sec 4): every discovered name (marker file present) whose
     shield.yml declares `template: true` shows up as promotable, and
-    every one of today's 17 corpus shields does -- 15 one-per-folder plus
+    every one of today's 18 corpus shields does -- 16 one-per-folder plus
     lcd_char_1602/lcd_tft_24, the plurality corpus example
     (shield-plurality-brief.md Sec 5), TWO names out of the SAME folder
-    (boards/shields/arduino_lcd/, named neither); can_span_click (multi-
-    plug-shield-brief.md's own corpus example) is one of the 15 -- still
-    DISCOVERABLE and `template: true` (this census predicate has no
-    plurality concept at all), even though it is refused downstream by
-    check_promotable's own plug_count gate. Falsified by mutating a real
-    shield.yml, not by editing this assertion (see the mutation test
-    below) -- this one just proves the real tree is clean today."""
+    (boards/shields/arduino_lcd/, named neither); can_span_click and
+    mikrobus_span_adapter (the multi-plug corpus shields -- multi-plug-
+    shield-brief.md and multi-plug-carrier-brief.md's own examples) are
+    two of the 16 -- still DISCOVERABLE and `template: true` (this
+    census predicate has no plurality concept at all), even though each
+    is refused downstream by check_promotable's own plug_count gate.
+    Falsified by mutating a real shield.yml, not by editing this
+    assertion (see the mutation test below) -- this one just proves the
+    real tree is clean today."""
     shields = discover_shields()
-    assert len(shields) == 17
+    assert len(shields) == 18
     for info in shields.values():
         assert info.has_yml, f"{info.name}: discovered but no shield.yml"
         assert info.template, f"{info.name}: shield.yml omits template: true"

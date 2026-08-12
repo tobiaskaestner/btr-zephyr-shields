@@ -49,16 +49,16 @@ def _parent(gpio_map=None, buses=None, path="/board_ard", label="board_ard") -> 
 def test_compose_socket_passes_through_a_routed_position() -> None:
     parent = _parent(gpio_map={7: ("gpiod", 0, 0)})
     exposed = ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
-                            gpio_map={2: (7, 0)}, buses={})
+                            gpio_map={2: ("plug", 7, 0)}, buses={})
 
     socket, diags, scopes = compose_socket("adapter_1.mb1", "adapter_1",
-                                          exposed, parent, None)
+                                          exposed, {"plug": parent}, None)
 
     assert diags == []
     assert scopes == []
     assert socket.gpio_map[2] == ("gpiod", 0, 0)
     assert socket.label == "adapter_1.mb1"
-    assert socket.parent is parent
+    assert socket.parents == {"plug": parent}
 
 
 def test_compose_socket_position_the_parent_fragment_never_routes_stays_local() -> None:
@@ -68,10 +68,10 @@ def test_compose_socket_position_the_parent_fragment_never_routes_stays_local() 
     inventing a routing."""
     parent = _parent(gpio_map={})
     exposed = ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
-                            gpio_map={2: (7, 0)}, buses={})
+                            gpio_map={2: ("plug", 7, 0)}, buses={})
 
     socket, _diags, _scopes = compose_socket(
-        "adapter_1.mb1", "adapter_1", exposed, parent, None)
+        "adapter_1.mb1", "adapter_1", exposed, {"plug": parent}, None)
 
     assert 2 not in socket.gpio_map
 
@@ -79,10 +79,26 @@ def test_compose_socket_position_the_parent_fragment_never_routes_stays_local() 
 def test_compose_socket_bus_pass_through() -> None:
     parent = _parent(buses={"spi": BusRef(label="spi0", path="/spi0")})
     exposed = ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
-                            gpio_map={}, buses={"spi": "plug"})
+                            gpio_map={}, buses={"spi": ("plug", "plug")})
 
     socket, diags, _scopes = compose_socket(
-        "adapter_1.mb1", "adapter_1", exposed, parent, None)
+        "adapter_1.mb1", "adapter_1", exposed, {"plug": parent}, None)
+
+    assert diags == []
+    assert socket.buses["spi"].label == "spi0"
+
+
+def test_compose_socket_bus_pass_through_selects_by_kind_not_exact_name() -> None:
+    """Sec 2: the child-side qualified name is independent of the
+    parent-side name -- a pass-through selects the parent's bus of the
+    same KIND, so a child asking for bare "spi" is satisfied by a
+    parent's role-suffixed "spi-sensors" (its only spi-kind bus)."""
+    parent = _parent(buses={"spi-sensors": BusRef(label="spi0", path="/spi0")})
+    exposed = ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
+                            gpio_map={}, buses={"spi": ("plug", "plug")})
+
+    socket, diags, _scopes = compose_socket(
+        "adapter_1.mb1", "adapter_1", exposed, {"plug": parent}, None)
 
     assert diags == []
     assert socket.buses["spi"].label == "spi0"
@@ -94,13 +110,49 @@ def test_compose_socket_pass_through_without_parent_bus_is_phys_subset() -> None
     parent socket offers none is rejected."""
     parent = _parent(buses={})
     exposed = ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
-                            gpio_map={}, buses={"spi": "plug"})
+                            gpio_map={}, buses={"spi": ("plug", "plug")})
 
     _socket, diags, _scopes = compose_socket(
-        "adapter_1.mb1", "adapter_1", exposed, parent, None)
+        "adapter_1.mb1", "adapter_1", exposed, {"plug": parent}, None)
 
     assert len(diags) == 1
     assert diags[0].code == "phys-subset"
+    assert "slot" not in diags[0].message   # single-plug: no slot qualifier
+
+
+def test_compose_socket_pass_through_parent_lacking_kind_is_slot_qualified_when_plural() -> None:
+    """The same phys-subset refusal, but the carrier is plural: the
+    message names the parent's own SLOT (Sec 4's rendering rule)."""
+    left = _parent(buses={}, path="/left", label="fx_left")
+    right = _parent(buses={"spi": BusRef(label="spi1", path="/spi1")}, path="/right", label="fx_right")
+    exposed = ExposedSocket(name="combined", label="combined", type_name="mikrobus",
+                            gpio_map={}, buses={"spi": ("plug", "left")})
+
+    _socket, diags, _scopes = compose_socket(
+        "bridge.combined", "bridge", exposed, {"left": left, "right": right}, None)
+
+    assert len(diags) == 1
+    assert diags[0].code == "phys-subset"
+    assert "slot 'left'" in diags[0].message
+    assert "fx_left" in diags[0].message
+
+
+def test_compose_socket_pass_through_ambiguous_parent_kind_is_refused() -> None:
+    """Sec 2's ambiguity refusal: a parent offering MORE than one bus of
+    the queried kind is a loud, not-yet-supported error, never a guess."""
+    parent = _parent(buses={
+        "spi-sensors": BusRef(label="spi0", path="/spi0"),
+        "spi-motors": BusRef(label="spi1", path="/spi1"),
+    })
+    exposed = ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
+                            gpio_map={}, buses={"spi": ("plug", "plug")})
+
+    socket, diags, _scopes = compose_socket(
+        "adapter_1.mb1", "adapter_1", exposed, {"plug": parent}, None)
+
+    assert len(diags) == 1
+    assert diags[0].code == "phys-ambiguous-bus"
+    assert "spi" not in socket.buses
 
 
 def test_compose_socket_scope_creation_registers_a_scope_entry() -> None:
@@ -112,7 +164,7 @@ def test_compose_socket_scope_creation_registers_a_scope_entry() -> None:
                             channel=0)
 
     socket, diags, scopes = compose_socket(
-        "mux_1.ch0", "mux_1", exposed, parent, None)
+        "mux_1.ch0", "mux_1", exposed, {"plug": parent}, None)
 
     assert diags == []
     assert scopes == [("mux_1.ch0", ("mux_1_mux_dev", 0))]
@@ -130,10 +182,11 @@ def test_compose_socket_cs_pool_override_travels_to_the_composed_bus() -> None:
     parent = _parent(buses={"spi": BusRef(label="spi0", path="/spi0",
                                           cs_pool=[16, 15, 14])})
     exposed = ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
-                            gpio_map={}, buses={"spi": "plug"}, cs_pool=[3, 4])
+                            gpio_map={}, buses={"spi": ("plug", "plug")},
+                            cs_pool={"spi": [3, 4]})
 
     socket, diags, _scopes = compose_socket(
-        "adapter_1.mb1", "adapter_1", exposed, parent, None)
+        "adapter_1.mb1", "adapter_1", exposed, {"plug": parent}, None)
 
     assert diags == []
     assert socket.buses["spi"].cs_pool == [3, 4]
@@ -148,13 +201,62 @@ def test_compose_socket_no_cs_pool_override_leaves_the_composed_bus_none() -> No
     parent = _parent(buses={"spi": BusRef(label="spi0", path="/spi0",
                                           cs_pool=[16, 15, 14])})
     exposed = ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
-                            gpio_map={}, buses={"spi": "plug"})
+                            gpio_map={}, buses={"spi": ("plug", "plug")})
 
     socket, diags, _scopes = compose_socket(
-        "adapter_1.mb1", "adapter_1", exposed, parent, None)
+        "adapter_1.mb1", "adapter_1", exposed, {"plug": parent}, None)
 
     assert diags == []
     assert socket.buses["spi"].cs_pool is None
+
+
+def test_compose_socket_multi_parent_gpio_row_resolves_through_its_own_slot() -> None:
+    """The cross-plug falsifier, at the compose_socket unit level: two
+    gpio-map rows of the SAME exposed socket resolve through TWO
+    DIFFERENT parents, each keeping its own slot's own nexus label."""
+    left = _parent(gpio_map={0: ("gpioa", 1, 0)}, path="/left", label="fx_left")
+    right = _parent(gpio_map={1: ("gpiob", 2, 0)}, path="/right", label="fx_right")
+    exposed = ExposedSocket(name="combined", label="combined", type_name="mikrobus",
+                            gpio_map={10: ("left", 0, 0), 11: ("right", 1, 0)},
+                            buses={})
+
+    socket, diags, _scopes = compose_socket(
+        "bridge.combined", "bridge", exposed, {"left": left, "right": right}, None)
+
+    assert diags == []
+    assert socket.gpio_map[10] == ("gpioa", 1, 0)
+    assert socket.gpio_map[11] == ("gpiob", 2, 0)
+    assert socket.nexus_rows is not None
+    assert (10, "fx_left", 0) in socket.nexus_rows
+    assert (11, "fx_right", 1) in socket.nexus_rows
+    assert socket.parents == {"left": left, "right": right}
+
+
+def test_compose_socket_multi_parent_path_is_the_reference_string() -> None:
+    """Single-parent composition keeps the byte-identical
+    <parent path>/<exposed name> path (golden safety); a multi-parent
+    composition has no single parent path to anchor to, so it falls back
+    to the <carrier>.<exposed> reference string instead."""
+    left = _parent(path="/left", label="fx_left")
+    right = _parent(path="/right", label="fx_right")
+    exposed = ExposedSocket(name="combined", label="combined", type_name="mikrobus",
+                            gpio_map={}, buses={})
+
+    socket, _diags, _scopes = compose_socket(
+        "bridge.combined", "bridge", exposed, {"left": left, "right": right}, None)
+
+    assert socket.path == "bridge.combined"
+
+
+def test_compose_socket_single_parent_path_stays_byte_identical() -> None:
+    parent = _parent(path="/board_ard")
+    exposed = ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
+                            gpio_map={}, buses={})
+
+    socket, _diags, _scopes = compose_socket(
+        "adapter_1.mb1", "adapter_1", exposed, {"plug": parent}, None)
+
+    assert socket.path == "/board_ard/mb1"
 
 
 # ---------------------------------------------------------------- resolve_sockets
@@ -269,7 +371,7 @@ def test_resolve_sockets_carrier_chain_composes() -> None:
                           gpio_map={7: ("gpiod", 0, 0)}, buses={})})
     carrier_shield = _shield(plugs="arduino-r3", exposes={
         "mb1": ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
-                             gpio_map={2: (7, 0)}, buses={})})
+                             gpio_map={2: ("plug", 7, 0)}, buses={})})
     carrier = _inst("adapter_1", "ard", carrier_shield)
     leaf = _inst("eth_1", "adapter_1.mb1", _shield(plugs="mikrobus"))
     rig = Rig(name="r", instances=[carrier, leaf])
@@ -279,6 +381,48 @@ def test_resolve_sockets_carrier_chain_composes() -> None:
 
     assert diags == []
     assert resolution.sockets["eth_1"]["plug"].gpio_map[2] == ("gpiod", 0, 0)
+
+
+def test_resolve_sockets_plural_carrier_slot_plugs_another_carriers_exposed_socket() -> None:
+    """Chains recurse over a PLURAL carrier too (multi-plug-carrier-
+    brief.md Sec 4): bridge's own 'left' slot plugs single_carrier's
+    exposed socket (a single-plug carrier one level down), its 'right'
+    slot plugs a board socket directly, and bridge itself exposes a
+    combined socket a leaf instance plugs -- three levels deep, the
+    existing depth-first resolution + cycle guard, now over (instance,
+    slot). No new mechanism; this is the one fixture proving it still
+    holds. The falsifier: the leaf's own composed socket resolves its
+    position all the way down to the real SoC pin, through bridge's
+    'left' slot -> single_carrier's exposed mb1 -> the real 'ard' board
+    socket. (`_plural_shield`/`_plural_inst` are defined later in this
+    module, at module scope -- resolved at call time, not import time.)"""
+    board = Board(name="b", sockets={
+        "ard": BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
+                          gpio_map={7: ("gpiod", 0, 0)}, buses={}),
+        "mb_direct": BoardSocket(label="mb_direct", path="/mb_direct",
+                                type_name="mikrobus", gpio_map={}, buses={})})
+    single_carrier_shield = _shield(plugs="arduino-r3", exposes={
+        "mb1": ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
+                             gpio_map={2: ("plug", 7, 0)}, buses={})})
+    single_carrier = _inst("single_carrier", "ard", single_carrier_shield)
+
+    bridge_shield = _plural_shield({"left": "mikrobus", "right": "mikrobus"})
+    bridge_shield.exposes["combined"] = ExposedSocket(
+        name="combined", label="combined", type_name="mikrobus",
+        gpio_map={20: ("left", 2, 0)}, buses={})
+    bridge = _plural_inst(
+        "bridge", {"left": "single_carrier.mb1", "right": "mb_direct"}, bridge_shield)
+
+    leaf = _inst("leaf", "bridge.combined", _shield(plugs="mikrobus"))
+    rig = Rig(name="r", instances=[single_carrier, bridge, leaf])
+
+    resolution, diags = resolve_sockets(
+        rig, board, {"arduino-r3": _ctype(), "mikrobus": _ctype("mikrobus")})
+
+    assert diags == []
+    leaf_socket = resolution.sockets["leaf"]["plug"]
+    assert leaf_socket is not None
+    assert leaf_socket.gpio_map[20] == ("gpiod", 0, 0)
 
 
 def test_resolve_sockets_cyclic_carrier_reference_is_stack_guarded() -> None:

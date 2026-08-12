@@ -230,22 +230,25 @@ def test_excluded_set_is_exactly_the_required_param_shields() -> None:
     `_REQUIRED_PARAM_ASSIGNMENTS` entry (Sec 9.6 part 2's `<device>.
     <prop>=<value>` CLI grammar gives a promoted rig a real way to
     satisfy it), so the required-param gap contributes nothing today.
-    `can_span_click` (the multi-plug corpus shield) is the one member:
-    ruling 4 (promotion of a plural shield is its own future slice) --
-    `:socket=` is inherently single-slot, and this set visibly SHRINKS
-    again the day that slice lands, the S4 pattern. This assertion can
-    only grow again the day a new required-param shield lands with no
-    entry supplied for it yet, or a new multi-plug shield joins the
-    corpus."""
-    assert EXCLUDED == {"can_span_click"}, (
+    `can_span_click`/`mikrobus_span_adapter` (the two multi-plug corpus
+    shields -- slice 2, multi-plug-carrier-brief.md, adds the second: a
+    plural carrier re-exporting an exposed socket is STILL a plural
+    shield, `shield_is_multiplug`'s predicate doesn't care whether one
+    declares an exposed socket or not) are the two members: ruling 4
+    (promotion of a plural shield is its own future slice) -- `:socket=`
+    is inherently single-slot, and this set visibly SHRINKS again the
+    day that slice lands, the S4 pattern. This assertion can only grow
+    again the day a new required-param shield lands with no entry
+    supplied for it yet, or a new multi-plug shield joins the corpus."""
+    assert EXCLUDED == {"can_span_click", "mikrobus_span_adapter"}, (
         f"excluded set is {sorted(EXCLUDED)}, expected exactly "
-        "['can_span_click'] -- a set naming a NEW required-param shield "
-        "means either add a _REQUIRED_PARAM_ASSIGNMENTS entry or an "
-        "existing one stopped covering every one of its shield's required "
-        "parameters (fix the entry, don't paper over it); a set missing "
-        "'can_span_click' means promotion of a multi-plug shield started "
-        "working -- update this pin deliberately, with the reason, don't "
-        "just widen it")
+        "['can_span_click', 'mikrobus_span_adapter'] -- a set naming a NEW "
+        "required-param shield means either add a "
+        "_REQUIRED_PARAM_ASSIGNMENTS entry or an existing one stopped "
+        "covering every one of its shield's required parameters (fix the "
+        "entry, don't paper over it); a set missing either multi-plug "
+        "shield means promotion of a multi-plug shield started working -- "
+        "update this pin deliberately, with the reason, don't just widen it")
 
 
 def _materialize_fixture(name: str, tmp_path: Path) -> Path:

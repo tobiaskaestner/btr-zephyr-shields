@@ -1,0 +1,4 @@
+# SPDX-License-Identifier: Apache-2.0
+
+config SHIELD_MIKROBUS_SPAN_ADAPTER
+	def_bool $(shields_list_contains,mikrobus_span_adapter)

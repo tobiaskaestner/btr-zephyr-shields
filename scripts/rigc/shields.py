@@ -24,9 +24,12 @@ by the template-level `shield,plugs` property's presence:
     rejected. Plain (non-bus) device groups stay at template level,
     plug-agnostic -- their devices' refs each carry their own plug by
     phandle (Conv. 2/3, widened from "must be THIS shield's plug" to
-    "one of this shield's plugs", ruling 2). Promotion, exposed sockets,
-    and routing jumpers are refused outright on a plural shield this
-    slice (Sec 6) -- straps are unaffected (bus-scoped, not plug-scoped).
+    "one of this shield's plugs", ruling 2). Promotion and routing
+    jumpers are refused outright on a plural shield (Sec 6) -- straps are
+    unaffected (bus-scoped, not plug-scoped). A plural shield MAY declare
+    an exposed socket (multi-plug-carrier-brief.md): its gpio-map rows and
+    socket,<bus> properties each resolve through one of the carrier's
+    plugs, exactly like a device's own cross-plug refs.
 
 **Diagnostics are RETURN values** (mission brief Sec 6): every parse
 function below returns (value, diagnostics) rather than writing into a
@@ -44,19 +47,26 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
+from .buskind import BUS_PROP_RE as _BUS_PROP_RE
+from .buskind import CS_POOL_PROP_RE as _CS_POOL_PROP_RE
 from .buskind import bus_kind_of, is_bus_kind
 from .diag import Diagnostic, SourceRef, error, warning
 from .dtsio import get_dtlib, render_prop, src_of, words
 from .model import (ConnectorType, Device, ExposedSocket, GpioRef, Jumper,
                     Pad, Shield, Strap)
 
-# Carrier/mux composition's own re-exported-socket parsing (_parse_exposed
-# below): out of scope for the widened multi-bus schema, still exactly
-# i2c/spi/uart bare, never role-suffixed -- a carrier re-exporting a
-# NAMED bus is not a case this loader resolves yet. Also out of scope for
-# the plural form entirely (multi-plug-shield-brief.md Sec 6) -- a plural
-# shield authoring one is refused before this dict is ever consulted.
-_BUS_PROPS = {"socket,i2c": "i2c", "socket,spi": "spi", "socket,uart": "uart"}
+#: socket,<kind> or socket,<kind>-<role> -- an exposed socket's own bus
+#: vocabulary is the qualified multi-bus pattern (multi-plug-carrier-
+#: brief.md Sec 2), the same shared pattern board_edt.py/registry.py read
+#: off their own inputs (a connector type's bus names mean the same thing
+#: on either side of a pass-through) -- see buskind.py for the regex
+#: itself and why it lives there.
+#:
+#: socket,<kind>-<role>-cs-pool -- a named bus's own authored cs-pool
+#: override on an exposed socket node, keyed the same qualified way. The
+#: legacy, role-less "socket,cs-pool" (every carrier's own spelling
+#: today) is handled separately below: it carries no kind in its own
+#: name, so it is not this pattern's concern.
 
 _RESERVED = {"plug", "pads", "config"}
 _MODEL_PROPS = {"reg", "compatible", "shield,addr-from", "shield,cs-position",
@@ -307,19 +317,14 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
                     shield.by_path[dnode.path] = dev
 
     # then re-exported sockets (R19 pass-through, or S8 scope creation) --
-    # refused outright on a plural shield (Sec 6): _parse_exposed's own
-    # machinery assumes THE plug.
+    # a plural shield may declare one too (multi-plug-carrier-brief.md):
+    # each gpio-map row and each socket,<bus> resolves through ONE of the
+    # carrier's plugs, per plugs_by_path, exactly as a device's own
+    # cross-plug refs do (ruling 2, applied one level up).
     for group in node.nodes.values():
         if group.name in _RESERVED or not is_exposed(group) or group in plug_children:
             continue
-        if is_plural:
-            diags.append(error(
-                "lang-shield-plurality",
-                f"shield '{shield.name}': exposed socket '{group.name}' -- "
-                "multi-plug carriers are their own future slice",
-                (src_of(group),)))
-            continue
-        exp, d = _parse_exposed(group, nodes_by_slot.get("plug"), shield)
+        exp, d = _parse_exposed(group, plugs_by_path, shield, types)
         diags += d
         shield.exposes[exp.name] = exp
         shield.by_path[group.path] = exp
@@ -538,51 +543,85 @@ def _valid_position(prop, pos: int, ctype) -> Tuple[bool, List[Diagnostic]]:
     return True, []
 
 
-def _parse_exposed(node, plug, shield: Shield,
+def _parse_exposed(node, plugs_by_path: PlugsByPath, shield: Shield,
+                   types: Dict[str, ConnectorType],
                    ) -> Tuple[ExposedSocket, List[Diagnostic]]:
-    """A re-exported socket. gpio-map binds exposed positions to the
-    carrier's own plug positions (pass-through, R19). socket,<bus> is
-    either <&plug> (pass through the parent's bus, S6) or <&device> (a
-    NEW scope rooted in that device of the shield, S8). Only ever called
-    for a single-plug shield (`_parse_shield`'s own plurality guard) --
-    `plug` is THE shield's one plug node, never a slot map."""
+    """A re-exported socket, now potentially composed from SEVERAL named
+    parents (multi-plug-carrier-brief.md Sec 1 ruling 1). gpio-map binds
+    exposed positions to ONE of the carrier's own plug positions
+    (pass-through, R19) -- RECORDING which slot the phandle named, per
+    row, exactly as `_parse_pos_ref` widens "must be THIS shield's plug"
+    to "one of this shield's plugs" (ruling 2, applied one level up).
+    socket,<bus> (bare, or role-qualified per the multi-bus vocabulary)
+    is either <&some-plug> (pass through THAT plug's own bus, S6) or
+    <&device> (a NEW scope rooted in that device of the shield, S8). The
+    CHILD-side qualified name is the EXPOSED connector type's OWN
+    vocabulary -- validated exact-match against its declared bus_proxies,
+    no fallback, independent of whichever parent-side bus a pass-through
+    eventually selects (that selection is compose_socket's own job, by
+    KIND, once the parent is a real resolved socket)."""
     diags: List[Diagnostic] = []
     type_name = node.props["compatible"].to_string().split(",", 1)[1]
-    gpio_map: Dict[int, Tuple[int, int]] = {}
+    ctype = types.get(type_name)
+    is_plural = len(plugs_by_path) > 1
+
+    gpio_map: Dict[int, Tuple[str, int, int]] = {}
     if "gpio-map" in node.props:
         cells = words(node.props["gpio-map"])
         dt = node.dt
         for i in range(0, len(cells) - len(cells) % 5, 5):
             pos, _f, phandle, parent_pos, parent_flags = cells[i:i + 5]
             target = dt.phandle2node.get(phandle)
-            if plug is None or target is None or target.path != plug.path:
+            plug_entry = plugs_by_path.get(target.path) if target is not None else None
+            if plug_entry is None:
+                what = "one of the carrier's plugs" if is_plural else "the carrier's plug"
                 diags.append(error(
                     "lang-exposed",
                     f"exposed socket '{node.name}': gpio-map parent must "
-                    "be the carrier's plug (pass-through, R19)",
+                    f"be {what} (pass-through, R19)",
                     (src_of(node),)))
                 continue
-            gpio_map[pos] = (parent_pos, parent_flags)
+            slot, _pctype = plug_entry
+            gpio_map[pos] = (slot, parent_pos, parent_flags)
 
     buses: Dict[str, object] = {}
-    for prop_name, kind in _BUS_PROPS.items():
-        if prop_name not in node.props:
+    qualified_props = sorted(name for name in node.props if _BUS_PROP_RE.match(name))
+    for prop_name in qualified_props:
+        kind = prop_name[len("socket,"):]
+        if ctype is not None and kind not in ctype.bus_proxies:
+            diags.append(error(
+                "lang-exposed",
+                f"exposed socket '{node.name}': {prop_name} names a bus "
+                f"'{kind}' that connector type '{type_name}' does not "
+                "declare -- declared buses: "
+                f"{', '.join(sorted(ctype.bus_proxies)) or 'none'}",
+                (src_of(node),)))
             continue
         target = node.props[prop_name].to_node()
         by_path = shield.by_path.get(target.path)
-        if plug is not None and target.path == plug.path:
-            buses[kind] = "plug"                       # pass-through (S6)
+        plug_entry = plugs_by_path.get(target.path)
+        if plug_entry is not None:
+            slot, _pctype = plug_entry
+            buses[kind] = ("plug", slot)                # pass-through (S6)
         elif isinstance(by_path, Device):
-            buses[kind] = ("scope", by_path.label)      # new scope (S8)
+            buses[kind] = ("scope", by_path.label)       # new scope (S8)
         else:
+            what = "one of the carrier's plugs" if is_plural else "<&plug>"
             diags.append(error(
                 "lang-exposed",
                 f"exposed socket '{node.name}': {prop_name} must be "
-                "<&plug> (pass-through, R19) or <&device> (new scope, "
+                f"{what} (pass-through, R19) or <&device> (new scope, "
                 "R26)", (src_of(node),)))
 
-    cs_pool = list(node.props["socket,cs-pool"].to_nums()) \
-        if "socket,cs-pool" in node.props else None
+    cs_pool: Dict[str, List[int]] = {}
+    if "socket,cs-pool" in node.props:
+        cs_pool["spi"] = list(node.props["socket,cs-pool"].to_nums())
+    for prop_name in sorted(node.props):
+        m = _CS_POOL_PROP_RE.match(prop_name)
+        if m is None:
+            continue
+        cs_pool[m.group(1)] = list(node.props[prop_name].to_nums())
+
     channel = node.props["shield,channel"].to_num() \
         if "shield,channel" in node.props else None
     return ExposedSocket(

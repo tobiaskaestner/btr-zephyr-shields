@@ -1,0 +1,5 @@
+shield:
+  name: mikrobus_span_adapter
+  full_name: mikroBUS span adapter (multi-plug carrier corpus example)
+  vendor: generic
+  template: true

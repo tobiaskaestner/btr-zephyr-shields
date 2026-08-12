@@ -29,8 +29,9 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Iterable, List, Optional, Set, Tuple, cast
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
+from ..buskind import bus_kind_of, is_bus_kind
 from ..diag import Diagnostic, SourceRef, error
 from ..model import (Board, BoardSocket, BusRef, ConnectorType, ExposedSocket,
                      Instance, Rig)
@@ -71,63 +72,100 @@ def subset_gaps(needed: Set[str], offered: Iterable[str]) -> List[str]:
 
 
 def compose_socket(socket_label: str, carrier_name: str, exposed: ExposedSocket,
-                   parent: BoardSocket, inst_src: Optional[SourceRef],
+                   parents: Dict[str, BoardSocket], inst_src: Optional[SourceRef],
                    ) -> Tuple[BoardSocket, List[Diagnostic], List[ScopeEntry]]:
-    """Pass-through composition: exposed positions resolve to the parent's
-    SoC pins, exposed buses to the parent's controllers (ontology Sec 1).
-    Pure over its arguments -- no Instance/Rig/Shield needed, only the
-    exposure and the ALREADY-resolved parent socket -- so this is directly
-    unit-testable against synthetic ExposedSocket/BoardSocket values.
+    """Pass-through composition, now over SEVERAL named parents (multi-
+    plug-carrier-brief.md Sec 3): exposed positions resolve to the NAMED
+    parent's SoC pins, exposed buses to the named parent's controllers
+    (ontology Sec 1) -- each gpio-map row and each pass-through bus
+    carries its OWN slot, so a mixed-parent exposed socket routes
+    different rows/buses through different parents. Pure over its
+    arguments -- no Instance/Rig/Shield needed, only the exposure and the
+    ALREADY-resolved parents (every one of the carrier's slots; the
+    caller -- `resolve_one` -- guarantees this before ever calling in) --
+    so this is directly unit-testable against synthetic ExposedSocket/
+    BoardSocket values. `parents` has exactly one entry (slot "plug") for
+    a single-plug carrier, which is what keeps that composition's output
+    byte-identical to before plurality existed.
+
+    A pass-through selects the named parent's bus of the same KIND, never
+    an exact-name match -- the child-side qualified name (validated at
+    parse time against the exposed type's own vocabulary) is independent
+    of whatever the parent happens to call its own bus (Sec 2). A parent
+    offering MORE than one bus of that kind is a loud, not-yet-supported
+    ambiguity (phys-ambiguous-bus) rather than a guess.
 
     Returns (socket, diagnostics, scopes): a NEW synthesized
     BoardSocket, the findings, and any scope entries the composition
     created. Its inputs are read-only; the caller owns all three."""
     diags: List[Diagnostic] = []
     scope_entries: List[ScopeEntry] = []
+    is_plural = len(parents) > 1
+
     gpio_map: Dict[int, Tuple[str, int, int]] = {}
-    for pos, (parent_pos, _flags) in exposed.gpio_map.items():
+    nexus_rows: List[Tuple[int, str, int]] = []
+    for pos, (slot, parent_pos, _flags) in exposed.gpio_map.items():
+        parent = parents[slot]
+        nexus_rows.append((pos, parent.nexus_label or parent.label, parent_pos))
         if parent_pos in parent.gpio_map:
             gpio_map[pos] = parent.gpio_map[parent_pos]
         # else: parent fragment doesn't route it -> stays socket-local (net key)
+
     buses: Dict[str, BusRef] = {}
     for kind, marker in exposed.buses.items():
-        if marker == "plug":                            # pass-through (S6)
-            if kind in parent.buses:
-                parent_bus = parent.buses[kind]
+        assert isinstance(marker, tuple)
+        if marker[0] == "plug":                          # pass-through (S6)
+            slot = marker[1]
+            parent = parents[slot]
+            kind_query = bus_kind_of(kind) or kind
+            candidates = sorted(b for b in parent.buses if is_bus_kind(b, kind_query))
+            slot_note = f" (slot '{slot}')" if is_plural else ""
+            refs = tuple(x for x in (exposed.src, parent.src, inst_src) if x)
+            if len(candidates) > 1:
+                diags.append(error(
+                    "phys-ambiguous-bus",
+                    f"carrier '{carrier_name}' passes {kind.upper()} through socket "
+                    f"'{exposed.name}' from parent socket '{parent.label}'{slot_note}, "
+                    f"which offers more than one {kind_query.upper()} bus "
+                    f"({', '.join(candidates)}) -- ambiguous pass-through is not "
+                    "supported yet",
+                    refs))
+            elif len(candidates) == 1:
+                parent_bus = parent.buses[candidates[0]]
                 buses[kind] = BusRef(
                     label=parent_bus.label, path=parent_bus.path,
-                    cs_pool=cast(Optional[List[int]], exposed.cs_pool))
+                    cs_pool=exposed.cs_pool.get(kind))
             else:
-                refs = tuple(x for x in (exposed.src, parent.src, inst_src) if x)
                 diags.append(error(
                     "phys-subset",
                     f"carrier '{carrier_name}' passes {kind.upper()} through socket "
-                    f"'{exposed.name}', but its parent socket '{parent.label}' offers "
-                    f"no socket,{kind} (R19 pass-through needs the parent to provide it)",
+                    f"'{exposed.name}', but its parent socket '{parent.label}'{slot_note} "
+                    f"offers no socket,{kind} (R19 pass-through needs the parent to provide it)",
                     refs))
         else:                                           # new scope (S8): ("scope", dev-label)
-            assert isinstance(marker, tuple)
             root = f"{carrier_name}_{marker[1]}"
             scope_path = socket_label                    # per (carrier, channel); shared by co-plugged modules
             buses[kind] = BusRef(label=f"{root}_ch{exposed.channel}", path=scope_path)
             scope_entries.append((scope_path, (root, exposed.channel)))
-    parent_nexus = parent.nexus_label or parent.label
-    nexus_rows = [(child_pos, parent_nexus, parent_pos)
-                 for child_pos, (parent_pos, _f) in exposed.gpio_map.items()]
-    # exposed.cs_pool (a carrier's own authored cs-pool override) has one
-    # destination: the SAME kind's pass-through BusRef, built fresh above
-    # rather than aliased from the parent's -- CS pools live per bus, on
-    # BusRef, never on the socket as a whole, and the parent's own
-    # BusRef.cs_pool must never leak into the composed socket unchanged
-    # (a real board socket's pool is a fact of ITS type, not of whatever
-    # carrier happens to be plugged into it). A scope-creating bus is
-    # I2C-only and never reads cs_pool at all.
+
+    # Single-parent path is BYTE-IDENTICAL to before plurality existed
+    # (golden safety): the composed path is the parent's own path plus
+    # the exposed node's name, exactly as today. A multi-parent
+    # composition has no single parent path to anchor to, so it uses the
+    # socket_label instead -- the <carrier>.<exposed> reference string,
+    # unique per carrier instance and deterministic.
+    if len(parents) == 1:
+        (only_parent,) = parents.values()
+        path = f"{only_parent.path}/{exposed.name}"
+    else:
+        path = socket_label
+
     socket = BoardSocket(
-        label=socket_label, path=f"{parent.path}/{exposed.name}",
+        label=socket_label, path=path,
         type_name=exposed.type_name, gpio_map=gpio_map, buses=buses,
         src=exposed.src,
         nexus_label=f"{carrier_name}_{exposed.name}", nexus_rows=nexus_rows,
-        parent=parent)
+        parents=dict(parents))
     return socket, diags, scope_entries
 
 
@@ -257,21 +295,17 @@ def resolve_sockets(rig: Rig, board: Board, types: Dict[str, ConnectorType],
                 f"instances: {', '.join(sorted(by_name))}",
                 (inst.src,) if inst.src else ()))
             return None
-        # An exposed socket exists only on a SINGLE-plug carrier
-        # (multi-plug-shield-brief.md Sec 6: a plural shield is refused
-        # at parse time before it can ever declare one, so `exposes` is
-        # always empty for one) -- recursing through the carrier's own
-        # one slot, "plug", is therefore always the right slot to ask
-        # for when it has any exposed sockets at all. A plural carrier
-        # simply has no "plug" key and no exposed sockets either, so the
-        # ordinary "exposes no socket" diagnostic below still fires,
-        # naming an empty list, rather than this function guessing at a
-        # slot that does not exist.
-        parent: Optional[BoardSocket] = None
-        if "plug" in carrier.shield.plugs:
-            parent = resolve_one(carrier, "plug", stack + (inst.name,))
+        # A carrier's exposed socket may draw from ANY of its own plugs
+        # (multi-plug-carrier-brief.md Sec 3) -- resolve EVERY slot the
+        # carrier declares before composing, regardless of which ones the
+        # NAMED exposed socket actually uses: any slot failing to resolve
+        # fails the whole composition (skip-don't-abort, as today).
+        parents: Dict[str, BoardSocket] = {}
+        for carrier_slot in carrier.shield.plugs:
+            parent = resolve_one(carrier, carrier_slot, stack + (inst.name,))
             if parent is None:
                 return None
+            parents[carrier_slot] = parent
         exposed = carrier.shield.exposes.get(exp_name)
         if exposed is None:
             diags.append(error(
@@ -281,9 +315,8 @@ def resolve_sockets(rig: Rig, board: Board, types: Dict[str, ConnectorType],
                 f"exposed sockets: {', '.join(sorted(carrier.shield.exposes)) or 'none'}",
                 tuple(x for x in (inst.src, carrier.src) if x)))
             return None
-        assert parent is not None      # exposed non-empty implies "plug" resolved above
         socket, d, scope_entries = compose_socket(
-            ref, carrier.name, exposed, parent, inst.src)
+            ref, carrier.name, exposed, parents, inst.src)
         diags.extend(d)
         for path, entry in scope_entries:
             scopes[path] = entry

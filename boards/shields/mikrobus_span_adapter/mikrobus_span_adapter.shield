@@ -1,0 +1,44 @@
+/* Shield: mikroBUS span adapter -- multi-plug carrier corpus example
+ * (multi-plug-carrier-brief.md Sec 2/7). A PLURAL carrier, pure copper
+ * (no devices of its own, like arduino_uno_click/can_span_click): plugs
+ * TWO of a mainboard's mikroBUS sockets at once and re-exports ONE
+ * ordinary socket,mikrobus combining them -- SPI and the CS position
+ * from the LEFT parent, INT (and I2C) from the RIGHT.
+ *
+ * A click plugged on the combined socket has its SPI/CS chain resolve
+ * through the LEFT plug and its int-gpios chain through the RIGHT --
+ * the multi-parent cross-plug falsifier, one level up from can_span_
+ * click's own cross-plug DEVICE ref (there, one device on one plug's
+ * bus reaches across to the OTHER plug for one pin; here, one composed
+ * SOCKET routes different POSITIONS/BUSES to different parents, and any
+ * click plugged on it inherits the split without carrying any plug
+ * axis of its own).
+ */
+
+#include <dt-bindings/connector/mikrobus.h>
+
+/ {
+	shield-templates {
+		mikrobus_span_adapter: mikrobus_span_adapter {
+			left_plug: left {
+				compatible = "shield,plug";
+				shield,plugs = "mikrobus";
+				#gpio-cells = <2>;
+			};
+			right_plug: right {
+				compatible = "shield,plug";
+				shield,plugs = "mikrobus";
+				#gpio-cells = <2>;
+			};
+
+			combined {
+				compatible = "socket,mikrobus";
+				#gpio-cells = <2>;
+				gpio-map = <MIKROBUS_CS  0 &left_plug  MIKROBUS_CS  0>,
+					   <MIKROBUS_INT 0 &right_plug MIKROBUS_INT 0>;
+				socket,spi = <&left_plug>;
+				socket,i2c = <&right_plug>;
+			};
+		};
+	};
+};

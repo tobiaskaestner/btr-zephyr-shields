@@ -318,6 +318,101 @@ def test_can_span_click_cross_plug_cs_and_nexus(
     assert "canspan/log_flash: CS index 0" in sheet
 
 
+def _run_can_span_click_shared_controller(
+        out_dir: Path, tmp_path_factory: "pytest.TempPathFactory",
+        ) -> "subprocess.CompletedProcess[str]":
+    """Same shield, same helper shape as `_run_can_span_click`, but the two
+    slots land on quail_sock1/quail_sock2 -- the shared-controller variant
+    (both wire socket,spi = &spi1, mikrobus_sockets.dtsi:50,72), rather than
+    quail_sock2/quail_sock3 (spi1 vs spi3)."""
+    plain_build = plain_build_for(_QUAIL_BOARD, tmp_path_factory)
+    rig_dir = out_dir.parent / "rig"
+    rig_dir.mkdir(exist_ok=True)
+    (rig_dir / "rig.yml").write_text("rig:\n  name: can_span_shared_probe\n")
+    (rig_dir / "can_span_shared_probe.yml").write_text(dedent("""\
+        instances:
+          - name: canspan
+            shield: can_span_click
+            sockets:
+              left: quail_sock1
+              right: quail_sock2
+        """))
+    return run_expand(
+        rig_dir / "rig.yml", out_dir,
+        board=_QUAIL_BOARD,
+        board_dts=_QUAIL_BOARD_DTS,
+        build_info=plain_build.build_info)
+
+
+@pytest.mark.build
+def test_can_span_click_shared_controller_two_slot_contract(
+        tmp_path: Path, tmp_path_factory: "pytest.TempPathFactory") -> None:
+    """Marked build for the same reason as test_can_span_click_cross_plug_
+    cs_and_nexus above: reaches plain_build_for (memoized per board, so this
+    shares quail's ONE cached plain configure with every other test in this
+    module).
+
+    Driver-added pin (Tobi, 2026-08-12): does a multi-plug shield whose two
+    slots land on two sockets wired to the SAME controller resolve
+    correctly? It does by construction -- allocation scope identity is
+    bus.path, and quail_sock1/quail_sock2 share bus.path (&spi1) while
+    remaining two DISTINCT physical connectors -- but nothing pinned it
+    before this test. Unlike the sock2/sock3 case above (two independent
+    buses, so both devices legally land at cs-pool index 0), the SAME
+    bus.path here means can0 and log_flash share ONE cs allocation scope:
+    both devices render inside ONE &spi1 overlay node, with two DISTINCT
+    cs-gpios entries (one through each slot's own socket) and two DIFFERENT
+    reg/cs indexes -- collapsing the per-slot resolution back to one socket
+    per instance would either exhaust quail_sock1's single-candidate CS
+    pool or merge the two devices onto the SAME cs-gpios entry, either of
+    which this test would catch."""
+    out_dir = tmp_path / "out"
+    result = _run_can_span_click_shared_controller(out_dir, tmp_path_factory)
+
+    assert result.returncode == 0, (
+        f"can_span_click (shared controller) on quail: expected accept\n"
+        f"--- stderr ---\n{result.stderr}")
+
+    overlay = (out_dir / "rig-gen.overlay").read_text()
+
+    # Both devices land inside ONE &spi1 node -- not two nodes, not spi3
+    # (quail_sock1/quail_sock2 both wire socket,spi = &spi1; quail's other
+    # two sockets, spi3, never enter this rig at all).
+    assert overlay.count("&spi1 {") == 1
+    assert "&spi3 {" not in overlay
+    # Split on the ZERO-indent closing brace (the &spi1 node's own), not
+    # the first "};" at all -- that would be can0's own inner closing
+    # brace, truncating the block before log_flash (this node has TWO
+    # device children, unlike every other bus block this suite's own
+    # split idiom has had to isolate so far).
+    spi1_block = overlay.split("&spi1 {")[1].split("\n};")[0]
+
+    # ONE combined cs-gpios property, two DISTINCT physical nets: one
+    # entry through quail_sock1's own nexus (LEFT/can0's own socket), one
+    # through quail_sock2's (RIGHT/log_flash's own socket) -- sharing the
+    # SAME controller does not collapse them into one net.
+    assert ("cs-gpios = <&quail_sock1 2 1 /* ACTIVE_LOW */>, "
+           "<&quail_sock2 2 1 /* ACTIVE_LOW */>;") in spi1_block
+
+    # can0 (LEFT) and log_flash (RIGHT) each claim their OWN cs-gpios
+    # entry -- reg/cs index 0 and 1 respectively, not the same index
+    # twice: the shared bus.path scopes their CS allocation TOGETHER.
+    assert "canspan_can0: can0@0 {" in spi1_block
+    assert "canspan_log_flash: log_flash@1 {" in spi1_block
+
+    # can0's int-gpios still resolves through quail_sock2 -- the RIGHT
+    # slot -- exactly as it does in the sock2/sock3 case above; sharing a
+    # controller with the LEFT slot changes nothing about the cross-plug
+    # GPIO resolution, only the CS/bus scope.
+    assert "int-gpios = <&quail_sock2 7 0x1>;" in spi1_block
+
+    sheet = (out_dir / "config-sheet.md").read_text()
+    assert "| canspan | can_span_click | left: quail_sock1 |" in sheet
+    assert "| canspan | can_span_click | right: quail_sock2 |" in sheet
+    assert "canspan/can0: CS index 0" in sheet
+    assert "canspan/log_flash: CS index 1" in sheet
+
+
 def test_can_span_click_is_excluded_from_the_singleton_law_and_promotion() -> None:
     """Ruling 4 (Sec 6): a multi-plug shield cannot be promoted -- pinned
     here from the promotion seam's OWN angle (test_singleton_identity_law.py

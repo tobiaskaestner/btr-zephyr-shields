@@ -24,11 +24,11 @@ from __future__ import annotations
 
 import glob
 import os
-import re
 from typing import Dict, List, Optional, Tuple
 
 import yaml
 
+from .buskind import CS_POOL_PROP_RE as _CS_POOL_PROP_RE
 from .deps import Deps, touch, union
 from .dtsio import MODULE_ROOT, parse_header_indices
 from .model import ConnectorType, Position
@@ -37,10 +37,10 @@ from .model import ConnectorType, Position
 BINDINGS = os.path.join(MODULE_ROOT, "dts", "bindings", "connectors")
 
 #: socket,<kind>-<role>-cs-pool -- a named bus's own CS pool default,
-#: keyed the qualified way (mirrors board_edt.py's own _CS_POOL_PROP_RE;
-#: this module reads the raw binding dict, board_edt.py reads an
-#: already-built edtlib.EDT -- two different inputs to the same fact).
-_CS_POOL_PROP_RE = re.compile(r"^socket,((?:i2c|spi|uart)-\w+)-cs-pool$")
+#: keyed the qualified way. This module reads the raw binding dict,
+#: board_edt.py reads an already-built edtlib.EDT -- two different
+#: inputs to the same fact; see buskind.py for the regex itself and why
+#: it lives there rather than as a third verbatim copy.
 
 
 def _socket_facts(binding: dict) -> Tuple[bool, Dict[str, List[int]]]:

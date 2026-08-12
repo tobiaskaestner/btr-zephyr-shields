@@ -16,7 +16,6 @@ below are no-ops for sockets without one.
 """
 from __future__ import annotations
 
-import re
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, cast
 
 # $ZEPHYR_BASE is what locates the devicetree package, so requiring it at
@@ -32,22 +31,17 @@ from .edt_build import BuildRecipe, build_edt, ensure_devicetree_on_path
 if TYPE_CHECKING:
     from devicetree import edtlib
 
+from .buskind import BUS_PROP_RE as _BUS_PROP_RE
+from .buskind import CS_POOL_PROP_RE as _CS_POOL_PROP_RE
 from .diag import SourceRef
 from .model import Board, BoardSocket, BusRef
 
 #: socket,<kind> or socket,<kind>-<role> -- a connector type names an
 #: additional bus of a kind by suffixing the kind with a role (multi-bus-
 #: socket schema, Sec 2); the QUALIFIED name (kind, or kind-role) is the
-#: key BoardSocket.buses/ConnectorType.cs_pool use throughout. Anchored
-#: full-match so a "-cs-pool" property (matched separately below) never
-#: also reads as a bus.
-_BUS_PROP_RE = re.compile(r"^socket,(i2c|spi|uart)(?:-\w+)?$")
-#: socket,<kind>-<role>-cs-pool -- a NAMED bus's own CS pool, keyed the
-#: same qualified way. The legacy, role-less "socket,cs-pool" (every real
-#: connector type's own spelling, unchanged by this schema) is handled
-#: separately: it is not this pattern's concern, since it carries no
-#: kind in its own name at all.
-_CS_POOL_PROP_RE = re.compile(r"^socket,((?:i2c|spi|uart)-\w+)-cs-pool$")
+#: key BoardSocket.buses/ConnectorType.cs_pool use throughout. shields.py
+#: and registry.py read the identical two patterns off their own inputs
+#: -- see buskind.py for the regexes themselves and why they live there.
 
 
 def load_board(name: str, dts_path: str, recipe: BuildRecipe,

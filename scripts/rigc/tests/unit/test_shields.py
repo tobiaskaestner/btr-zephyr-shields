@@ -560,8 +560,30 @@ def test_exposed_socket_pass_through(tmp_path) -> None:
     assert diags == []
     exp = shields["fx"].exposes["mb1"]
     assert exp.type_name == "mikrobus"
-    assert exp.gpio_map == {0: (1, 0)}
-    assert exp.buses["i2c"] == "plug"
+    assert exp.gpio_map == {0: ("plug", 1, 0)}
+    assert exp.buses["i2c"] == ("plug", "plug")
+
+
+def test_exposed_socket_cs_pool_qualified_and_bare_both_parse(tmp_path) -> None:
+    """Sec 2: a bare socket,cs-pool override lands in the "spi" entry
+    (byte-identical meaning to the old flat-list shape); a qualified
+    socket,<kind>-<role>-cs-pool lands under its OWN qualified key --
+    mirrors board_edt.py's/registry.py's own _CS_POOL_PROP_RE."""
+    shields, diags = _one_shield(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tplug: plug { #gpio-cells = <2>; };
+\t\t\tmb1 {
+\t\t\t\tcompatible = "socket,fixture-multibus";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\tsocket,cs-pool = <3 4>;
+\t\t\t\tsocket,spi-sensors-cs-pool = <5 6>;
+\t\t\t};
+\t\t};
+""")
+    assert diags == []
+    exp = shields["fx"].exposes["mb1"]
+    assert exp.cs_pool == {"spi": [3, 4], "spi-sensors": [5, 6]}
 
 
 def test_exposed_socket_new_scope_on_a_device(tmp_path) -> None:
@@ -918,9 +940,12 @@ def test_plural_shield_routing_jumper_is_rejected(tmp_path) -> None:
     assert shields["fx"].jumpers == {}
 
 
-def test_plural_shield_exposed_socket_is_rejected(tmp_path) -> None:
-    """Sec 6: exposed sockets (carriers) are refused outright on a plural
-    shield this slice -- multi-plug carriers are their own future slice."""
+def test_plural_shield_exposed_socket_mixed_parents(tmp_path) -> None:
+    """multi-plug-carrier-brief.md Sec 1 ruling 1: a plural shield MAY
+    declare an exposed socket -- each gpio-map row and each socket,<bus>
+    resolves through ONE of the carrier's plugs, and the marker/tuple
+    RECORDS which one, exactly like the single-plug form's own "plug"
+    slot does."""
     dt = _dt(tmp_path, """
 \t\tfx: fx {
 \t\t\tleft_plug: left {
@@ -933,18 +958,76 @@ def test_plural_shield_exposed_socket_is_rejected(tmp_path) -> None:
 \t\t\t\tshield,plugs = "fixture-type";
 \t\t\t\t#gpio-cells = <2>;
 \t\t\t};
-\t\t\tmb1 {
+\t\t\tcombined {
 \t\t\t\tcompatible = "socket,mikrobus";
 \t\t\t\t#gpio-cells = <2>;
-\t\t\t\tsocket,i2c = <&left_plug>;
+\t\t\t\tgpio-map = <0 0 &left_plug 0 0>,
+\t\t\t\t\t   <1 0 &right_plug 1 0>;
+\t\t\t\tsocket,i2c = <&right_plug>;
+\t\t\t};
+\t\t};
+""")
+    shields, diags = parse_shields(dt, _PLURAL_TYPES)
+    assert diags == []
+    exp = shields["fx"].exposes["combined"]
+    assert exp.gpio_map == {0: ("left", 0, 0), 1: ("right", 1, 0)}
+    assert exp.buses["i2c"] == ("plug", "right")
+
+
+def test_plural_shield_exposed_socket_gpio_map_parent_must_be_a_plug(tmp_path) -> None:
+    """A gpio-map row's phandle must name one of the carrier's OWN plugs
+    -- naming any other node of the shield is rejected, worded to list
+    the carrier's plugs (plural) rather than the singular single-plug
+    wording."""
+    dt = _dt(tmp_path, """
+\t\tfx: fx {
+\t\t\tleft_plug: left {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t\tright_plug: right {
+\t\t\t\tcompatible = "shield,plug";
+\t\t\t\tshield,plugs = "fixture-type";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t};
+\t\t\tpads {
+\t\t\t\tsq: sq { };
+\t\t\t};
+\t\t\tcombined {
+\t\t\t\tcompatible = "socket,mikrobus";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\tgpio-map = <0 0 &sq 0 0>;
 \t\t\t};
 \t\t};
 """)
     shields, diags = parse_shields(dt, _PLURAL_TYPES)
     assert len(diags) == 1
-    assert diags[0].code == "lang-shield-plurality"
-    assert "future slice" in diags[0].message
-    assert shields["fx"].exposes == {}
+    assert diags[0].code == "lang-exposed"
+    assert "one of the carrier's plugs" in diags[0].message
+    assert shields["fx"].exposes["combined"].gpio_map == {}
+
+
+def test_exposed_socket_qualified_bus_name_the_type_does_not_declare_is_rejected(tmp_path) -> None:
+    """Sec 2: the child-side qualified bus name is validated exact-match
+    against the exposed type's OWN declared bus_proxies, no fallback --
+    "spi" is not among fixture-type-2's own vocabulary (i2c only)."""
+    dt = _dt(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tplug: plug { #gpio-cells = <2>; };
+\t\t\tch0 {
+\t\t\t\tcompatible = "socket,fixture-type-2";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\tsocket,spi = <&plug>;
+\t\t\t};
+\t\t};
+""")
+    shields, diags = parse_shields(dt, _PLURAL_TYPES)
+    assert len(diags) == 1
+    assert diags[0].code == "lang-exposed"
+    assert "does not declare" in diags[0].message
+    assert shields["fx"].exposes["ch0"].buses == {}
 
 
 def test_plural_shield_straps_are_unaffected_template_level_facts(tmp_path) -> None:
