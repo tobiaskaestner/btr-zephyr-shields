@@ -270,7 +270,26 @@ All three are now CLOSED — two with no work to do, one implemented.
    and Conv. 5's naming rule), which is a design document, not user
    documentation.
 
-   **Options, NONE ruled** — they are not exclusive:
+   **RULED 2026-08-13, and BRIEFED — `reference-vocabulary-brief.md`.**
+   `pin:` becomes `config:`; the **LABEL** is the naming authority for
+   every rig→shield string reference; `doc/` gains a reference page
+   covering every `shield,*` property. **This item now sequences BEFORE
+   item 28** by Tobi's instruction.
+
+   **Node-name-wins was ruled AGAINST on a census gathered to check
+   it** (31 shields, all 21 shield roots): device node names are 18
+   distinct over 30 uses — `sensor` alone is spelled the same in EIGHT
+   shields — against 29-of-30 for labels, whose one collision is a
+   deliberate fixture variant pair. Both are unambiguous within a
+   shield, so node-name-wins was implementable; it was rejected because
+   it costs ~4× the migration (12 rig files + 2 goldens + the promotion
+   grammar, vs 3 rig files + 2 config elements) and moves AGAINST the
+   grep-ability that motivated the item. The deciding argument was
+   consistency: the shield's own internal reference is already a label
+   (`shield,addr-from = <&tc_addr_strap>`), so label-wins makes the rig
+   string and the phandle the SAME identifier.
+
+   The options below are kept as the record of what was weighed:
    - Rename `pin:` → `config:`, aligning the rig with the model. A
      grammar retirement: 3 corpus rigs, item 28's `pin.<element>=`
      promotion grammar becomes `config.<element>=`, plus goldens.
@@ -284,10 +303,17 @@ All three are now CLOSED — two with no work to do, one implemented.
    - Keep both spellings and make the rule explicit: document the
      normalization in Conv. 5 and give `doc/` a page.
 
-   **Sequencing:** settle this BEFORE item 28 ships if the rename is
-   wanted, since item 28's grammar bakes `pin.` into a user-facing CLI
-   surface and into `_PROMOTION_OPTS`'s reserved-half rule. After that
-   it is a second migration instead of one.
+   **Sequencing: SETTLED — this goes FIRST**, ahead of item 28, whose
+   grammar becomes `config.<label>=<value>` and whose brief is updated
+   in the same commit as the rename.
+
+   **Two things the briefing turned up that are decisions, not
+   details** (both in the brief, §4 and §6): the `label=node.labels[0]
+   if node.labels else node.name` fallback in `shields.py` must become
+   a LOUD error, or an unlabeled config node silently reintroduces the
+   two-spellings problem; and `wires:` is a THIRD rig→shield reference
+   surface resolving by node name (`Shield.by_name`, 2 fixture users,
+   zero corpus) — recommended in scope, flagged for veto.
 
 ---
 

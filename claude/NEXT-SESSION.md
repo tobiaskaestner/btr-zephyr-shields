@@ -1,6 +1,170 @@
 # Rigs — Session Handoff
 
-## RESUME (2026-08-10) — SHIELD PLURALITY IS DONE AND COMMITTED. BACKLOG ITEM 8 IS CLOSED. NEXT = rig-schema.yaml, THEN BRIDLE MIGRATION.
+## RESUME (2026-08-13) — MULTI-PLUG IS DONE, ALL FOUR SLICES. PIN PROMOTION IS BRIEFED, RULED AND PARKED (backlog 28). A NEW VOCABULARY QUESTION IS OPEN AND UNRULED (backlog 29). NEXT = rig-schema.yaml, THEN BRIDLE MIGRATION.
+
+### STATE AT SESSION CLOSE (2026-08-13)
+
+btr-shields HEAD **`198cfeb`**. `main` is **ahead 12 of origin, NOT
+pushed**. **Tree is CLEAN** — the two docs the 2026-08-10 block left
+out for review were committed (`bb8825b`, `4579313`).
+
+**THIS SESSION WROTE NO CODE.** It was a read-only investigation plus
+two documents. **The gate was NOT run** — the last driver-verified
+numbers are the multi-plug thread's own (unit **709**, integration
+**254**, coverage **93%** vs the 88 floor). Treat those as CARRIED, not
+as observed today, and re-derive them from a real run before quoting
+them anywhere; a count carried forward from a handoff has been wrong
+before.
+
+### THE PREVIOUS BLOCK WAS STALE BY A WHOLE THREAD — read this first
+
+The 2026-08-10 block below claimed HEAD `36bf834`, ahead 21, and a
+deliberately dirty tree. **All three were wrong by the time anyone read
+it**: the entire multi-plug thread (S1–S4) landed on 2026-08-12 and was
+never written into this file. The lesson is the one this file already
+states about commit counts, generalized: **read HEAD, the ahead-count
+and the tree state from git at the START of a session, never from the
+top block here.** This block is a summary, not an authority.
+
+| commit | what |
+|---|---|
+| `8afb15d` | doc: the 2026-08-10 handoff block (below) |
+| `bb8825b` | doc: update bridle-migration — the two carried docs, now committed |
+| `4579313` | doc: the multi-plug design notes |
+| `4bca9b8` | doc: the multi-plug shield brief |
+| `99fd59c` | **S1 — a shield may plug more than one socket at once** |
+| `b2b5630` | corpus: quail_can_span, the two-socket click rig on quail |
+| `79c6260` | doc: the multi-plug carrier brief |
+| `88298f9` | **S2 — a carrier may re-export from more than one parent at once** |
+| `05efa12` | corpus: quail_eth_span, eth_click on a two-parent adapter |
+| `60a6fc7` | doc: the multi-plug promotion brief |
+| `643ead7` | **S3 — a multi-plug shield is promotable: `socket.<slot>=<label>`** |
+| `6becaee` | twister: the can_span_click suite — 12 → 13 suites |
+| `5a07a9d` | doc: the list-promotion brief |
+| `7b6d583` | **S4 — a promotion target may name several shields (`;`)** |
+| `198cfeb` | doc: the pin-promotion brief + backlog items 28/29 (this session) |
+
+### THE PROMOTION GRAMMAR AS IT NOW STANDS — read this before touching it
+
+```
+<target>     := <element>[;<element>...]
+<element>    := <shield>[@rev][:<assignment>...]
+<assignment> := socket=<label>          # fixed key, single-plug only
+              | socket.<slot>=<label>   # per-slot, plural only
+              | <device>.<prop>=<value> # params (device DTS LABEL)
+```
+
+`_PROMOTION_OPTS` is still the closed tuple `("socket",)`. A key
+containing a `.` is never a member of it — it is a param, or a slot
+when the device-half is exactly `socket`. Arity refusals live in
+`parse_promotion_opts`, NOT in `check_promotable` (ruling 4's plurality
+gate there is retired).
+
+### WHAT THIS SESSION ESTABLISHED — four facts, each driver-run
+
+1. **`adafruit_winc1500` is promotable by the GATE and unusable in
+   practice.** `shield.yml` declares `template: true`, it is
+   single-plug, `check_promotable` returns None and the desugaring
+   materializes — then analysis always fails
+   (`error[phys-position]`: the `irq-jmp` routing jumper's position
+   must be selected, domain D7/D2). **There is no command line that
+   works.** Four plausible spellings were probed and each fails on its
+   own sentence. It is the sole member of the singleton identity law's
+   `EXPECTED_REJECTING` for exactly this reason. → backlog item 28.
+
+2. **A REAL, UNFIXED CRASH, reachable from an authored rig today.** A
+   strap value that YAML does not parse as an int reaches
+   `f"{want:#04x}"` at `analyzer/addresses.py:233` and raises an
+   unhandled `ValueError` — `Instance.pins` is typed `Dict[str, int]`
+   and NOTHING enforces it. Reproduced from a hand-written rig, so it
+   is not gated on item 28 and is separable and cheap. The two
+   in-domain failures are graceful by contrast (`phys-pin`,
+   `phys-position`).
+
+3. **The two rig-side assignment blocks resolve against DIFFERENT
+   naming authorities, and no document says so.** `params:` keys are
+   the device's DTS **LABEL** (`gb_key: button {}` → `params: {gb_key:}`);
+   `pin:` keys are the config element's **NODE NAME**
+   (`w_irq_jmp: irq-jmp {}` → `pin: {irq_jmp:}`), with the label
+   REJECTED. `loader/params.py:227`'s `_`→`-` normalization is the only
+   reason the underscore form resolves at all. → backlog item 29.
+
+4. **A config-element reference is not greppable in either direction.**
+   `params: {gb_key:}` shares the literal `gb_key` with the shield;
+   `pin: {irq_jmp:}` shares NO literal with it (the shield has
+   `w_irq_jmp` and `irq-jmp`). Grepping the underscore form appears to
+   work only because both corpus config elements happen to be labelled
+   `<prefix>_<underscored node name>` — **a coincidence, not a
+   contract.** Also measured: `grep -rln 'pin:' doc/` → no match; the
+   Sphinx user tree documents `pin:` nowhere.
+
+### THE ONTOLOGY, CLARIFIED — two concepts and one syntax, not three
+
+Asked directly this session, and worth keeping because the syntax
+suggests otherwise. `shield,params`, `config { }` nodes and `pin:` are
+**not three peers**:
+
+- **Configuration element** (`config { }`: strap or jumper) — a choice
+  **a human realizes with their hands**. `ontology.md` §3's projection
+  principle: the DT records the RESULT (`reg = <0x49>`, the routed
+  pin), the config sheet records the ACTION ("set **ADDR jumper** to
+  state 1"). Neither output is redundant.
+- **`shield,params`** — a choice **realized by rebuilding**. Lands in
+  the overlay verbatim; its config-sheet appearance is a RECORD, not an
+  instruction.
+- **`pin:`** — **not a concept.** It is the rig-side assignment syntax
+  for configuration elements, both kinds. Every axis has this
+  declare/assign split: `shield,plugs`→`socket:`/`sockets:`,
+  `config { }`→`pin:`, `shield,params`→`params:`. Three declarations,
+  three assignment blocks, three names that match nothing.
+
+**Who resolves it when the rig is silent** is a genuine THIRD axis, not
+a property of the concept: a param falls back to its authored default
+(none → required, `check_param_invariant`); a strap is **allocated**; a
+jumper is **nobody's** → hard error; a CS position is **pool-allocated
+with no config element involved at all**. Non-CS positions are
+un-allocatable BY RULING, not in principle.
+
+### NEXT — the backlog is the authority, not this list
+
+1. **`rig-schema.yaml`** (item 7) — unchanged, still first. Retirement
+   debt for three grammars across rig.yml AND shield.yml, plus
+   plurality's `shields:`/`shield:` mutual-exclusion gap.
+2. **BRIDLE MIGRATION** (item 9) — the mission goal, every named
+   prerequisite done. Re-run `bridle-migration.md`'s triage against
+   bridle's CURRENT upstream, not the pinned checkout.
+
+**NEW, both parked deliberately by Tobi rather than queued:**
+
+- **Item 28 — pin promotion** (`pin-promotion-brief.md`). BRIEFED and
+  RULED 2026-08-12, all four rulings as recommended. **Do not
+  dispatch**; it sits behind the queue above. Two sub-rulings inside
+  the slice are still open (§5 the strap type check, §7 the law's
+  reject branch).
+- **Item 29 — the rig→shield reference vocabulary.** Findings 3 and 4
+  above, plus `pin:` vs the model's own `config { }`. **NO BRIEF, NO
+  RULING** — three non-exclusive options are recorded and none is
+  chosen. **This is the one item that needs Tobi before anything can
+  be written**, and it SEQUENCES BEFORE item 28 if the `pin:` →
+  `config:` rename is wanted, since item 28 bakes `pin.` into a
+  user-facing CLI surface.
+
+Off-sequence and unchanged, all Tobi's call: the **i2c-port binding
+decision**, the **tutorial playground honesty debt**, `invert:` (the
+last instance-level key with no CLI route, one real user).
+
+### OPEN, CARRIED
+
+- Everything in the 2026-08-10 block's own OPEN list is unchanged
+  EXCEPT the two uncommitted docs, which are now committed.
+- `RIGC_REFREEZE=1` is still BLOCKED by the harness classifier —
+  hand-edit goldens and verify BOTH ways.
+- From a session rooted at `/wrk/z/ws-up`, `rig-implementor`/
+  `rig-reviewer` are **NOT** agent types; dispatch as
+  `general-purpose` on **sonnet** with the role rules folded into the
+  prompt. Root at `btr-shields` itself if those types matter.
+
+## RESUME (2026-08-10, superseded) — SHIELD PLURALITY IS DONE AND COMMITTED. BACKLOG ITEM 8 IS CLOSED. NEXT = rig-schema.yaml, THEN BRIDLE MIGRATION.
 
 ### STATE AT SESSION CLOSE (2026-08-10)
 
