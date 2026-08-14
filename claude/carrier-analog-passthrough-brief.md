@@ -157,15 +157,34 @@ same "parent must be one of the carrier's plugs" check (`lang-exposed`).
 (2 child + phandle + 2 parent); with `#io-channel-cells = <1>` it is 3.
 Derive the stride from the declared cell counts; do not hardcode 5 and 3.
 
-**The open sub-question §3 leaves you** — what to do with the
+**RULED (Tobi, 2026-08-14): REQUIRE AND CHECK.** The
 `#pwm-cells`/`#io-channel-cells` a carrier author writes in the `.shield`
-file (the grove carriers already write `#io-channel-cells = <1>` on their
-`grove_a*` nodes). Three options: ignore it and derive from the parent;
-require it and refuse a mismatch against the resolved parent; or forbid
-it. **Recommended: require and check** — same shape as `shield,plugs`,
-where the shield states its claim and the analyzer refuses a mismatch
-loudly. **Flagged for veto** — if you take a different one, say so in
-the report and give the reason; do not let it be absorbed silently.
+file is mandatory alongside the corresponding map, and the analyzer
+refuses a mismatch against the resolved parent's own count. This is
+`shield,plugs`'s shape: the shield states a claim, the board carries the
+fact, and a disagreement is a loud error rather than one side silently
+winning.
+
+Concretely, three things follow, and all three are in scope:
+
+- An exposed node with `pwm-map` but no `#pwm-cells` (or `io-channel-map`
+  without `#io-channel-cells`) is a parse-time error — `lang-exposed`
+  fits, since it already covers malformed exposed nodes. So is the
+  reverse pairing if it is cheap to detect.
+- `ExposedSocket` gains the declared count per function; it is what §5's
+  stride is derived from, so the parse does not need to guess.
+- At composition, a declared count that differs from the resolved
+  parent's is refused with a sentence naming BOTH numbers and both
+  sides — the carrier's shield name and the parent socket's label. A
+  reader must be able to tell which one to change without opening either
+  file. `phys-subset` is the likely code (it already carries "the parent
+  does not offer what the carrier claims"); confirm its sentence fits or
+  introduce a new one, and say which you chose.
+
+The grove carriers already write `#io-channel-cells = <1>` on their
+`grove_a*` nodes (`boards/shields/grove/seeed_grove_base_v{1,2}.shield`),
+so they satisfy the new requirement as authored — verify that rather
+than assuming it, and if they do not, fix them here.
 
 **L2 — compose.**
 `rigc/analyzer/sockets.py::compose_socket` gains a pass-through branch
@@ -245,6 +264,11 @@ witnesses are fixture boards (§6).
    hardcoded one, and `BoardSocket` can express it (§3).
 3. Ruling 2's error fires, with its sentence.
 4. Ruling 3: a 3-cell PWM parent yields a diagnostic, not a traceback.
+4b. Require-and-check (§5): a missing `#pwm-cells`/`#io-channel-cells`
+   beside a map is refused at parse; a declared count disagreeing with
+   the resolved parent's is refused at composition, with both numbers in
+   the sentence. Both proven by tests, and the grove carriers checked
+   against the new requirement.
 5. The §5 wart fixed; any golden it moves hand-edited and verified BOTH
    ways (`RIGC_REFREEZE=1` is BLOCKED).
 6. **Every other golden byte-unchanged** — this slice adds a capability,
@@ -268,7 +292,10 @@ Brief the reviewer to MUTATION-CHECK: delete the adc branch from
 `compose_socket` and leave pwm — criterion 1's adc witness must fail;
 hardcode the synthesized nexus's cell count to 2 — criterion 2's test
 must fail on the CELL COUNT, not merely somewhere; restore the silent
-drop in ruling 2's branch — its test must fail on the SENTENCE.
+drop in ruling 2's branch — its test must fail on the SENTENCE; make the
+require-and-check comparison always succeed — criterion 4b's mismatch
+test must fail, and it must fail on the mismatch, not on a later
+symptom.
 
 Standing rules: an implementor's report is a HYPOTHESIS. This brief's
 line numbers and file lists are PREDICTIONS — re-derive them. Trace every
