@@ -1,0 +1,19 @@
+# nucleo_grove_farm — umbrella-subsystem activation (option A).
+#
+# Assembly: 1x seeed_grove_base_v2 (pure copper carrier, no Kconfig of its
+# own) + 1x grove_sens_bme280 (bosch,bme280 over I2C) + 1x grove_btn
+# (gpio-keys). Checked against the driver Kconfig (zephyr-rigs), same
+# umbrellas grove_sens_pinned_defconfig and lotus_buttons_defconfig already
+# establish for these exact two shields:
+#   - SENSOR is a bare `if SENSOR` menuconfig gate (drivers/sensor/Kconfig)
+#     with no default; RTC_PCF8523-style dt_compat_enabled auto-select
+#     cannot reach through it, so the rig opens it explicitly
+#     (grove_sens_pinned_defconfig's own CONFIG_SENSOR=y, unchanged here).
+#   - INPUT is likewise a bare `menuconfig` (subsys/input/Kconfig, default
+#     n); INPUT_GPIO_KEYS defaults to y once INPUT is on and
+#     DT_HAS_GPIO_KEYS_ENABLED, and selects GPIO transitively
+#     (lotus_buttons_defconfig's own CONFIG_INPUT=y/CONFIG_GPIO=y, listed
+#     explicitly below for the same clarity that file gives).
+CONFIG_SENSOR=y
+CONFIG_INPUT=y
+CONFIG_GPIO=y

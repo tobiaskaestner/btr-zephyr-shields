@@ -1,0 +1,34 @@
+# The first NESTED carrier promotion into the permanent corpus
+# (grove-carriers-brief.md Sec 7/acceptance criterion 3): a Seeed Grove
+# Base Shield V2 on the Nucleo Arduino header re-exports typed Grove
+# sockets, and one I2C shield (grove_sens_bme280, default 0x76 domain, no
+# config: needed) plus one digital shield (grove_btn) plug straight into
+# two of THOSE exposed sockets -- exactly nucleo_mux_farm's own
+# carrier-then-instance shape (S8), now through a passive carrier instead
+# of an active mux, and the first corpus rig to exercise
+# dts/bindings/connectors/grove.yaml's socket,i2c pass-through THROUGH a
+# composed exposed socket rather than a real board one (grove_sens_pinned
+# sits directly on the NanoC6's own board-DT grove_1).
+#
+# nucleo_f401re is picked over frdm_k64f (both carry the arduino_r3 alias
+# with socket,i2c -- grove-carriers-brief.md Sec 5) because it already
+# anchors the most corpus goldens (nucleo_datalogger, nucleo_wifi_logger[_ok],
+# nucleo_mux_farm, pilot_variants, shield_rev_pilot/family, ard_datalogger,
+# nucleo_mux_clash) -- test_emitted_corpus.py's cached-plain-build pattern
+# configures each board exactly once per session regardless of how many
+# rigs name it, so sitting beside this board's own goldens adds no new
+# plain-build cost at all, where frdm_k64f (2 existing rigs) or a sixth
+# board (0) would.
+instances:
+  - name: grove_1
+    shield: seeed_grove_base_v2
+    socket: arduino_r3
+  - name: sensor_a
+    shield: grove_sens_bme280
+    socket: grove_1.grove_i2c
+  - name: btn_a
+    shield: grove_btn
+    socket: grove_1.grove_d2
+    params:
+      gb_key:
+        zephyr,code: INPUT_KEY_0

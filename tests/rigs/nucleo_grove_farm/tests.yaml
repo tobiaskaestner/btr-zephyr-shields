@@ -1,0 +1,8 @@
+tests:
+  rigs.nucleo_grove_farm:
+    platform_allow:
+      - frdm_k64f/mk64f12/rig
+      - nucleo_f401re/stm32f401xe/rig
+    tags: rigs
+    extra_args:
+      - RIG=nucleo_grove_farm

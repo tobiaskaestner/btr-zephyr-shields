@@ -414,6 +414,14 @@ ACCEPT_CASES: List[RigCase] = [
     # with an AUTHORED address, distinct from the silent/allocated half
     # the singleton-law census already exercises for this same shield.
     RigCase("grove_sens_pinned", "m5stack_nanoc6/esp32c6/hpcore/rig", True),
+    # grove-carriers-brief.md Sec 7/acceptance criterion 3: the first
+    # NESTED carrier promotion in the permanent corpus -- a Grove Base
+    # Shield V2 on the Nucleo Arduino header re-exports typed Grove
+    # sockets, and one I2C shield (grove_sens_bme280) plus one digital
+    # shield (grove_btn) plug straight into two of those EXPOSED sockets,
+    # exactly nucleo_mux_farm's own carrier-then-instance shape (S8) but
+    # through a passive carrier instead of an active mux.
+    RigCase("nucleo_grove_farm", "nucleo_f401re/stm32f401xe/rig", True),
 ]
 
 REJECT_CASES: List[RigCase] = [

@@ -385,6 +385,79 @@ All three are now CLOSED — two with no work to do, one implemented.
    hold all four, so both variants drop in with no carrier-side work
    once the types exist.
 
+33. **ADC/PWM cannot pass through a carrier's exposed socket — a MODEL
+   gap, not a binding gap** (found during the grove base-carrier slice,
+   grove-carriers-brief.md Sec 6, ruling 3). `seeed_grove_base_v1`/`_v2`
+   author `grove_a0..a4`/`a0..a3` anyway, each with both a working
+   digital `gpio-map` (a real bridle fact — A0-A4 double as plain GPIO)
+   and an attempted `io-channel-map` targeting the carrier's own plug,
+   authored the way a real ADC pass-through would need to be declared.
+
+   **The attempted `io-channel-map` is a confirmed no-op, independent of
+   any binding fix.** `scripts/rigc/shields.py`'s `_parse_exposed`
+   (the sole parser of an exposed socket node) reads exactly four
+   things off it — `gpio-map`, `socket,<bus>`, `socket,cs-pool`,
+   `shield,channel` — never `io-channel-map`/`pwm-map`; verified
+   empirically (`ExposedSocket.buses`/`.gpio_map` for `grove_a0` come
+   back populated, no `adc_map` field exists on the dataclass at all to
+   have caught it). So the property is silently dropped before it ever
+   reaches composition.
+
+   **The wall, reached end to end**: a `grove_light`-shaped shield
+   plugged onto `seeed_grove_base_v2`'s exposed `grove_a0` fails with
+
+       error[phys-function]: 'light_a/light: io-channels' uses position
+       SIG0 as ADC, but socket 'grove_1.grove_a0' offers no adc on it
+       (no socket,adc-map entry)
+
+   from `analyzer/gpio.py`'s `_collect_channel` (`fmap = socket.adc_map;
+   resolved = fmap.get(pos)` → `None`), because `analyzer/sockets.py`'s
+   `compose_socket` — the ONLY function that ever builds a carrier's
+   synthesized `BoardSocket` — has no branch for `pwm_map`/`adc_map` at
+   all, only `gpio_map` and `buses` (i2c/spi/uart). `BoardSocket.pwm_map`/
+   `.adc_map` DO exist as fields (`model.py`) and DO get populated for a
+   real board socket — `board_edt.py:180` is the only other, and only
+   real, site that ever sets them, reading a board's own `pwm-map`/
+   `io-channel-map` via `edtlib.Node.maps()`. The SAME shield plugged
+   directly onto a real board socket that carries one (`seeeduino_lotus`'s
+   own `grove_a0`, checked by an ad-hoc build) resolves cleanly to
+   `io-channels = <&grove_a0 0>;` plus `&adc { status = "okay"; };` —
+   proving the gap is specific to the carrier-composition path, not a
+   general regression.
+
+   **Answering the brief's three-way question, by this evidence: it is
+   #2, a model gap, and bigger than a binding fix.** `arduino-r3.yaml`
+   lacking `io-channel-map`/`pwm-map` and neither `frdm_k64f` nor
+   `nucleo_f401re` carrying an ADC nexus on their own `arduino-r3`
+   sockets (§6's own finding) are BOTH true and BOTH necessary — but
+   insufficient on their own: even granting both, `_parse_exposed` would
+   still drop a carrier's declared `io-channel-map`, `ExposedSocket`
+   still has nowhere to hold it, and `compose_socket` still has no code
+   path to forward it into the synthesized socket's `adc_map`/`pwm_map`.
+   Closing this needs THREE changes together, all in `scripts/rigc/`,
+   before a binding/board-DT fix on the arduino-r3 side would even have
+   anything to attach to:
+     1. `ExposedSocket` gains `pwm_map`/`adc_map`-shaped fields, and
+        `_parse_exposed` learns to read `pwm-map`/`io-channel-map` off an
+        exposed node exactly as it already reads `gpio-map`.
+     2. `compose_socket` gains a pass-through branch for each, mirroring
+        the existing `gpio_map` nexus-row branch — nontrivial: PWM/ADC
+        pass-through is BY POSITION only (unlike the i2c/spi/uart
+        by-kind bus lookup), so it is a closer cousin of the gpio-map
+        branch than of the bus branch.
+     3. THEN, and only then, `arduino-r3.yaml` gaining `io-channel-map`/
+        `pwm-map` plus a real ADC/PWM nexus on `frdm_k64f`'s and
+        `nucleo_f401re`'s own arduino-r3 sockets becomes the thing that
+        actually lets `grove_light`/`grove_pwm_led`/`grove_servo`
+        resolve through a carrier on either twister board — the payoff
+        §5 describes but does not yet reach.
+
+   The multi-bus slice's CS-pool regression (a pass-through branch
+   leaking state into a composed socket of a different type) is the
+   standing warning for step 2: authoring it carelessly is exactly the
+   kind of non-obvious-state mistake that class of bug already happened
+   once.
+
 ---
 
 ## D. Test and coverage debt C2 created or exposed

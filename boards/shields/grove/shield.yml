@@ -1,0 +1,9 @@
+shields:
+  - name: seeed_grove_base_v1
+    full_name: Grove Base Shield V1.0 (Arduino R3 grove carrier, 19 sockets)
+    vendor: seeed
+    template: true
+  - name: seeed_grove_base_v2
+    full_name: Grove Base Shield V2.0 (Arduino R3 grove carrier, 12 sockets)
+    vendor: seeed
+    template: true

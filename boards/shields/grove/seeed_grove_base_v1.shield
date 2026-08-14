@@ -1,0 +1,188 @@
+/* Carrier: Seeed Studio Grove Base Shield V1.0 (bridle
+ * boards/shields/grove/seeed_grove_base_v1.overlay). An Arduino R3 shield
+ * that RE-EXPORTS 19 typed Grove sockets (grove-carriers-brief.md) --
+ * arduino_uno_click's shape at much larger N: pure pass-through copper, no
+ * devices of its own, every exposed socket's positions binding straight to
+ * this carrier's OWN plug positions (Convention 3).
+ *
+ * Bridle's own overlay #includes 21: grove_spi, grove_i2c, grove_a0..a4,
+ * grove_d0_uart, grove_d1..d13. SPI and the D0 UART connector are OUT OF
+ * SCOPE (ruling 2, backlog item 31) -- I2C, digital and analog only, 19
+ * sockets. Per-connector gpio-map targets are translated verbatim from
+ * bridle's own seeed_grove_base/grove_*_connector.dtsi (each `&arduino_
+ * header <n> 0` there is the identical index this project's own
+ * ARDUINO_HEADER_R3_* constant <n> names -- checked, not re-derived from a
+ * schematic). grove_d13 is a bridle fact, not an authoring omission: the
+ * Arduino header's own digital range ends at D13, so bridle's own
+ * grove_d13_connector.dtsi wires only SIG0 -- SIG1 has no header pin left
+ * to reach, and this carrier's grove_d13 below reproduces that (one
+ * gpio-map row, not two).
+ *
+ * grove_i2c: SIG0=A5(SCL)/SIG1=A4(SDA), matching bridle's own
+ * grove_i2c_connector.dtsi and the NanoC6 board socket (3c6eb98) --
+ * socket,i2c passes the plug's own I2C through (arduino-r3.yaml's
+ * socket,i2c, present on both nucleo_f401re/frdm_k64f).
+ *
+ * grove_a0..a4: authored PER RULING 3 (Tobi, 2026-08-14) even though ADC
+ * cannot resolve through them yet -- see grove-carriers-brief.md Sec 6 and
+ * this slice's own report for the wall this hits. gpio-map is a real,
+ * working digital pass-through (bridle's own copper fact: A0-A4 double as
+ * plain GPIO on an Arduino header); io-channel-map is authored the way a
+ * working ADC pass-through WOULD need to be declared (Sec 6's own
+ * phrase), targeting the plug in the adc function exactly like grove_
+ * light's own io-channels does one level down -- and is a confirmed
+ * no-op: scripts/rigc/shields.py's _parse_exposed reads "gpio-map",
+ * "socket,<bus>", "socket,cs-pool" and "shield,channel" only, never
+ * "io-channel-map" on an exposed socket node, so this property carries no
+ * further effect through the model. Kept in the source anyway: dropping
+ * it would silently misrepresent what "author the connector anyway"
+ * means, and a future implementor closing the wall has a real starting
+ * shape to extend rather than an invented one.
+ */
+
+#include <dt-bindings/connector/arduino-r3.h>
+#include <dt-bindings/connector/grove.h>
+
+/ {
+	shield-templates {
+		seeed_grove_base_v1: seeed_grove_base_v1 {
+			shield,plugs = "arduino-r3";
+			sgbv1_plug: plug { #gpio-cells = <2>; #io-channel-cells = <1>; };
+
+			grove_i2c: grove_i2c {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_A5 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_A4 0>;
+				socket,i2c = <&sgbv1_plug>;
+			};
+
+			grove_a0: grove_a0 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_A0 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_A1 0>;
+				#io-channel-cells = <1>;
+				io-channel-map = <GROVE_SIG0 &sgbv1_plug ARDUINO_HEADER_R3_A0>,
+						  <GROVE_SIG1 &sgbv1_plug ARDUINO_HEADER_R3_A1>;
+			};
+			grove_a1: grove_a1 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_A1 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_A2 0>;
+				#io-channel-cells = <1>;
+				io-channel-map = <GROVE_SIG0 &sgbv1_plug ARDUINO_HEADER_R3_A1>,
+						  <GROVE_SIG1 &sgbv1_plug ARDUINO_HEADER_R3_A2>;
+			};
+			grove_a2: grove_a2 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_A2 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_A3 0>;
+				#io-channel-cells = <1>;
+				io-channel-map = <GROVE_SIG0 &sgbv1_plug ARDUINO_HEADER_R3_A2>,
+						  <GROVE_SIG1 &sgbv1_plug ARDUINO_HEADER_R3_A3>;
+			};
+			grove_a3: grove_a3 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_A3 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_A4 0>;
+				#io-channel-cells = <1>;
+				io-channel-map = <GROVE_SIG0 &sgbv1_plug ARDUINO_HEADER_R3_A3>,
+						  <GROVE_SIG1 &sgbv1_plug ARDUINO_HEADER_R3_A4>;
+			};
+			grove_a4: grove_a4 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_A4 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_A5 0>;
+				#io-channel-cells = <1>;
+				io-channel-map = <GROVE_SIG0 &sgbv1_plug ARDUINO_HEADER_R3_A4>,
+						  <GROVE_SIG1 &sgbv1_plug ARDUINO_HEADER_R3_A5>;
+			};
+
+			grove_d1: grove_d1 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_D1 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_D2 0>;
+			};
+			grove_d2: grove_d2 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_D2 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_D3 0>;
+			};
+			grove_d3: grove_d3 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_D3 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_D4 0>;
+			};
+			grove_d4: grove_d4 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_D4 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_D5 0>;
+			};
+			grove_d5: grove_d5 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_D5 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_D6 0>;
+			};
+			grove_d6: grove_d6 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_D6 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_D7 0>;
+			};
+			grove_d7: grove_d7 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_D7 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_D8 0>;
+			};
+			grove_d8: grove_d8 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_D8 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_D9 0>;
+			};
+			grove_d9: grove_d9 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_D9 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_D10 0>;
+			};
+			grove_d10: grove_d10 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_D10 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_D11 0>;
+			};
+			grove_d11: grove_d11 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_D11 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_D12 0>;
+			};
+			grove_d12: grove_d12 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_D12 0>,
+					   <GROVE_SIG1 0 &sgbv1_plug ARDUINO_HEADER_R3_D13 0>;
+			};
+			/* Bridle fact: SIG1 has no header pin left to reach (the
+			 * Arduino header's digital range ends at D13) -- one row,
+			 * not two. */
+			grove_d13: grove_d13 {
+				compatible = "socket,grove";
+				#gpio-cells = <2>;
+				gpio-map = <GROVE_SIG0 0 &sgbv1_plug ARDUINO_HEADER_R3_D13 0>;
+			};
+		};
+	};
+};
