@@ -207,8 +207,8 @@ def _collect_channel(inst: Instance, dev: Device, ref: GpioRef, socket: BoardSoc
 def _resolve_jumper(inst: Instance, dev: Device, ref: GpioRef, ctype: ConnectorType,
                     result: GpioNets, diags: List[Diagnostic]) -> Optional[int]:
     """A routing jumper's position must be pinned by the rig (explicit
-    pin; non-CS positions are never auto-allocated). Returns the resolved
-    index or None (+ diagnostic)."""
+    config:; non-CS positions are never auto-allocated). Returns the
+    resolved index or None (+ diagnostic)."""
     assert ref.jumper is not None      # only called when the caller already checked
     jmp = inst.shield.jumpers[ref.jumper]
     dom = ", ".join(ctype.posname(p) for p in jmp.positions())
@@ -218,7 +218,7 @@ def _resolve_jumper(inst: Instance, dev: Device, ref: GpioRef, ctype: ConnectorT
             "phys-position",
             f"'{inst.name}/{dev.name}: {ref.prop}' routes through jumper "
             f"'{ref.jumper}' whose position must be selected — add "
-            f"pin: {{ {ref.jumper}: <position> }} to the instance "
+            f"config: {{ {jmp.label}: <position> }} to the instance "
             f"(domain: {dom})", tuple(x for x in (ref.src, jmp.src) if x)))
         return None
     pos = ctype.positions[sel].index if sel in ctype.positions else sel

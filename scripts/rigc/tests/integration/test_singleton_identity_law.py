@@ -177,7 +177,7 @@ def _promotion_target(shield: str) -> str:
 
 # Which eligible shields are expected to REJECT on both sides rather than
 # emit comparable artifacts. Today exactly one: adafruit_winc1500 needs a
-# routing-jumper selection (`pin:`) that neither side supplies, so both
+# routing-jumper selection (`config:`) that neither side supplies, so both
 # reject identically -- a real instance of the law (a promoted rig fails
 # exactly the way the checked-in rig it stands for would), but one that
 # compares STDERR and no artifact at all. Pinned because the reject
@@ -435,7 +435,7 @@ def test_singleton_law_holds(shield: str, tmp_path: Path) -> None:
     socket-less instance of that shield>` (via the path directly) behave
     IDENTICALLY -- same verdict, and either the same rejection (e.g.
     adafruit_winc1500: both sides reject identically on its own required
-    routing-jumper selection, `pin:`, an axis outside Sec 2.3's own
+    routing-jumper selection, `config:`, an axis outside Sec 2.3's own
     required-PARAM domain but one the law still holds for -- a promoted
     rig fails exactly the way the checked-in rig it stands for would) or
     every emitted artifact byte-for-byte plus context.cmake (Sec 2.2)."""

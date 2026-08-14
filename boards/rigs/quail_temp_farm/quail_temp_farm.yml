@@ -1,6 +1,6 @@
 # S5 — MikroE Quail temperature farm: CS pool (two Flash Clicks sharing spi1's
 # CS pool across sockets 1/2) and an address strap (two Temp Clicks on the
-# shared i2c1 — one free-allocated, one pinned via pin: addr_strap, R18).
+# shared i2c1 — one free-allocated, one pinned via config: tc_addr_strap, R18).
 
 instances:
   - name: flash_a
@@ -15,5 +15,5 @@ instances:
   - name: temp_b
     shield: temp_click
     socket: mikrobus_4
-    pin:
-      addr_strap: 0x49         # pinned allocation (R18)
+    config:
+      tc_addr_strap: 0x49      # pinned allocation (R18)

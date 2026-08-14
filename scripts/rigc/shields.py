@@ -101,6 +101,31 @@ def _is_plug_node(g) -> bool:
     return "compatible" in g.props and g.props["compatible"].to_string() == "shield,plug"
 
 
+def _require_label(node, kind: str, shield_name: str) -> Tuple[str, List[Diagnostic]]:
+    """The DTS label a rig->shield reference (`config:`/`wires:`)
+    resolves against, for a device, pad, strap or jumper. A node with
+    none is refused rather than silently addressed by its own node
+    name -- the fallback this replaces reopened exactly the
+    two-spellings ambiguity a label exists to remove, for the one kind
+    of node (config elements) that used to have a rig-facing reference
+    at all, now widened to every kind `wires:` can name too.
+
+    Returns (label, diagnostics): label is `node.labels[0]` when
+    present; otherwise it is the node's own name, a placeholder that
+    lets the caller still build a well-formed model object -- the
+    accompanying error means the run fails regardless of what value
+    ends up here -- and diagnostics carries the one error naming the
+    node and what it needs."""
+    if node.labels:
+        return node.labels[0], []
+    return node.name, [error(
+        "lang-shield-label",
+        f"{kind} '{node.name}' of shield '{shield_name}' has no DTS "
+        "label -- rig-facing references (config:/wires:) resolve by "
+        "label, never by node name -- give it one",
+        (src_of(node),))]
+
+
 def _parse_shield(node, types: Dict[str, ConnectorType],
                   ) -> Tuple[Shield, List[Diagnostic]]:
     diags: List[Diagnostic] = []
@@ -200,7 +225,7 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
     for group in node.nodes.values():
         if group.name == "pads":
             for pnode in group.nodes.values():
-                pad, d = _parse_pad(pnode)
+                pad, d = _parse_pad(pnode, shield.name)
                 diags += d
                 shield.pads[pad.name] = pad
                 shield.by_path[pnode.path] = pad
@@ -216,11 +241,13 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
                             "no plug axis (multi-plug slice 1)",
                             (src_of(snode),)))
                         continue
-                    jmp = _parse_jumper(snode)
+                    jmp, d = _parse_jumper(snode, shield.name)
+                    diags += d
                     shield.jumpers[jmp.name] = jmp
                     shield.by_path[snode.path] = jmp
                 else:
-                    strap = _parse_strap(snode)
+                    strap, d = _parse_strap(snode, shield.name)
+                    diags += d
                     shield.straps[strap.name] = strap
                     shield.by_path[snode.path] = strap
 
@@ -405,7 +432,9 @@ def _parse_device(node, shield: Shield, plugs_by_path: PlugsByPath, bus, group,
     if "shield,param-includes" in node.props:
         declared_param_includes = list(node.props["shield,param-includes"].to_strings())
 
-    dev = Device(name=name, label=node.labels[0] if node.labels else name,
+    label, d = _require_label(node, "device", shield.name)
+    diags += d
+    dev = Device(name=name, label=label,
                 compatible=compat, bus=bus, group=group, reg=reg,
                 addr_from=addr_from, cs_position=cs_position, plug=dev_plug,
                 collect=collect, declared_params=declared_params,
@@ -630,7 +659,7 @@ def _parse_exposed(node, plugs_by_path: PlugsByPath, shield: Shield,
         cs_pool=cs_pool, channel=channel, src=src_of(node)), diags
 
 
-def _parse_pad(node) -> Tuple[Pad, List[Diagnostic]]:
+def _parse_pad(node, shield_name: str) -> Tuple[Pad, List[Diagnostic]]:
     diags: List[Diagnostic] = []
     role = node.props["shield,role"].to_string() if "shield,role" in node.props else "bidir"
     if role not in ("driver", "listener", "bidir"):
@@ -641,22 +670,25 @@ def _parse_pad(node) -> Tuple[Pad, List[Diagnostic]]:
     of = None
     if "shield,of" in node.props:
         of = node.props["shield,of"].to_node().name.partition("@")[0]
-    return Pad(name=node.name, label=node.labels[0] if node.labels else node.name,
-              role=role, of=of, src=src_of(node)), diags
+    label, d = _require_label(node, "pad", shield_name)
+    diags += d
+    return Pad(name=node.name, label=label, role=role, of=of, src=src_of(node)), diags
 
 
-def _parse_strap(node) -> Strap:
+def _parse_strap(node, shield_name: str) -> Tuple[Strap, List[Diagnostic]]:
     dom = node.props["shield,domain"].to_nums()
     domain = [(dom[i], dom[i + 1]) for i in range(0, len(dom), 2)]
-    return Strap(name=node.name, label=node.labels[0] if node.labels else node.name,
-                domain=domain, sheet_label=_sheet_label(node), src=src_of(node))
+    label, diags = _require_label(node, "strap", shield_name)
+    return Strap(name=node.name, label=label, domain=domain,
+                sheet_label=_sheet_label(node), src=src_of(node)), diags
 
 
-def _parse_jumper(node) -> Jumper:
+def _parse_jumper(node, shield_name: str) -> Tuple[Jumper, List[Diagnostic]]:
     dom = node.props["shield,position-domain"].to_nums()
     domain = [(dom[i], dom[i + 1]) for i in range(0, len(dom), 2)]
-    return Jumper(name=node.name, label=node.labels[0] if node.labels else node.name,
-                 domain=domain, sheet_label=_sheet_label(node), src=src_of(node))
+    label, diags = _require_label(node, "jumper", shield_name)
+    return Jumper(name=node.name, label=label, domain=domain,
+                 sheet_label=_sheet_label(node), src=src_of(node)), diags
 
 
 def _sheet_label(node) -> str:

@@ -391,6 +391,11 @@ def test_symbolic_unit_address_with_authored_reg_is_rejected(tmp_path) -> None:
 
 
 def test_pads_straps_jumpers_and_lookup_helpers(tmp_path) -> None:
+    """`config_element`/`by_name`/`names()` all resolve by DTS LABEL
+    (item 29), never by node name -- exercised here via `addr_strap`/
+    `addr-strap` and `irq_jmp`/`irq-jmp`, which deliberately differ (the
+    real corpus's own naming convention), so a same-spelling coincidence
+    can never hide a label-vs-name bug."""
     shields, diags = _one_shield(tmp_path, """
 \t\tfx: fx {
 \t\t\tshield,plugs = "fixture-type";
@@ -416,20 +421,98 @@ def test_pads_straps_jumpers_and_lookup_helpers(tmp_path) -> None:
     assert isinstance(shield.pads["sq"], Pad)
     assert shield.pads["sq"].role == "driver"
     assert isinstance(shield.straps["addr-strap"], Strap)
+    assert shield.straps["addr-strap"].label == "addr_strap"
     assert shield.straps["addr-strap"].domain == [(0x48, 0), (0x49, 1)]
     assert isinstance(shield.jumpers["irq-jmp"], Jumper)
+    assert shield.jumpers["irq-jmp"].label == "irq_jmp"
     assert shield.jumpers["irq-jmp"].domain == [(0, 0), (1, 1)]
     assert shield.jumpers["irq-jmp"].positions() == [0, 1]
     assert shield.jumpers["irq-jmp"].state_of(1) == 1
     assert shield.jumpers["irq-jmp"].state_of(99) is None
 
-    assert shield.config_element("addr-strap") is shield.straps["addr-strap"]
-    assert shield.config_element("irq-jmp") is shield.jumpers["irq-jmp"]
+    # by LABEL resolves; the node name (the pre-item-29 spelling) is
+    # REJECTED outright, never a fallback.
+    assert shield.config_element("addr_strap") is shield.straps["addr-strap"]
+    assert shield.config_element("addr-strap") is None
+    assert shield.config_element("irq_jmp") is shield.jumpers["irq-jmp"]
+    assert shield.config_element("irq-jmp") is None
     assert shield.config_element("no-such") is None
 
     assert shield.by_name("sq") == [shield.pads["sq"]]
+    assert shield.by_name("addr_strap") == [shield.straps["addr-strap"]]
+    assert shield.by_name("addr-strap") == []
     assert shield.by_name("no-such") == []
-    assert shield.names() == sorted(["sq", "addr-strap"])
+    assert shield.names() == sorted(["sq", "addr_strap"])
+
+
+def test_unlabeled_device_is_a_loud_error(tmp_path) -> None:
+    shields, diags = _one_shield(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tplug: plug { #gpio-cells = <2>; };
+\t\t\ti2c {
+\t\t\t\tdev@50 { compatible = "vnd,thing"; reg = <0x50>; };
+\t\t\t};
+\t\t};
+""")
+    assert len(diags) == 1
+    assert diags[0].code == "lang-shield-label"
+    assert "device 'dev@50'" in diags[0].message
+    assert "fx" in diags[0].message
+    assert "no DTS label" in diags[0].message
+
+
+def test_unlabeled_pad_is_a_loud_error(tmp_path) -> None:
+    shields, diags = _one_shield(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tplug: plug { #gpio-cells = <2>; };
+\t\t\tpads {
+\t\t\t\tsq { shield,role = "driver"; };
+\t\t\t};
+\t\t};
+""")
+    assert len(diags) == 1
+    assert diags[0].code == "lang-shield-label"
+    assert "pad 'sq'" in diags[0].message
+    assert "no DTS label" in diags[0].message
+
+
+def test_unlabeled_strap_is_a_loud_error(tmp_path) -> None:
+    shields, diags = _one_shield(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tplug: plug { #gpio-cells = <2>; };
+\t\t\tconfig {
+\t\t\t\taddr-strap {
+\t\t\t\t\tshield,domain = <0x48 0>;
+\t\t\t\t};
+\t\t\t};
+\t\t};
+""")
+    assert len(diags) == 1
+    assert diags[0].code == "lang-shield-label"
+    assert "strap 'addr-strap'" in diags[0].message
+    assert "no DTS label" in diags[0].message
+
+
+def test_unlabeled_jumper_is_a_loud_error(tmp_path) -> None:
+    shields, diags = _one_shield(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tplug: plug { #gpio-cells = <2>; };
+\t\t\tconfig {
+\t\t\t\tirq-jmp {
+\t\t\t\t\t#gpio-cells = <1>;
+\t\t\t\t\tshield,position-domain = <0 0>;
+\t\t\t\t};
+\t\t\t};
+\t\t};
+""")
+    assert len(diags) == 1
+    assert diags[0].code == "lang-shield-label"
+    assert "jumper 'irq-jmp'" in diags[0].message
+    assert "no DTS label" in diags[0].message
 
 
 def test_invalid_pad_role_is_rejected(tmp_path) -> None:

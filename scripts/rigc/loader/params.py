@@ -1,7 +1,10 @@
-"""Params, pins, per-instance-parameter vocabulary -- closing R2's
-ShieldRef deferrals (rigc-r3-brief.md Sec 5). Ported value-shaped from
-rigexp/loader_yml.py's `_apply_params_block`/`_check_param_invariant`/
-`_check_restate`/`_apply_pin_block`/`_check_param_token`.
+"""Params, config elements, per-instance-parameter vocabulary -- closing
+R2's ShieldRef deferrals (rigc-r3-brief.md Sec 5). Ported value-shaped
+from rigexp/loader_yml.py's `_apply_params_block`/
+`_check_param_invariant`/`_check_restate`/`_apply_pin_block`/
+`_check_param_token` (renamed `apply_config_block` here, item 29: the
+rig-side key is `config:`, resolving by DTS label, not the ported
+`pin:`/node-name original).
 
 Every function here takes the NARROW values it needs (a shield, a params:
 Val, a rig NAME) rather than a whole `Rig` or `Instance` (mission brief
@@ -203,14 +206,23 @@ def apply_params_block(params_v: Optional[Val], inst_name: str, shield: Shield,
     return params, param_refs, diags, deps
 
 
-def apply_pin_block(pin_v: Optional[Val], inst_name: str, shield: Shield,
-                    ) -> Tuple[Dict[str, int], Dict[str, SourceRef],
-                              Dict[str, object], Dict[str, SourceRef],
-                              List[Diagnostic]]:
-    """pin: {config-element-name: value} -- shared by the base parse and
-    a delta's instances: patch (which resets pins/jumpers first, so this
-    always starts from empty when called from a patch). PURE: returns
-    fresh dicts, never mutates an Instance.
+def apply_config_block(config_v: Optional[Val], inst_name: str, shield: Shield,
+                       ) -> Tuple[Dict[str, int], Dict[str, SourceRef],
+                                 Dict[str, object], Dict[str, SourceRef],
+                                 List[Diagnostic]]:
+    """config: {config-element-LABEL: value} -- shared by the base parse
+    and a delta's instances: patch (which resets pins/jumpers first, so
+    this always starts from empty when called from a patch). PURE:
+    returns fresh dicts, never mutates an Instance.
+
+    Resolution is by DTS LABEL only (`Shield.config_element`) -- the
+    node name is refused, and there is no underscore/hyphen
+    normalization: a label can never contain a hyphen, so trying one
+    could only mis-resolve. The returned dicts stay keyed by the
+    element's own NODE NAME regardless (`elem.name`): that is the
+    internal identity `apply_delta`/the analyzer already key
+    `Instance.pins`/`.jumpers` by, unaffected by which string a rig
+    author used to name the element.
 
     Returns (pins, pin_refs, jumpers, jumper_refs, diagnostics), all
     fresh values the caller owns."""
@@ -219,21 +231,21 @@ def apply_pin_block(pin_v: Optional[Val], inst_name: str, shield: Shield,
     jumpers: Dict[str, object] = {}
     jumper_refs: Dict[str, SourceRef] = {}
     diags: List[Diagnostic] = []
-    if pin_v is None:
+    if config_v is None:
         return pins, pin_refs, jumpers, jumper_refs, diags
-    for cfg_name, val_v in pin_v.value.items():
-        # resolution rule: pin keys name a config element (strap OR
-        # routing jumper) WITHIN the named shield
-        elem = (shield.config_element(cfg_name.replace("_", "-"))
-               or shield.config_element(cfg_name))
+    for cfg_label, val_v in config_v.value.items():
+        # resolution rule: config keys name a config element (strap OR
+        # routing jumper) of the named shield, BY LABEL
+        elem = shield.config_element(cfg_label)
         if elem is None:
-            names = sorted(list(shield.straps) + list(shield.jumpers))
+            labels = sorted([s.label for s in shield.straps.values()]
+                           + [j.label for j in shield.jumpers.values()])
             diags.append(error(
-                "lang-pin",
-                f"instance '{inst_name}': pin names no config element "
-                f"'{cfg_name}' of shield '{shield.name}'\n"
+                "lang-config",
+                f"instance '{inst_name}': config names no config element "
+                f"'{cfg_label}' of shield '{shield.name}'\n"
                 f"config elements of '{shield.name}': "
-                f"{', '.join(names) or 'none'}",
+                f"{', '.join(labels) or 'none'}",
                 (val_v.src,)))
             continue
         if isinstance(elem, Strap):

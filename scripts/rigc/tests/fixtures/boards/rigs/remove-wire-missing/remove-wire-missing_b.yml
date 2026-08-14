@@ -1,5 +1,5 @@
 # remove-wires: names x.sq -> y.led-2, which does not exist (the real
-# wire is x.sq -> y.led-1) -- rule 9.
+# wire is x.dl_sq -> y.dl_led1, item 29's label endpoints; this raw typo string is unmigrated on purpose -- find_wire matches it literally, never through Shield.by_name, so moving it would move this golden for no reason).
 remove-wires:
   - from: x.sq
     to: y.led-2

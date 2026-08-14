@@ -12,6 +12,6 @@ instances:
     shield: adafruit_data_logger
     socket: nucleo_ard
 wires:
-  - from: a.sq
-    to: b.led-1
+  - from: a.dl_sq
+    to: b.dl_led1
     route: {}

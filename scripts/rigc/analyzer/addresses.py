@@ -1,9 +1,10 @@
 """Address allocation (R9/R17/R18, rigc-r4-brief.md Sec 2). Ported from
 rigexp/analyzer.py's `_allocate_addresses`/`_allocate_scope`
 (`analyzer.py:444-533`), value-shaped: per I2C-bus SCOPE (a mux channel is
-a NEW scope, R26), fixed (copper `reg`) wins outright, pinned (R18 `pin:`
-strap) resolves through the strap's own domain, and everything else is
-allocated free from that same domain -- each in R18's stable `_key` order
+a NEW scope, R26), fixed (copper `reg`) wins outright, pinned (R18
+`config:` strap) resolves through the strap's own domain, and
+everything else is allocated free from that same domain -- each in
+R18's stable `_key` order
 (analyzer/ordering.py), never rig-file declaration order.
 
 **The value-shaped core** (rigc-r45-brief.md Part C, the CS treatment

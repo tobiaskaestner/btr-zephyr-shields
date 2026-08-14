@@ -7,9 +7,10 @@ dispatch.
 
 **R2's ShieldRef seam is CLOSED** (rigc-r3-brief.md Sec 0): `shield:`
 references resolve against a REAL `ShieldLibrary` (`loader/library.py`)
-here, and `params:`/`pin:` are fully applied (`loader/params.py`) rather
-than raising Unimplemented. Wire endpoints get their node-existence/
-ambiguity check back too (`resolve_dotted`, via `Shield.by_name`).
+here, and `params:`/`config:` are fully applied (`loader/params.py`)
+rather than raising Unimplemented. Wire endpoints get their
+label-existence/ambiguity check back too (`resolve_dotted`, via
+`Shield.by_name`).
 """
 from __future__ import annotations
 
@@ -23,7 +24,7 @@ from ..model import Instance, Shield, Wire, WireEnd
 from .binding import SocketBinding
 from .documents import Val, as_mapping, require
 from .library import ShieldLibrary
-from .params import apply_params_block, apply_pin_block, check_restate
+from .params import apply_config_block, apply_params_block, check_restate
 
 log = logging.getLogger(__name__)
 
@@ -123,7 +124,7 @@ def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
     analyzer resolves it later, alongside the existing mating check.
     `shield:` resolves against the REAL library (`lib.resolve`) -- the R2
     seam this slice closes. A DECLARED `socket:` still applies through the
-    binding; `pin:`/`params:` apply fully against the resolved shield.
+    binding; `config:`/`params:` apply fully against the resolved shield.
 
     Returns (instance, diagnostics, deps); instance is None when a
     required key is missing or the shield reference did not resolve.
@@ -142,8 +143,8 @@ def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
     diags += d
 
     inv_v = item.value.get("invert")
-    pins, pin_refs, jumpers, jumper_refs, d = apply_pin_block(
-        item.value.get("pin"), name, shield)
+    pins, pin_refs, jumpers, jumper_refs, d = apply_config_block(
+        item.value.get("config"), name, shield)
     diags += d
     tag = f"{rig_name}_{name}"
     params, param_refs, d, pdeps = apply_params_block(
@@ -167,7 +168,7 @@ def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
                           include_dirs: Optional[List[str]] = None,
                           ) -> Tuple[Instance, List[Diagnostic], Deps]:
     """Shallow-replace an EXISTING instance's top-level keys: a GIVEN key
-    REPLACES; an unspecified key INHERITS. shield/socket/invert/pin/params
+    REPLACES; an unspecified key INHERITS. shield/socket/invert/config/params
     are each the deepest merge unit -- no key merges into what was there
     before, it wholesale replaces it. When shield changes, the OLD params
     are keyed to the OLD shield's devices and are therefore meaningless
@@ -218,16 +219,17 @@ def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
         invert = bool(item.value["invert"].value)
 
     # NOTE: reproduced from the blueprint AS-IS (rigc-mission-brief.md
-    # Sec 2's "reproduce first" discipline): a shield swap with no `pin:`
-    # key alongside it leaves pins/jumpers referencing the OLD shield's
-    # config elements untouched -- only params: is unconditionally reset
-    # on a shield change. Revisiting this is a deliberate, post-green,
-    # golden-changing decision, never something that happens en route.
+    # Sec 2's "reproduce first" discipline): a shield swap with no
+    # `config:` key alongside it leaves pins/jumpers referencing the OLD
+    # shield's config elements untouched -- only params: is
+    # unconditionally reset on a shield change. Revisiting this is a
+    # deliberate, post-green, golden-changing decision, never something
+    # that happens en route.
     pins, pin_refs, jumpers, jumper_refs = (
         inst.pins, inst.pin_refs, inst.jumpers, inst.jumper_refs)
-    if "pin" in item.value:
-        pins, pin_refs, jumpers, jumper_refs, d = apply_pin_block(
-            item.value["pin"], inst.name, shield)
+    if "config" in item.value:
+        pins, pin_refs, jumpers, jumper_refs, d = apply_config_block(
+            item.value["config"], inst.name, shield)
         diags += d
 
     params, param_refs = inst.params, inst.param_refs

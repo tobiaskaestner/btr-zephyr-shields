@@ -14,5 +14,5 @@ instances:
   - name: wifi_1
     shield: adafruit_winc1500
     socket: arduino_r3
-    pin:
-      irq_jmp: D2                  # move IRQ off the RTC's D7
+    config:
+      w_irq_jmp: D2                # move IRQ off the RTC's D7

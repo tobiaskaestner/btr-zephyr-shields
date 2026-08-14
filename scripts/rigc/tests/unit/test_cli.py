@@ -277,7 +277,7 @@ def test_unreadable_rig_refuses(tmp_path: Path,
 
 def test_out_of_scope_feature_refuses(tmp_path: Path,
                                       capsys: pytest.CaptureFixture[str]) -> None:
-    """R3 closes the ShieldRef seam (params:/pin: are fully implemented
+    """R3 closes the ShieldRef seam (params:/config: are fully implemented
     now, the R2-era example this test used to exercise) -- a YAML parse
     failure is the capability that stays Unimplemented (rigc-r2-brief.md
     Sec 2: no frozen golden covers lang-parse wording, so Unimplemented

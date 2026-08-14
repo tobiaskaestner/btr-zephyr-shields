@@ -180,8 +180,8 @@ def test_collect_gpio_nets_skips_instances_without_a_resolved_socket() -> None:
 
 
 def test_collect_gpio_nets_jumper_deferred_position_needs_a_pin_selection() -> None:
-    """A gpio ref through a routing jumper with no `pin:` selection is a
-    phys-position rejection -- resolved only when the rig pins it."""
+    """A gpio ref through a routing jumper with no `config:` selection is
+    a phys-position rejection -- resolved only when the rig pins it."""
     socket = _socket(gpio_map={0: ("gpioa", 0, 0), 1: ("gpioa", 1, 0)})
     jmp = Jumper(name="irq_jmp", label="irq_jmp", domain=[(0, 0), (1, 1)],
                 sheet_label="")

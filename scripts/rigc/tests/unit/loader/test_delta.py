@@ -26,7 +26,7 @@ from rigc.loader.delta import (Topology, apply_delta, find_wire,
                                parse_instance, parse_wire, resolve_dotted)
 from rigc.loader.documents import Val, parse_marked
 from rigc.loader.library import ShieldLibrary
-from rigc.model import Device, Instance, Pad, Shield, Wire, WireEnd
+from rigc.model import Device, Instance, Pad, Shield, Strap, Wire, WireEnd
 
 _BINDING = SocketBinding()
 
@@ -289,17 +289,19 @@ def test_resolve_dotted_rejects_unknown_node_in_the_shield(tmp_path) -> None:
 
 
 def test_resolve_dotted_rejects_ambiguous_node(tmp_path) -> None:
-    """A name matching more than one of pads/devices/straps is ambiguous
-    (Shield.by_name's own contract) -- exercised here via two pads
-    sharing a name, the simplest synthetic collision."""
+    """A LABEL matching more than one of pads/devices/straps is ambiguous
+    (Shield.by_name's own contract, item 29: the scope resolves by
+    label) -- exercised here via a pad and a device sharing a LABEL
+    while their node names differ, the simplest synthetic collision
+    that survives the move off node-name matching."""
     shield = _shield("sh")
     shield.pads["dup"] = Pad(name="dup", label="dup", role="bidir", of=None)
     shield.by_path["p1"] = shield.pads["dup"]
-    # Shield.by_name scans self.pads.items() by NAME match, so a single
-    # dict cannot itself hold two same-named pads -- simulate the
-    # ambiguity the way the model actually allows it: a device sharing a
-    # pad's name.
-    shield.devices.append(Device(name="dup", label="dup_dev", compatible=None,
+    # Shield.by_name scans self.pads.values() by LABEL match, so a
+    # single dict cannot itself hold two same-labeled pads -- simulate
+    # the ambiguity the way the model actually allows it: a device
+    # sharing the pad's LABEL under a different node name.
+    shield.devices.append(Device(name="dup_dev", label="dup", compatible=None,
                                  bus=None, group="gpio", reg=None,
                                  addr_from=None, cs_position=None))
     doc = _doc(tmp_path, "x: a.dup\n")
@@ -413,6 +415,37 @@ def test_instances_patch_matching_by_name_replaces_socket(tmp_path) -> None:
     # the ORIGINAL topology's instance is untouched -- a new value, not a
     # mutation of the one handed in.
     assert topology.effective["a"].sockets["plug"] == "s"
+
+
+def test_instances_patch_config_replaces_pins(tmp_path) -> None:
+    """`_apply_instance_patch`'s config: branch -- the shallow-replace
+    site, the second of delta.py's two `apply_config_block` reads and
+    the one easiest to miss since it duplicates `parse_instance`'s own
+    call rather than sharing a helper. Resolves by LABEL, same as the
+    base parse."""
+    delta = _doc(tmp_path, """\
+        instances: [{name: a, config: {addr_strap: 73}}]
+        """)
+    shield = _shield("sh")
+    shield.straps["addr-strap"] = Strap(name="addr-strap", label="addr_strap",
+                                       domain=[(0x48, 0), (0x49, 1)], sheet_label="")
+    topology = _topology_with("a", shield=shield)
+    new_topology, diags, deps = _apply(delta, "variant", "b", topology)
+    assert diags == []
+    assert new_topology.effective["a"].pins == {"addr-strap": 73}
+
+
+def test_instances_patch_config_rejects_node_name(tmp_path) -> None:
+    delta = _doc(tmp_path, """\
+        instances: [{name: a, config: {addr-strap: 73}}]
+        """)
+    shield = _shield("sh")
+    shield.straps["addr-strap"] = Strap(name="addr-strap", label="addr_strap",
+                                       domain=[(0x48, 0), (0x49, 1)], sheet_label="")
+    topology = _topology_with("a", shield=shield)
+    _, diags, deps = _apply(delta, "variant", "b", topology)
+    assert len(diags) == 1
+    assert diags[0].code == "lang-config"
 
 
 def test_instances_patch_unknown_name_is_rejected(tmp_path) -> None:

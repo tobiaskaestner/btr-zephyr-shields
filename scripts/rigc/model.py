@@ -224,18 +224,40 @@ class Shield:
     src: Optional[SourceRef] = None
 
     def by_name(self, name: str) -> List[object]:
-        """Dotted-reference scope: pads UNION devices UNION straps."""
-        hits: List[object] = [p for n, p in self.pads.items() if n == name]
-        hits += [d for d in self.devices if d.name == name]
-        hits += [s for n, s in self.straps.items() if n == name]
+        """Dotted-reference scope for `wires:` endpoints: pads UNION
+        devices UNION straps, by DTS LABEL -- the naming authority every
+        rig->shield string reference shares with `config:` and
+        `params:` (a shield's own internal references are already
+        phandles, i.e. labels, so this makes the rig-typed string and
+        the phandle the same identifier). The node name never resolves
+        here, labelless or not: internal dict keys stay node-name
+        (`self.pads`/`self.straps` are keyed that way for
+        `by_path`/`config_element` lookups that never see a rig
+        string), this scan is the only rig-facing surface."""
+        hits: List[object] = [p for p in self.pads.values() if p.label == name]
+        hits += [d for d in self.devices if d.label == name]
+        hits += [s for s in self.straps.values() if s.label == name]
         return hits
 
     def config_element(self, name: str) -> Optional[Union["Strap", "Jumper"]]:
-        """A strap or jumper of this shield, by name (rig pin: targets)."""
-        return self.straps.get(name) or self.jumpers.get(name)
+        """A strap or jumper of this shield, by DTS LABEL (rig `config:`
+        targets) -- never by node name, which would let two spellings
+        (label and name) address the same element."""
+        for strap in self.straps.values():
+            if strap.label == name:
+                return strap
+        for jumper in self.jumpers.values():
+            if jumper.label == name:
+                return jumper
+        return None
 
     def names(self) -> List[str]:
-        return sorted(list(self.pads) + [d.name for d in self.devices] + list(self.straps))
+        """The `by_name` scope's own labels, for a wire-ref diagnostic's
+        "valid names" listing -- pads UNION devices UNION straps, sorted,
+        matching `by_name`'s own resolution scope exactly."""
+        return sorted([p.label for p in self.pads.values()]
+                     + [d.label for d in self.devices]
+                     + [s.label for s in self.straps.values()])
 
 
 @dataclass

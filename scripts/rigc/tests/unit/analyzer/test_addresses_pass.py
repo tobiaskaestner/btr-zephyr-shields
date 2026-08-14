@@ -95,7 +95,7 @@ def test_free_allocation_picks_first_unclaimed_domain_address() -> None:
                  sheet_label="")
     shield = _shield(straps={"addr": strap})
     dev = _dev("sensor", addr_from="addr")
-    inst = _inst("i1", shield)         # no pin: -- free allocation
+    inst = _inst("i1", shield)         # no config: -- free allocation
     inst.shield.devices.append(dev)
     rig = Rig(name="r", instances=[inst])
 

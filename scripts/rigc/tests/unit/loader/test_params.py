@@ -1,7 +1,7 @@
 """Unit: loader.params -- the per-instance-parameter invariant as a VALUE
 function (rigc-r3-brief.md Sec 6): "(declared params, authored defaults,
 assignments) -> findings", restate as "(previously-assigned set, delta-
-restated set) -> findings", and pin/params block application (a PURE
+restated set) -> findings", and config/params block application (a PURE
 function of a Val + a Shield, never mutating an Instance).
 
 **The cpp/unit-test seam**: `apply_params_block`'s token-resolution branch
@@ -20,7 +20,7 @@ from __future__ import annotations
 
 from rigc.diag import SourceRef
 from rigc.loader.documents import parse_marked
-from rigc.loader.params import (apply_params_block, apply_pin_block,
+from rigc.loader.params import (apply_config_block, apply_params_block,
                                check_param_invariant, check_restate)
 from rigc.model import Device, Instance, Jumper, Shield, Strap
 
@@ -170,51 +170,60 @@ def test_apply_params_block_one_bad_property_does_not_block_the_others(
     assert params == {"d": {"x": "1"}}
 
 
-# ------------------------------------------------------------- apply_pin_block
+# ----------------------------------------------------------- apply_config_block
 
-def test_apply_pin_block_none_is_a_no_op() -> None:
-    result = apply_pin_block(None, "a", _shield())
+def test_apply_config_block_none_is_a_no_op() -> None:
+    result = apply_config_block(None, "a", _shield())
     assert result == ({}, {}, {}, {}, [])
 
 
-def test_apply_pin_block_assigns_a_strap(tmp_path) -> None:
+def test_apply_config_block_assigns_a_strap_by_label(tmp_path) -> None:
+    """The rig key is the strap's DTS LABEL, which may differ from its
+    node name (the real corpus's own convention) -- the internal dicts
+    stay keyed by the strap's NODE NAME regardless (item 29 Sec 5:
+    internal keying is untouched, only the rig-facing lookup moves)."""
     shield = _shield()
-    shield.straps["addr-strap"] = Strap(name="addr-strap", label="addr-strap",
+    shield.straps["addr-strap"] = Strap(name="addr-strap", label="addr_strap",
                                        domain=[(0x48, 0), (0x49, 1)], sheet_label="")
-    pin_v = _val(tmp_path, "v: {addr-strap: 73}\n")
-    pins, pin_refs, jumpers, jumper_refs, diags = apply_pin_block(pin_v, "a", shield)
+    config_v = _val(tmp_path, "v: {addr_strap: 73}\n")
+    pins, pin_refs, jumpers, jumper_refs, diags = apply_config_block(config_v, "a", shield)
     assert diags == []
     assert pins == {"addr-strap": 73}
     assert jumpers == {}
 
 
-def test_apply_pin_block_assigns_a_jumper(tmp_path) -> None:
+def test_apply_config_block_assigns_a_jumper_by_label(tmp_path) -> None:
     shield = _shield()
-    shield.jumpers["irq-jmp"] = Jumper(name="irq-jmp", label="irq-jmp",
+    shield.jumpers["irq-jmp"] = Jumper(name="irq-jmp", label="irq_jmp",
                                        domain=[(0, 0), (1, 1)], sheet_label="")
-    pin_v = _val(tmp_path, "v: {irq-jmp: 1}\n")
-    pins, pin_refs, jumpers, jumper_refs, diags = apply_pin_block(pin_v, "a", shield)
+    config_v = _val(tmp_path, "v: {irq_jmp: 1}\n")
+    pins, pin_refs, jumpers, jumper_refs, diags = apply_config_block(config_v, "a", shield)
     assert diags == []
     assert jumpers == {"irq-jmp": 1}
     assert pins == {}
 
 
-def test_apply_pin_block_underscore_normalizes_to_hyphen(tmp_path) -> None:
-    """rig pin: keys may spell a config element with underscores; the
-    shield's own element names are hyphenated (YAML/DTS convention) --
-    tried literal first, then with underscores replaced by hyphens."""
+def test_apply_config_block_node_name_no_longer_resolves(tmp_path) -> None:
+    """item 29 removes the old `_`->`-` normalization outright: a DTS
+    label can never contain a hyphen, so the node-name/hyphen spelling
+    (`addr-strap`, the pre-item-29 accepted form) is now REJECTED,
+    exactly like any other unknown config element -- not silently
+    resolved via a fallback."""
     shield = _shield()
-    shield.straps["addr-strap"] = Strap(name="addr-strap", label="addr-strap",
+    shield.straps["addr-strap"] = Strap(name="addr-strap", label="addr_strap",
                                        domain=[(0x48, 0)], sheet_label="")
-    pin_v = _val(tmp_path, "v: {addr_strap: 72}\n")
-    pins, _, _, _, diags = apply_pin_block(pin_v, "a", shield)
-    assert diags == []
-    assert pins == {"addr-strap": 72}
-
-
-def test_apply_pin_block_unknown_config_element_is_rejected(tmp_path) -> None:
-    pin_v = _val(tmp_path, "v: {ghost: 1}\n")
-    _, _, _, _, diags = apply_pin_block(pin_v, "a", _shield())
+    config_v = _val(tmp_path, "v: {addr-strap: 72}\n")
+    pins, _, _, _, diags = apply_config_block(config_v, "a", shield)
+    assert pins == {}
     assert len(diags) == 1
-    assert diags[0].code == "lang-pin"
+    assert diags[0].code == "lang-config"
+    assert "names no config element 'addr-strap'" in diags[0].message
+    assert "addr_strap" in diags[0].message   # the sentence names the real label
+
+
+def test_apply_config_block_unknown_config_element_is_rejected(tmp_path) -> None:
+    config_v = _val(tmp_path, "v: {ghost: 1}\n")
+    _, _, _, _, diags = apply_config_block(config_v, "a", _shield())
+    assert len(diags) == 1
+    assert diags[0].code == "lang-config"
     assert "names no config element 'ghost'" in diags[0].message
