@@ -515,6 +515,54 @@ def test_unlabeled_jumper_is_a_loud_error(tmp_path) -> None:
     assert "no DTS label" in diags[0].message
 
 
+def test_unlabeled_exposed_socket_is_a_loud_error(tmp_path) -> None:
+    """The fourth (and last) rig-facing reference surface (item 30) --
+    `_parse_exposed` used to fall back to the node name silently, same as
+    devices/pads/straps/jumpers did before item 29; now it goes through
+    the same `_require_label` helper they do."""
+    shields, diags = _one_shield(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tplug: plug { #gpio-cells = <2>; };
+\t\t\tmb1 {
+\t\t\t\tcompatible = "socket,mikrobus";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\tsocket,i2c = <&plug>;
+\t\t\t};
+\t\t};
+""")
+    assert len(diags) == 1
+    assert diags[0].code == "lang-shield-label"
+    assert "exposed socket 'mb1'" in diags[0].message
+    assert "fx" in diags[0].message
+    assert "no DTS label" in diags[0].message
+
+
+def test_exposed_socket_label_is_the_naming_authority(tmp_path) -> None:
+    """`Shield.exposed_socket` resolves by DTS LABEL, never by node name
+    -- exercised with a label that DIFFERS from the node name (`span_ch0`
+    labelling `ch0`), since the real corpus's own 8 exposed nodes all
+    happen to share the two spellings and so cannot show which one
+    actually resolves."""
+    shields, diags = _one_shield(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tplug: plug { #gpio-cells = <2>; };
+\t\t\tspan_ch0: ch0 {
+\t\t\t\tcompatible = "socket,mikrobus";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\tsocket,i2c = <&plug>;
+\t\t\t};
+\t\t};
+""")
+    assert diags == []
+    shield = shields["fx"]
+    assert shield.exposes["ch0"].label == "span_ch0"
+    assert shield.exposed_socket("span_ch0") is shield.exposes["ch0"]
+    assert shield.exposed_socket("ch0") is None
+    assert shield.exposed_socket("no-such") is None
+
+
 def test_invalid_pad_role_is_rejected(tmp_path) -> None:
     shields, diags = _one_shield(tmp_path, """
 \t\tfx: fx {
@@ -632,7 +680,7 @@ def test_exposed_socket_pass_through(tmp_path) -> None:
 \t\tfx: fx {
 \t\t\tshield,plugs = "fixture-type";
 \t\t\tplug: plug { #gpio-cells = <2>; };
-\t\t\tmb1 {
+\t\t\tmb1: mb1 {
 \t\t\t\tcompatible = "socket,mikrobus";
 \t\t\t\t#gpio-cells = <2>;
 \t\t\t\tgpio-map = <0 0 &plug 1 0>;
@@ -656,7 +704,7 @@ def test_exposed_socket_cs_pool_qualified_and_bare_both_parse(tmp_path) -> None:
 \t\tfx: fx {
 \t\t\tshield,plugs = "fixture-type";
 \t\t\tplug: plug { #gpio-cells = <2>; };
-\t\t\tmb1 {
+\t\t\tmb1: mb1 {
 \t\t\t\tcompatible = "socket,fixture-multibus";
 \t\t\t\t#gpio-cells = <2>;
 \t\t\t\tsocket,cs-pool = <3 4>;
@@ -677,7 +725,7 @@ def test_exposed_socket_new_scope_on_a_device(tmp_path) -> None:
 \t\t\ti2c {
 \t\t\t\tmux: mux@70 { compatible = "vnd,mux"; reg = <0x70>; };
 \t\t\t};
-\t\t\tch0 {
+\t\t\tch0: ch0 {
 \t\t\t\tcompatible = "socket,i2c-port";
 \t\t\t\tsocket,i2c = <&mux>;
 \t\t\t\tshield,channel = <0>;
@@ -698,7 +746,7 @@ def test_exposed_socket_bus_prop_must_be_plug_or_device(tmp_path) -> None:
 \t\t\tpads {
 \t\t\t\tsq: sq { };
 \t\t\t};
-\t\t\tch0 {
+\t\t\tch0: ch0 {
 \t\t\t\tcompatible = "socket,i2c-port";
 \t\t\t\tsocket,i2c = <&sq>;
 \t\t\t};
@@ -1041,7 +1089,7 @@ def test_plural_shield_exposed_socket_mixed_parents(tmp_path) -> None:
 \t\t\t\tshield,plugs = "fixture-type";
 \t\t\t\t#gpio-cells = <2>;
 \t\t\t};
-\t\t\tcombined {
+\t\t\tcombined: combined {
 \t\t\t\tcompatible = "socket,mikrobus";
 \t\t\t\t#gpio-cells = <2>;
 \t\t\t\tgpio-map = <0 0 &left_plug 0 0>,
@@ -1077,7 +1125,7 @@ def test_plural_shield_exposed_socket_gpio_map_parent_must_be_a_plug(tmp_path) -
 \t\t\tpads {
 \t\t\t\tsq: sq { };
 \t\t\t};
-\t\t\tcombined {
+\t\t\tcombined: combined {
 \t\t\t\tcompatible = "socket,mikrobus";
 \t\t\t\t#gpio-cells = <2>;
 \t\t\t\tgpio-map = <0 0 &sq 0 0>;
@@ -1099,7 +1147,7 @@ def test_exposed_socket_qualified_bus_name_the_type_does_not_declare_is_rejected
 \t\tfx: fx {
 \t\t\tshield,plugs = "fixture-type";
 \t\t\tplug: plug { #gpio-cells = <2>; };
-\t\t\tch0 {
+\t\t\tch0: ch0 {
 \t\t\t\tcompatible = "socket,fixture-type-2";
 \t\t\t\t#gpio-cells = <2>;
 \t\t\t\tsocket,spi = <&plug>;

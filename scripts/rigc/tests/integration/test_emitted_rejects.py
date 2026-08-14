@@ -496,8 +496,9 @@ def test_remove_instance_drift_golden(tmp_path: Path) -> None:
 
 def test_remove_wire_missing_golden(tmp_path: Path) -> None:
     """Synthetic fixture: rule 9 -- remove-wires: naming an endpoint pair
-    that does not exist (the real wire is x.sq -> y.led-1; the delta tries
-    x.sq -> y.led-2)."""
+    that does not exist (the real wire is x.dl_sq -> y.dl_led1; the delta
+    tries x.dl_sq -> y.dl_led2 -- dl_led2 is a real label, just the wrong
+    endpoint)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "remove-wire-missing" / "rig.yml"
     result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="b")

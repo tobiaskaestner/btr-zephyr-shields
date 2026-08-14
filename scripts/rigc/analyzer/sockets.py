@@ -306,13 +306,18 @@ def resolve_sockets(rig: Rig, board: Board, types: Dict[str, ConnectorType],
             if parent is None:
                 return None
             parents[carrier_slot] = parent
-        exposed = carrier.shield.exposes.get(exp_name)
+        # resolved by the exposed node's DTS LABEL (item 30) -- the same
+        # naming authority config:/params:/wires: already share (item 29);
+        # a node name that differs from its own label no longer resolves.
+        exposed = carrier.shield.exposed_socket(exp_name)
         if exposed is None:
             diags.append(error(
                 "phys-socket",
                 f"{subject}: carrier '{carrier_name}' (shield "
                 f"'{carrier.shield.name}') exposes no socket '{exp_name}'\n"
-                f"exposed sockets: {', '.join(sorted(carrier.shield.exposes)) or 'none'}",
+                "exposed sockets: "
+                + (', '.join(sorted(e.label for e in carrier.shield.exposes.values()))
+                   or 'none'),
                 tuple(x for x in (inst.src, carrier.src) if x)))
             return None
         socket, d, scope_entries = compose_socket(

@@ -251,6 +251,18 @@ class Shield:
                 return jumper
         return None
 
+    def exposed_socket(self, name: str) -> Optional[ExposedSocket]:
+        """An exposed socket of this shield, by DTS LABEL (a rig `socket:
+        <carrier>.<exposed>` reference's dotted half) -- never by node
+        name, which would let two spellings (label and name) address the
+        same socket. `self.exposes` stays keyed by node name internally
+        (paths and nexus labels are built from `exposed.name`, never this
+        lookup) -- only this rig-facing lookup moves to the label."""
+        for exposed in self.exposes.values():
+            if exposed.label == name:
+                return exposed
+        return None
+
     def names(self) -> List[str]:
         """The `by_name` scope's own labels, for a wire-ref diagnostic's
         "valid names" listing -- pads UNION devices UNION straps, sorted,

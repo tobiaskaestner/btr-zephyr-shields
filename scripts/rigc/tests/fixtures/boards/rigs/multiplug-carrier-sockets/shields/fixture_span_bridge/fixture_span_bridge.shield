@@ -23,7 +23,7 @@
 				#gpio-cells = <2>;
 			};
 
-			combined {
+			combined: combined {
 				compatible = "socket,fixture-multibus";
 				#gpio-cells = <2>;
 				gpio-map = <10 0 &left_plug  0 0>,

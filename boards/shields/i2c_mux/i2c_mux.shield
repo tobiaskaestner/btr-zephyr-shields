@@ -23,10 +23,10 @@
 				};
 			};
 
-			ch0 { compatible = "socket,i2c-port"; socket,i2c = <&mux>; shield,channel = <0>; };
-			ch1 { compatible = "socket,i2c-port"; socket,i2c = <&mux>; shield,channel = <1>; };
-			ch2 { compatible = "socket,i2c-port"; socket,i2c = <&mux>; shield,channel = <2>; };
-			ch3 { compatible = "socket,i2c-port"; socket,i2c = <&mux>; shield,channel = <3>; };
+			ch0: ch0 { compatible = "socket,i2c-port"; socket,i2c = <&mux>; shield,channel = <0>; };
+			ch1: ch1 { compatible = "socket,i2c-port"; socket,i2c = <&mux>; shield,channel = <1>; };
+			ch2: ch2 { compatible = "socket,i2c-port"; socket,i2c = <&mux>; shield,channel = <2>; };
+			ch3: ch3 { compatible = "socket,i2c-port"; socket,i2c = <&mux>; shield,channel = <3>; };
 		};
 	};
 };

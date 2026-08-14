@@ -383,6 +383,56 @@ def test_resolve_sockets_carrier_chain_composes() -> None:
     assert resolution.sockets["eth_1"]["plug"].gpio_map[2] == ("gpiod", 0, 0)
 
 
+def test_resolve_sockets_carrier_exposed_socket_resolves_by_label_not_node_name() -> None:
+    """`socket: <carrier>.<exposed>` resolves by the exposed node's DTS
+    LABEL (item 30), exactly like config:/params:/wires: already do (item
+    29) -- proven here with a label that DIFFERS from the node name,
+    since the real corpus's own 8 exposed nodes all happen to share the
+    two spellings and so cannot show which one actually resolves."""
+    board = Board(name="b", sockets={
+        "ard": BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
+                          gpio_map={7: ("gpiod", 0, 0)}, buses={})})
+    carrier_shield = _shield(plugs="arduino-r3", exposes={
+        "ch0": ExposedSocket(name="ch0", label="span_ch0", type_name="mikrobus",
+                             gpio_map={2: ("plug", 7, 0)}, buses={})})
+    carrier = _inst("adapter_1", "ard", carrier_shield)
+    leaf = _inst("eth_1", "adapter_1.span_ch0", _shield(plugs="mikrobus"))
+    rig = Rig(name="r", instances=[carrier, leaf])
+
+    resolution, diags = resolve_sockets(
+        rig, board, {"arduino-r3": _ctype(), "mikrobus": _ctype("mikrobus")})
+
+    assert diags == []
+    assert resolution.sockets["eth_1"]["plug"].gpio_map[2] == ("gpiod", 0, 0)
+
+
+def test_resolve_sockets_carrier_exposed_socket_node_name_is_refused_once_it_differs() -> None:
+    """The other half: once the label differs from the node name, the
+    node name is no longer a valid spelling -- the miss diagnostic names
+    the LABEL among the carrier's exposed sockets, never the node name
+    that failed to resolve, so a revert to node-name lookup fails this on
+    the SENTENCE even where a naive partial revert might still refuse the
+    reference for some other reason."""
+    board = Board(name="b", sockets={
+        "ard": BoardSocket(label="ard", path="/ard", type_name="arduino-r3",
+                          gpio_map={7: ("gpiod", 0, 0)}, buses={})})
+    carrier_shield = _shield(plugs="arduino-r3", exposes={
+        "ch0": ExposedSocket(name="ch0", label="span_ch0", type_name="mikrobus",
+                             gpio_map={2: ("plug", 7, 0)}, buses={})})
+    carrier = _inst("adapter_1", "ard", carrier_shield)
+    leaf = _inst("eth_1", "adapter_1.ch0", _shield(plugs="mikrobus"))
+    rig = Rig(name="r", instances=[carrier, leaf])
+
+    resolution, diags = resolve_sockets(
+        rig, board, {"arduino-r3": _ctype(), "mikrobus": _ctype("mikrobus")})
+
+    assert "eth_1" not in resolution.sockets
+    assert len(diags) == 1
+    assert diags[0].code == "phys-socket"
+    assert "exposes no socket 'ch0'" in diags[0].message
+    assert "span_ch0" in diags[0].message
+
+
 def test_resolve_sockets_plural_carrier_slot_plugs_another_carriers_exposed_socket() -> None:
     """Chains recurse over a PLURAL carrier too (multi-plug-carrier-
     brief.md Sec 4): bridge's own 'left' slot plugs single_carrier's

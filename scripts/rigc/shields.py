@@ -102,13 +102,14 @@ def _is_plug_node(g) -> bool:
 
 
 def _require_label(node, kind: str, shield_name: str) -> Tuple[str, List[Diagnostic]]:
-    """The DTS label a rig->shield reference (`config:`/`wires:`)
-    resolves against, for a device, pad, strap or jumper. A node with
-    none is refused rather than silently addressed by its own node
-    name -- the fallback this replaces reopened exactly the
-    two-spellings ambiguity a label exists to remove, for the one kind
-    of node (config elements) that used to have a rig-facing reference
-    at all, now widened to every kind `wires:` can name too.
+    """The DTS label a rig->shield reference (`config:`/`wires:`/
+    `socket:`) resolves against, for a device, pad, strap, jumper or
+    exposed socket. A node with none is refused rather than silently
+    addressed by its own node name -- the fallback this replaces
+    reopened exactly the two-spellings ambiguity a label exists to
+    remove, for the one kind of node (config elements) that used to have
+    a rig-facing reference at all, now widened to every kind `wires:`
+    and `socket:` can name too.
 
     Returns (label, diagnostics): label is `node.labels[0]` when
     present; otherwise it is the node's own name, a placeholder that
@@ -121,8 +122,8 @@ def _require_label(node, kind: str, shield_name: str) -> Tuple[str, List[Diagnos
     return node.name, [error(
         "lang-shield-label",
         f"{kind} '{node.name}' of shield '{shield_name}' has no DTS "
-        "label -- rig-facing references (config:/wires:) resolve by "
-        "label, never by node name -- give it one",
+        "label -- rig-facing references (config:/wires:/socket:) "
+        "resolve by label, never by node name -- give it one",
         (src_of(node),))]
 
 
@@ -653,8 +654,10 @@ def _parse_exposed(node, plugs_by_path: PlugsByPath, shield: Shield,
 
     channel = node.props["shield,channel"].to_num() \
         if "shield,channel" in node.props else None
+    label, d = _require_label(node, "exposed socket", shield.name)
+    diags += d
     return ExposedSocket(
-        name=node.name, label=node.labels[0] if node.labels else node.name,
+        name=node.name, label=label,
         type_name=type_name, gpio_map=gpio_map, buses=buses,
         cs_pool=cs_pool, channel=channel, src=src_of(node)), diags
 

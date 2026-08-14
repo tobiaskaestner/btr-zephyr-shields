@@ -31,7 +31,7 @@
 				#gpio-cells = <2>;
 			};
 
-			combined {
+			combined: combined {
 				compatible = "socket,mikrobus";
 				#gpio-cells = <2>;
 				gpio-map = <MIKROBUS_CS  0 &left_plug  MIKROBUS_CS  0>,
