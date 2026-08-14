@@ -376,6 +376,11 @@ ACCEPT_CASES: List[RigCase] = [
     RigCase("frdm_eth_nest", "frdm_k64f/mk64f12/rig", True),
     RigCase("nucleo_mux_farm", "nucleo_f401re/stm32f401xe/rig", True),
     RigCase("lotus_pwm", "seeeduino_lotus/samd21g18a/rig", True),
+    # The pwm-shaped counterpart of lotus_buttons' gpio-leds collection:
+    # two grove_pwm_led entries aggregated into one pwm-leds node, each
+    # keeping its own resolved channel (tcc0 ch0 / ch1). The only corpus
+    # user of shield,collect on a NON-gpio function.
+    RigCase("lotus_pwm_led", "seeeduino_lotus/samd21g18a/rig", True),
     RigCase("lotus_buttons", "seeeduino_lotus/samd21g18a/rig", True),
     # Pilot rig family (rig-variants-revisions.md V1a): this entry alone
     # exercises the BARE target (declared defaults revision=1/variant=

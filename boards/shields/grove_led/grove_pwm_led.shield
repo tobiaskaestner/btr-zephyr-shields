@@ -1,0 +1,47 @@
+/* Shield: PWM LED, the other half of bridle's grove_led/ folder (32
+ * grove_pwm_led_dN pwm-leds overlays, alongside the 32 gpio-leds overlays
+ * grove_led.shield already ports). MCU drives the LED as a dimmable PWM
+ * output on the Grove signal pin; bridle's own period is PWM_MSEC(20).
+ *
+ * #pwm-cells = <3> on the PLUG mirrors grove_servo -- the shield-side claim
+ * is (position, period, flags). The SOCKET's own #pwm-cells is a board fact
+ * and differs (2 on every real socket this shield mates -- position,
+ * period, no flags): that asymmetry is the existing design (see
+ * grove_servo.shield), not a mistake to fix here.
+ *
+ * shield,collect = "pwm-leds" joins the shared pwm-leds collection node
+ * (Conv. 9), the pwm-shaped sibling of grove_led's own gpio-leds entry --
+ * one collection node per compatible, aggregating every instance's entry.
+ *
+ * invert: does not apply here -- it flips a gpio ACTIVE_LOW/HIGH flag bit,
+ * which a pwm ref does not carry (a PWM LED's brightness axis is the duty
+ * cycle a consumer drives at runtime, not a placement-time polarity); an
+ * instance of this shield setting invert: true is accepted but has no
+ * effect on the emitted pwms line.
+ *
+ * No twister suite: a PWM-capable Grove socket (a socket,grove board node
+ * declaring a pwm-map) exists on exactly one board in this tree,
+ * seeeduino_lotus -- whose base board lives in the bridle Zephyr module,
+ * which this workspace's west.yml does not import, so it is not a twister
+ * platform (the same reason grove_btn's lotus rig never got one either).
+ * m5stack_nanoc6's own Grove socket declares no pwm-map upstream.
+ */
+
+#include <dt-bindings/connector/grove.h>
+#include <zephyr/dt-bindings/pwm/pwm.h>
+
+/ {
+	shield-templates {
+		grove_pwm_led: grove_pwm_led {
+			shield,plugs = "grove";
+			gpl_plug: plug { #gpio-cells = <2>; #pwm-cells = <3>; };
+
+			pwm {
+				gpl_led: led {
+					shield,collect = "pwm-leds";	/* an entry in the shared pwm-leds collection */
+					pwms = <&gpl_plug GROVE_SIG0 20000000 PWM_POLARITY_NORMAL>;	/* 20 ms */
+				};
+			};
+		};
+	};
+};

@@ -139,22 +139,25 @@ def test_both_paths_error_names_both_offending_locations() -> None:
 def test_discover_shields_finds_the_real_corpus_and_agrees_with_template_flag() -> None:
     """Census (Sec 4): every discovered name (marker file present) whose
     shield.yml declares `template: true` shows up as promotable, and
-    every one of today's 21 corpus shields does -- 17 one-per-folder plus
-    two plurality folders: lcd_char_1602/lcd_tft_24 (shield-plurality-
-    brief.md Sec 5, boards/shields/arduino_lcd/, named neither) and
+    every one of today's 22 corpus shields does -- 15 one-per-folder plus
+    three plurality folders: lcd_char_1602/lcd_tft_24 (shield-plurality-
+    brief.md Sec 5, boards/shields/arduino_lcd/, named neither),
     grove_sens_bme280/grove_sens_bmp280/grove_sens_dps310
     (boards/shields/grove_sens/, named neither -- three shields, one
-    `.shield` per name, following arduino_lcd's own precedent); can_span_
-    click and mikrobus_span_adapter (the multi-plug corpus shields --
+    `.shield` per name, following arduino_lcd's own precedent), and
+    grove_led/grove_pwm_led (boards/shields/grove_led/, sharing the
+    folder bridle's own grove_led/ keeps both LED kinds in -- the one
+    plurality folder actually named after one of its own members); can_
+    span_click and mikrobus_span_adapter (the multi-plug corpus shields --
     multi-plug-shield-brief.md and multi-plug-carrier-brief.md's own
-    examples) are two of the 17 -- DISCOVERABLE, `template: true`, and
+    examples) are two of the 15 -- DISCOVERABLE, `template: true`, and
     (as of multi-plug-promotion-brief.md slice 3) genuinely promotable
     too, this census predicate having no plurality concept at all.
     Falsified by mutating a real shield.yml, not by editing this
     assertion (see the mutation test below) -- this one just proves the
     real tree is clean today."""
     shields = discover_shields()
-    assert len(shields) == 21
+    assert len(shields) == 22
     for info in shields.values():
         assert info.has_yml, f"{info.name}: discovered but no shield.yml"
         assert info.template, f"{info.name}: shield.yml omits template: true"

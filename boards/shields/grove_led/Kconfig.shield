@@ -2,3 +2,6 @@
 
 config SHIELD_GROVE_LED
 	def_bool $(shields_list_contains,grove_led)
+
+config SHIELD_GROVE_PWM_LED
+	def_bool $(shields_list_contains,grove_pwm_led)
