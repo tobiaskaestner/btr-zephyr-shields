@@ -125,6 +125,8 @@ BOARD_DTS: Dict[str, str] = {
         "boards/extend/nxp/frdm_k64f/frdm_k64f_mk64f12_rig.dts",
     "seeeduino_lotus/samd21g18a/rig":
         "boards/extend/seeed/seeeduino_lotus/seeeduino_lotus_samd21g18a_rig.dts",
+    "m5stack_nanoc6/esp32c6/hpcore/rig":
+        "boards/extend/m5stack/m5stack_nanoc6/m5stack_nanoc6_esp32c6_hpcore_rig.dts",
 }
 BOARDS: List[str] = list(BOARD_DTS)
 
@@ -400,6 +402,13 @@ ACCEPT_CASES: List[RigCase] = [
     # ARD_DATALOGGER_FRDM_BOARD, since one RigCase carries exactly one
     # board and this is the corpus's only rig genuinely built on two.
     RigCase("ard_datalogger", "nucleo_f401re/stm32f401xe/rig", True),
+    # grove_sens (the first real corpus shield behind the Grove socket's
+    # I2C bus proxy, dts/bindings/connectors/grove.yaml's socket,i2c):
+    # config: pins the address strap to its NON-DEFAULT domain state
+    # (0x77), a real user of the label-resolution config: path (item 29)
+    # with an AUTHORED address, distinct from the silent/allocated half
+    # the singleton-law census already exercises for this same shield.
+    RigCase("grove_sens_pinned", "m5stack_nanoc6/esp32c6/hpcore/rig", True),
 ]
 
 REJECT_CASES: List[RigCase] = [

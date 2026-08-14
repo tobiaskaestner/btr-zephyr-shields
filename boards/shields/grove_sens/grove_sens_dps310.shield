@@ -1,0 +1,41 @@
+/* Shield: bridle's grove_sens_dps310 overlay, ported -- see
+ * grove_sens_bme280.shield (same folder) for the shared address-strap
+ * shape and I2C-bus-proxy rationale; this comment covers only what
+ * differs.
+ *
+ * compatible "infineon,dps310" matches Zephyr's own binding
+ * (dts/bindings/sensor/infineon,dps310.yaml) -- a different part family
+ * from the Bosch BME/BMP280 pair above, but the identical SDO/solder-
+ * bridge addressing convention: the Infineon DPS310 datasheet ties the
+ * low address bit to the SDO pin the same way (SDO low = 0x76, SDO
+ * high = 0x77).
+ *
+ * Domain: 0x77 is bridle's own authored default (grove_sens_dps310.
+ * overlay, SDO pulled high); 0x76 is the standard alternate (SDO low),
+ * verified against the datasheet's own addressing table, not copied
+ * from the bridle table on trust.
+ */
+
+/ {
+	shield-templates {
+		grove_sens_dps310: grove_sens_dps310 {
+			shield,plugs = "grove";
+			gsdps_plug: plug { #gpio-cells = <2>; };
+
+			i2c {
+				gsdps_dev: sensor@addr_strap {
+					compatible = "infineon,dps310";
+					friendly-name = "Grove High Precision TP Sensor V1.0 (DPS310)";
+					shield,addr-from = <&gsdps_addr_strap>;
+				};
+			};
+
+			config {
+				gsdps_addr_strap: addr-strap {
+					shield,domain = <0x77 0>, <0x76 1>;	/* (address, strap) */
+					shield,sheet-label = "ADDR solder bridge";
+				};
+			};
+		};
+	};
+};

@@ -1,0 +1,16 @@
+# grove_sens_pinned — one grove_sens_bme280 on m5stack_nanoc6's single
+# Grove socket, config: pinning the address strap's NON-DEFAULT state
+# (0x77) -- a real user of the label-resolution config: path (item 29)
+# with an AUTHORED, not allocated, address. Only one instance is
+# possible here (one Grove socket, one plug -- unlike quail_temp_farm's
+# two temp_click instances, this shield has no second socket to free-
+# allocate the sibling into), so this rig exists specifically to exercise
+# the pinned half; the silent/allocated half is covered by the
+# singleton-law census promoting this same shield with no config:
+# assignment at all.
+
+instances:
+  - name: sensor_a
+    shield: grove_sens_bme280
+    config:
+      gsbme_addr_strap: 0x77      # pinned allocation (non-default domain state)

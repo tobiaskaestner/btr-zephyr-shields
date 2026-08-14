@@ -35,10 +35,17 @@ description: |
   Shield side (`plug,*` extension keys — opaque to edtlib's own model,
   preserved in Binding.raw under the vendor-namespaced top-level key
   exemption, carried commit 1a657124349): plug,bus-proxies names the proxy
-  nodes a shield may declare (i2c, for I2C Grove modules — not exercised by
-  the trial's modules); plug,positions lists the two claimable gpio
-  positions (SIG0/SIG1 — digital/analog Grove modules use them directly).
-  VCC/GND are power, not claimable, and have no position entry.
+  nodes a shield may declare (i2c, for I2C Grove modules — first exercised
+  by grove_sens); plug,positions lists the two claimable gpio positions
+  (SIG0/SIG1 — digital/analog Grove modules use them directly). VCC/GND
+  are power, not claimable, and have no position entry.
+
+  socket,i2c is the board-side half of that same I2C proxy (grove_sens):
+  the phandle to the I2C controller this socket reaches, absent on a
+  Grove socket that wires only the two digital signal positions.
+  arduino-r3.yaml/mikrobus.yaml already declare the identical property;
+  this binding had never needed it until a real I2C Grove module existed
+  to mate through it.
 
 compatible: "socket,grove"
 
@@ -49,6 +56,10 @@ properties:
     type: int
     required: true
     const: 2
+
+  socket,i2c:
+    type: phandle
+    description: I2C controller reachable through this socket (absent = not offered)
 
   pwm-map:
     type: compound

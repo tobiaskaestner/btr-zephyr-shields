@@ -146,7 +146,14 @@
 	/* Grove: both signal positions, plus pwm-map/io-channel-map for
 	 * grove_servo/grove_light -- same shape as boards/extend/seeed/
 	 * seeeduino_lotus/grove_sockets.dtsi's dual-function sockets,
-	 * pointed at this fixture's own pwm/adc controllers. */
+	 * pointed at this fixture's own pwm/adc controllers. socket,i2c is
+	 * added for grove_sens (the first eligible grove shield needing a
+	 * bus, not just gpio positions) -- shared nexus_i2c, same as
+	 * arduino-r3/mikrobus above; a real board's Grove socket carries
+	 * its own dedicated I2C controller (m5stack_nanoc6's i2c0), but
+	 * sharing here is harmless: no eligible mikrobus/arduino shield and
+	 * grove_sens ever mate the SAME socket, so there is no cross-type
+	 * address-scope collision to hide. */
 	nexus_grove: connector_grove {
 		compatible = "socket,grove";
 		#gpio-cells = <2>;
@@ -154,6 +161,7 @@
 		gpio-map-pass-thru = <0 0x3f>;
 		gpio-map = <GROVE_SIG0 0 &nexus_gpio 40 0>,
 			   <GROVE_SIG1 0 &nexus_gpio 41 0>;
+		socket,i2c = <&nexus_i2c>;
 
 		#pwm-cells = <2>;
 		pwm-map-mask = <0xffffffff 0x00000000>;

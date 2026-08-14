@@ -1,0 +1,11 @@
+# grove_sens_pinned -- one grove_sens_bme280 instance (compatible
+# "bosch,bme280"). The driver's own Kconfig (drivers/sensor/bosch/
+# bme280/Kconfig) auto-selects I2C once instantiated
+# ($(dt_compat_on_bus,$(DT_COMPAT_BOSCH_BME280),i2c)), but its
+# menuconfig sits inside drivers/sensor/Kconfig's own `if SENSOR` block
+# -- the SENSOR umbrella is not derived from any one compatible, so
+# nothing dt_compat_enabled-shaped turns it on; the rig must (Convention
+# 7: no per-instance driver config in Kconfig, but a subsystem umbrella
+# is the rig's own job, exactly like quail_temp_farm's CONFIG_SENSOR=y
+# for temp_click).
+CONFIG_SENSOR=y

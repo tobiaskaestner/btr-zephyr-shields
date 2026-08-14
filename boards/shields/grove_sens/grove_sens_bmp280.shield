@@ -1,0 +1,42 @@
+/* Shield: bridle's grove_sens_bmp280 overlay, ported -- see
+ * grove_sens_bme280.shield (same folder) for the shared address-strap
+ * shape and I2C-bus-proxy rationale; this comment covers only what
+ * differs.
+ *
+ * compatible "bosch,bme280" is correct here too: Zephyr's bme280 driver
+ * (dts/bindings/sensor/bosch,bme280-i2c.yaml) serves both the BME280 and
+ * the BMP280, electrically near-identical parts sharing one register
+ * map. Distinct product, distinct friendly-name and default address --
+ * still its own shield.
+ *
+ * Domain: 0x77 is bridle's own authored default (grove_sens_bmp280.
+ * overlay) -- this module ships with its SDO pin pulled high, the
+ * opposite default from the BME280 module. 0x76 is the standard
+ * alternate (SDO low), from the same Bosch BME280/BMP280 datasheet
+ * addressing table grove_sens_bme280.shield cites -- verified, not
+ * copied from the bridle table on trust.
+ */
+
+/ {
+	shield-templates {
+		grove_sens_bmp280: grove_sens_bmp280 {
+			shield,plugs = "grove";
+			gsbmp_plug: plug { #gpio-cells = <2>; };
+
+			i2c {
+				gsbmp_dev: sensor@addr_strap {
+					compatible = "bosch,bme280";
+					friendly-name = "Grove TP Sensor V1.0 (BMP280)";
+					shield,addr-from = <&gsbmp_addr_strap>;
+				};
+			};
+
+			config {
+				gsbmp_addr_strap: addr-strap {
+					shield,domain = <0x77 0>, <0x76 1>;	/* (address, strap) */
+					shield,sheet-label = "ADDR solder bridge";
+				};
+			};
+		};
+	};
+};

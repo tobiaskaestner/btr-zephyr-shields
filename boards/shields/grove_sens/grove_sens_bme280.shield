@@ -1,0 +1,55 @@
+/* Shield: bridle's grove_sens_bme280 overlay, ported -- the first real
+ * corpus shield to sit on the Grove socket's I2C bus proxy
+ * (plug,bus-proxies: [i2c] in dts/bindings/connectors/grove.yaml has
+ * declared this since 3a; nothing has exercised it before now).
+ *
+ * Address strap shaped exactly like temp_click's: the shield declares
+ * the DOMAIN (copper knowledge), the rig owns the SELECTION (config:,
+ * by label), and the expander alone authors the real reg + matching
+ * unit-address. Bridle's own overlay comment is why this is a strap and
+ * not a fixed reg: "Device address 0x76 is assumed per default. Your
+ * device may have a different address; check solder bridge on your
+ * device if unsure." -- a human realizes the choice with their hands.
+ *
+ * Domain: 0x76 is bridle's own authored default (grove_sens_bme280.
+ * overlay); 0x77 is the part's standard alternate -- the Bosch
+ * BME280 datasheet ties the low address bit to the SDO pin (SDO low =
+ * 0x76, SDO high = 0x77), so the solder bridge flips exactly this bit.
+ * Only the default came from bridle; the alternate is this port's own
+ * derivation, verified against the datasheet's own addressing table,
+ * not copied on trust.
+ *
+ * compatible "bosch,bme280" matches Zephyr's own binding
+ * (dts/bindings/sensor/bosch,bme280-i2c.yaml) -- the same driver also
+ * serves the BMP280 (grove_sens_bmp280.shield): electrically near-
+ * identical parts, same register map, different default solder-bridge
+ * state and silkscreen -- two distinct products, two shields.
+ *
+ * friendly-name is not a shield,* fact -- carried through as an
+ * ordinary passthrough property (shields.py's extra_props path),
+ * matching what bridle's own overlay authors on the real device node.
+ */
+
+/ {
+	shield-templates {
+		grove_sens_bme280: grove_sens_bme280 {
+			shield,plugs = "grove";
+			gsbme_plug: plug { #gpio-cells = <2>; };
+
+			i2c {
+				gsbme_dev: sensor@addr_strap {
+					compatible = "bosch,bme280";
+					friendly-name = "Grove THP Sensor V1.0 (BME280)";
+					shield,addr-from = <&gsbme_addr_strap>;
+				};
+			};
+
+			config {
+				gsbme_addr_strap: addr-strap {
+					shield,domain = <0x76 0>, <0x77 1>;	/* (address, strap) */
+					shield,sheet-label = "ADDR solder bridge";
+				};
+			};
+		};
+	};
+};

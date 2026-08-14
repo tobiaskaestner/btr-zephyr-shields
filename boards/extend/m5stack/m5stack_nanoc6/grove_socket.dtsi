@@ -21,10 +21,19 @@
  * grove sockets exactly (position occupies the low 6 bits of the child
  * unit address).
  *
- * Digital-only: upstream declares no pwm-map/io-channel-map for this
- * connector, so neither is added here -- both are optional per
+ * No pwm-map/io-channel-map: upstream declares neither for this
+ * connector, so neither is added here -- both stay optional per
  * dts/bindings/connectors/grove.yaml (not every Grove socket carries a
- * PWM/ADC-reachable position).
+ * PWM/ADC-reachable position). socket,i2c IS added below -- the board's
+ * own i2c0 already sits on these same two pins (see this file's own
+ * header), so the bus was always there in copper; this just types it.
+ *
+ * SIG0/SIG1 map onto i2c0's SCL/SDA in that same order: the board's own
+ * m5stack_nanoc6_hpcore-pinctrl.dtsi wires i2c0_default to
+ * I2C0_SCL_GPIO1 + I2C0_SDA_GPIO2, i.e. &gpio0 1 (SIG0) = SCL, &gpio0 2
+ * (SIG1) = SDA -- the identical pairing bridle's own
+ * grove_i2c_connector.dtsi uses (position 0 / A5 = I2C-SCL, position 1 /
+ * A4 = I2C-SDA).
  */
 
 #include <dt-bindings/connector/grove.h>
@@ -36,5 +45,6 @@
 		gpio-map-mask = <0xffffffff 0xffffffc0>;
 		gpio-map-pass-thru = <0 0x3f>;
 		gpio-map = <GROVE_SIG0 0 &gpio0 1 0>, <GROVE_SIG1 0 &gpio0 2 0>;
+		socket,i2c = <&i2c0>;
 	};
 };
