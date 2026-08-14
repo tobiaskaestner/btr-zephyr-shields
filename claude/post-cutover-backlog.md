@@ -212,7 +212,14 @@ All three are now CLOSED — two with no work to do, one implemented.
    `pin.` into a user-facing CLI surface and into the reserved-half
    rule. Afterwards it is two migrations instead of one.
 
-29. **THE rig→shield REFERENCE VOCABULARY — consistency, explainability,
+29. **CLOSED, LANDED 2026-08-14 (`33e5e49`).** `pin:` is `config:`, and
+   the DTS label is the naming authority for `config:`, `wires:` and
+   `params:` alike. The `_`→`-` normalization is gone; an unlabeled
+   device, pad, strap or jumper is a loud `lang-shield-label` error.
+   Every golden byte-unchanged, checked. **Item 30 carries what this
+   slice did NOT reach.** The doc page (the brief's §8) is still owed.
+
+   **THE rig→shield REFERENCE VOCABULARY — consistency, explainability,
    grep-ability.** Raised by Tobi 2026-08-12 while clarifying the
    ontology behind item 28. Not a defect anyone has hit: every
    diagnostic involved already lists the valid names. It is a
@@ -314,6 +321,39 @@ All three are now CLOSED — two with no work to do, one implemented.
    two-spellings problem; and `wires:` is a THIRD rig→shield reference
    surface resolving by node name (`Shield.by_name`, 2 fixture users,
    zero corpus) — recommended in scope, flagged for veto.
+
+30. **THE FOURTH REFERENCE SURFACE — `socket: <carrier>.<exposed>`.**
+   Parked by Tobi 2026-08-14, deliberately, at the moment item 29
+   landed. Item 29's ruling reads "the LABEL is the naming authority
+   for EVERY rig→shield string reference", and this one still resolves
+   by NODE NAME: a rig names a carrier's re-exported socket as
+   `adapter_1.mb1`, `mux_1.ch0`, `span.combined`.
+
+   **It is the largest such surface in the tree** — 15 references, 12
+   of them corpus (`frdm_eth_nest`, `nucleo_mux_farm`,
+   `shield_rev_family`, `shield_rev_pilot`, `quail_eth_span`,
+   `frdm_cs_clash`, `nucleo_mux_clash`), against `config:`'s 3 and
+   `wires:`'s 3. Re-derive with
+   `grep -rn 'socket: .*\.' boards/rigs scripts/rigc/tests/fixtures`.
+
+   Nothing regressed — item 29 simply did not reach it, and
+   `_parse_exposed`'s own `node.labels[0] if node.labels else
+   node.name` fallback was left in place for that reason (the only
+   surviving instance of the fallback item 29 otherwise killed). The
+   cost of closing it: **not one exposed-socket node in the tree
+   carries a label** — `mb1`/`mb2` (`arduino_uno_click`), `ch0..ch3`
+   (`i2c_mux`), `combined` (`mikrobus_span_adapter`) are all bare node
+   names — so it means labelling 8 nodes, migrating 15 references, and
+   moving goldens.
+
+   **Carry with it**: `remove-wire-missing_b.yml` still spells its
+   `remove-wires:` endpoints `x.sq → y.led-2`, the pre-item-29 node
+   names. Deliberate — `find_wire` matches the RAW endpoint pair and
+   never calls `Shield.by_name`, and the reject golden quotes the pair
+   verbatim, so migrating it moves that golden. `dl_led2` exists as a
+   label, so the coherent spelling (`x.dl_sq → y.dl_led2`) is available
+   at the price of one classified golden edit. Until then a fixture in
+   the tree carries the exact spelling item 29 exists to eliminate.
 
 ---
 
