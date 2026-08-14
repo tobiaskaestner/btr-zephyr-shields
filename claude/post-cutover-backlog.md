@@ -385,7 +385,21 @@ All three are now CLOSED — two with no work to do, one implemented.
    hold all four, so both variants drop in with no carrier-side work
    once the types exist.
 
-33. **ADC/PWM cannot pass through a carrier's exposed socket — a MODEL
+33. **STEPS 1 AND 2 CLOSED, LANDED 2026-08-14 (`88e53fc`,
+   `carrier-analog-passthrough-brief.md`).** PWM and ADC now pass through
+   a carrier's exposed socket: parsed (`rigc/shields.py::_parse_channel_map`),
+   composed (`rigc/analyzer/sockets.py::_compose_channel_map`) and
+   emitted (`rigc/emitter/overlay.py::_channel_nexus_block`).
+   `rigc/model.py::BoardSocket` gained `pwm_cells`/`adc_cells` — the
+   field this entry's own step 1 did not anticipate, and without which
+   the synthesized nexus could only ever hardcode a count.
+   **Step 3 below is NOT done** and has since split in two, blocked on a
+   prerequisite this entry did not know about; see items 34-36.
+
+   Original finding, kept because its diagnosis was right and its cost
+   estimate was not:
+
+   **ADC/PWM cannot pass through a carrier's exposed socket — a MODEL
    gap, not a binding gap** (found during the grove base-carrier slice,
    grove-carriers-brief.md Sec 6, ruling 3). `seeed_grove_base_v1`/`_v2`
    author `grove_a0..a4`/`a0..a3` anyway, each with both a working
@@ -457,6 +471,47 @@ All three are now CLOSED — two with no work to do, one implemented.
    standing warning for step 2: authoring it carelessly is exactly the
    kind of non-obvious-state mistake that class of bug already happened
    once.
+
+34. **3-cell PWM controllers are not supported, and that BLOCKS item 36.**
+   `rigc/board_edt.py::_project_channel_map` supports exactly one PWM
+   nexus shape: a 2-cell (channel, period) parent. Anything else is now a
+   loud `phys-board` diagnostic rather than the `ValueError` traceback it
+   used to be (`88e53fc`, ruling 3) — but a diagnostic is still a refusal.
+
+   **This is the common case, not an edge case, and the numbers are the
+   point.** A survey of upstream Zephyr's PWM bindings: **55 of 75 declare
+   THREE `pwm-cells`** (channel, period, flags); only **7 declare two** —
+   and `seeeduino_lotus`'s `atmel,sam0-tcc-pwm` is one of the 7. lotus,
+   the tree's only PWM-capable board, is the outlier. Both twister
+   platforms are 3-cell (`st,stm32-pwm`, `nxp,ftm-pwm`), so item 36
+   cannot land at all until this does.
+
+   ADC needs no equivalent work: **107 of 108 `io-channel-cells`
+   declarations are a single cell**, and both twister boards' ADC
+   (`st,stm32-adc`, `nxp,kinetis-adc16`) declare exactly one, `input`.
+
+   Scope: teach `_project_channel_map` and
+   `rigc/emitter/overlay.py::_render_ref` a 3-cell parent, deciding what
+   the flags cell means end to end (the analyzer already refuses a
+   nonzero PWM flags cell as `phys-function`, which is a ruling that
+   should be revisited once flags can actually be carried).
+
+35. **L4-ADC: give the Arduino R3 connector and the two twister boards an
+   ADC nexus.** `dts/bindings/connectors/arduino-r3.yaml` gains
+   `io-channel-map` and friends; `boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi`
+   and `boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi` gain a real
+   nexus from A0-A5 to the board's ADC. With item 33's model work landed
+   this is the last piece that makes `grove_light` resolve through a
+   grove base carrier on a twister platform — the payoff
+   `grove-carriers-brief.md` §5 describes and does not yet reach.
+   Unblocked, and cheap: see item 34 on why ADC needs no cell-count work.
+
+36. **L4-PWM: the same for PWM.** `pwm-map` on the connector binding and
+   on both board sockets, which additionally needs timer-channel
+   selection and pinctrl alternate-function work per SoC — STM32F401 TIM
+   channels against K64F FTM, different facts and different risk from
+   ADC, which is why it is its own item. **BLOCKED on item 34**: both
+   boards' PWM controllers are 3-cell. Do not start this before 34.
 
 ---
 
