@@ -113,6 +113,72 @@ def test_adc_ref_renders_position_only_no_flags_no_period() -> None:
     assert "io-channels = <&sock 3>;" in text
 
 
+def test_pwm_collection_entry_renders_the_resolved_period_not_the_flags_cell() -> None:
+    """Regression: `_collection_entry` used to run every ref through the
+    gpio-shaped two-cell render regardless of function -- <pos, ref.flags>
+    -- so a pwm-leds entry emitted the claim's POLARITY bit (0, always,
+    past the analyzer's phys-function gate) into the cell the nexus
+    expects to carry the resolved PERIOD from `s.channels`, dropping the
+    real period entirely. period=1234 here is chosen to differ sharply
+    from flags=0, so a value-swap regression (period and flags rendered
+    in each other's place) is visible rather than accidentally passing
+    because both happen to be small."""
+    ref = GpioRef(prop="pwms", position=5, flags=0, src=_SRC, function="pwm",
+                 period=1234)
+    dev = _plain_dev(name="led", label="led", collect="pwm-leds", gpio_refs=[ref])
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
+    rig = Rig(name="r", instances=[inst])
+    s = Solved(sockets={"i1": {"plug": _socket()}},
+              channels={("i1", "led", "pwms"): ("pwm", "pwm0", 0, 1234, 0, 5)})
+
+    text = render_overlay(rig, s, {"t": _ctype()})
+
+    assert 'compatible = "pwm-leds";' in text
+    assert "pwms = <&sock 5 1234>;" in text
+    assert "pwms = <&sock 5 0x0>;" not in text   # the old gpio-shaped bug
+
+
+def test_invert_does_not_touch_a_pwm_collection_entry() -> None:
+    """Criterion 3: invert: is a gpio-flags concept. Even on a COLLECTED
+    entry whose instance sets invert: true, the pwm branch never consults
+    inst.invert -- accepted, silently without effect on the emitted line."""
+    ref = GpioRef(prop="pwms", position=5, flags=0, src=_SRC, function="pwm",
+                 period=1234)
+    dev = _plain_dev(name="led", label="led", collect="pwm-leds", gpio_refs=[ref])
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"}, invert=True)
+    rig = Rig(name="r", instances=[inst])
+    s = Solved(sockets={"i1": {"plug": _socket()}},
+              channels={("i1", "led", "pwms"): ("pwm", "pwm0", 0, 1234, 0, 5)})
+
+    text = render_overlay(rig, s, {"t": _ctype()})
+
+    assert "pwms = <&sock 5 1234>;" in text
+    assert "inverted" not in text
+
+
+def test_adc_collection_entry_renders_one_cell_no_flags_no_period() -> None:
+    """The same shared renderer's adc branch, reached through the collect
+    path -- a genuine cell-count difference from the gpio-shaped render
+    (#io-channel-cells is 1, not 2), not merely a wrong value like the pwm
+    case above. No collected ADC device exists in the corpus today; this
+    pins the shared helper's behavior ahead of one landing."""
+    ref = GpioRef(prop="io-channels", position=3, flags=0, src=_SRC, function="adc")
+    dev = _plain_dev(name="sensor", label="sensor", collect="some-adc-collection",
+                     gpio_refs=[ref])
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
+    rig = Rig(name="r", instances=[inst])
+    s = Solved(sockets={"i1": {"plug": _socket()}},
+              channels={("i1", "sensor", "io-channels"): ("adc", "adc0", 0, None, 0, 3)})
+
+    text = render_overlay(rig, s, {"t": _ctype()})
+
+    assert 'compatible = "some-adc-collection";' in text
+    assert "io-channels = <&sock 3>;" in text
+
+
 def test_instance_params_replace_an_existing_prop_and_add_a_new_one() -> None:
     dev = _plain_dev(
         label="dev",

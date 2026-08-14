@@ -187,10 +187,11 @@ def _collections(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[s
 
 def _collection_entry(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
                       dev: Device) -> List[str]:
-    """One child of a collection node: the module's gpio signal. Node name and
-    label are the composed <instance>_<shield label> -- unique per (instance,
-    device), so an instance may contribute several entries (a shield with two
-    LEDs). The entry keeps its identity -- aggregation, not S3 collapse."""
+    """One child of a collection node: the module's function ref(s) (gpio,
+    pwm, or adc). Node name and label are the composed <instance>_<shield
+    label> -- unique per (instance, device), so an instance may contribute
+    several entries (a shield with two LEDs). The entry keeps its identity
+    -- aggregation, not S3 collapse."""
     lbl = f"{inst.name}_{dev.label}"
     lines = [f"\t{lbl}: {lbl} {{", f'\t\tlabel = "{lbl}";']
     # Carry through the device's passthrough properties -- a collected child
@@ -200,19 +201,7 @@ def _collection_entry(s: Solved, types: Dict[str, ConnectorType], inst: Instance
     for _pname, rendered in _instance_extra_props(inst, dev):
         lines.append(f"\t\t{rendered}")
     for ref in dev.gpio_refs:
-        socket = _ref_socket(s, inst, ref)
-        ctype = types[socket.type_name]
-        pos = s.positions.get((inst.name, dev.name, ref.prop), ref.position)
-        # The analyzer resolves every gpio ref's position (fixed or
-        # jumper-routed) before an accepted rig ever reaches the emitter;
-        # None here would mean that guarantee broke, not a rig-author
-        # mistake -- narrows the type for posname() below rather than
-        # silently rendering the literal text "None".
-        assert pos is not None
-        flags = ref.flags ^ 0x1 if inst.invert else ref.flags
-        lines.append(
-            f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {flags:#x}>;"
-            f"\t/* {ctype.posname(pos)}{' inverted' if inst.invert else ''} */")
+        lines.append(_render_ref(s, types, inst, dev, ref))
     lines.append("\t};")
     return lines
 
@@ -256,6 +245,82 @@ def _ref_socket(s: Solved, inst: Instance, ref: GpioRef) -> BoardSocket:
     socket = for_ref(s.sockets, inst, ref)
     assert socket is not None
     return socket
+
+
+def _render_ref(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
+                dev: Device, ref: GpioRef) -> str:
+    """One rendered property line for a single device reference (gpio, pwm,
+    or adc) -- the per-ref half of a device node's body, shared by every
+    caller that renders a device node's refs (`_device_node`, and through
+    it `_mux_node`'s nested devices, plus `_collection_entry`), so the
+    branch on `ref.function` is written exactly once. This is where a
+    prior duplication of this branch (the collect path once ran every ref
+    through the gpio-shaped render regardless of function) drifted into a
+    real bug: a pwm-leds entry emitted <pos, ref.flags> -- the claim's
+    POLARITY bit, always 0 past the analyzer's phys-function gate -- in
+    the cell the nexus expects to carry the resolved PERIOD, and dropped
+    the real period from `s.channels` entirely. A syntactically valid,
+    silently wrong zero-period PWM claim. One renderer removes the
+    opportunity to drift again.
+
+    `s`/`types`/`inst`/`dev`/`ref` are all read-only to this call; returns
+    a single line, already prefixed at two tabs ("\\t\\t") to match a
+    device node's own body indentation, that the caller owns."""
+    socket = _ref_socket(s, inst, ref)
+    ctype = types[socket.type_name]
+    pos = s.positions.get((inst.name, dev.name, ref.prop), ref.position)
+    # The analyzer resolves every ref's position (fixed or jumper-routed)
+    # before an accepted rig ever reaches the emitter; None here would
+    # mean that guarantee broke, not a rig-author mistake -- narrows the
+    # type for posname() below rather than silently rendering "None".
+    assert pos is not None
+    if ref.function == "gpio":
+        # Conv. 3: rewrite &plug (or the routing jumper, R6) to the socket's
+        # nexus -- a real board node, or a synthesized carrier nexus (R19,
+        # Option C). dtc chases the (multi-level) gpio-map to the pin.
+        # invert (bridle's _inv axis) is a GPIO-only concept -- it flips the
+        # active-level flag bit a gpio ref alone carries; a pwm/adc ref's
+        # own value means something else entirely (or, adc, does not exist)
+        # and is never consulted for invert, even on a collected entry
+        # whose instance sets invert: true.
+        flags = ref.flags ^ 0x1 if inst.invert else ref.flags
+        return (f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {flags:#x}>;"
+                f"\t/* {ctype.posname(pos)}{' inverted' if inst.invert else ''} */")
+    # pwm/adc: socket-relative, unified with the gpio idiom above -- dtc
+    # chases the socket's real pwm-map/io-channel-map nexus to the
+    # controller and channel; the expander does not resolve the channel
+    # itself.
+    _fn, _ctrl, _ch, period, flags, _pos = s.channels[(inst.name, dev.name, ref.prop)]
+    if ref.function == "pwm":
+        # PWM cells: the nexus's own #pwm-cells is 2 (position, period) --
+        # matching upstream atmel,sam0-tcc-pwm's flags-less 2-cell
+        # convention (channel, period). pwm-map-pass-thru <0x0 0xffffffff>
+        # carries exactly ONE cell through: period. There is NO cell for
+        # flags -- a 3rd cell here is not absorbed by the map at all;
+        # dtlib parses it as the start of a BOGUS trailing phandle-array
+        # element (silently a spurious null entry when it happens to be 0,
+        # a hard EDTError otherwise). So flags must never be emitted here;
+        # see below.
+        if flags:   # not assert -- must survive python -O
+            # Nonzero PWM flags are rejected upstream, by the analyzer
+            # (analyzer/gpio.py, category phys-function) -- a device with
+            # such a ref never earns a solved.channels entry, so cli.py
+            # exits on diags.errors before emitter.emit() is ever called
+            # (its "cannot fail" contract would otherwise be violated by a
+            # raised ValueError here). This documents the invariant rather
+            # than re-deriving the diagnostic; tripping it means the
+            # analyzer's guarantee broke, not that a rig author did
+            # something wrong.
+            raise AssertionError(
+                f"{inst.name}/{dev.name}: {ref.prop} reached the emitter "
+                f"with nonzero PWM flags {flags:#x} — the analyzer should "
+                "have rejected this (phys-function) before emission")
+        return (f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {period}>;"
+                f"\t/* {ctype.posname(pos)} */")
+    # adc: #io-channel-cells is 1 (channel only) -- one cell, no flags, no
+    # period; emitting the gpio-shaped two cells here would be a hard
+    # EDTError against a 1-cell map, not merely a wrong value.
+    return f"\t\t{ref.prop} = <&{_nexus(socket)} {pos}>;\t/* {ctype.posname(pos)} */"
 
 
 def _mux_node(rig: Rig, s: Solved, types: Dict[str, ConnectorType], inst: Instance,
@@ -304,61 +369,11 @@ def _device_node(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
         # PER-REFERENCE resolution (ruling 2): a cross-plug ref's own
         # slot may differ from this device's own bus slot, so each ref
         # looks up ITS OWN socket rather than sharing one across the
-        # whole device.
-        socket = _ref_socket(s, inst, ref)
-        ctype = types[socket.type_name]
-        if ref.function == "gpio":
-            # Conv. 3: rewrite &plug (or the routing jumper, R6) to the socket's
-            # nexus -- a real board node, or a synthesized carrier nexus (R19,
-            # Option C). dtc chases the (multi-level) gpio-map to the pin.
-            pos = s.positions.get((inst.name, dev.name, ref.prop), ref.position)
-            assert pos is not None   # see _collection_entry's own assert
-            flags = ref.flags ^ 0x1 if inst.invert else ref.flags   # bridle _inv axis
-            lines.append(
-                f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {flags:#x}>;"
-                f"\t/* {ctype.posname(pos)}{' inverted' if inst.invert else ''} */")
-        else:
-            # pwm/adc: socket-relative, unified with the gpio idiom above --
-            # dtc chases the socket's real pwm-map/io-channel-map nexus to
-            # the controller and channel; the expander does not resolve the
-            # channel itself.
-            #
-            # PWM cells: the nexus's own #pwm-cells is 2 (position, period)
-            # -- matching upstream atmel,sam0-tcc-pwm's flags-less 2-cell
-            # convention (channel, period). pwm-map-pass-thru
-            # <0x0 0xffffffff> carries exactly ONE cell through: period.
-            # There is NO cell for flags -- a 3rd cell here is not absorbed
-            # by the map at all; dtlib parses it as the start of a BOGUS
-            # trailing phandle-array element (silently a spurious null
-            # entry when it happens to be 0, a hard EDTError otherwise).
-            # So flags must never be emitted here; see below.
-            _fn, _ctrl, _ch, period, flags, _pos = s.channels[
-                (inst.name, dev.name, ref.prop)]
-            pos = s.positions.get((inst.name, dev.name, ref.prop), ref.position)
-            assert pos is not None   # see _collection_entry's own assert
-            if ref.function == "pwm":
-                # Nonzero PWM flags are rejected upstream, by the analyzer
-                # (analyzer/gpio.py, category phys-function) -- a device
-                # with such a ref never earns a solved.channels entry, so
-                # cli.py exits on diags.errors before emitter.emit() is
-                # ever called (its "cannot fail" contract would otherwise
-                # be violated by a raised ValueError here). This assert
-                # documents the invariant rather than re-deriving the
-                # diagnostic; tripping it means the analyzer's guarantee
-                # broke, not that a rig author did something wrong.
-                if flags:   # not assert -- must survive python -O
-                    raise AssertionError(
-                        f"{inst.name}/{dev.name}: {ref.prop} reached the "
-                        f"emitter with nonzero PWM flags {flags:#x} — the "
-                        "analyzer should have rejected this (phys-function) "
-                        "before emission")
-                lines.append(
-                    f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {period}>;"
-                    f"\t/* {ctype.posname(pos)} */")
-            else:  # adc
-                lines.append(
-                    f"\t\t{ref.prop} = <&{_nexus(socket)} {pos}>;"
-                    f"\t/* {ctype.posname(pos)} */")
+        # whole device -- handled inside _render_ref, shared verbatim
+        # with _collection_entry so the gpio/pwm/adc branch is written
+        # exactly once (see that function's own docstring for why this
+        # was extracted).
+        lines.append(_render_ref(s, types, inst, dev, ref))
     # Every device the analyzer accepted is, by definition, installed
     # hardware -- match the legacy shield convention of an explicit
     # status = "okay" on each instantiated device (not just its parent bus,
