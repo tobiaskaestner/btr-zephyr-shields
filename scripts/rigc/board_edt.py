@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 from .buskind import BUS_PROP_RE as _BUS_PROP_RE
 from .buskind import CS_POOL_PROP_RE as _CS_POOL_PROP_RE
-from .diag import SourceRef
+from .diag import LoadError, SourceRef, error
 from .model import Board, BoardSocket, BusRef
 
 #: socket,<kind> or socket,<kind>-<role> -- a connector type names an
@@ -162,23 +162,93 @@ def _project_socket(node: "edtlib.Node", compat: str) -> BoardSocket:
         buses[qualified] = BusRef(label=bus_node.labels[0], path=bus_node.path,
                                   cs_pool=cs_pools.get(qualified))
 
-    pwm_map: Dict[int, Tuple[str, int]] = {}
-    for entry in node.maps.get("pwm", []):
-        pos, _pos_period = entry.child_specifiers
-        channel, _channel_period = entry.parent_specifiers
-        pwm_map[pos] = (_controller_label(entry.parent), channel)
-
-    adc_map: Dict[int, Tuple[str, int]] = {}
-    for entry in node.maps.get("io-channel", []):
-        (pos,) = entry.child_specifiers
-        (channel,) = entry.parent_specifiers
-        adc_map[pos] = (_controller_label(entry.parent), channel)
+    pwm_map = _project_channel_map(node, label, "pwm", "pwm")
+    adc_map = _project_channel_map(node, label, "io-channel", "adc")
 
     return BoardSocket(
         label=label, path=node.path, type_name=type_name,
         gpio_map=gpio_map, buses=buses,
-        pwm_map=pwm_map, adc_map=adc_map,
+        pwm_map=pwm_map, pwm_cells=cast(int, _CHANNEL_FN["pwm"]["supported"]) if pwm_map else None,
+        adc_map=adc_map, adc_cells=cast(int, _CHANNEL_FN["adc"]["supported"]) if adc_map else None,
         src=SourceRef(node.filename, node.lineno, label))
+
+
+#: pwm/adc's shared checked-read table (carrier-analog-passthrough-
+#: brief.md Sec 4 ruling 3): the ONE parent (controller) cell count this
+#: expander supports per function today, plus the wording a mismatch's
+#: diagnostic needs. NOT a guess at what MIGHT show up -- a survey of
+#: upstream Zephyr's own PWM bindings found 55 of 75 declare THREE cells
+#: (channel, period, flags) and only 7 declare two (lotus's own
+#: atmel,sam0-tcc-pwm among them) -- so a 3-cell PWM parent is the COMMON
+#: case a real board hits here, not a rare guard; io-channel is close to
+#: uniform (107 of 108 bindings are 1-cell) but checked the same way
+#: regardless, for the identical reason (a checked read, not a guess).
+_CHANNEL_FN: Dict[str, Dict[str, object]] = {
+    "pwm": {
+        "cells_prop": "#pwm-cells",
+        "supported": 2,
+        "supported_desc": "channel, period",
+        "unsupported_note": (
+            "3-cell PWM controllers (most of upstream Zephyr, including "
+            "st,stm32-pwm and nxp,ftm-pwm) are not supported yet"),
+    },
+    "adc": {
+        "cells_prop": "#io-channel-cells",
+        "supported": 1,
+        "supported_desc": "channel",
+        "unsupported_note": "multi-cell ADC controllers are not supported yet",
+    },
+}
+
+
+def _project_channel_map(node: "edtlib.Node", label: str, specifier_space: str,
+                         fn: str) -> Dict[int, Tuple[str, int]]:
+    """pwm_map / adc_map's shared checked read (Sec 4 ruling 3): replaces
+    a bare `pos, _pos_period = entry.child_specifiers` /
+    `channel, _channel_period = entry.parent_specifiers` destructuring --
+    which raises an unhandled ValueError the instant a real controller's
+    own declared cell count differs from the one number this expander
+    hardcodes (a traceback, not a diagnostic; the exact M8-family defect
+    post-cutover-backlog.md item 3 already names) -- with a checked length
+    read that raises LoadError (phys-board), naming the socket, the
+    controller, and BOTH cell counts, whenever either side disagrees with
+    `_CHANNEL_FN`'s one supported count. `boarddt.load_board` is the
+    catch boundary that turns this into the caller's normal
+    (board, diagnostics, deps) return shape, exactly as dtsio.py's own
+    LoadError raises already do for a fatal cpp/parse failure.
+
+    This function does NOT add 3-cell PWM support (ruled out of scope) --
+    it only makes the unsupported case loud rather than a crash. Returns
+    position -> (controller label, channel); a socket authoring no map
+    for this specifier space yields `{}` (declared by absence), never a
+    placeholder."""
+    spec = _CHANNEL_FN[fn]
+    want = cast(int, spec["supported"])
+    result: Dict[int, Tuple[str, int]] = {}
+    for entry in node.maps.get(specifier_space, []):
+        ctrl = entry.parent
+        ctrl_label = ctrl.labels[0] if ctrl.labels else ctrl.path
+        if len(entry.child_specifiers) != want:
+            raise LoadError(error(
+                "phys-board",
+                f"socket '{label}': its own {spec['cells_prop']} declares "
+                f"<{len(entry.child_specifiers)}>, but rigc supports only "
+                f"a {want}-cell ({spec['supported_desc']}) {fn.upper()} "
+                "socket nexus today",
+                (SourceRef(node.filename, node.lineno, label),)))
+        if len(entry.parent_specifiers) != want:
+            raise LoadError(error(
+                "phys-board",
+                f"socket '{label}': {fn.upper()} controller '{ctrl_label}' "
+                f"declares {spec['cells_prop']} = <{len(entry.parent_specifiers)}>, "
+                f"but rigc supports only a {want}-cell "
+                f"({spec['supported_desc']}) {fn.upper()} parent today -- "
+                f"{spec['unsupported_note']}",
+                (SourceRef(node.filename, node.lineno, label),)))
+        pos = entry.child_specifiers[0]
+        channel = entry.parent_specifiers[0]
+        result[pos] = (_controller_label(entry.parent), channel)
+    return result
 
 
 def _controller_label(node: "edtlib.Node") -> str:

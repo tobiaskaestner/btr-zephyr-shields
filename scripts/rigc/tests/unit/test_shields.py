@@ -756,6 +756,176 @@ def test_exposed_socket_bus_prop_must_be_plug_or_device(tmp_path) -> None:
     assert diags[0].code == "lang-exposed"
 
 
+# --------------------------------------- exposed sockets: pwm/adc pass-through
+# (carrier-analog-passthrough-brief.md Sec 5)
+
+
+def test_exposed_socket_pwm_and_adc_pass_through(tmp_path) -> None:
+    """pwm-map/io-channel-map parse the SAME way gpio-map already does --
+    slot-widened (parent SLOT, parent plug position, filler) -- and each
+    map's own declared cell count is captured for compose_socket's
+    require-and-check (Sec 3c/Sec 5 RULED)."""
+    shields, diags = _one_shield(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tplug: plug { #gpio-cells = <2>; #pwm-cells = <2>; #io-channel-cells = <1>; };
+\t\t\tao: ao {
+\t\t\t\tcompatible = "socket,grove";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\tgpio-map = <0 0 &plug 0 0>;
+\t\t\t\t#pwm-cells = <2>;
+\t\t\t\tpwm-map = <0 0 &plug 0 0>;
+\t\t\t\t#io-channel-cells = <1>;
+\t\t\t\tio-channel-map = <0 &plug 0>;
+\t\t\t};
+\t\t};
+""")
+    assert diags == []
+    exp = shields["fx"].exposes["ao"]
+    assert exp.pwm_cells == 2
+    assert exp.pwm_map == {0: ("plug", 0, 0)}
+    assert exp.adc_cells == 1
+    assert exp.adc_map == {0: ("plug", 0, 0)}
+
+
+def test_exposed_socket_pwm_map_two_rows(tmp_path) -> None:
+    """Multi-row stride derivation: TWO pwm-map rows parse to two entries,
+    proving the derived (not hardcoded) stride advances `i` correctly."""
+    shields, diags = _one_shield(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tplug: plug { #gpio-cells = <2>; #pwm-cells = <2>; };
+\t\t\tao: ao {
+\t\t\t\tcompatible = "socket,grove";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\tgpio-map = <0 0 &plug 0 0>, <1 0 &plug 1 0>;
+\t\t\t\t#pwm-cells = <2>;
+\t\t\t\tpwm-map = <0 0 &plug 0 0>, <1 0 &plug 1 0>;
+\t\t\t};
+\t\t};
+""")
+    assert diags == []
+    exp = shields["fx"].exposes["ao"]
+    assert exp.pwm_map == {0: ("plug", 0, 0), 1: ("plug", 1, 0)}
+
+
+def test_exposed_socket_pwm_map_without_pwm_cells_is_rejected(tmp_path) -> None:
+    """RULED require-and-check: a pwm-map with no #pwm-cells alongside it
+    is a parse-time lang-exposed error, not a guess at the stride."""
+    shields, diags = _one_shield(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tplug: plug { #gpio-cells = <2>; #pwm-cells = <2>; };
+\t\t\tao: ao {
+\t\t\t\tcompatible = "socket,grove";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\tgpio-map = <0 0 &plug 0 0>;
+\t\t\t\tpwm-map = <0 0 &plug 0 0>;
+\t\t\t};
+\t\t};
+""")
+    assert len(diags) == 1
+    assert diags[0].code == "lang-exposed"
+    assert "#pwm-cells" in diags[0].message
+    exp = shields["fx"].exposes["ao"]
+    assert exp.pwm_map == {}
+    assert exp.pwm_cells is None
+
+
+def test_exposed_socket_pwm_cells_without_pwm_map_is_rejected(tmp_path) -> None:
+    """The reverse pairing (Sec 5: 'so is the reverse pairing if it is
+    cheap to detect') is equally a parse-time lang-exposed error."""
+    shields, diags = _one_shield(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tplug: plug { #gpio-cells = <2>; #pwm-cells = <2>; };
+\t\t\tao: ao {
+\t\t\t\tcompatible = "socket,grove";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\tgpio-map = <0 0 &plug 0 0>;
+\t\t\t\t#pwm-cells = <2>;
+\t\t\t};
+\t\t};
+""")
+    assert len(diags) == 1
+    assert diags[0].code == "lang-exposed"
+    assert "pwm-map" in diags[0].message
+
+
+def test_exposed_socket_io_channel_map_without_cells_is_rejected(tmp_path) -> None:
+    """Same require-and-check, ADC side (#io-channel-cells / io-channel-map)."""
+    shields, diags = _one_shield(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tplug: plug { #gpio-cells = <2>; #io-channel-cells = <1>; };
+\t\t\tao: ao {
+\t\t\t\tcompatible = "socket,grove";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\tgpio-map = <0 0 &plug 0 0>;
+\t\t\t\tio-channel-map = <0 &plug 0>;
+\t\t\t};
+\t\t};
+""")
+    assert len(diags) == 1
+    assert diags[0].code == "lang-exposed"
+    assert "#io-channel-cells" in diags[0].message
+    exp = shields["fx"].exposes["ao"]
+    assert exp.adc_map == {}
+    assert exp.adc_cells is None
+
+
+def test_exposed_socket_pwm_map_parent_must_be_a_plug(tmp_path) -> None:
+    """Mirrors gpio-map's own parent-must-be-a-plug check (lang-exposed) --
+    a pwm-map row pointing at anything else (here, a pad, which declares
+    no #pwm-cells of its own -- so the row's parent side is read at the
+    3-cell generic Zephyr default, _FUNCTION_DEFAULT_CELLS) is rejected
+    the same way."""
+    shields, diags = _one_shield(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tplug: plug { #gpio-cells = <2>; #pwm-cells = <2>; };
+\t\t\tpads {
+\t\t\t\tsq: sq { };
+\t\t\t};
+\t\t\tao: ao {
+\t\t\t\tcompatible = "socket,grove";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\tgpio-map = <0 0 &plug 0 0>;
+\t\t\t\t#pwm-cells = <2>;
+\t\t\t\tpwm-map = <0 0 &sq 0 0 0>;
+\t\t\t};
+\t\t};
+""")
+    assert len(diags) == 1
+    assert diags[0].code == "lang-exposed"
+    assert "pwm-map parent must be" in diags[0].message
+
+
+def test_exposed_socket_pwm_map_stride_from_a_three_cell_plug(tmp_path) -> None:
+    """The plug's OWN declared #pwm-cells drives the PARENT half of the
+    stride (mirroring _parse_pos_ref's own _ncells(target, function)
+    lookup) -- a 3-cell plug makes each row 6 words (2 child + phandle +
+    3 parent), never the 5 a 2-cell plug needs, so this must still parse
+    (not truncate) when the plug declares 3."""
+    shields, diags = _one_shield(tmp_path, """
+\t\tfx: fx {
+\t\t\tshield,plugs = "fixture-type";
+\t\t\tplug: plug { #gpio-cells = <2>; #pwm-cells = <3>; };
+\t\t\tao: ao {
+\t\t\t\tcompatible = "socket,grove";
+\t\t\t\t#gpio-cells = <2>;
+\t\t\t\tgpio-map = <0 0 &plug 0 0>;
+\t\t\t\t#pwm-cells = <2>;
+\t\t\t\tpwm-map = <0 0 &plug 0 0 0>;
+\t\t\t};
+\t\t};
+""")
+    assert diags == []
+    exp = shields["fx"].exposes["ao"]
+    assert exp.pwm_map == {0: ("plug", 0, 0)}
+    assert exp.pwm_cells == 2
+
+
 # ---------------------------------------------------------------- plural plugs (multi-plug-shield-brief.md)
 
 # A second connector type distinct from _PLUG_TYPE, so a two-slot shield

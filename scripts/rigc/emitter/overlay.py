@@ -404,9 +404,16 @@ def _synth_nexus_nodes(s: Solved) -> List[str]:
     synth: Dict[str, BoardSocket] = {}
 
     def visit(sock: Optional[BoardSocket]) -> None:
-        # skip board sockets (nexus_rows None) and gpio-less exposed sockets
-        # (empty rows -- e.g. an I2C-only mux channel, S8): nothing to route
-        if sock is None or not sock.nexus_rows or sock.nexus_label in synth:
+        # skip board sockets (no rows of ANY kind -- nexus_label is None)
+        # and sockets with nothing to route at all. An analog-only exposed
+        # socket (adc/pwm rows, no gpio -- e.g. a carrier's grove_a* with
+        # no digital pass-through) must NOT be skipped here (carrier-
+        # analog-passthrough-brief.md Sec 5): checking nexus_rows alone
+        # would drop it, since gpio's own rows are the only ones that used
+        # to exist.
+        if (sock is None
+                or not (sock.nexus_rows or sock.pwm_nexus_rows or sock.adc_nexus_rows)
+                or sock.nexus_label in synth):
             return
         assert sock.nexus_label is not None
         synth[sock.nexus_label] = sock
@@ -423,21 +430,61 @@ def _synth_nexus_nodes(s: Solved) -> List[str]:
            "/ {"]
     for label in sorted(synth):
         sock = synth[label]
-        assert sock.nexus_rows is not None
-        rows = ",\n\t\t\t   ".join(
-            f"<{child} 0 &{parent} {ppos} 0>"
-            for child, parent, ppos in sock.nexus_rows)
-        out += [f"\t{label}: {label} {{",
-                "\t\t#gpio-cells = <2>;",
-                # Match on the position cell only; mask the GPIO flag bits out
-                # of matching and pass them through to the parent -- the same
-                # nexus idiom the board's own typed socket uses. Without this
-                # edtlib demands an exact specifier match, so a consumer's
-                # <&nexus pos GPIO_ACTIVE_LOW> would fail against the stored
-                # <pos 0> row (the bug that blocked nested-carrier rigs).
-                "\t\tgpio-map-mask = <0xffffffff 0xffffffc0>;",
-                "\t\tgpio-map-pass-thru = <0 0x3f>;",
-                f"\t\tgpio-map = {rows};",
-                "\t};"]
+        out += [f"\t{label}: {label} {{"]
+        if sock.nexus_rows:
+            rows = ",\n\t\t\t   ".join(
+                f"<{child} 0 &{parent} {ppos} 0>"
+                for child, parent, ppos in sock.nexus_rows)
+            out += ["\t\t#gpio-cells = <2>;",
+                    # Match on the position cell only; mask the GPIO flag bits
+                    # out of matching and pass them through to the parent --
+                    # the same nexus idiom the board's own typed socket uses.
+                    # Without this edtlib demands an exact specifier match, so
+                    # a consumer's <&nexus pos GPIO_ACTIVE_LOW> would fail
+                    # against the stored <pos 0> row (the bug that blocked
+                    # nested-carrier rigs).
+                    "\t\tgpio-map-mask = <0xffffffff 0xffffffc0>;",
+                    "\t\tgpio-map-pass-thru = <0 0x3f>;",
+                    f"\t\tgpio-map = {rows};"]
+        if sock.pwm_nexus_rows:
+            assert sock.pwm_cells is not None
+            out += _channel_nexus_block(
+                "pwm", "pwm-map", sock.pwm_cells, sock.pwm_nexus_rows)
+        if sock.adc_nexus_rows:
+            assert sock.adc_cells is not None
+            out += _channel_nexus_block(
+                "io-channel", "io-channel-map", sock.adc_cells, sock.adc_nexus_rows)
+        out.append("\t};")
     out += ["};", ""]
     return out
+
+
+def _channel_nexus_block(cells_prop_base: str, map_prop: str, cells: int,
+                         rows: List[Tuple[int, str, int]]) -> List[str]:
+    """The pwm-map / io-channel-map lines of a synthesized nexus node
+    (carrier-analog-passthrough-brief.md Sec 3b/5): the SAME mask/pass-
+    thru idiom `boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi`
+    authors by hand on a REAL board socket, generated here for a
+    SYNTHESIZED carrier one. Cell 0 (position) is always matched in
+    full; every cell after it (pwm's own period cell; none for adc's
+    single-cell form) is passed through UNTOUCHED to the parent, exactly
+    mirroring `_render_ref`'s own comment on why a flags/period cell
+    must never be resolved here -- it belongs to whatever the consuming
+    shield's own ref supplies, chased through by dtc, not decided by
+    this expander. `cells` is the PARENT's own declared count (carried
+    onto this BoardSocket by compose_socket's require-and-check, Sec 3c
+    -- a carrier inherits it, never chooses its own), so the node this
+    function renders always presents the SAME cell count its own parent
+    does, chaining correctly however many carriers deep the composition
+    goes."""
+    mask = " ".join(["0xffffffff"] + ["0x00000000"] * (cells - 1))
+    pass_thru = " ".join(["0x00000000"] + ["0xffffffff"] * (cells - 1))
+    row_words = " ".join(["0"] * (cells - 1))
+    map_rows = ",\n\t\t\t   ".join(
+        f"<{child}{(' ' + row_words) if row_words else ''} &{parent} {ppos}"
+        f"{(' ' + row_words) if row_words else ''}>"
+        for child, parent, ppos in rows)
+    return [f"\t\t#{cells_prop_base}-cells = <{cells}>;",
+            f"\t\t{map_prop}-mask = <{mask}>;",
+            f"\t\t{map_prop}-pass-thru = <{pass_thru}>;",
+            f"\t\t{map_prop} = {map_rows};"]

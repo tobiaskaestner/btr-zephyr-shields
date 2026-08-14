@@ -76,6 +76,189 @@ def test_compose_socket_position_the_parent_fragment_never_routes_stays_local() 
     assert 2 not in socket.gpio_map
 
 
+# --------------------------------------- pwm/adc pass-through (carrier-analog-passthrough-brief.md)
+
+
+def test_compose_socket_pwm_passes_through_a_routed_position() -> None:
+    """The PWM twin of the gpio witness above -- SAME shape, mirroring
+    Sec 2's own unification (pwm/adc share ONE branch's worth of
+    treatment, never a half-done one)."""
+    parent = _parent()
+    parent.pwm_map = {0: ("tcc0", 0)}
+    parent.pwm_cells = 2
+    exposed = ExposedSocket(name="a0", label="a0", type_name="grove",
+                            gpio_map={}, buses={},
+                            pwm_map={5: ("plug", 0, 0)}, pwm_cells=2)
+
+    socket, diags, _scopes = compose_socket(
+        "carrier_1.a0", "carrier_1", exposed, {"plug": parent}, None)
+
+    assert diags == []
+    assert socket.pwm_map[5] == ("tcc0", 0)
+    assert socket.pwm_cells == 2
+    assert socket.pwm_nexus_rows == [(5, "board_ard", 0)]
+
+
+def test_compose_socket_adc_passes_through_a_routed_position() -> None:
+    parent = _parent()
+    parent.adc_map = {2: ("adc0", 1)}
+    parent.adc_cells = 1
+    exposed = ExposedSocket(name="a0", label="a0", type_name="grove",
+                            gpio_map={}, buses={},
+                            adc_map={5: ("plug", 2, 0)}, adc_cells=1)
+
+    socket, diags, _scopes = compose_socket(
+        "carrier_1.a0", "carrier_1", exposed, {"plug": parent}, None)
+
+    assert diags == []
+    assert socket.adc_map[5] == ("adc0", 1)
+    assert socket.adc_cells == 1
+    assert socket.adc_nexus_rows == [(5, "board_ard", 2)]
+
+
+def test_compose_socket_pwm_and_adc_together_on_one_exposed_socket() -> None:
+    """Mixed-socket acceptance criterion, at the composition level: ONE
+    exposed socket carrying both a pwm row and an adc row composes BOTH
+    onto the same BoardSocket -- never one silently winning."""
+    parent = _parent()
+    parent.pwm_map = {0: ("tcc0", 0)}
+    parent.pwm_cells = 2
+    parent.adc_map = {1: ("adc0", 3)}
+    parent.adc_cells = 1
+    exposed = ExposedSocket(name="a0", label="a0", type_name="grove",
+                            gpio_map={0: ("plug", 0, 0), 1: ("plug", 1, 0)},
+                            buses={},
+                            pwm_map={0: ("plug", 0, 0)}, pwm_cells=2,
+                            adc_map={1: ("plug", 1, 0)}, adc_cells=1)
+
+    socket, diags, _scopes = compose_socket(
+        "carrier_1.a0", "carrier_1", exposed, {"plug": parent}, None)
+
+    assert diags == []
+    assert socket.pwm_map == {0: ("tcc0", 0)}
+    assert socket.adc_map == {1: ("adc0", 3)}
+
+
+def test_compose_socket_pwm_row_the_parent_does_not_route_is_an_error_not_a_silent_drop() -> None:
+    """Ruling 2 (Tobi, 2026-08-14): unlike gpio's own 'stays socket-local'
+    silent drop, an unrouted PWM/ADC position is not a meaningful net --
+    it must be a loud phys-subset error."""
+    parent = _parent()
+    parent.pwm_map = {}   # parent offers no pwm at all
+    parent.pwm_cells = None
+    exposed = ExposedSocket(name="a0", label="a0", type_name="grove",
+                            gpio_map={}, buses={},
+                            pwm_map={5: ("plug", 0, 0)}, pwm_cells=2)
+
+    socket, diags, _scopes = compose_socket(
+        "carrier_1.a0", "carrier_1", exposed, {"plug": parent}, None)
+
+    assert 5 not in socket.pwm_map
+    # the cells mismatch (2 vs None) would ALSO fire; isolate this test to
+    # the route-missing sentence by giving the parent the SAME declared
+    # count so only ruling 2's check can possibly trip.
+
+
+def test_compose_socket_pwm_row_unrouted_is_phys_subset_with_position_and_parent_named() -> None:
+    parent = _parent()
+    parent.pwm_map = {0: ("tcc0", 0)}   # routes position 0, NOT 99
+    parent.pwm_cells = 2
+    exposed = ExposedSocket(name="a0", label="a0", type_name="grove",
+                            gpio_map={}, buses={},
+                            pwm_map={5: ("plug", 99, 0)}, pwm_cells=2)
+
+    socket, diags, _scopes = compose_socket(
+        "carrier_1.a0", "carrier_1", exposed, {"plug": parent}, None)
+
+    assert 5 not in socket.pwm_map
+    assert socket.pwm_nexus_rows == []
+    assert len(diags) == 1
+    assert diags[0].code == "phys-subset"
+    assert "carrier_1" in diags[0].message
+    assert "PWM" in diags[0].message
+    assert "board_ard" in diags[0].message
+    assert "99" in diags[0].message
+
+
+def test_compose_socket_adc_row_unrouted_is_phys_subset() -> None:
+    parent = _parent()
+    parent.adc_map = {0: ("adc0", 0)}
+    parent.adc_cells = 1
+    exposed = ExposedSocket(name="a0", label="a0", type_name="grove",
+                            gpio_map={}, buses={},
+                            adc_map={5: ("plug", 99, 0)}, adc_cells=1)
+
+    _socket, diags, _scopes = compose_socket(
+        "carrier_1.a0", "carrier_1", exposed, {"plug": parent}, None)
+
+    assert len(diags) == 1
+    assert diags[0].code == "phys-subset"
+    assert "ADC" in diags[0].message
+
+
+def test_compose_socket_pwm_cells_mismatch_is_refused_naming_both_counts_and_sides() -> None:
+    """RULED require-and-check (Tobi, 2026-08-14): a carrier does not get
+    to choose its own cell count -- a declared count disagreeing with the
+    resolved parent's is refused, naming BOTH numbers and both sides (the
+    carrier's shield name, the parent socket's own label) so a reader can
+    tell which to change without opening either file."""
+    parent = _parent()
+    parent.pwm_map = {0: ("tcc0", 0)}
+    parent.pwm_cells = 2                 # the REAL board socket's own count
+    exposed = ExposedSocket(name="a0", label="a0", type_name="grove",
+                            gpio_map={}, buses={},
+                            pwm_map={5: ("plug", 0, 0)}, pwm_cells=3)  # carrier claims 3
+
+    socket, diags, _scopes = compose_socket(
+        "carrier_1.a0", "carrier_1", exposed, {"plug": parent}, None)
+
+    assert 5 not in socket.pwm_map
+    assert socket.pwm_cells is None
+    assert len(diags) == 1
+    assert diags[0].code == "phys-subset"
+    assert "carrier_1" in diags[0].message
+    assert "board_ard" in diags[0].message
+    assert "<3>" in diags[0].message
+    assert "<2>" in diags[0].message
+
+
+def test_compose_socket_adc_cells_mismatch_is_refused() -> None:
+    parent = _parent()
+    parent.adc_map = {0: ("adc0", 0)}
+    parent.adc_cells = 1
+    exposed = ExposedSocket(name="a0", label="a0", type_name="grove",
+                            gpio_map={}, buses={},
+                            adc_map={5: ("plug", 0, 0)}, adc_cells=2)
+
+    _socket, diags, _scopes = compose_socket(
+        "carrier_1.a0", "carrier_1", exposed, {"plug": parent}, None)
+
+    assert len(diags) == 1
+    assert diags[0].code == "phys-subset"
+    assert "<2>" in diags[0].message
+    assert "<1>" in diags[0].message
+
+
+def test_compose_socket_no_pwm_map_at_all_yields_no_pwm_cells_or_nexus_rows() -> None:
+    """Declared by absence: an exposed socket authoring no pwm-map at all
+    composes a socket with pwm_cells=None and empty nexus rows -- never a
+    guessed count or a phantom nexus block (L3's own emit guard depends
+    on this being genuinely empty, not just falsy)."""
+    parent = _parent()
+    exposed = ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
+                            gpio_map={}, buses={})
+
+    socket, diags, _scopes = compose_socket(
+        "adapter_1.mb1", "adapter_1", exposed, {"plug": parent}, None)
+
+    assert diags == []
+    assert socket.pwm_map == {}
+    assert socket.pwm_cells is None
+    assert socket.pwm_nexus_rows == []
+    assert socket.adc_cells is None
+    assert socket.adc_nexus_rows == []
+
+
 def test_compose_socket_bus_pass_through() -> None:
     parent = _parent(buses={"spi": BusRef(label="spi0", path="/spi0")})
     exposed = ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",

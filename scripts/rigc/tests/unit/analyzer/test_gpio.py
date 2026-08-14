@@ -236,6 +236,31 @@ def test_collect_gpio_nets_channel_ref_missing_map_entry_is_phys_function() -> N
     assert result.nets == {}
     assert len(diags) == 1
     assert diags[0].code == "phys-function"
+    # the wart fix (carrier-analog-passthrough-brief.md Sec 5): the old
+    # message named "socket,pwm-map", a property that does not exist --
+    # the real DTS spelling is "pwm-map" (io-channel-map for ADC).
+    assert "pwm-map" in diags[0].message
+    assert "socket,pwm-map" not in diags[0].message
+
+
+def test_collect_gpio_nets_channel_ref_missing_map_entry_names_the_real_adc_property() -> None:
+    """The ADC twin of the wart fix above: "io-channel-map", never the
+    nonexistent "socket,adc-map"."""
+    socket = _socket()   # no adc_map at all
+    dev = _dev("sensor")
+    dev.gpio_refs.append(GpioRef(prop="io-channels", position=0, flags=0,
+                                 function="adc", src=None))  # type: ignore[arg-type]
+    inst = _inst("sensor_1")
+    inst.shield.devices.append(dev)
+    rig = Rig(name="r", instances=[inst])
+
+    result, diags = collect_gpio_nets(rig, {"sensor_1": {"plug": socket}}, {"t": _ctype()})
+
+    assert result.nets == {}
+    assert len(diags) == 1
+    assert diags[0].code == "phys-function"
+    assert "io-channel-map" in diags[0].message
+    assert "socket,adc-map" not in diags[0].message
 
 
 def test_collect_gpio_nets_nonzero_pwm_flags_is_phys_function() -> None:

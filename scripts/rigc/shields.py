@@ -614,6 +614,13 @@ def _parse_exposed(node, plugs_by_path: PlugsByPath, shield: Shield,
             slot, _pctype = plug_entry
             gpio_map[pos] = (slot, parent_pos, parent_flags)
 
+    pwm_map, pwm_cells, d = _parse_channel_map(
+        node, "pwm-map", "#pwm-cells", "pwm", plugs_by_path, is_plural)
+    diags += d
+    adc_map, adc_cells, d = _parse_channel_map(
+        node, "io-channel-map", "#io-channel-cells", "adc", plugs_by_path, is_plural)
+    diags += d
+
     buses: Dict[str, object] = {}
     qualified_props = sorted(name for name in node.props if _BUS_PROP_RE.match(name))
     for prop_name in qualified_props:
@@ -659,7 +666,101 @@ def _parse_exposed(node, plugs_by_path: PlugsByPath, shield: Shield,
     return ExposedSocket(
         name=node.name, label=label,
         type_name=type_name, gpio_map=gpio_map, buses=buses,
+        pwm_map=pwm_map, pwm_cells=pwm_cells,
+        adc_map=adc_map, adc_cells=adc_cells,
         cs_pool=cs_pool, channel=channel, src=src_of(node)), diags
+
+
+def _parse_channel_map(node, prop_name: str, cells_prop: str, function: str,
+                       plugs_by_path: PlugsByPath, is_plural: bool,
+                       ) -> Tuple[Dict[int, Tuple[str, int, int]], Optional[int],
+                                  List[Diagnostic]]:
+    """The pwm-map / io-channel-map twin of gpio-map's own loop above
+    (carrier-analog-passthrough-brief.md Sec 5), factored out because PWM
+    and ADC share this one function's shape end to end (Sec 2) and because
+    their STRIDE, unlike gpio-map's, is not a tree-wide constant: with
+    `#pwm-cells = <2>` a row is 5 words (2 child + phandle + 2 parent);
+    with `#io-channel-cells = <1>` it is 3 -- derived below from the
+    declared cell counts, never hardcoded.
+
+    RULED (require-and-check): `prop_name` without `cells_prop` alongside
+    it, or the reverse pairing, is a parse-time lang-exposed error -- the
+    carrier author's declared count is what compose_socket later checks
+    against the resolved parent's, so a map with no declared count (or a
+    count with no map to describe) is malformed before that check could
+    ever run. `function` selects `#<fn>-cells`'s fallback-to-generic-
+    Zephyr-form default (_FUNCTION_DEFAULT_CELLS) for whatever the
+    PHANDLE TARGET (the carrier's own plug, a template placeholder) itself
+    declares -- the row's PARENT-specifier length -- exactly the same
+    lookup `_parse_pos_ref` already applies to a device's own pwm/adc ref.
+
+    Returns (map, declared_cells, diagnostics): map is `{}`/declared_cells
+    is None when the node authors neither property (declared by absence,
+    matching gpio_map's own convention) or when parsing fails outright."""
+    diags: List[Diagnostic] = []
+    has_map = prop_name in node.props
+    has_cells = cells_prop in node.props
+    if has_map and not has_cells:
+        diags.append(error(
+            "lang-exposed",
+            f"exposed socket '{node.name}': {prop_name} needs a "
+            f"{cells_prop} declaration alongside it (RULED 2026-08-14, "
+            "require-and-check: the carrier states its own cell count, "
+            "the analyzer checks it against the resolved parent's)",
+            (src_of(node),)))
+        return {}, None, diags
+    if has_cells and not has_map:
+        diags.append(error(
+            "lang-exposed",
+            f"exposed socket '{node.name}': {cells_prop} needs a "
+            f"{prop_name} declaration alongside it (RULED 2026-08-14, "
+            "require-and-check)",
+            (src_of(node),)))
+        return {}, None, diags
+    if not has_map:
+        return {}, None, diags
+
+    declared_cells = node.props[cells_prop].to_num()
+    cells = words(node.props[prop_name])
+    dt = node.dt
+    result: Dict[int, Tuple[str, int, int]] = {}
+    i = 0
+    while i < len(cells):
+        if i + declared_cells + 1 > len(cells):
+            diags.append(error(
+                "lang-exposed",
+                f"exposed socket '{node.name}': {prop_name} has a "
+                f"malformed entry (expected {declared_cells}-cell child "
+                f"specifiers, per {cells_prop})",
+                (src_of(node),)))
+            break
+        pos = cells[i]
+        phandle = cells[i + declared_cells]
+        target = dt.phandle2node.get(phandle)
+        parent_cells = _ncells(target, function)
+        row_len = declared_cells + 1 + parent_cells
+        if i + row_len > len(cells):
+            diags.append(error(
+                "lang-exposed",
+                f"exposed socket '{node.name}': {prop_name} has a "
+                "truncated entry",
+                (src_of(node),)))
+            break
+        plug_entry = plugs_by_path.get(target.path) if target is not None else None
+        if plug_entry is None:
+            what = "one of the carrier's plugs" if is_plural else "the carrier's plug"
+            diags.append(error(
+                "lang-exposed",
+                f"exposed socket '{node.name}': {prop_name} parent must "
+                f"be {what} (pass-through, R19)",
+                (src_of(node),)))
+            i += row_len
+            continue
+        slot, _pctype = plug_entry
+        parent_pos = cells[i + declared_cells + 1]
+        result[pos] = (slot, parent_pos, 0)
+        i += row_len
+    return result, declared_cells, diags
 
 
 def _parse_pad(node, shield_name: str) -> Tuple[Pad, List[Diagnostic]]:

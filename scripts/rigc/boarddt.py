@@ -34,7 +34,7 @@ from typing import List, Optional, Tuple
 
 from . import board_edt
 from .deps import Deps, touch
-from .diag import Diagnostic, anchor_path, error
+from .diag import Diagnostic, LoadError, anchor_path, error
 from .dtsio import MODULE_ROOT
 from .edt_build import BuildRecipe
 from .model import Board
@@ -85,7 +85,19 @@ def load_board(name: str, workdir: str,
             "rig build (dts.cmake) supplies this automatically")], frozenset()
 
     deps = touch(board_dts)
-    board = board_edt.load_board(name, board_dts, recipe, workdir)
+    try:
+        board = board_edt.load_board(name, board_dts, recipe, workdir)
+    except LoadError as e:
+        # A malformed socket,* nexus (carrier-analog-passthrough-brief.md
+        # Sec 4 ruling 3: a PWM/ADC controller whose own declared cell
+        # count this expander does not support) raises LoadError rather
+        # than crashing with an unhandled ValueError -- this is the catch
+        # boundary that turns it into the ordinary (None, diagnostics,
+        # deps) shape every other board-resolution failure in this
+        # function already returns, exactly as dtsio.py's own LoadError
+        # raises are caught at THEIR boundary (loader/library.py,
+        # loader/__init__.py).
+        return None, list(e.diags), deps
     if not board.sockets:
         return None, [error(
             "phys-board",

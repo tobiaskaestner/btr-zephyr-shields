@@ -329,6 +329,100 @@ def test_carrier_exported_socket_synthesizes_a_chained_gpio_nexus() -> None:
     assert "\tcarrier_nexus: carrier_nexus {" in text
 
 
+def test_carrier_exported_socket_analog_only_is_not_skipped() -> None:
+    """Sec 5's fix: visit()'s old guard checked nexus_rows alone, so a
+    socket with adc/pwm rows but NO gpio rows (nexus_rows == []) was
+    silently dropped -- the exact bug the brief calls out ('a socket that
+    is analog-only ... must NOT be skipped'). This carrier-exported
+    socket authors ONLY an io-channel-map, no gpio-map at all."""
+    child = BoardSocket(label="a0", path="/c/a0", type_name="t", gpio_map={},
+                        buses={}, nexus_label="carrier_a0", nexus_rows=[],
+                        adc_map={5: ("adc0", 1)}, adc_cells=1,
+                        adc_nexus_rows=[(5, "board_ard", 1)])
+    rig = Rig(name="r", instances=[])
+    s = Solved(sockets={"i1": {"plug": child}})
+
+    text = render_overlay(rig, s, {"t": _ctype()})
+
+    assert "carrier_a0: carrier_a0 {" in text
+    assert "#gpio-cells" not in text
+    assert "gpio-map" not in text
+    assert "#io-channel-cells = <1>;" in text
+    assert "io-channel-map = <5 &board_ard 1>;" in text
+
+
+def test_carrier_exported_socket_synthesizes_a_chained_pwm_nexus() -> None:
+    """The PWM twin of the gpio nexus test above: #pwm-cells and the
+    mask/pass-thru pair mirror the REAL board idiom (grove_sockets.dtsi)
+    -- position matched, period passed through -- generated here for a
+    SYNTHESIZED carrier node instead of a hand-authored real one."""
+    child = BoardSocket(label="a0", path="/c/a0", type_name="t", gpio_map={},
+                        buses={}, nexus_label="carrier_a0",
+                        nexus_rows=[(5, "board_ard", 3)],
+                        pwm_map={5: ("tcc0", 0)}, pwm_cells=2,
+                        pwm_nexus_rows=[(5, "board_ard", 0)])
+    rig = Rig(name="r", instances=[])
+    s = Solved(sockets={"i1": {"plug": child}})
+
+    text = render_overlay(rig, s, {"t": _ctype()})
+
+    assert ("\t\t#pwm-cells = <2>;\n"
+            "\t\tpwm-map-mask = <0xffffffff 0x00000000>;\n"
+            "\t\tpwm-map-pass-thru = <0x00000000 0xffffffff>;\n"
+            "\t\tpwm-map = <5 0 &board_ard 0 0>;") in text
+
+
+def test_carrier_exported_socket_mixed_gpio_pwm_adc_is_one_node_both_maps() -> None:
+    """Acceptance criterion 5 (mixed socket): an exposed socket carrying
+    gpio AND pwm AND adc rows emits ONE synthesized node with all three
+    maps -- never two nodes, never one map silently winning over another."""
+    child = BoardSocket(label="a0", path="/c/a0", type_name="t",
+                        gpio_map={0: ("gpiod", 2, 0)}, buses={},
+                        nexus_label="carrier_a0",
+                        nexus_rows=[(0, "board_ard", 2)],
+                        pwm_map={0: ("tcc0", 0)}, pwm_cells=2,
+                        pwm_nexus_rows=[(0, "board_ard", 0)],
+                        adc_map={1: ("adc0", 3)}, adc_cells=1,
+                        adc_nexus_rows=[(1, "board_ard", 3)])
+    rig = Rig(name="r", instances=[])
+    s = Solved(sockets={"i1": {"plug": child}})
+
+    text = render_overlay(rig, s, {"t": _ctype()})
+
+    # ONE node -- both "carrier_a0: carrier_a0 {" and its closing "};"
+    # appear exactly once, with every map's lines between them.
+    assert text.count("carrier_a0: carrier_a0 {") == 1
+    node = text.split("carrier_a0: carrier_a0 {")[1].split("\n\t};")[0]
+    assert "#gpio-cells = <2>;" in node
+    assert "gpio-map = <0 0 &board_ard 2 0>;" in node
+    assert "#pwm-cells = <2>;" in node
+    assert "pwm-map = <0 0 &board_ard 0 0>;" in node
+    assert "#io-channel-cells = <1>;" in node
+    assert "io-channel-map = <1 &board_ard 3>;" in node
+
+
+def test_pwm_nexus_cells_come_from_the_socket_not_hardcoded() -> None:
+    """Acceptance criterion 2: the synthesized nexus carries the PARENT's
+    cell count, never a hardcoded one. A (synthetic, not a real supported
+    shape) 3-cell value proves the emitter reads sock.pwm_cells rather
+    than assuming 2 -- mutation check: hardcoding #pwm-cells=<2> here
+    must fail THIS test on the cell count itself."""
+    child = BoardSocket(label="a0", path="/c/a0", type_name="t", gpio_map={},
+                        buses={}, nexus_label="carrier_a0",
+                        nexus_rows=[(5, "board_ard", 3)],
+                        pwm_map={5: ("tcc0", 0)}, pwm_cells=3,
+                        pwm_nexus_rows=[(5, "board_ard", 0)])
+    rig = Rig(name="r", instances=[])
+    s = Solved(sockets={"i1": {"plug": child}})
+
+    text = render_overlay(rig, s, {"t": _ctype()})
+
+    assert "#pwm-cells = <3>;" in text
+    assert "pwm-map-mask = <0xffffffff 0x00000000 0x00000000>;" in text
+    assert "pwm-map-pass-thru = <0x00000000 0xffffffff 0xffffffff>;" in text
+    assert "pwm-map = <5 0 0 &board_ard 0 0 0>;" in text
+
+
 def test_board_sockets_synthesize_no_nexus_node() -> None:
     """nexus_rows is None for a real board socket -- there is nothing to
     route, and emitting one would shadow the board's own node."""

@@ -51,8 +51,11 @@ from typing import List
 
 import textwrap
 
+import pytest
+
 from rigc import board_edt
 from rigc.board_census import scan_socket_nodes
+from rigc.diag import LoadError
 from rigc.dtsio import MODULE_ROOT
 from rigc.edt_build import ensure_devicetree_on_path
 from rigc.tests.conftest import FIXTURES_DIR, assert_fixture_local
@@ -293,6 +296,136 @@ def test_pwm_map_resolves_position_to_controller_and_channel() -> None:
 
 def test_adc_map_resolves_position_to_controller_and_channel() -> None:
     assert _socket().adc_map[2] == ("adc_ctrl0", 1)
+
+
+# ------------------------------------------------- pwm_cells / adc_cells (Sec 3c)
+#
+# carrier-analog-passthrough-brief.md Sec 3: "a carrier does not get to
+# choose its own cell count" -- BoardSocket must carry the count a real
+# socket's own pwm-map/io-channel-map actually declares, not just the
+# resolved (ctrl, channel) pair, so a carrier passing it through can be
+# checked against it later (analyzer/sockets.py's compose_socket).
+
+
+def test_pwm_cells_carries_the_socket_own_declared_count() -> None:
+    assert _socket().pwm_cells == 2
+
+
+def test_adc_cells_carries_the_socket_own_declared_count() -> None:
+    assert _socket().adc_cells == 1
+
+
+def test_bare_socket_has_no_pwm_or_adc_cells() -> None:
+    """Declared by absence, matching pwm_map/adc_map's own empty-dict
+    convention: a socket with no pwm-map/io-channel-map at all carries
+    None, never a guessed count."""
+    assert _bare_socket().pwm_cells is None
+    assert _bare_socket().adc_cells is None
+
+
+# --------------------------------------- ruling 3: a 3-cell PWM parent (Sec 4)
+#
+# Zephyr's generic PWM consumer form is THREE cells (channel, period,
+# flags) -- the norm upstream (55 of 75 surveyed bindings), not the rare
+# case; lotus's own atmel,sam0-tcc-pwm 2-cell override is the outlier.
+# board_edt.py's old bare `channel, _channel_period =
+# entry.parent_specifiers` destructuring raised an unhandled ValueError
+# the instant a real board's PWM controller used the standard 3-cell
+# form -- a traceback, not a diagnostic (the M8 defect family,
+# post-cutover-backlog.md item 3). This slice does NOT add 3-cell
+# support (ruled out of scope): it only replaces the crash with a named
+# LoadError (phys-board), caught at boarddt.load_board's own boundary
+# (test_boarddt.py owns THAT half; this file owns board_edt.py's own
+# raise).
+
+
+def _three_cell_pwm_edt(tmp_path: Path):
+    binding_dir = tmp_path / "bindings"
+    binding_dir.mkdir()
+    (binding_dir / "socket-fixture-3cell.yaml").write_text(textwrap.dedent("""\
+        description: purpose-built fixture binding for the 3-cell-PWM-parent diagnostic test
+        compatible: "socket,fixture-3cell"
+        properties:
+          "#gpio-cells":
+            type: int
+            required: true
+          gpio-map:
+            type: compound
+            required: true
+          gpio-map-mask:
+            type: array
+          gpio-map-pass-thru:
+            type: array
+          "#pwm-cells":
+            type: int
+          pwm-map:
+            type: compound
+          pwm-map-mask:
+            type: array
+          pwm-map-pass-thru:
+            type: array
+        """))
+    dts_path = tmp_path / "three_cell_pwm.dts"
+    dts_path.write_text(textwrap.dedent("""\
+        /dts-v1/;
+        / {
+            #address-cells = <1>;
+            #size-cells = <1>;
+
+            gpio0: gpio_ctrl@0 {
+                compatible = "fixturetest,gpio-ctrl";
+                reg = <0x0 0x4>;
+                gpio-controller;
+                #gpio-cells = <2>;
+            };
+            pwm3: three_cell_pwm_ctrl@10 {
+                compatible = "fixturetest,pwm-ctrl";
+                reg = <0x10 0x4>;
+                #pwm-cells = <3>;
+            };
+
+            three_cell_socket: connector_three_cell {
+                compatible = "socket,fixture-3cell";
+                #gpio-cells = <2>;
+                gpio-map-mask = <0xffffffff 0xffffffff>;
+                gpio-map-pass-thru = <0 0>;
+                gpio-map = <0 0 &gpio0 0 0>;
+
+                #pwm-cells = <2>;
+                pwm-map-mask = <0xffffffff 0x00000000>;
+                pwm-map-pass-thru = <0x00000000 0xffffffff>;
+                pwm-map = <0 0 &pwm3 0 0 0>;
+            };
+        };
+        """))
+    ensure_devicetree_on_path()
+    from devicetree import edtlib
+    return edtlib.EDT(str(dts_path), [str(binding_dir)], default_prop_types=True)
+
+
+def test_three_cell_pwm_parent_raises_loaderror_not_valueerror(tmp_path: Path) -> None:
+    with pytest.raises(LoadError) as excinfo:
+        board_edt.project_edt(_three_cell_pwm_edt(tmp_path), "three-cell-board")
+    (diag,) = excinfo.value.diags
+    assert diag.code == "phys-board"
+    assert "three_cell_socket" in diag.message
+    assert "pwm3" in diag.message   # the controller's DEFINING label
+    assert "2-cell" in diag.message and "<3>" in diag.message
+    assert "not supported yet" in diag.message
+
+
+def test_three_cell_pwm_parent_names_both_cell_counts_and_the_controller(
+        tmp_path: Path) -> None:
+    """Coordinator correction (2026-08-14): a 3-cell PWM parent is the
+    COMMON case upstream (both twister boards' own st,stm32-pwm/
+    nxp,ftm-pwm are 3-cell), so this diagnostic is user-facing, not a
+    rare-guard afterthought -- it must name the controller by its own
+    defining label, not just the socket."""
+    with pytest.raises(LoadError) as excinfo:
+        board_edt.project_edt(_three_cell_pwm_edt(tmp_path), "three-cell-board")
+    (diag,) = excinfo.value.diags
+    assert "#pwm-cells" in diag.message
+    assert "PWM" in diag.message.upper() or "pwm" in diag.message
 
 
 # ------------------------------------------------- controller-label determinism

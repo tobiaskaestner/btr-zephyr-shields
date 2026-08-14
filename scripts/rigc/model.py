@@ -179,6 +179,28 @@ class ExposedSocket:
     # root is a device, which already carries its own slot via
     # Device.plug, so no third marker dimension is needed there).
     buses: Dict[str, object]
+    # PWM/ADC pass-through (carrier-analog-passthrough-brief.md Sec 5):
+    # SAME shape as gpio_map, deliberately -- position -> (parent SLOT,
+    # parent plug position, trailing filler cell). The filler is always 0
+    # for both: pwm's row carries a period placeholder cell at this exact
+    # word position (mirroring gpio's own flags cell, never read past
+    # parse time -- the REAL period only exists once a consuming shield's
+    # own ref supplies one, downstream of this composition entirely), and
+    # adc's row has no such cell in the DTS source at all, so 0 is a pure
+    # placeholder there -- one convention for all three maps rather than
+    # inventing a third, narrower one for the two that don't need gpio's
+    # own flags semantics.
+    pwm_map: Dict[int, Tuple[str, int, int]] = field(default_factory=dict)
+    adc_map: Dict[int, Tuple[str, int, int]] = field(default_factory=dict)
+    # The carrier's OWN declared #pwm-cells / #io-channel-cells (RULED,
+    # require-and-check): mandatory alongside the corresponding map
+    # (shields.py's own parse-time check), read here so compose_socket can
+    # refuse a disagreement against the resolved parent's own count
+    # (BoardSocket.pwm_cells/.adc_cells) without re-deriving it. None
+    # whenever the socket carries no map for that function (declared by
+    # absence, same convention as gpio_map/buses/cs_pool above).
+    pwm_cells: Optional[int] = None
+    adc_cells: Optional[int] = None
     # per-qualified-bus authored cs-pool override, keyed the same way
     # BoardSocket.buses/ConnectorType.cs_pool are (kind, or kind-role) --
     # a bare "socket,cs-pool" property (every carrier's own spelling
@@ -349,12 +371,32 @@ class BoardSocket:
     buses: Dict[str, BusRef]                     # qualified bus name (kind, or kind-role) present = offered subset
     pwm_map: Dict[int, Tuple[str, int]] = field(default_factory=dict)  # position -> (ctrl label, channel)
     adc_map: Dict[int, Tuple[str, int]] = field(default_factory=dict)  # position -> (ctrl label, channel)
+    # This socket's OWN declared #pwm-cells / #io-channel-cells (carrier-
+    # analog-passthrough-brief.md Sec 3c) -- for a REAL board socket,
+    # board_edt.py's own checked read (never the discarded period cell);
+    # for a carrier's SYNTHESIZED socket, compose_socket carries the
+    # carrier's own declared count forward once it has been checked equal
+    # to the parent's. None whenever the socket has no map for that
+    # function (mirrors pwm_map/adc_map's own declared-by-absence
+    # convention). A carrier does NOT get to choose its own count -- it
+    # inherits whatever the board it lands on declares; this field is what
+    # lets that inheritance be CHECKED and EMITTED (L3's #pwm-cells /
+    # #io-channel-cells on the synthesized nexus) rather than assumed.
+    pwm_cells: Optional[int] = None
+    adc_cells: Optional[int] = None
     # emission (R19): every socket is referenced through a nexus. Board
     # sockets are real DT nodes (nexus_label=None -> use label, nothing to
     # synthesize); a carrier's re-exported socket has no DT node of its own,
     # so the analyzer/emitter SYNTHESIZE one that chains to its parent's.
     nexus_label: Optional[str] = None
     nexus_rows: Optional[List[Tuple[int, str, int]]] = None  # [(child_pos, parent_nexus_label, parent_pos)]
+    # PWM/ADC twins of nexus_rows above (§3/§5 L3): kept SEPARATE from
+    # nexus_rows (rather than widening its own shape with a function tag)
+    # because a gpio-less, analog-only exposed socket must still synthesize
+    # a nexus node -- emitter/overlay.py's _synth_nexus_nodes.visit() skip
+    # guard checks all three, never nexus_rows alone.
+    pwm_nexus_rows: Optional[List[Tuple[int, str, int]]] = None
+    adc_nexus_rows: Optional[List[Tuple[int, str, int]]] = None
     # parent BoardSocket per SLOT of the carrier that synthesized this
     # socket (multi-plug-carrier-brief.md Sec 3) -- empty for a real
     # board socket. A single-plug carrier's composition still produces

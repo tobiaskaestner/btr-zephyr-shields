@@ -111,6 +111,15 @@ def compose_socket(socket_label: str, carrier_name: str, exposed: ExposedSocket,
             gpio_map[pos] = parent.gpio_map[parent_pos]
         # else: parent fragment doesn't route it -> stays socket-local (net key)
 
+    pwm_map, pwm_nexus_rows, pwm_cells, d = _compose_channel_map(
+        "pwm", exposed.pwm_map, exposed.pwm_cells, carrier_name, exposed,
+        parents, inst_src, is_plural)
+    diags += d
+    adc_map, adc_nexus_rows, adc_cells, d = _compose_channel_map(
+        "adc", exposed.adc_map, exposed.adc_cells, carrier_name, exposed,
+        parents, inst_src, is_plural)
+    diags += d
+
     buses: Dict[str, BusRef] = {}
     for kind, marker in exposed.buses.items():
         assert isinstance(marker, tuple)
@@ -163,10 +172,98 @@ def compose_socket(socket_label: str, carrier_name: str, exposed: ExposedSocket,
     socket = BoardSocket(
         label=socket_label, path=path,
         type_name=exposed.type_name, gpio_map=gpio_map, buses=buses,
+        pwm_map=pwm_map, pwm_cells=pwm_cells,
+        adc_map=adc_map, adc_cells=adc_cells,
         src=exposed.src,
         nexus_label=f"{carrier_name}_{exposed.name}", nexus_rows=nexus_rows,
+        pwm_nexus_rows=pwm_nexus_rows, adc_nexus_rows=adc_nexus_rows,
         parents=dict(parents))
     return socket, diags, scope_entries
+
+
+def _compose_channel_map(fn: str, exposed_map: Dict[int, Tuple[str, int, int]],
+                         declared_cells: Optional[int], carrier_name: str,
+                         exposed: ExposedSocket, parents: Dict[str, BoardSocket],
+                         inst_src: Optional[SourceRef], is_plural: bool,
+                         ) -> Tuple[Dict[int, Tuple[str, int]],
+                                    List[Tuple[int, str, int]], Optional[int],
+                                    List[Diagnostic]]:
+    """The pwm/adc twin of `compose_socket`'s own gpio_map loop above,
+    factored out because PWM and ADC need the IDENTICAL treatment (Sec 2:
+    a branch for one function and a silent hole for the other is the
+    exact shape of the b16c314 bug) at BOTH of the places gpio and
+    pwm/adc genuinely differ:
+
+      Ruling 2 -- a row whose parent does not route it is an ERROR here,
+      never gpio_map's own "stays socket-local" silent drop: an unrouted
+      analog position is not a meaningful net, it is a mistake.
+
+      RULED require-and-check -- the carrier's own declared cell count
+      (`declared_cells`, ExposedSocket.pwm_cells/.adc_cells) must equal
+      the resolved parent's (BoardSocket.pwm_cells/.adc_cells) or the
+      whole slot is refused up front, naming BOTH counts and BOTH sides
+      (the carrier's shield name and the parent socket's own label) --
+      checked ONCE per distinct slot a row actually draws from, not once
+      per row, so a plural carrier passing several positions through one
+      mismatched slot gets one finding, not N duplicates.
+
+    `fn` is "pwm" or "adc"; `exposed_map`/`declared_cells` are that
+    function's own ExposedSocket fields. Returns (composed map, nexus
+    rows, this socket's OWN carried cell count, diagnostics) -- the cell
+    count is None whenever nothing actually composed (mirrors nexus_rows
+    being empty in the same case: a socket with no resolved rows for a
+    function has no nexus to synthesize for it either, L3's own
+    concern)."""
+    diags: List[Diagnostic] = []
+    if not exposed_map:
+        return {}, [], None, diags
+
+    prop = "pwm" if fn == "pwm" else "io-channel"
+    parent_map_of = (lambda p: p.pwm_map) if fn == "pwm" else (lambda p: p.adc_map)
+    parent_cells_of = (lambda p: p.pwm_cells) if fn == "pwm" else (lambda p: p.adc_cells)
+
+    # RULED require-and-check, once per distinct slot referenced.
+    bad_slots: Set[str] = set()
+    for slot in sorted({slot for slot, _pp, _f in exposed_map.values()}):
+        parent = parents[slot]
+        parent_cells = parent_cells_of(parent)
+        if parent_cells == declared_cells:
+            continue
+        bad_slots.add(slot)
+        slot_note = f" (slot '{slot}')" if is_plural else ""
+        refs = tuple(x for x in (exposed.src, parent.src, inst_src) if x)
+        diags.append(error(
+            "phys-subset",
+            f"carrier '{carrier_name}' declares #{prop}-cells = <{declared_cells}> "
+            f"on exposed socket '{exposed.name}', but its parent socket "
+            f"'{parent.label}'{slot_note} declares #{prop}-cells = "
+            f"<{parent_cells}> -- a carrier does not get to choose its own "
+            "cell count, it inherits whatever the board it lands on declares",
+            refs))
+
+    composed: Dict[int, Tuple[str, int]] = {}
+    nexus_rows: List[Tuple[int, str, int]] = []
+    for pos, (slot, parent_pos, _filler) in exposed_map.items():
+        if slot in bad_slots:
+            continue
+        parent = parents[slot]
+        parent_map = parent_map_of(parent)
+        if parent_pos not in parent_map:
+            slot_note = f" (slot '{slot}')" if is_plural else ""
+            refs = tuple(x for x in (exposed.src, parent.src, inst_src) if x)
+            diags.append(error(
+                "phys-subset",
+                f"carrier '{carrier_name}' passes {fn.upper()} through socket "
+                f"'{exposed.name}' at position {pos}, but its parent socket "
+                f"'{parent.label}'{slot_note} does not route it there (no "
+                f"{prop}-map entry at parent position {parent_pos})",
+                refs))
+            continue
+        composed[pos] = parent_map[parent_pos]
+        nexus_rows.append((pos, parent.nexus_label or parent.label, parent_pos))
+
+    cells = declared_cells if composed else None
+    return composed, nexus_rows, cells, diags
 
 
 def _subject(inst: Instance, slot: str) -> str:

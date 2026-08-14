@@ -27,6 +27,7 @@ from pathlib import Path
 import pytest
 
 from rigc import boarddt
+from rigc.diag import LoadError, error
 from rigc.edt_build import BuildRecipe
 from rigc.model import Board, BoardSocket
 
@@ -125,6 +126,42 @@ def test_a_board_with_sockets_loads_clean(
 
     assert board is fake_board
     assert diags == []
+    assert deps == frozenset({os.path.abspath(str(real_dts))})
+
+
+def test_a_malformed_socket_load_error_becomes_the_normal_reject_shape(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """carrier-analog-passthrough-brief.md Sec 4 ruling 3: board_edt.
+    load_board raising LoadError (a 3-cell PWM parent it does not support,
+    or any other malformed-socket case a checked read there catches) must
+    become the ORDINARY (None, diagnostics, deps) shape here -- never an
+    unhandled exception escaping load_board -- exactly like every other
+    board-resolution failure this module already returns. Dependency data
+    (the board's own .dts was genuinely touched before the raise) is still
+    recorded, matching test_a_board_with_no_socket_nodes_is_not_rig_enabled's
+    own assertion just above."""
+    real_dts = tmp_path / "board.dts"
+    real_dts.write_text(dedent("""\
+        /dts-v1/;
+        / {};
+        """))
+
+    def _boom(name: str, dts_path: str, recipe: object, workdir: str) -> Board:
+        raise LoadError(error(
+            "phys-board",
+            "socket 'ard': PWM controller 'pwm0' declares #pwm-cells = <3>, "
+            "but rigc supports only a 2-cell PWM parent today"))
+
+    monkeypatch.setattr("rigc.board_edt.load_board", _boom)
+
+    board, diags, deps = boarddt.load_board(
+        "some_board", str(tmp_path), board_dts=str(real_dts),
+        recipe=BuildRecipe(include_dirs=[], bindings_dirs=[]))
+
+    assert board is None
+    assert len(diags) == 1
+    assert diags[0].code == "phys-board"
+    assert "#pwm-cells" in diags[0].message
     assert deps == frozenset({os.path.abspath(str(real_dts))})
 
 

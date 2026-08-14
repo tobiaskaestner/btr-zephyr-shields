@@ -31,6 +31,14 @@ from .socketmap import Sockets, for_ref
 
 _DRIVER_HINTS = ("int", "irq")
 
+#: fn -> the REAL DTS property a socket would need to author for this
+#: function's channel map to resolve (carrier-analog-passthrough-brief.md
+#: Sec 5's wart): "socket,{fn}-map" is not a thing either property is ever
+#: spelled -- pwm-map / io-channel-map are the standard nexus names
+#: edtlib.Node.maps() resolves ("pwm"/"io-channel" being the specifier
+#: space, stripped of "-map"), matching what board_edt.py itself reads.
+_MAP_PROP = {"pwm": "pwm-map", "adc": "io-channel-map"}
+
 #: A net's identity: ("soc", controller label, pin) for a position the
 #: board's gpio-map actually routes to a real SoC pin (R13 -- shared
 #: across sockets); ("pos", socket path, position) for a per-socket
@@ -178,7 +186,7 @@ def _collect_channel(inst: Instance, dev: Device, ref: GpioRef, socket: BoardSoc
             "phys-function",
             f"'{inst.name}/{dev.name}: {ref.prop}' uses position "
             f"{ctype.posname(pos)} as {fn.upper()}, but socket "
-            f"'{socket.label}' offers no {fn} on it (no socket,{fn}-map entry)",
+            f"'{socket.label}' offers no {fn} on it (no {_MAP_PROP[fn]} entry)",
             tuple(x for x in (ref.src, socket.src) if x)))
         return
     if fn == "pwm" and ref.flags:
