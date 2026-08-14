@@ -322,38 +322,68 @@ All three are now CLOSED — two with no work to do, one implemented.
    surface resolving by node name (`Shield.by_name`, 2 fixture users,
    zero corpus) — recommended in scope, flagged for veto.
 
-30. **THE FOURTH REFERENCE SURFACE — `socket: <carrier>.<exposed>`.**
-   Parked by Tobi 2026-08-14, deliberately, at the moment item 29
-   landed. Item 29's ruling reads "the LABEL is the naming authority
-   for EVERY rig→shield string reference", and this one still resolves
-   by NODE NAME: a rig names a carrier's re-exported socket as
-   `adapter_1.mb1`, `mux_1.ch0`, `span.combined`.
+30. **CLOSED, LANDED 2026-08-14.** The fourth reference surface —
+   `socket: <carrier>.<exposed>` — resolves by DTS LABEL, completing
+   item 29's ruling across all four surfaces
+   (`exposed-socket-vocabulary-brief.md`). `Shield.exposed_socket()`
+   mirrors `config_element`'s shape; `_parse_exposed` now goes through
+   `_require_label`, which is the last of its four call sites, so no
+   `labels[0] if … else node.name` lookup fallback survives in
+   `shields.py`. Internal keying stays node-name (§5's rule): paths and
+   nexus labels are still built from `exposed.name`.
 
-   **It is the largest such surface in the tree** — 15 references, 12
-   of them corpus (`frdm_eth_nest`, `nucleo_mux_farm`,
-   `shield_rev_family`, `shield_rev_pilot`, `quail_eth_span`,
-   `frdm_cs_clash`, `nucleo_mux_clash`), against `config:`'s 3 and
-   `wires:`'s 3. Re-derive with
-   `grep -rn 'socket: .*\.' boards/rigs scripts/rigc/tests/fixtures`.
+   **This entry's own cost estimate was wrong, and the reason is worth
+   keeping.** It predicted "labelling 8 nodes, migrating 15 references,
+   and moving goldens". Only the first happened. All 8 node names
+   (`mb1`, `mb2`, `ch0..ch3`, `combined` ×2) were ALREADY syntactically
+   valid DTS labels, so labelling each node with its own current name
+   made every one of the 15 references resolve by label unchanged —
+   **zero references migrated, and every emitted golden byte-unchanged**
+   despite the ref string reaching `BoardSocket.label`, the
+   multi-parent `path`, `scope_path` and the config sheet. The
+   two-spellings ambiguity closed anyway: the label is now the only
+   accepted spelling; it merely happens to equal the old node name for
+   today's corpus. Read a cost estimate here as a hypothesis.
 
-   Nothing regressed — item 29 simply did not reach it, and
-   `_parse_exposed`'s own `node.labels[0] if node.labels else
-   node.name` fallback was left in place for that reason (the only
-   surviving instance of the fallback item 29 otherwise killed). The
-   cost of closing it: **not one exposed-socket node in the tree
-   carries a label** — `mb1`/`mb2` (`arduino_uno_click`), `ch0..ch3`
-   (`i2c_mux`), `combined` (`mikrobus_span_adapter`) are all bare node
-   names — so it means labelling 8 nodes, migrating 15 references, and
-   moving goldens.
+   The one intended golden change was the carried debt:
+   `remove-wire-missing_b.yml`'s `remove-wires:` endpoints moved from
+   `x.sq → y.led-2` to `x.dl_sq → y.dl_led2`, hand-edited (`RIGC_REFREEZE=1`
+   is blocked) and verified failing before / passing after.
 
-   **Carry with it**: `remove-wire-missing_b.yml` still spells its
-   `remove-wires:` endpoints `x.sq → y.led-2`, the pre-item-29 node
-   names. Deliberate — `find_wire` matches the RAW endpoint pair and
-   never calls `Shield.by_name`, and the reject golden quotes the pair
-   verbatim, so migrating it moves that golden. `dl_led2` exists as a
-   label, so the coherent spelling (`x.dl_sq → y.dl_led2`) is available
-   at the price of one classified golden edit. Until then a fixture in
-   the tree carries the exact spelling item 29 exists to eliminate.
+31. **Grove SPI and UART connectors — deferred, deliberately** (Tobi,
+   2026-08-14, during the grove base-carrier slice). The carriers ship
+   I²C, digital I/O and ADC connectors only. What was left out, and
+   why it is not just "more of the same":
+
+   - **`grove_spi`** (`seeed_grove_base_v1`, `seeed_grove_rpipico_v1`) —
+     a Grove SPI connector is a different pin contract from a digital
+     one. Whether it is a `socket,grove` carrying an SPI bus proxy, or
+     its own connector type, is unruled.
+   - **UART** (`grove_d0_uart`, `grove_d1_uart0`, `grove_d5_uart1`,
+     `grove_d7_uart`) — same question, plus **this project has no UART
+     bus proxy at all**: `plug,bus-proxies` on the grove binding lists
+     `i2c` only. UART support is the prerequisite, not the carrier.
+   - **The dual-role connectors are the interesting sub-case.**
+     rpipico's `grove_d7_i2c1`/`grove_d9_i2c0` and xiao's `grove_d5_i2c`
+     are digital connectors that ALSO carry I²C, each on a *different*
+     controller. That is `socket,i2c` per exposed socket rather than per
+     carrier — worth confirming the model already allows it before
+     assuming this is free.
+
+32. **Two host connector types are missing, and they block two Grove
+   carrier variants.** `dts/bindings/connectors/` holds exactly four
+   types: `arduino-r3`, `grove`, `i2c-port`, `mikrobus`.
+   `seeed_grove_rpipico_v1` plugs `&rpipico_header` and
+   `seeed_grove_xiao_v1` plugs `&xiao_d`; neither type exists, so
+   neither variant is authorable. **Ruled v1+v2 only** (Tobi,
+   2026-08-14) for that reason — they are blocked on the host types,
+   not on anything about carriers.
+
+   Each is a Convention 1 job of its own: a binding plus a
+   `dt-bindings/connector/<name>.h` position header, the single source
+   of truth for position indices. The carrier folder is authored to
+   hold all four, so both variants drop in with no carrier-side work
+   once the types exist.
 
 ---
 
