@@ -189,13 +189,20 @@ def _collect_channel(inst: Instance, dev: Device, ref: GpioRef, socket: BoardSoc
             f"'{socket.label}' offers no {fn} on it (no {_MAP_PROP[fn]} entry)",
             tuple(x for x in (ref.src, socket.src) if x)))
         return
-    if fn == "pwm" and ref.flags:
+    if fn == "pwm" and ref.flags and socket.pwm_cells == 2:
+        # CONDITIONAL on the SOCKET's own cell count (three-cell-pwm-
+        # brief.md Sec 3c), not an unconditional refusal any more: a
+        # 2-cell socket (lotus's atmel,sam0-tcc-pwm shape) has genuinely
+        # nowhere to put a flags value, but a 3-cell one (the common
+        # upstream shape) has a real cell for it -- the sentence below is
+        # about THIS SOCKET, never a blanket statement about "the
+        # expander's PWM emission".
         diags.append(error(
             "phys-function",
             f"'{inst.name}/{dev.name}: {ref.prop}' authors PWM flags "
             f"{ref.flags:#x} at position {ctype.posname(pos)}, "
-            "but the expander's PWM emission carries only (position, "
-            "period) — there is no cell for flags",
+            f"but socket '{socket.label}' is a {socket.pwm_cells}-cell "
+            "(channel, period) PWM socket — there is no cell for flags",
             tuple(x for x in (ref.src, socket.src) if x)))
         return
     ctrl, channel = resolved

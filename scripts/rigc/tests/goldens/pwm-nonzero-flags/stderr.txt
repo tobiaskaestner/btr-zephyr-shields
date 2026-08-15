@@ -1,3 +1,3 @@
-error[phys-function]: 'servo_1/servo: pwms' authors PWM flags 0x1 at position SIG0, but the expander's PWM emission carries only (position, period) — there is no cell for flags
+error[phys-function]: 'servo_1/servo: pwms' authors PWM flags 0x1 at position SIG0, but socket 'grove_d2' is a 2-cell (channel, period) PWM socket — there is no cell for flags
     at tests/fixtures/boards/rigs/pwm-nonzero-flags/shields/grove_servo_flags/grove_servo_flags.shield:22 (/shield-templates/grove_servo_flags/pwm/servo: pwms)
     at <REPO_ROOT>/boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi:59 (grove_d2)

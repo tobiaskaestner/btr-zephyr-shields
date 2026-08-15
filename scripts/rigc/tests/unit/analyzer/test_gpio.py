@@ -263,12 +263,16 @@ def test_collect_gpio_nets_channel_ref_missing_map_entry_names_the_real_adc_prop
     assert "socket,adc-map" not in diags[0].message
 
 
-def test_collect_gpio_nets_nonzero_pwm_flags_is_phys_function() -> None:
-    """The expander's PWM emission carries only (position, period) -- no
+def test_collect_gpio_nets_nonzero_pwm_flags_is_phys_function_on_a_2cell_socket() -> None:
+    """A 2-cell socket's PWM emission carries only (position, period) -- no
     cell for flags -- so a nonzero flags value is rejected rather than
-    silently dropped (pwm-nonzero-flags)."""
+    silently dropped (pwm-nonzero-flags). CONDITIONAL on the socket's own
+    pwm_cells (three-cell-pwm-brief.md Sec 3c) -- pinned == 2 here, the
+    genuinely-nowhere-to-put-it case; see the 3-cell twin below for the
+    other half of the pair."""
     socket = _socket(gpio_map={0: ("gpioa", 3, 0)})
     socket.pwm_map[0] = ("tcc0", 0)
+    socket.pwm_cells = 2
     dev = _dev("servo")
     dev.gpio_refs.append(GpioRef(prop="pwms", position=0, flags=1,
                                  function="pwm", period=0,
@@ -283,3 +287,27 @@ def test_collect_gpio_nets_nonzero_pwm_flags_is_phys_function() -> None:
     assert len(diags) == 1
     assert diags[0].code == "phys-function"
     assert "PWM flags" in diags[0].message
+    assert "socket 's1'" in diags[0].message
+    assert "2-cell" in diags[0].message
+
+
+def test_collect_gpio_nets_nonzero_pwm_flags_is_carried_on_a_3cell_socket() -> None:
+    """The other half of the pair (three-cell-pwm-brief.md Sec 3c): a
+    3-cell socket has a real cell for flags, so the identical nonzero
+    flags value is carried through to result.channels, never refused."""
+    socket = _socket(gpio_map={0: ("gpioa", 3, 0)})
+    socket.pwm_map[0] = ("tcc0", 0)
+    socket.pwm_cells = 3
+    dev = _dev("servo")
+    dev.gpio_refs.append(GpioRef(prop="pwms", position=0, flags=1,
+                                 function="pwm", period=20000000,
+                                 src=None))  # type: ignore[arg-type]
+    inst = _inst("servo_1")
+    inst.shield.devices.append(dev)
+    rig = Rig(name="r", instances=[inst])
+
+    result, diags = collect_gpio_nets(rig, {"servo_1": {"plug": socket}}, {"t": _ctype()})
+
+    assert diags == []
+    assert result.channels[("servo_1", "servo", "pwms")] == (
+        "pwm", "tcc0", 0, 20000000, 1, 0)

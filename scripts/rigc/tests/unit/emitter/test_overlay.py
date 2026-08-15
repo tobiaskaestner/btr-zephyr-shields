@@ -8,7 +8,7 @@ contracts that would survive a rewrite, not coverage.
 """
 from __future__ import annotations
 
-from typing import Dict, Tuple
+from typing import Dict, Optional, Tuple
 
 import pytest
 
@@ -26,9 +26,9 @@ def _ctype() -> ConnectorType:
                         stackable=False, cs_pool={})
 
 
-def _socket() -> BoardSocket:
+def _socket(pwm_cells: Optional[int] = None) -> BoardSocket:
     return BoardSocket(label="sock", path="/s", type_name="t", gpio_map={},
-                       buses={})
+                       buses={}, pwm_cells=pwm_cells)
 
 
 def _plain_dev(**kwargs: object) -> Device:
@@ -67,13 +67,15 @@ def test_gpio_ref_keeps_flags_unchanged_when_not_inverted() -> None:
 
 
 def test_pwm_ref_omits_flags_and_renders_position_and_period() -> None:
+    """2-cell socket (three-cell-pwm-brief.md Sec 3b): flags omitted,
+    exactly as lotus's own atmel,sam0-tcc-pwm shape requires."""
     ref = GpioRef(prop="pwms", position=2, flags=0, src=_SRC, function="pwm",
                  period=1000)
     dev = _plain_dev(name="dev", label="dev", gpio_refs=[ref])
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
-    s = Solved(sockets={"i1": {"plug": _socket()}},
+    s = Solved(sockets={"i1": {"plug": _socket(pwm_cells=2)}},
               channels={("i1", "dev", "pwms"): ("pwm", "pwm0", 0, 1000, 0, 2)})
 
     text = render_overlay(rig, s, {"t": _ctype()})
@@ -81,18 +83,39 @@ def test_pwm_ref_omits_flags_and_renders_position_and_period() -> None:
     assert "pwms = <&sock 2 1000>;" in text
 
 
+def test_pwm_ref_on_a_3cell_socket_renders_the_flags_word_too() -> None:
+    """The 3-cell twin (three-cell-pwm-brief.md Sec 3b, acceptance
+    criterion 1): the SAME (position, period) plus a real flags word --
+    the common upstream shape (st,stm32-pwm/nxp,ftm-pwm)."""
+    ref = GpioRef(prop="pwms", position=2, flags=0x1, src=_SRC, function="pwm",
+                 period=1000)
+    dev = _plain_dev(name="dev", label="dev", gpio_refs=[ref])
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
+    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
+    rig = Rig(name="r", instances=[inst])
+    s = Solved(sockets={"i1": {"plug": _socket(pwm_cells=3)}},
+              channels={("i1", "dev", "pwms"): ("pwm", "pwm0", 0, 1000, 0x1, 2)})
+
+    text = render_overlay(rig, s, {"t": _ctype()})
+
+    assert "pwms = <&sock 2 1000 0x1>;" in text
+
+
 def test_nonzero_pwm_flags_raise_assertionerror_never_silently_emitted() -> None:
     """The analyzer's phys-function rejection is what makes this
     unreachable on an accepted rig (analyzer/gpio.py); this documents the
     invariant rather than re-deriving the diagnostic -- a RAISE, not a
-    bare `assert`, so it survives `python -O` (rigc-r5-brief.md Sec 1)."""
+    bare `assert`, so it survives `python -O` (rigc-r5-brief.md Sec 1).
+    2-cell socket only (three-cell-pwm-brief.md Sec 3c): a 3-cell one has
+    a real cell for flags, so this is unreachable there BY CONSTRUCTION,
+    not merely by the analyzer's own gate -- see the 3-cell test above."""
     ref = GpioRef(prop="pwms", position=2, flags=0, src=_SRC, function="pwm",
                  period=1000)
     dev = _plain_dev(name="dev", label="dev", gpio_refs=[ref])
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
-    s = Solved(sockets={"i1": {"plug": _socket()}},
+    s = Solved(sockets={"i1": {"plug": _socket(pwm_cells=2)}},
               channels={("i1", "dev", "pwms"): ("pwm", "pwm0", 0, 1000, 0x1, 2)})
 
     with pytest.raises(AssertionError, match="nonzero PWM flags"):
@@ -129,7 +152,7 @@ def test_pwm_collection_entry_renders_the_resolved_period_not_the_flags_cell() -
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
-    s = Solved(sockets={"i1": {"plug": _socket()}},
+    s = Solved(sockets={"i1": {"plug": _socket(pwm_cells=2)}},
               channels={("i1", "led", "pwms"): ("pwm", "pwm0", 0, 1234, 0, 5)})
 
     text = render_overlay(rig, s, {"t": _ctype()})
@@ -149,7 +172,7 @@ def test_invert_does_not_touch_a_pwm_collection_entry() -> None:
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"}, invert=True)
     rig = Rig(name="r", instances=[inst])
-    s = Solved(sockets={"i1": {"plug": _socket()}},
+    s = Solved(sockets={"i1": {"plug": _socket(pwm_cells=2)}},
               channels={("i1", "led", "pwms"): ("pwm", "pwm0", 0, 1234, 0, 5)})
 
     text = render_overlay(rig, s, {"t": _ctype()})

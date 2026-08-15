@@ -332,11 +332,20 @@ def test_bare_socket_has_no_pwm_or_adc_cells() -> None:
 # entry.parent_specifiers` destructuring raised an unhandled ValueError
 # the instant a real board's PWM controller used the standard 3-cell
 # form -- a traceback, not a diagnostic (the M8 defect family,
-# post-cutover-backlog.md item 3). This slice does NOT add 3-cell
-# support (ruled out of scope): it only replaces the crash with a named
+# post-cutover-backlog.md item 3). That slice did NOT add 3-cell support
+# (ruled out of scope then): it only replaced the crash with a named
 # LoadError (phys-board), caught at boarddt.load_board's own boundary
 # (test_boarddt.py owns THAT half; this file owns board_edt.py's own
 # raise).
+#
+# three-cell-pwm-brief.md (backlog item 34) widens the SUPPORTED set to
+# {2, 3} -- a 3-cell PWM parent is no longer refused on its own. The
+# fixture below (2-cell SOCKET, 3-cell PARENT) is now instead the
+# CHILD/PARENT MISMATCH witness (Sec 3a RULED: the two must agree,
+# rigc does not translate between specifier widths) -- both counts are
+# individually supported, but they disagree with each other, which is a
+# DIFFERENT diagnostic than "unsupported count" (see
+# test_four_cell_pwm_parent_is_still_unsupported below for that one).
 
 
 def _three_cell_pwm_edt(tmp_path: Path):
@@ -404,28 +413,208 @@ def _three_cell_pwm_edt(tmp_path: Path):
 
 
 def test_three_cell_pwm_parent_raises_loaderror_not_valueerror(tmp_path: Path) -> None:
+    """A 2-cell socket wired to a 3-cell parent controller: BOTH counts
+    are individually supported (three-cell-pwm-brief.md Sec 3a widened
+    the set to {2, 3}), but they disagree with each other -- still a
+    LoadError (phys-board), not a ValueError, naming the socket, the
+    controller's defining label, and BOTH counts."""
     with pytest.raises(LoadError) as excinfo:
         board_edt.project_edt(_three_cell_pwm_edt(tmp_path), "three-cell-board")
     (diag,) = excinfo.value.diags
     assert diag.code == "phys-board"
     assert "three_cell_socket" in diag.message
     assert "pwm3" in diag.message   # the controller's DEFINING label
-    assert "2-cell" in diag.message and "<3>" in diag.message
-    assert "not supported yet" in diag.message
+    assert "<2>" in diag.message and "<3>" in diag.message
+    assert "must equal" in diag.message
 
 
 def test_three_cell_pwm_parent_names_both_cell_counts_and_the_controller(
         tmp_path: Path) -> None:
     """Coordinator correction (2026-08-14): a 3-cell PWM parent is the
     COMMON case upstream (both twister boards' own st,stm32-pwm/
-    nxp,ftm-pwm are 3-cell), so this diagnostic is user-facing, not a
-    rare-guard afterthought -- it must name the controller by its own
-    defining label, not just the socket."""
+    nxp,ftm-pwm are 3-cell), so this mismatch diagnostic is user-facing,
+    not a rare-guard afterthought -- it must name the controller by its
+    own defining label, not just the socket."""
     with pytest.raises(LoadError) as excinfo:
         board_edt.project_edt(_three_cell_pwm_edt(tmp_path), "three-cell-board")
     (diag,) = excinfo.value.diags
     assert "#pwm-cells" in diag.message
     assert "PWM" in diag.message.upper() or "pwm" in diag.message
+
+
+def _self_consistent_pwm_edt(tmp_path: Path, cells: int):
+    """A socket AND its parent controller both declaring the SAME
+    #pwm-cells count -- the self-consistent case at whatever `cells` is,
+    used both to prove a 3-cell parent now resolves cleanly (accept) and
+    that a genuinely unsupported count (e.g. 4) is still refused with the
+    old-style "not supported yet" wording (three-cell-pwm-brief.md Sec
+    3a: "only the accepted set widens")."""
+    binding_dir = tmp_path / "bindings"
+    binding_dir.mkdir()
+    (binding_dir / "socket-fixture-ncell.yaml").write_text(textwrap.dedent("""\
+        description: purpose-built fixture binding for the self-consistent N-cell PWM test
+        compatible: "socket,fixture-ncell"
+        properties:
+          "#gpio-cells":
+            type: int
+            required: true
+          gpio-map:
+            type: compound
+            required: true
+          "#pwm-cells":
+            type: int
+          pwm-map:
+            type: compound
+        """))
+    dts_path = tmp_path / "ncell_pwm.dts"
+    child_words = " ".join(["0"] * cells)
+    parent_words = " ".join(["0"] * cells)
+    dts_path.write_text(textwrap.dedent(f"""\
+        /dts-v1/;
+        / {{
+            #address-cells = <1>;
+            #size-cells = <1>;
+
+            gpio0: gpio_ctrl@0 {{
+                compatible = "fixturetest,gpio-ctrl";
+                reg = <0x0 0x4>;
+                gpio-controller;
+                #gpio-cells = <2>;
+            }};
+            pwmn: ncell_pwm_ctrl@10 {{
+                compatible = "fixturetest,pwm-ctrl";
+                reg = <0x10 0x4>;
+                #pwm-cells = <{cells}>;
+            }};
+
+            ncell_socket: connector_ncell {{
+                compatible = "socket,fixture-ncell";
+                #gpio-cells = <2>;
+                gpio-map = <0 0 &gpio0 0 0>;
+
+                #pwm-cells = <{cells}>;
+                pwm-map = <{child_words} &pwmn {parent_words}>;
+            }};
+        }};
+        """))
+    ensure_devicetree_on_path()
+    from devicetree import edtlib
+    return edtlib.EDT(str(dts_path), [str(binding_dir)], default_prop_types=True)
+
+
+def test_three_cell_pwm_self_consistent_is_accepted(tmp_path: Path) -> None:
+    """The accept half (acceptance criterion 1's unit-level twin): a
+    socket and its parent BOTH declaring #pwm-cells = <3> resolves
+    cleanly -- no LoadError, pwm_cells carries the real count 3."""
+    board = board_edt.project_edt(
+        _self_consistent_pwm_edt(tmp_path, 3), "ncell-board")
+    socket = board.sockets["ncell_socket"]
+    assert socket.pwm_cells == 3
+    assert socket.pwm_map[0] == ("pwmn", 0)
+
+
+def test_four_cell_pwm_parent_is_still_unsupported(tmp_path: Path) -> None:
+    """A count outside the supported set {2, 3} -- both sides SELF-
+    CONSISTENT at 4 -- must still be refused, with the OLD-style
+    "not supported yet" wording (three-cell-pwm-brief.md Sec 3a: "An
+    unsupported count keeps today's LoadError/phys-board shape and
+    wording ... only the accepted set widens"). Distinct from the
+    mismatch tests above, which disagree with EACH OTHER while both
+    individually stay inside the supported set."""
+    with pytest.raises(LoadError) as excinfo:
+        board_edt.project_edt(_self_consistent_pwm_edt(tmp_path, 4), "ncell-board")
+    (diag,) = excinfo.value.diags
+    assert diag.code == "phys-board"
+    assert "ncell_socket" in diag.message
+    assert "<4>" in diag.message
+    assert "supports only" in diag.message
+    assert "2-cell" in diag.message and "3-cell" in diag.message
+
+
+def _self_consistent_adc_edt(tmp_path: Path, cells: int):
+    """ADC's own twin of `_self_consistent_pwm_edt` above -- a socket and
+    its parent io-channel controller both declaring the SAME
+    #io-channel-cells count. Used to pin ADC's supported set at the
+    STRICT singleton {1} (three-cell-pwm-brief.md Sec 1: "Do NOT widen
+    ADC. Its checked read stays strict at exactly one cell") -- this
+    slice widens PWM's set, never ADC's."""
+    binding_dir = tmp_path / "bindings"
+    binding_dir.mkdir()
+    (binding_dir / "socket-fixture-adc-ncell.yaml").write_text(textwrap.dedent("""\
+        description: purpose-built fixture binding for the ADC cell-count test
+        compatible: "socket,fixture-adc-ncell"
+        properties:
+          "#gpio-cells":
+            type: int
+            required: true
+          gpio-map:
+            type: compound
+            required: true
+          "#io-channel-cells":
+            type: int
+          io-channel-map:
+            type: compound
+        """))
+    dts_path = tmp_path / "ncell_adc.dts"
+    child_words = " ".join(["0"] * (cells - 1))
+    parent_words = " ".join(["0"] * (cells - 1))
+    dts_path.write_text(textwrap.dedent(f"""\
+        /dts-v1/;
+        / {{
+            #address-cells = <1>;
+            #size-cells = <1>;
+
+            gpio0: gpio_ctrl@0 {{
+                compatible = "fixturetest,gpio-ctrl";
+                reg = <0x0 0x4>;
+                gpio-controller;
+                #gpio-cells = <2>;
+            }};
+            adcn: ncell_adc_ctrl@10 {{
+                compatible = "fixturetest,adc-ctrl";
+                reg = <0x10 0x4>;
+                #io-channel-cells = <{cells}>;
+            }};
+
+            ncell_adc_socket: connector_ncell_adc {{
+                compatible = "socket,fixture-adc-ncell";
+                #gpio-cells = <2>;
+                gpio-map = <0 0 &gpio0 0 0>;
+
+                #io-channel-cells = <{cells}>;
+                io-channel-map = <0{(' ' + child_words) if child_words else ''} &adcn 0{(' ' + parent_words) if parent_words else ''}>;
+            }};
+        }};
+        """))
+    ensure_devicetree_on_path()
+    from devicetree import edtlib
+    return edtlib.EDT(str(dts_path), [str(binding_dir)], default_prop_types=True)
+
+
+def test_adc_one_cell_self_consistent_is_still_accepted(tmp_path: Path) -> None:
+    """ADC's own accept case, unchanged by this slice: a 1-cell socket
+    and parent resolve cleanly."""
+    board = board_edt.project_edt(
+        _self_consistent_adc_edt(tmp_path, 1), "ncell-adc-board")
+    socket = board.sockets["ncell_adc_socket"]
+    assert socket.adc_cells == 1
+    assert socket.adc_map[0] == ("adcn", 0)
+
+
+def test_adc_two_cell_self_consistent_is_still_refused(tmp_path: Path) -> None:
+    """RULED (three-cell-pwm-brief.md Sec 1): ADC is NOT widened by this
+    slice -- a 2-cell ADC socket/parent, even self-consistent with each
+    other, must still be refused. This is the mutation-check target the
+    brief names explicitly: widening ADC's own supported set (e.g. to
+    accept 2 cells) must make THIS test fail."""
+    with pytest.raises(LoadError) as excinfo:
+        board_edt.project_edt(_self_consistent_adc_edt(tmp_path, 2), "ncell-adc-board")
+    (diag,) = excinfo.value.diags
+    assert diag.code == "phys-board"
+    assert "ncell_adc_socket" in diag.message
+    assert "<2>" in diag.message
+    assert "supports only" in diag.message
+    assert "1-cell" in diag.message
 
 
 # ------------------------------------------------- controller-label determinism

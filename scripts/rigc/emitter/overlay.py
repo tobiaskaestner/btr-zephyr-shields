@@ -278,11 +278,16 @@ def _render_ref(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
         # Conv. 3: rewrite &plug (or the routing jumper, R6) to the socket's
         # nexus -- a real board node, or a synthesized carrier nexus (R19,
         # Option C). dtc chases the (multi-level) gpio-map to the pin.
-        # invert (bridle's _inv axis) is a GPIO-only concept -- it flips the
-        # active-level flag bit a gpio ref alone carries; a pwm/adc ref's
-        # own value means something else entirely (or, adc, does not exist)
-        # and is never consulted for invert, even on a collected entry
-        # whose instance sets invert: true.
+        # invert (bridle's _inv axis) is a GPIO-only concept, BY DELIBERATE
+        # CHOICE (three-cell-pwm-brief.md Sec 4, recommended, not merely
+        # "no cell existed yet"): it flips the active-level flag bit a gpio
+        # ref alone carries; PWM_POLARITY is a different property, authored
+        # by the shield in its own pwms= ref (now that a flags cell can
+        # actually be carried, on a 3-cell socket) -- coupling the two would
+        # make one rig key mean two unrelated things depending on the
+        # device's function. invert is never consulted for a pwm/adc ref
+        # (or, adc, does not exist at all), even on a collected entry whose
+        # instance sets invert: true.
         flags = ref.flags ^ 0x1 if inst.invert else ref.flags
         return (f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {flags:#x}>;"
                 f"\t/* {ctype.posname(pos)}{' inverted' if inst.invert else ''} */")
@@ -292,31 +297,48 @@ def _render_ref(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
     # itself.
     _fn, _ctrl, _ch, period, flags, _pos = s.channels[(inst.name, dev.name, ref.prop)]
     if ref.function == "pwm":
-        # PWM cells: the nexus's own #pwm-cells is 2 (position, period) --
-        # matching upstream atmel,sam0-tcc-pwm's flags-less 2-cell
-        # convention (channel, period). pwm-map-pass-thru <0x0 0xffffffff>
-        # carries exactly ONE cell through: period. There is NO cell for
-        # flags -- a 3rd cell here is not absorbed by the map at all;
-        # dtlib parses it as the start of a BOGUS trailing phandle-array
-        # element (silently a spurious null entry when it happens to be 0,
-        # a hard EDTError otherwise). So flags must never be emitted here;
-        # see below.
-        if flags:   # not assert -- must survive python -O
-            # Nonzero PWM flags are rejected upstream, by the analyzer
-            # (analyzer/gpio.py, category phys-function) -- a device with
-            # such a ref never earns a solved.channels entry, so cli.py
-            # exits on diags.errors before emitter.emit() is ever called
-            # (its "cannot fail" contract would otherwise be violated by a
-            # raised ValueError here). This documents the invariant rather
-            # than re-deriving the diagnostic; tripping it means the
-            # analyzer's guarantee broke, not that a rig author did
-            # something wrong.
-            raise AssertionError(
-                f"{inst.name}/{dev.name}: {ref.prop} reached the emitter "
-                f"with nonzero PWM flags {flags:#x} — the analyzer should "
-                "have rejected this (phys-function) before emission")
-        return (f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {period}>;"
-                f"\t/* {ctype.posname(pos)} */")
+        # PWM cells: the SOCKET's own #pwm-cells decides the word count --
+        # a real board socket's checked-read count (board_edt.py's
+        # _project_channel_map) or a carrier's inherited one
+        # (compose_socket's require-and-check), never a hardcoded
+        # constant (three-cell-pwm-brief.md Sec 3b). A 2-cell socket
+        # matches upstream atmel,sam0-tcc-pwm's flags-less convention
+        # (channel, period); its pwm-map-pass-thru <0x0 0xffffffff>
+        # carries exactly ONE cell through, so a 3rd cell here would not
+        # be absorbed by the map at all -- dtlib would parse it as the
+        # start of a BOGUS trailing phandle-array element (silently a
+        # spurious null entry when it happens to be 0, a hard EDTError
+        # otherwise). A 3-cell socket (the common upstream shape --
+        # st,stm32-pwm, nxp,ftm-pwm) has a real THIRD cell for flags, and
+        # its own pass-thru carries it exactly like period.
+        assert socket.pwm_cells is not None
+        if socket.pwm_cells == 2:
+            if flags:   # not assert -- must survive python -O
+                # Nonzero PWM flags on a 2-cell socket are rejected
+                # upstream, by the analyzer (analyzer/gpio.py, category
+                # phys-function, conditional on socket.pwm_cells == 2) --
+                # a device with such a ref never earns a solved.channels
+                # entry, so cli.py exits on diags.errors before
+                # emitter.emit() is ever called (its "cannot fail"
+                # contract would otherwise be violated by a raised
+                # ValueError here). This documents the invariant rather
+                # than re-deriving the diagnostic; tripping it means the
+                # analyzer's guarantee broke, not that a rig author did
+                # something wrong.
+                raise AssertionError(
+                    f"{inst.name}/{dev.name}: {ref.prop} reached the "
+                    f"emitter with nonzero PWM flags {flags:#x} on a "
+                    "2-cell socket — the analyzer should have rejected "
+                    "this (phys-function) before emission")
+            return (f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {period}>;"
+                    f"\t/* {ctype.posname(pos)} */")
+        # socket.pwm_cells == 3 (the only other supported count,
+        # board_edt.py's _CHANNEL_FN) -- the shield's own plug always
+        # declares #pwm-cells = <3> today (grove_servo, grove_pwm_led,
+        # every corpus consumer), so ref.flags is always a real value
+        # here, never a placeholder.
+        return (f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {period} "
+                f"{flags:#x}>;\t/* {ctype.posname(pos)} */")
     # adc: #io-channel-cells is 1 (channel only) -- one cell, no flags, no
     # period; emitting the gpio-shaped two cells here would be a hard
     # EDTError against a 1-cell map, not merely a wrong value.
