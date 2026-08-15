@@ -1,6 +1,163 @@
 # Rigs — Session Handoff
 
-## RESUME (2026-08-13) — MULTI-PLUG IS DONE, ALL FOUR SLICES. PIN PROMOTION IS BRIEFED, RULED AND PARKED (backlog 28). A NEW VOCABULARY QUESTION IS OPEN AND UNRULED (backlog 29). NEXT = rig-schema.yaml, THEN BRIDLE MIGRATION.
+## RESUME (2026-08-15) — THE ANALOG THREAD IS COMPLETE. Carriers pass PWM and ADC, both twister boards have real nexuses, and promotion can select a config element. NEXT = a ruling on `boards/rigs/` layout, then rig-schema.yaml → BRIDLE MIGRATION.
+
+### STATE AT SESSION CLOSE (2026-08-15)
+
+btr-shields HEAD **`be76f60`**. `main` is **ahead 43 of origin, NOT
+pushed** — pushing needs Tobi's word. **Tree is CLEAN.**
+
+**Gate DRIVER-VERIFIED at close, not carried**: mypy clean (**104**
+source files), unit **771**, integration **284**, coverage **94%** vs
+the 88 floor. Every slice below was gated by the driver independently,
+with its own mutation checks, before commit. Re-derive anyway — this
+file has been wrong about counts before, which is why the numbers are
+labelled with how they were obtained.
+
+### What this session did, in four threads
+
+**1. The reference vocabulary finished (items 29, 30).** `pin:` became
+`config:`, and the DTS LABEL is now the naming authority for **all
+four** rig→shield reference surfaces — `config:`, `params:`, `wires:`
+and `socket: <carrier>.<exposed>`. `rigc/shields.py::_require_label`
+serves every kind of node that carries a label; no `labels[0] if … else
+node.name` lookup fallback survives.
+
+Item 30's own backlog entry predicted "labelling 8 nodes, migrating 15
+references, and moving goldens". **Only the first happened** — every
+node name was already a valid DTS label, so labelling each with its own
+name left all 15 references resolving unchanged and every golden
+byte-identical. Read a cost estimate here as a hypothesis.
+
+**2. The grove family completed.** `grove_sens` (3 shields, one folder),
+`grove_pwm_led`, and the base carriers `seeed_grove_base_v1`/`_v2`
+(19 and 12 sockets, one folder named after neither).
+`nucleo_grove_farm` is the first NESTED carrier promotion in the
+permanent corpus and the first suite under `tests/rigs/`.
+
+`b16c314` fixed a real emitter bug found on the way:
+`rigc/emitter/overlay.py::_collection_entry` had no `ref.function`
+branch, so a `pwm-leds` entry rendered gpio-shaped — polarity in the
+period cell, the real period dropped. Silently valid, silently wrong.
+One shared `::_render_ref` now serves both callers.
+
+**3. The analog thread — the session's centre (backlog 33, 34, 35, 36).**
+Ruling 3 of the carrier slice said "author the ADC connectors and accept
+the breakage". They broke, and the diagnosis was worth more than the
+feature:
+
+- **33** — `ExposedSocket` could not hold a PWM/ADC map and
+  `rigc/analyzer/sockets.py::compose_socket` never wrote one, so a
+  carrier's declared `io-channel-map` was dropped at parse. Fixed in one
+  sweep for both functions (`88e53fc`), because splitting them would
+  have left a branch for one and a silent hole for the other — the
+  `b16c314` bug's exact shape.
+- **34** — a survey found **55 of 75** upstream PWM bindings declare
+  THREE `pwm-cells` and only 7 declare two, `seeeduino_lotus`'s among
+  them. rigc supported only the minority shape and raised `ValueError`
+  on the rest. lotus was the outlier, not the norm (`0373cd2`).
+- **35, 36** — real ADC and PWM nexuses on `arduino-r3` and both
+  twister boards (`d09fd37`, `06ae4ad`). `grove_light` and
+  `grove_pwm_led` now resolve through a carrier on a real platform;
+  `grove_pwm_led` had never run anywhere but lotus, which is not a
+  twister platform.
+
+**4. Promotion grew its missing category (`0246554`).**
+`config.<label>=<value>`, reserved exactly as `socket.<slot>=` already
+is. The blocked set was never one shield — it was **every shield with a
+jumper or strap the rig must select**; `adafruit_winc1500` was just the
+only one in the corpus. It left `EXPECTED_REJECTING` and gained a
+twister suite.
+
+### THE PROMOTION GRAMMAR AS IT NOW STANDS — supersedes the 2026-08-13 block
+
+```
+<target>     := <element>[;<element>...]
+<element>    := <shield>[@rev][:<assignment>...]
+<assignment> := socket=<label>          # fixed key, single-plug only
+              | socket.<slot>=<label>   # per-slot, plural only
+              | config.<label>=<value>  # NEW — strap or routing jumper
+              | <device>.<prop>=<value> # params (device DTS LABEL)
+```
+
+`config` is the SECOND reserved left-half. Values are the same spelling
+a rig.yml uses: a position NAME (`D2`), not an index; an address
+(`0x77`), not a domain index. Worked example:
+
+```
+west build-rig --rig 'adafruit_winc1500:config.w_irq_jmp=D2' -b nucleo_f401re/stm32f401xe/rig <app>
+```
+
+Without it the expander refuses with `phys-position` and names the
+domain — non-CS positions are never auto-allocated.
+
+**CS position is NOT selectable, deliberately** (asked and answered
+2026-08-15). It comes from `shield,cs-position` (copper-fixed in the
+shield) or the allocator drawing on `socket,cs-pool`; there is no
+rig-facing grammar, so promotion has nothing to pass through. That is
+R4's point: a jumper is a choice physics forces on the user, a pool CS
+is a routing decision the tool makes to avoid a clash a hand-written
+overlay would create silently. The config sheet turns the allocation
+into an instruction. If pinning is ever wanted it needs its own name (a
+pool CS is not a config element — no `shield,domain`, no sheet label)
+and the allocator must treat a pin as occupied when placing the others.
+
+### OPEN FOR TOBI — the only things blocking
+
+1. **`boards/rigs/` layout** (`claude/rigs-folder-layout-proposal.md`).
+   The five unbuildable rigs moved to `boards/rigs/clash/` (`15b8710`).
+   The single-shield-rig removal was **NOT done**, because the evidence
+   contradicted the premise — see the proposal. Needs A/B/C, and
+   separately yes/no on deleting `nucleo_datalogger`.
+2. **The doc page** item 29 §8 still owes: every `shield,*` property,
+   Diátaxis reference, `-W` clean. Owed since `33e5e49`.
+3. **The workspace `.venv` vs `.docvenv` question**, unresolved since
+   2026-08-14: three Sphinx packages were installed into the workspace
+   venv at Tobi's request, but `doc/howto/build-the-docs.rst` says doc
+   deps deliberately do NOT go there. Back them out, or amend the howto.
+
+### PROCESS — what went wrong, so it stops
+
+**My briefs were the weak link, not the work.** Three defects, each
+caught by an implementor checking rather than complying:
+
+- Twice I asserted a named build module carried `@pytest.mark.build`
+  when it did not — `test_singleton_identity_law.py`, then
+  `test_emitted_rejects.py`, which also did not own the goldens I said
+  it did. **Verify a module's marking and ownership before naming it in
+  a contract.**
+- One brief contradicted itself on `EXPECTED_REJECTING` because I
+  corrected §4 and left §6 stale.
+- The `rigs-folder-layout-proposal.md` claimed a non-default strap
+  address could not be promoted — an analysis carried from before
+  `0246554`, which I had committed myself an hour earlier. Corrected in
+  `be76f60`. **Re-check a claim about capability after any slice that
+  changes capability.**
+
+**A golden could carry a machine-specific path and nothing caught it.**
+Two did — one naming another session's scratch dir — because
+`conftest.py::normalize_dts_provenance`'s regex matches only pytest's
+DEFAULT basetemp, and `dts_equiv.py` ignores comments. Fixed and guarded
+by `test_golden_path_hygiene.py` (`642883b`). **Regenerate goldens under
+the default basetemp, and run that test.**
+
+### Backlog delta
+
+Closed: **29, 30, 33 (model half), 34, 35, 36**. Opened: **31** (grove
+SPI/UART deferral, incl. the dual-role connectors), **32** (two missing
+host connector types blocking `rpipico_v1`/`xiao_v1`), **37**
+(`rigc/board_census.py::_SOCKET_NODE_RE` is brace-non-nesting and
+comment-blind — a literal brace in a comment silently drops a socket
+from the census), **38** (a nexus map row's FLAGS cell is discarded,
+which is why nucleo's Arduino D11 is declared by absence where bridle
+declares it with `STM32_PWM_COMPLEMENTARY`).
+
+Unchanged and still the destination: **rig-schema.yaml (item 7) →
+BRIDLE MIGRATION (item 9)**.
+
+---
+
+## RESUME (2026-08-13, superseded) — MULTI-PLUG IS DONE, ALL FOUR SLICES. PIN PROMOTION IS BRIEFED, RULED AND PARKED (backlog 28). A NEW VOCABULARY QUESTION IS OPEN AND UNRULED (backlog 29). NEXT = rig-schema.yaml, THEN BRIDLE MIGRATION.
 
 ### STATE AT SESSION CLOSE (2026-08-13)
 
