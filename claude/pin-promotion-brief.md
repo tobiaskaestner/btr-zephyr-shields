@@ -41,7 +41,7 @@ boards/shields/adafruit_winc1500/adafruit_winc1500.shield     # jumper  irq-jmp 
 boards/shields/temp_click/temp_click.shield                   # strap   addr-strap (shield,domain)
 
 $ grep -rn '^\s*config:' boards/rigs scripts/rigc/tests/fixtures
-boards/rigs/nucleo_wifi_logger/nucleo_wifi_logger.yml:21      # jumper, D7 — the reject rig
+boards/rigs/clash/nucleo_wifi_logger/nucleo_wifi_logger.yml:21 # jumper, D7 — the reject rig
 boards/rigs/nucleo_wifi_logger_ok/nucleo_wifi_logger_ok.yml:17 # jumper, D2 — the realizable one
 boards/rigs/quail_temp_farm/quail_temp_farm.yml:18            # strap,  0x49
 ```

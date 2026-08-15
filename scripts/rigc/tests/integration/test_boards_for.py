@@ -338,10 +338,15 @@ def test_west_rigs_with_no_flag_still_lists_every_rig_unchanged() -> None:
     would hold just as well if the listing started printing board targets
     instead, so the expectation is the names themselves, taken from
     list_rigs (the module `west rigs` renders from) rather than from this
-    command's own output."""
+    command's own output.
+
+    rglob, not a flat glob("*/rig.yml") -- five rigs live one level
+    deeper, under boards/rigs/clash/ (clash-rigs-folder-brief.md); a flat
+    scan here would silently under-count `expected` and let a `find_rigs_
+    in` regression that drops those five pass unnoticed."""
     result = _run()
     assert result.returncode == 0
     expected = sorted(
         yaml.safe_load(p.read_text())["rig"]["name"]
-        for p in (REPO_ROOT / "boards" / "rigs").glob("*/rig.yml"))
+        for p in (REPO_ROOT / "boards" / "rigs").rglob("rig.yml"))
     assert sorted(result.stdout.split()) == expected

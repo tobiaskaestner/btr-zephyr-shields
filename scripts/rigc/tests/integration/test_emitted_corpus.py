@@ -57,6 +57,7 @@ from conftest import (
     RIG_BOARD,
     RIGS_DIR,
     RigCase,
+    rig_dir,
     SHIELD_DIR,
     assert_absent_or_refreeze,
     freeze_or_assert,
@@ -77,15 +78,22 @@ def test_corpus_rig_identity(case: RigCase) -> None:
     boards/rigs/ and its rig.yml rig.name must be the identical string
     (Ground rule elsewhere in the front-end spec) — RigCase.name serves
     as both."""
-    with open(RIGS_DIR / case.name / "rig.yml") as f:
+    with open(rig_dir(case.name) / "rig.yml") as f:
         doc = yaml.safe_load(f)
     assert doc["rig"]["name"] == case.name
 
 
 def test_corpus_complete() -> None:
     """Every rig folder under boards/rigs/ must be in the corpus table — a
-    newly added rig must be frozen into the goldens, never silently skipped."""
-    live = {d.name for d in RIGS_DIR.iterdir() if (d / "rig.yml").is_file()}
+    newly added rig must be frozen into the goldens, never silently skipped.
+
+    Recursive (rglob, not a flat iterdir): five rigs live one level deeper,
+    under boards/rigs/clash/ (clash-rigs-folder-brief.md) -- a flat scan
+    would silently drop them from `live`, and this test exists precisely
+    to catch a rig going missing, so it must not itself be blind to one
+    that moved."""
+    live = {d.name for d in RIGS_DIR.rglob("*")
+           if d.is_dir() and (d / "rig.yml").is_file()}
     assert live == {c.name for c in ALL_CASES}
 
 
@@ -108,7 +116,10 @@ def test_no_rig_declares_a_board() -> None:
     Census-style: falsified by mutating the WORLD it observes -- add a
     board: key back to any rig's rig.yml -- never by editing this
     assertion (S5's test_no_rig_content_names_a_board_prefixed_socket,
-    just below, is the shape this follows)."""
+    just below, is the shape this follows).
+
+    rglob, not a flat glob("*/rig.yml") -- five rigs live one level
+    deeper, under boards/rigs/clash/ (clash-rigs-folder-brief.md)."""
     def _board_key_paths(node: object, path: str) -> List[str]:
         found: List[str] = []
         if isinstance(node, dict):
@@ -123,7 +134,7 @@ def test_no_rig_declares_a_board() -> None:
         return found
 
     offenders = []
-    for rig_yml in sorted(RIGS_DIR.glob("*/rig.yml")):
+    for rig_yml in sorted(RIGS_DIR.rglob("rig.yml")):
         doc = yaml.safe_load(rig_yml.read_text()) or {}
         keys = _board_key_paths(doc, "")
         if keys:
@@ -162,13 +173,16 @@ def test_no_rig_content_names_a_board_prefixed_socket() -> None:
 
     Census-style: falsified by mutating the WORLD it observes -- add a
     board-prefixed socket: to any OTHER rig's content file -- never by
-    editing this assertion."""
+    editing this assertion.
+
+    rglob("*.yml"), not a flat glob("*/*.yml") -- five rigs live one level
+    deeper, under boards/rigs/clash/ (clash-rigs-folder-brief.md)."""
     forbidden = {defining
                  for cb in board_census.census_boards()
                  for defining in cb.board.aliases.values()}
 
     offenders = []
-    for content_path in sorted(RIGS_DIR.glob("*/*.yml")):
+    for content_path in sorted(RIGS_DIR.rglob("*.yml")):
         if content_path.name == "rig.yml":
             continue
         doc = yaml.safe_load(content_path.read_text()) or {}
@@ -220,7 +234,7 @@ def test_emitted_golden(case: RigCase, tmp_path: Path,
     plain_build = plain_build_for(board, tmp_path_factory)
     out_dir = tmp_path / "out"
     result = run_expand(
-        RIGS_DIR / case.name / "rig.yml", out_dir,
+        rig_dir(case.name) / "rig.yml", out_dir,
         board=board,
         board_dts=REPO_ROOT / BOARD_DTS[board],
         build_info=plain_build.build_info)

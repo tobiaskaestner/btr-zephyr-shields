@@ -127,6 +127,44 @@ def find_rigs(args):
     return sorted(ret, key=rig_key)
 
 
+def _load_rig(rig_dir, rig_yml):
+    data = yaml.load(rig_yml.read_text(), Loader=SafeLoader) or {}
+    rig_data = data.get('rig') or {}
+    name = rig_data.get('name')
+    if not name:
+        sys.exit(f'ERROR: rig has no rig.name: {rig_yml.as_posix()}')
+    # Declared axes: read here (not validated for shape -- rig.yml
+    # carries only metadata, and this is enough to resolve a bare
+    # target's default for filename construction, per
+    # resolve_rig_target below; shape validation, and the separate
+    # content file's own existence, are the rigc loader's job).
+    return Rig(name=name, dir=rig_dir,
+               revisions=_revision_axis_shape(rig_data),
+               variants=rig_data.get('variants'))
+
+
+def _find_rigs_under(directory, ret):
+    """Depth-first walk of one directory (clash-rigs-folder-brief.md Sec
+    3a): a directory containing `rig.yml` IS a rig and is not descended
+    into any further (a rig's own subdirectory -- e.g. a fixture rig's
+    `shields/` -- must never be mistaken for a nested rig); a directory
+    without one is purely a grouping folder (`boards/rigs/clash/`, today)
+    and is descended into looking for rigs one level down, or several.
+
+    Depth is UNLIMITED by construction rather than capped at one extra
+    level: today's ruling only needs `boards/rigs/clash/<rig>/`, but a
+    depth limit would be an arbitrary constant somebody hits later, and
+    the recursive walk is exactly as much code as a fixed-depth one."""
+    rig_yml = directory / RIG_YML
+    if rig_yml.is_file():
+        ret.append(_load_rig(directory, rig_yml))
+        return
+
+    for child in sorted(directory.iterdir()):
+        if child.is_dir():
+            _find_rigs_under(child, ret)
+
+
 def find_rigs_in(root):
     rigs_dir = root / 'boards' / 'rigs'
     ret = []
@@ -135,26 +173,8 @@ def find_rigs_in(root):
         return ret
 
     for maybe_rig in rigs_dir.iterdir():
-        if not maybe_rig.is_dir():
-            continue
-
-        rig_yml = maybe_rig / RIG_YML
-        if not rig_yml.is_file():
-            continue
-
-        data = yaml.load(rig_yml.read_text(), Loader=SafeLoader) or {}
-        rig_data = data.get('rig') or {}
-        name = rig_data.get('name')
-        if not name:
-            sys.exit(f'ERROR: rig has no rig.name: {rig_yml.as_posix()}')
-        # Declared axes: read here (not validated for shape -- rig.yml
-        # carries only metadata, and this is enough to resolve a bare
-        # target's default for filename construction, per
-        # resolve_rig_target below; shape validation, and the separate
-        # content file's own existence, are the rigc loader's job).
-        ret.append(Rig(name=name, dir=maybe_rig,
-                       revisions=_revision_axis_shape(rig_data),
-                       variants=rig_data.get('variants')))
+        if maybe_rig.is_dir():
+            _find_rigs_under(maybe_rig, ret)
 
     return sorted(ret, key=rig_key)
 

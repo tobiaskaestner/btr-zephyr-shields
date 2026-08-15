@@ -39,6 +39,7 @@ from __future__ import annotations
 
 import dataclasses
 import difflib
+import functools
 import logging
 import os
 import re
@@ -65,6 +66,33 @@ GOLDENS_DIR = TESTS_DIR / "goldens"
 FIXTURES_DIR = TESTS_DIR / "fixtures"
 SHIELD_DIR = REPO_ROOT / "boards" / "shields"
 RIGS_DIR = REPO_ROOT / "boards" / "rigs"
+
+
+@functools.lru_cache(maxsize=None)
+def rig_dir(name: str) -> Path:
+    """The on-disk directory for corpus rig `name`, wherever it actually
+    lives under boards/rigs/ -- flat (every rig but five) or one level
+    deeper, under boards/rigs/clash/ (the REJECT_CASES that cannot build,
+    clash-rigs-folder-brief.md Sec 1). A rig's folder basename is asserted
+    identical to its own rig.yml rig.name by test_corpus_rig_identity, so
+    finding the one directory named `name` anywhere under RIGS_DIR is
+    exactly as canonical as reading the name back out of rig.yml, and
+    needs no import of scripts/list_rigs.py here -- that module stays
+    untyped and outside this package's own mypy graph (see
+    test_list_rigs_cmakeformat.py's identical reasoning for why it
+    duplicates list_rigs._cmake_list_escape rather than importing it).
+
+    Memoized (a fixed corpus, looked up by the same handful of names
+    across many parametrized cases in one session) -- callers must not
+    mutate the returned Path in place, though Path is immutable in the
+    ways this module ever uses it."""
+    matches = [d for d in sorted(RIGS_DIR.rglob(name))
+              if d.is_dir() and (d / "rig.yml").is_file()]
+    assert len(matches) == 1, (
+        f"expected exactly one rig directory named {name!r} under "
+        f"{RIGS_DIR}, found {matches}")
+    return matches[0]
+
 
 # This directory carries no __init__.py (the frozen suite's own modules
 # import each other as plain top-level names, e.g. "from conftest import

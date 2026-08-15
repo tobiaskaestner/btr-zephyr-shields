@@ -90,12 +90,17 @@ def test_west_rigs_with_no_flag_is_unaffected_by_explain_landing() -> None:
     corpus rig's own rig.yml name, one per line -- --boards-for's own
     test already covers this in depth; this is --explain's own
     confirmation that adding a THIRD short-circuiting flag changed
-    nothing about the default path."""
+    nothing about the default path.
+
+    rglob, not a flat glob("*/rig.yml") -- five rigs live one level
+    deeper, under boards/rigs/clash/ (clash-rigs-folder-brief.md); a flat
+    scan here would silently under-count `expected` and let a `find_rigs_
+    in` regression that drops those five pass unnoticed."""
     result = _run()
     assert result.returncode == 0
     expected = sorted(
         yaml.safe_load(p.read_text())["rig"]["name"]
-        for p in (REPO_ROOT / "boards" / "rigs").glob("*/rig.yml"))
+        for p in (REPO_ROOT / "boards" / "rigs").rglob("rig.yml"))
     assert sorted(result.stdout.split()) == expected
 
 
