@@ -1,15 +1,16 @@
 # Rigs — Session Handoff
 
-## RESUME (2026-08-15) — THE ANALOG THREAD IS COMPLETE. Carriers pass PWM and ADC, both twister boards have real nexuses, and promotion can select a config element. NEXT = a ruling on `boards/rigs/` layout, then rig-schema.yaml → BRIDLE MIGRATION.
+## RESUME (2026-08-15) — THE ANALOG THREAD IS COMPLETE, and TWO OF THREE BLOCKERS ARE CLEARED. Carriers pass PWM and ADC, both twister boards have real nexuses, promotion can select a config element, and `doc/reference/` finally documents the DTS vocabulary. NEXT = reference slices 2/3, the venv ruling, then rig-schema.yaml → BRIDLE MIGRATION.
 
 ### STATE AT SESSION CLOSE (2026-08-15)
 
-btr-shields HEAD **`be76f60`**. `main` is **ahead 43 of origin, NOT
+btr-shields HEAD **`3c69ea6`**. `main` is **ahead 48 of origin, NOT
 pushed** — pushing needs Tobi's word. **Tree is CLEAN.**
 
-**Gate DRIVER-VERIFIED at close, not carried**: mypy clean (**104**
-source files), unit **771**, integration **284**, coverage **94%** vs
-the 88 floor. Every slice below was gated by the driver independently,
+**Gate DRIVER-VERIFIED at close, not carried**: mypy clean (**105**
+source files), unit **771**, integration **287**, coverage **94%** vs
+the 88 floor. The docs also build **`-W --keep-going` clean**,
+driver-verified. Every slice below was gated by the driver independently,
 with its own mutation checks, before commit. Re-derive anyway — this
 file has been wrong about counts before, which is why the numbers are
 labelled with how they were obtained.
@@ -102,19 +103,53 @@ into an instruction. If pinning is ever wanted it needs its own name (a
 pool CS is not a config element — no `shield,domain`, no sheet label)
 and the allocator must treat a pin as occupied when placing the others.
 
-### OPEN FOR TOBI — the only things blocking
+### 5. The three blockers, worked one at a time — TWO CLOSED
 
-1. **`boards/rigs/` layout** (`claude/rigs-folder-layout-proposal.md`).
-   The five unbuildable rigs moved to `boards/rigs/clash/` (`15b8710`).
-   The single-shield-rig removal was **NOT done**, because the evidence
-   contradicted the premise — see the proposal. Needs A/B/C, and
-   separately yes/no on deleting `nucleo_datalogger`.
-2. **The doc page** item 29 §8 still owes: every `shield,*` property,
-   Diátaxis reference, `-W` clean. Owed since `33e5e49`.
-3. **The workspace `.venv` vs `.docvenv` question**, unresolved since
-   2026-08-14: three Sphinx packages were installed into the workspace
-   venv at Tobi's request, but `doc/howto/build-the-docs.rst` says doc
-   deps deliberately do NOT go there. Back them out, or amend the howto.
+**1. `boards/rigs/` layout — CLOSED, ruled 2026-08-15.** Option A of
+`claude/rigs-folder-layout-proposal.md`: a README, no second folder
+split, no deletions, and `nucleo_datalogger` STAYS. `boards/rigs/README.rst`
+(`c0f776c`) says the folder is the frozen test corpus rather than an
+example set, names the four rigs worth reading for shape, and states
+what a rig is NOT for — building a single shield is promotion, with
+three worked commands verified against the real tool. B (a second folder
+split) and C (`rig.yml` metadata) are recorded in the proposal as roads
+not taken; C should be picked up by item 7 when `rig-schema.yaml` lands.
+
+**2. Item 29 §8's doc page — CLOSED, and scoped up.** Tobi ruled "the
+thing the tree needs now", and the survey showed why: `doc/reference/`
+held ONE page, `glossary.rst`, so every devicetree property this project
+defines was undocumented and a shield author had to read `shields.py`.
+
+`7c3e8b8` lands slice **1 of 3**: `doc/reference/shield-template.rst`
+and `board-socket.rst`, 21 properties, each stating where it appears,
+its type and cell shape, **what its absence MEANS** (this project
+declares by absence deliberately), what refuses it, and one real
+attributed example.
+
+The value is as much the guard as the prose:
+`test_dts_vocabulary_drift.py` asserts the documented set and the
+property literals in `scripts/rigc/` agree in BOTH directions, so a page
+that falls behind the code FAILS rather than misleads. Its scan is
+deliberately heading-text-only — a whole-page scan let a cross-reference
+on the other page mask a missing entry, which the implementor caught by
+running the negative control rather than assuming it.
+
+**Reference slices 2 and 3 are sequenced, NOT started**: (2) the YAML
+layer — `rig-file.rst` (rig.yml + content keys, axes, deltas) and
+`promotion.rst` (the target grammar); (3) the **42-code diagnostic
+catalogue**, which is the one a stuck user reaches for first and should
+cite the other three. Brief for slice 1 is
+`claude/dts-vocabulary-reference-brief.md` — reuse its shape.
+
+**3. The workspace `.venv` vs `.docvenv` question — STILL OPEN, the
+only blocker left.** Three Sphinx packages were installed into the
+workspace venv at Tobi's request on 2026-08-14, but
+`doc/howto/build-the-docs.rst` says doc deps deliberately do NOT go
+there and prescribes a throwaway `.docvenv`. **New evidence**: slice 1
+built the docs `-W` clean FROM the workspace venv, so the packages work
+and the howto is what disagrees with reality. Back them out and follow
+the howto, or amend the howto. One line either way; needs a ruling, not
+work.
 
 ### PROCESS — what went wrong, so it stops
 
@@ -143,14 +178,25 @@ the default basetemp, and run that test.**
 
 ### Backlog delta
 
-Closed: **29, 30, 33 (model half), 34, 35, 36**. Opened: **31** (grove
-SPI/UART deferral, incl. the dual-role connectors), **32** (two missing
-host connector types blocking `rpipico_v1`/`xiao_v1`), **37**
+Closed: **29** (incl. its §8 doc debt, `7c3e8b8`), **30**, **33**
+(model half), **34**, **35**, **36**. Opened: **31** (grove SPI/UART
+deferral, incl. the dual-role connectors), **32** (two missing host
+connector types blocking `rpipico_v1`/`xiao_v1`), **37**
 (`rigc/board_census.py::_SOCKET_NODE_RE` is brace-non-nesting and
 comment-blind — a literal brace in a comment silently drops a socket
 from the census), **38** (a nexus map row's FLAGS cell is discarded,
 which is why nucleo's Arduino D11 is declared by absence where bridle
-declares it with `STM32_PWM_COMPLEMENTARY`).
+declares it with `STM32_PWM_COMPLEMENTARY`), **39**
+(`rigc/shields.py::_parse_strap` raises a raw `KeyError` — a config
+element declaring neither domain property crashes instead of
+diagnosing; item 3's family again), **40** (`plug,positions`'
+`optional:` sub-key is parsed into `Position.optional` and never read —
+dead vocabulary a binding author would expect to mean something).
+
+Items 39 and 40 were found by READING THE PARSERS to write the
+reference pages, and reported rather than fixed because that was a docs
+slice. Writing reference documentation is a defect-finding activity;
+budget for it.
 
 Unchanged and still the destination: **rig-schema.yaml (item 7) →
 BRIDLE MIGRATION (item 9)**.
