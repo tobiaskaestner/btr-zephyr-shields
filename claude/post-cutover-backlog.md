@@ -614,6 +614,42 @@ All three are now CLOSED — two with no work to do, one implemented.
    pin, not a shield's request — so combining them is a design question,
    not a plumbing one. Rule it before implementing.
 
+
+39. **`rigc/shields.py::_parse_strap` raises a raw `KeyError`.** The
+   config-group dispatcher (`shields.py` ~line 233) is
+   `if "shield,position-domain" in props:` → jumper, `else:` → strap.
+   `::_parse_strap` then reads `node.props["shield,domain"]`
+   unconditionally. **A config element declaring NEITHER property falls
+   into the else branch and crashes** — a traceback where a
+   `Diagnostic` belongs.
+
+   Same family as item 3 (M8, the recipe-error tracebacks) and as the
+   `ValueError` item 34 converted into a checked read. The fix is the
+   same shape: a checked read naming the node, the shield, and what a
+   config element must declare. Found 2026-08-15 while writing the DTS
+   vocabulary reference; reported rather than fixed because that was a
+   docs slice.
+
+   Note the asymmetry worth preserving: `::_parse_jumper` reads
+   `shield,position-domain` unconditionally too, but only ever runs
+   when the dispatcher has ALREADY confirmed the property is present —
+   so it is safe today and would stop being safe if the dispatcher
+   changed. Make both checked, or leave a comment saying why one is not.
+
+40. **`plug,positions`' `optional:` sub-key is dead metadata.** A
+   connector-type binding may write `SIG0: {function: gpio, optional: true}`,
+   `rigc/registry.py:102` parses it into `model.Position.optional`, and
+   **nothing ever reads that field back** (grep: no `.optional`
+   reference outside `model.py`/`registry.py`). A binding author would
+   reasonably expect it to mean something — that a shield need not claim
+   the position, or that a board need not route it.
+
+   Either make it mean something or delete it, but the decision needs a
+   ruling first: it is a vocabulary question, not a cleanup. Documented
+   as inert on `doc/reference/board-socket.rst` in the meantime, so the
+   reference does not imply behaviour that does not exist. Found
+   2026-08-15, same pass as item 39.
+
 ---
 
 ## D. Test and coverage debt C2 created or exposed
