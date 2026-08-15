@@ -569,17 +569,17 @@
 			pinctrl-0 = < &spi1_sck_pb3 &spi1_miso_pb4 &spi1_mosi_pb5 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:271 */
 			pinctrl-names = "default";                                   /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:272 */
 			status = "okay";                                             /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:274 */
-			cs-gpios = < &quail_sock2 0x2 0x1 >;                         /* in ../../../tmp/claude-1000/-wrk-z-ws-up/9ed2982e-f9be-48e1-97a2-010353729975/scratchpad/resolved-build/rig/rig-gen.overlay:17 */
+			cs-gpios = < &quail_sock2 0x2 0x1 >;                         /* in <RIGC_BUILD>/rig/rig-gen.overlay:17 */
 			phandle = < 0x30 >;                                          /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:50 */
 
-			/* node '/soc/spi@40013000/can0@0' defined in ../../../tmp/claude-1000/-wrk-z-ws-up/9ed2982e-f9be-48e1-97a2-010353729975/scratchpad/resolved-build/rig/rig-gen.overlay:18 */
+			/* node '/soc/spi@40013000/can0@0' defined in <RIGC_BUILD>/rig/rig-gen.overlay:18 */
 			canspan_can0: can0@0 {
-				compatible = "microchip,mcp2515";     /* in ../../../tmp/claude-1000/-wrk-z-ws-up/9ed2982e-f9be-48e1-97a2-010353729975/scratchpad/resolved-build/rig/rig-gen.overlay:19 */
-				spi-max-frequency = < 0x989680 >;     /* in ../../../tmp/claude-1000/-wrk-z-ws-up/9ed2982e-f9be-48e1-97a2-010353729975/scratchpad/resolved-build/rig/rig-gen.overlay:20 */
-				osc-freq = < 0x7a1200 >;              /* in ../../../tmp/claude-1000/-wrk-z-ws-up/9ed2982e-f9be-48e1-97a2-010353729975/scratchpad/resolved-build/rig/rig-gen.overlay:21 */
-				reg = < 0x0 >;                        /* in ../../../tmp/claude-1000/-wrk-z-ws-up/9ed2982e-f9be-48e1-97a2-010353729975/scratchpad/resolved-build/rig/rig-gen.overlay:22 */
-				int-gpios = < &quail_sock3 0x7 0x1 >; /* in ../../../tmp/claude-1000/-wrk-z-ws-up/9ed2982e-f9be-48e1-97a2-010353729975/scratchpad/resolved-build/rig/rig-gen.overlay:23 */
-				status = "okay";                      /* in ../../../tmp/claude-1000/-wrk-z-ws-up/9ed2982e-f9be-48e1-97a2-010353729975/scratchpad/resolved-build/rig/rig-gen.overlay:24 */
+				compatible = "microchip,mcp2515";     /* in <RIGC_BUILD>/rig/rig-gen.overlay:19 */
+				spi-max-frequency = < 0x989680 >;     /* in <RIGC_BUILD>/rig/rig-gen.overlay:20 */
+				osc-freq = < 0x7a1200 >;              /* in <RIGC_BUILD>/rig/rig-gen.overlay:21 */
+				reg = < 0x0 >;                        /* in <RIGC_BUILD>/rig/rig-gen.overlay:22 */
+				int-gpios = < &quail_sock3 0x7 0x1 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:23 */
+				status = "okay";                      /* in <RIGC_BUILD>/rig/rig-gen.overlay:24 */
 			};
 		};
 
@@ -955,7 +955,7 @@
 			status = "okay";                                                /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:278 */
 			pinctrl-0 = < &spi3_sck_pc10 &spi3_miso_pc11 &spi3_mosi_pc12 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:279 */
 			pinctrl-names = "default";                                      /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:280 */
-			cs-gpios = < &quail_sock3 0x2 0x1 >;                            /* in ../../../tmp/claude-1000/-wrk-z-ws-up/9ed2982e-f9be-48e1-97a2-010353729975/scratchpad/resolved-build/rig/rig-gen.overlay:6 */
+			cs-gpios = < &quail_sock3 0x2 0x1 >;                            /* in <RIGC_BUILD>/rig/rig-gen.overlay:6 */
 			phandle = < 0x33 >;                                             /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:94 */
 
 			/* node '/soc/spi@40003c00/flash@2' defined in zephyr/boards/mikroe/quail/mikroe_quail.dts:289 */
@@ -969,13 +969,13 @@
 				status = "okay";                   /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:299 */
 			};
 
-			/* node '/soc/spi@40003c00/log_flash@0' defined in ../../../tmp/claude-1000/-wrk-z-ws-up/9ed2982e-f9be-48e1-97a2-010353729975/scratchpad/resolved-build/rig/rig-gen.overlay:7 */
+			/* node '/soc/spi@40003c00/log_flash@0' defined in <RIGC_BUILD>/rig/rig-gen.overlay:7 */
 			canspan_log_flash: log_flash@0 {
-				compatible = "jedec,spi-nor";      /* in ../../../tmp/claude-1000/-wrk-z-ws-up/9ed2982e-f9be-48e1-97a2-010353729975/scratchpad/resolved-build/rig/rig-gen.overlay:8 */
-				spi-max-frequency = < 0x1312d00 >; /* in ../../../tmp/claude-1000/-wrk-z-ws-up/9ed2982e-f9be-48e1-97a2-010353729975/scratchpad/resolved-build/rig/rig-gen.overlay:9 */
-				size = < 0x800000 >;               /* in ../../../tmp/claude-1000/-wrk-z-ws-up/9ed2982e-f9be-48e1-97a2-010353729975/scratchpad/resolved-build/rig/rig-gen.overlay:10 */
-				reg = < 0x0 >;                     /* in ../../../tmp/claude-1000/-wrk-z-ws-up/9ed2982e-f9be-48e1-97a2-010353729975/scratchpad/resolved-build/rig/rig-gen.overlay:11 */
-				status = "okay";                   /* in ../../../tmp/claude-1000/-wrk-z-ws-up/9ed2982e-f9be-48e1-97a2-010353729975/scratchpad/resolved-build/rig/rig-gen.overlay:12 */
+				compatible = "jedec,spi-nor";      /* in <RIGC_BUILD>/rig/rig-gen.overlay:8 */
+				spi-max-frequency = < 0x1312d00 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:9 */
+				size = < 0x800000 >;               /* in <RIGC_BUILD>/rig/rig-gen.overlay:10 */
+				reg = < 0x0 >;                     /* in <RIGC_BUILD>/rig/rig-gen.overlay:11 */
+				status = "okay";                   /* in <RIGC_BUILD>/rig/rig-gen.overlay:12 */
 			};
 		};
 
@@ -1856,7 +1856,7 @@
 		socket,spi = < &spi1 >;                    /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:72 */
 		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:73 */
 		socket,uart = < &usart2 >;                 /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:74 */
-		phandle = < 0x11 >;                        /* in ../../../tmp/claude-1000/-wrk-z-ws-up/9ed2982e-f9be-48e1-97a2-010353729975/scratchpad/resolved-build/rig/rig-gen.overlay:17 */
+		phandle = < 0x11 >;                        /* in <RIGC_BUILD>/rig/rig-gen.overlay:17 */
 	};
 
 	/* node '/connector_mikrobus_3' defined in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:77 */
@@ -1880,7 +1880,7 @@
 		socket,spi = < &spi3 >;                    /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:94 */
 		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:95 */
 		socket,uart = < &usart6 >;                 /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:96 */
-		phandle = < 0x12 >;                        /* in ../../../tmp/claude-1000/-wrk-z-ws-up/9ed2982e-f9be-48e1-97a2-010353729975/scratchpad/resolved-build/rig/rig-gen.overlay:23 */
+		phandle = < 0x12 >;                        /* in <RIGC_BUILD>/rig/rig-gen.overlay:23 */
 	};
 
 	/* node '/connector_mikrobus_4' defined in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:99 */

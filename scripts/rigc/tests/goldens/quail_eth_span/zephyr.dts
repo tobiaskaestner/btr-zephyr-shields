@@ -569,18 +569,18 @@
 			pinctrl-0 = < &spi1_sck_pb3 &spi1_miso_pb4 &spi1_mosi_pb5 >; /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:271 */
 			pinctrl-names = "default";                                   /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:272 */
 			status = "okay";                                             /* in zephyr/boards/mikroe/quail/mikroe_quail.dts:274 */
-			cs-gpios = < &span_combined 0x2 0x1 >;                       /* in ../../../tmp/quail_eth_span_build/rig/rig-gen.overlay:17 */
+			cs-gpios = < &span_combined 0x2 0x1 >;                       /* in <RIGC_BUILD>/rig/rig-gen.overlay:17 */
 			phandle = < 0x2f >;                                          /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:50 */
 
-			/* node '/soc/spi@40013000/eth@0' defined in ../../../tmp/quail_eth_span_build/rig/rig-gen.overlay:18 */
+			/* node '/soc/spi@40013000/eth@0' defined in <RIGC_BUILD>/rig/rig-gen.overlay:18 */
 			eth_mod_eth: eth@0 {
-				compatible = "microchip,enc28j60";         /* in ../../../tmp/quail_eth_span_build/rig/rig-gen.overlay:19 */
-				spi-max-frequency = < 0x1312d00 >;         /* in ../../../tmp/quail_eth_span_build/rig/rig-gen.overlay:20 */
-				local-mac-address = [ 00 00 00 00 00 00 ]; /* in ../../../tmp/quail_eth_span_build/rig/rig-gen.overlay:21 */
-				zephyr,random-mac-address;                 /* in ../../../tmp/quail_eth_span_build/rig/rig-gen.overlay:22 */
-				reg = < 0x0 >;                             /* in ../../../tmp/quail_eth_span_build/rig/rig-gen.overlay:23 */
-				int-gpios = < &span_combined 0x7 0x1 >;    /* in ../../../tmp/quail_eth_span_build/rig/rig-gen.overlay:24 */
-				status = "okay";                           /* in ../../../tmp/quail_eth_span_build/rig/rig-gen.overlay:25 */
+				compatible = "microchip,enc28j60";         /* in <RIGC_BUILD>/rig/rig-gen.overlay:19 */
+				spi-max-frequency = < 0x1312d00 >;         /* in <RIGC_BUILD>/rig/rig-gen.overlay:20 */
+				local-mac-address = [ 00 00 00 00 00 00 ]; /* in <RIGC_BUILD>/rig/rig-gen.overlay:21 */
+				zephyr,random-mac-address;                 /* in <RIGC_BUILD>/rig/rig-gen.overlay:22 */
+				reg = < 0x0 >;                             /* in <RIGC_BUILD>/rig/rig-gen.overlay:23 */
+				int-gpios = < &span_combined 0x7 0x1 >;    /* in <RIGC_BUILD>/rig/rig-gen.overlay:24 */
+				status = "okay";                           /* in <RIGC_BUILD>/rig/rig-gen.overlay:25 */
 			};
 		};
 
@@ -1850,7 +1850,7 @@
 		socket,spi = < &spi1 >;                    /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:72 */
 		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:73 */
 		socket,uart = < &usart2 >;                 /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:74 */
-		phandle = < 0x35 >;                        /* in ../../../tmp/quail_eth_span_build/rig/rig-gen.overlay:11 */
+		phandle = < 0x35 >;                        /* in <RIGC_BUILD>/rig/rig-gen.overlay:11 */
 	};
 
 	/* node '/connector_mikrobus_3' defined in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:77 */
@@ -1874,7 +1874,7 @@
 		socket,spi = < &spi3 >;                    /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:94 */
 		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:95 */
 		socket,uart = < &usart6 >;                 /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:96 */
-		phandle = < 0x36 >;                        /* in ../../../tmp/quail_eth_span_build/rig/rig-gen.overlay:11 */
+		phandle = < 0x36 >;                        /* in <RIGC_BUILD>/rig/rig-gen.overlay:11 */
 	};
 
 	/* node '/connector_mikrobus_4' defined in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:99 */
@@ -1900,13 +1900,13 @@
 		socket,uart = < &usart1 >;                 /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:118 */
 	};
 
-	/* node '/span_combined' defined in ../../../tmp/quail_eth_span_build/rig/rig-gen.overlay:7 */
+	/* node '/span_combined' defined in <RIGC_BUILD>/rig/rig-gen.overlay:7 */
 	span_combined: span_combined {
-		#gpio-cells = < 0x2 >;                       /* in ../../../tmp/quail_eth_span_build/rig/rig-gen.overlay:8 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >;   /* in ../../../tmp/quail_eth_span_build/rig/rig-gen.overlay:9 */
-		gpio-map-pass-thru = < 0x0 0x3f >;           /* in ../../../tmp/quail_eth_span_build/rig/rig-gen.overlay:10 */
+		#gpio-cells = < 0x2 >;                       /* in <RIGC_BUILD>/rig/rig-gen.overlay:8 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >;   /* in <RIGC_BUILD>/rig/rig-gen.overlay:9 */
+		gpio-map-pass-thru = < 0x0 0x3f >;           /* in <RIGC_BUILD>/rig/rig-gen.overlay:10 */
 		gpio-map = < 0x2 0x0 &quail_sock2 0x2 0x0 >,
-		           < 0x7 0x0 &quail_sock3 0x7 0x0 >; /* in ../../../tmp/quail_eth_span_build/rig/rig-gen.overlay:11 */
-		phandle = < 0x11 >;                          /* in ../../../tmp/quail_eth_span_build/rig/rig-gen.overlay:17 */
+		           < 0x7 0x0 &quail_sock3 0x7 0x0 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:11 */
+		phandle = < 0x11 >;                          /* in <RIGC_BUILD>/rig/rig-gen.overlay:17 */
 	};
 };
