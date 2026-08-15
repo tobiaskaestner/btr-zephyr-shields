@@ -472,7 +472,35 @@ All three are now CLOSED — two with no work to do, one implemented.
    kind of non-obvious-state mistake that class of bug already happened
    once.
 
-34. **3-cell PWM controllers are not supported, and that BLOCKS item 36.**
+34. **CLOSED, LANDED 2026-08-14 (`0373cd2`, `three-cell-pwm-brief.md`).**
+   `rigc/board_edt.py::_CHANNEL_FN`'s single supported count is now a
+   SET — `{2, 3}` for PWM, still `{1}` for ADC — and
+   `::_project_channel_map` returns the count it actually read.
+   `rigc/emitter/overlay.py::_render_ref` emits the socket's own count,
+   and `rigc/analyzer/gpio.py::_collect_channel`'s flags refusal is
+   conditional on it: refused on a 2-cell socket, carried on a 3-cell
+   one. **Item 36 is unblocked.**
+
+   Two things worth keeping. First, the previous slice's constant
+   (`cast(int, _CHANNEL_FN["pwm"]["supported"])` written into
+   `BoardSocket.pwm_cells`) was a latent bug in its own right, not merely
+   something to widen: correct only while exactly ONE count was
+   supported, it would have labelled every 3-cell socket 2-cell. Second,
+   all three pieces `88e53fc` deliberately built general held under test
+   with **zero changes** — `_channel_nexus_block` rendered a correct
+   3-cell carrier nexus with 7-word rows on the first try. Building the
+   general shape at the time paid for itself one slice later.
+
+   RULED with it: a socket's declared count must EQUAL its parent
+   controller's. A nexus could translate widths in principle, but the
+   mask/pass-thru idiom every real socket uses needs them aligned, and
+   nothing upstream does otherwise. And `invert:` stays GPIO-only — now
+   by choice rather than for want of a cell.
+
+   Original entry, kept because its survey is the reason the roadmap
+   split:
+
+   **3-cell PWM controllers are not supported, and that BLOCKS item 36.**
    `rigc/board_edt.py::_project_channel_map` supports exactly one PWM
    nexus shape: a 2-cell (channel, period) parent. Anything else is now a
    loud `phys-board` diagnostic rather than the `ValueError` traceback it
@@ -510,8 +538,17 @@ All three are now CLOSED — two with no work to do, one implemented.
    on both board sockets, which additionally needs timer-channel
    selection and pinctrl alternate-function work per SoC — STM32F401 TIM
    channels against K64F FTM, different facts and different risk from
-   ADC, which is why it is its own item. **BLOCKED on item 34**: both
-   boards' PWM controllers are 3-cell. Do not start this before 34.
+   ADC, which is why it is its own item. **UNBLOCKED 2026-08-14** —
+   item 34 landed (`0373cd2`), so both boards' 3-cell PWM controllers
+   (`st,stm32-pwm`, `nxp,ftm-pwm`) are now supported. What remains here
+   is board work only: the connector binding's `pwm-map` properties, and
+   a real nexus on each board socket, which is where the per-SoC timer
+   and pinctrl facts live.
+
+   Still do **35 before 36**: ADC needs no cell-count work at all and
+   gives a working end-to-end witness (`grove_light` through a grove base
+   carrier on a twister platform) at a fraction of the cost, which is
+   worth having in hand before taking on the pinctrl work.
 
 ---
 
