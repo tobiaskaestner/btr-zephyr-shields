@@ -391,6 +391,97 @@ def test_adc_map_multi_parent_channel_count_is_the_single_row_read(
     assert len(socket.adc_map) == 4
 
 
+# ------------------------------------------ multi-parent pwm-map (L4-PWM)
+#
+# l4-pwm-brief.md Sec 3: "Confirm it holds for PWM too rather than
+# assuming the ADC result transfers" -- both real sockets this slice adds
+# a pwm-map to are themselves multi-parent (nucleo_f401re: &pwm1/2/3/4;
+# frdm_k64f: &ftm0/&ftm3), so this is ALSO proven structurally by the real
+# corpus goldens regardless of this fixture -- but a dedicated, hermetic
+# unit test (own binding, own DTS text, three-cell #pwm-cells this time
+# rather than ADC's one-cell #io-channel-cells) is the same
+# belt-and-suspenders precedent `_multi_adc_edt` above already set, and
+# is cheaper to read than a full board golden for exactly this property.
+
+
+def _multi_pwm_edt(tmp_path: Path):
+    binding_dir = tmp_path / "bindings"
+    binding_dir.mkdir()
+    (binding_dir / "socket-fixture-multipwm.yaml").write_text(textwrap.dedent("""\
+        description: purpose-built fixture binding for the multi-parent PWM test
+        compatible: "socket,fixture-multipwm"
+        properties:
+          "#pwm-cells":
+            type: int
+            required: true
+          pwm-map:
+            type: compound
+            required: true
+          pwm-map-mask:
+            type: array
+          pwm-map-pass-thru:
+            type: array
+        """))
+    dts_path = tmp_path / "multipwm.dts"
+    dts_path.write_text(textwrap.dedent("""\
+        /dts-v1/;
+        / {
+            #address-cells = <1>;
+            #size-cells = <1>;
+
+            tim_a: pwm_ctrl@0 {
+                compatible = "fixturetest,pwm-ctrl";
+                reg = <0x0 0x4>;
+                #pwm-cells = <3>;
+            };
+            tim_b: pwm_ctrl@10 {
+                compatible = "fixturetest,pwm-ctrl";
+                reg = <0x10 0x4>;
+                #pwm-cells = <3>;
+            };
+
+            multipwm_socket: connector_multipwm {
+                compatible = "socket,fixture-multipwm";
+                #pwm-cells = <3>;
+                pwm-map-mask = <0xffffffff 0x00000000 0x00000000>;
+                pwm-map-pass-thru = <0x00000000 0xffffffff 0xffffffff>;
+                pwm-map = <0 0 0 &tim_a 1 0 0>,
+                          <1 0 0 &tim_a 2 0 0>,
+                          <2 0 0 &tim_b 0 0 0>,
+                          <3 0 0 &tim_b 3 0 0>;
+            };
+        };
+        """))
+    ensure_devicetree_on_path()
+    from devicetree import edtlib
+    return edtlib.EDT(str(dts_path), [str(binding_dir)], default_prop_types=True)
+
+
+def test_pwm_map_resolves_each_position_against_its_own_row_parent(
+        tmp_path: Path) -> None:
+    """Confirms rigc handles a multi-parent pwm-map (l4-pwm-brief.md
+    Sec 3), the 3-cell (channel, period, flags) shape rather than ADC's
+    1-cell one: positions 0/1 resolve through tim_a, positions 2/3
+    through tim_b -- ALL FOUR from the ONE socket's ONE pwm-map, never
+    one controller silently winning."""
+    board = board_edt.project_edt(_multi_pwm_edt(tmp_path), "multipwm-board")
+    socket = board.sockets["multipwm_socket"]
+    assert socket.pwm_map[0] == ("tim_a", 1)
+    assert socket.pwm_map[1] == ("tim_a", 2)
+    assert socket.pwm_map[2] == ("tim_b", 0)
+    assert socket.pwm_map[3] == ("tim_b", 3)
+
+
+def test_pwm_map_multi_parent_channel_count_is_the_single_row_read(
+        tmp_path: Path) -> None:
+    """pwm_cells stays the ONE declared count (3) regardless of how many
+    DISTINCT controllers the map's rows name."""
+    board = board_edt.project_edt(_multi_pwm_edt(tmp_path), "multipwm-board")
+    socket = board.sockets["multipwm_socket"]
+    assert socket.pwm_cells == 3
+    assert len(socket.pwm_map) == 4
+
+
 # ------------------------------------------------- pwm_cells / adc_cells (Sec 3c)
 #
 # carrier-analog-passthrough-brief.md Sec 3: "a carrier does not get to

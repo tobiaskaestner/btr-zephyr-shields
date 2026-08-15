@@ -36,6 +36,35 @@
 # dedicated board_edt unit test instead (l4-adc-brief.md Sec 3/acceptance
 # criterion 5), since nothing in this rig's own topology needs two
 # parents to resolve.
+#
+# pwm_a/pwm_b (L4-PWM, item 36/backlog): grove_pwm_led on grove_1's
+# grove_d3 (SIG0 = D3), grove_pwm_led_inv on grove_1's grove_d6
+# (SIG0 = D6) -- the PWM-through-a-carrier witness this slice exists to
+# reach (l4-pwm-brief.md Sec 5/acceptance criterion 3), same
+# extend-don't-duplicate reasoning as light_a above: this rig's own
+# nucleo_f401re socket golden is already moving in this slice (a real
+# pwm-map, l4-pwm-brief.md Sec 2), so two more instances cost nothing
+# extra in new goldens. D3 and D6 are picked because BOTH resolve on
+# BOTH boards this rig's own tests.yaml already builds on (nucleo_f401re:
+# D3 -> &pwm2 ch2, D6 -> &pwm2 ch3; frdm_k64f: D3 -> &ftm0 ch6, D6 ->
+# &ftm0 ch1 -- see each board's own arduino_r3_socket.dtsi comment for the
+# sourcing), and neither collides with btn_a's own D2 (grove_d2's SIG1 is
+# D3, but btn_a's own grove_btn shield claims only SIG0/D2 -- rigc does
+# not model cross-socket net sharing as a build-time conflict, matching
+# the SAMD21 lotus_pwm_clash precedent's own point that such clashes are
+# a documented real-hardware fact, not something this corpus's own
+# structural resolution refuses). pwm_b's shield (grove_pwm_led_inv,
+# boards/shields/grove_led/) is a purpose-built local variant (not a
+# bridle port): it exists solely to carry a NONZERO PWM flags value
+# (PWM_POLARITY_INVERTED) onto one of these real 3-cell sockets
+# (l4-pwm-brief.md Sec 6 acceptance criterion 5/item 34's own
+# capability) -- grove_pwm_led's own literal PWM_POLARITY_NORMAL is
+# always zero, so it alone could never exercise that path on real
+# hardware. The multi-parent PWM case itself (four timers on nucleo,
+# two FTMs on frdm_k64f) is structural in each board's own socket map
+# regardless of which rig uses it, and is additionally confirmed by a
+# dedicated board_edt unit test (l4-pwm-brief.md Sec 3), the same
+# belt-and-suspenders style light_a's own multi-parent ADC case used.
 instances:
   - name: grove_1
     shield: seeed_grove_base_v2
@@ -52,3 +81,9 @@ instances:
   - name: light_a
     shield: grove_light
     socket: grove_1.grove_a0
+  - name: pwm_a
+    shield: grove_pwm_led
+    socket: grove_1.grove_d3
+  - name: pwm_b
+    shield: grove_pwm_led_inv
+    socket: grove_1.grove_d6

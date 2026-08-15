@@ -19,12 +19,14 @@
  * instance of this shield setting invert: true is accepted but has no
  * effect on the emitted pwms line.
  *
- * No twister suite: a PWM-capable Grove socket (a socket,grove board node
- * declaring a pwm-map) exists on exactly one board in this tree,
- * seeeduino_lotus -- whose base board lives in the bridle Zephyr module,
- * which this workspace's west.yml does not import, so it is not a twister
- * platform (the same reason grove_btn's lotus rig never got one either).
- * m5stack_nanoc6's own Grove socket declares no pwm-map upstream.
+ * Twister suite (L4-PWM, item 36): tests/rigs/nucleo_grove_farm/, via the
+ * persisted boards/rigs/nucleo_grove_farm rig's own pwm_a instance, on a
+ * carrier-exposed Grove socket over a REAL arduino-r3 pwm-map (nucleo_f401re
+ * and frdm_k64f both now declare one, boards/extend/{st/nucleo_f401re,
+ * nxp/frdm_k64f}/arduino_r3_socket.dtsi) -- this shield's own PWM_POLARITY_NORMAL
+ * (an unconditionally-zero flags cell) is exactly why grove_pwm_led_inv.shield
+ * (this same folder) exists alongside it, to carry a NONZERO flags value the
+ * same rig also exercises (l4-pwm-brief.md Sec 6 acceptance criterion 5).
  */
 
 #include <dt-bindings/connector/grove.h>

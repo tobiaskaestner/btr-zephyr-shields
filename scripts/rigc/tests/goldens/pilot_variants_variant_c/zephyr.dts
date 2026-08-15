@@ -586,10 +586,11 @@
 			status = "disabled";            /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:388 */
 
 			/* node '/soc/timers@40010000/pwm' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:390 */
-			pwm {
+			pwm1: pwm {
 				compatible = "st,stm32-pwm"; /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:391 */
 				status = "disabled";         /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:392 */
 				#pwm-cells = < 0x3 >;        /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:393 */
+				phandle = < 0x29 >;          /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:180 */
 			};
 
 			/* node '/soc/timers@40010000/counter' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:396 */
@@ -655,10 +656,11 @@
 			status = "disabled";            /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:446 */
 
 			/* node '/soc/timers@40000400/pwm' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:448 */
-			pwm {
+			pwm3: pwm {
 				compatible = "st,stm32-pwm"; /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:449 */
 				status = "disabled";         /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:450 */
 				#pwm-cells = < 0x3 >;        /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:451 */
+				phandle = < 0x2a >;          /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:180 */
 			};
 
 			/* node '/soc/timers@40000400/counter' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:454 */
@@ -688,10 +690,11 @@
 			status = "disabled";            /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:475 */
 
 			/* node '/soc/timers@40000800/pwm' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:477 */
-			pwm {
+			pwm4: pwm {
 				compatible = "st,stm32-pwm"; /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:478 */
 				status = "disabled";         /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:479 */
 				#pwm-cells = < 0x3 >;        /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:480 */
+				phandle = < 0x2b >;          /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:180 */
 			};
 
 			/* node '/soc/timers@40000800/counter' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:483 */
@@ -1286,10 +1289,10 @@
 
 	/* node '/connector_arduino_r3' defined in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:27 */
 	nucleo_ard: arduino_r3: connector_arduino_r3 {
-		compatible = "socket,arduino-r3";          /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:28 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:29 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:30 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:31 */
+		compatible = "socket,arduino-r3";                  /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:28 */
+		#gpio-cells = < 0x2 >;                             /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:29 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >;         /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:30 */
+		gpio-map-pass-thru = < 0x0 0x3f >;                 /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:31 */
 		gpio-map = < 0x0 0x0 &gpioa 0x0 0x0 >,
 		           < 0x1 0x0 &gpioa 0x1 0x0 >,
 		           < 0x2 0x0 &gpioa 0x4 0x0 >,
@@ -1311,19 +1314,31 @@
 		           < 0x12 0x0 &gpioa 0x6 0x0 >,
 		           < 0x13 0x0 &gpioa 0x5 0x0 >,
 		           < 0x14 0x0 &gpiob 0x9 0x0 >,
-		           < 0x15 0x0 &gpiob 0x8 0x0 >;    /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:32 */
-		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:54 */
-		socket,spi = < &spi1 >;                    /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:55 */
-		socket,stackable;                          /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:56 */
-		#io-channel-cells = < 0x1 >;               /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:89 */
-		io-channel-map-mask = < 0xffffffff >;      /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:90 */
-		io-channel-map-pass-thru = < 0x0 >;        /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:91 */
+		           < 0x15 0x0 &gpiob 0x8 0x0 >;            /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:32 */
+		socket,i2c = < &i2c1 >;                            /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:54 */
+		socket,spi = < &spi1 >;                            /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:55 */
+		socket,stackable;                                  /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:56 */
+		#io-channel-cells = < 0x1 >;                       /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:89 */
+		io-channel-map-mask = < 0xffffffff >;              /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:90 */
+		io-channel-map-pass-thru = < 0x0 >;                /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:91 */
 		io-channel-map = < 0x0 &adc1 0x0 >,
 		                 < 0x1 &adc1 0x1 >,
 		                 < 0x2 &adc1 0x4 >,
 		                 < 0x3 &adc1 0x8 >,
 		                 < 0x4 &adc1 0xb >,
-		                 < 0x5 &adc1 0xa >;        /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:92 */
-		phandle = < 0x27 >;                        /* in <RIGC_BUILD>/rig/rig-gen.overlay:11 */
+		                 < 0x5 &adc1 0xa >;                /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:92 */
+		#pwm-cells = < 0x3 >;                              /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:177 */
+		pwm-map-mask = < 0xffffffff 0x0 0x0 >;             /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:178 */
+		pwm-map-pass-thru = < 0x0 0xffffffff 0xffffffff >; /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:179 */
+		pwm-map = < 0x8 0x0 0x0 &pwm1 0x3 0x0 0x0 >,
+		          < 0x9 0x0 0x0 &pwm2 0x2 0x0 0x0 >,
+		          < 0xb 0x0 0x0 &pwm3 0x1 0x0 0x0 >,
+		          < 0xc 0x0 0x0 &pwm2 0x3 0x0 0x0 >,
+		          < 0xd 0x0 0x0 &pwm1 0x1 0x0 0x0 >,
+		          < 0xe 0x0 0x0 &pwm1 0x2 0x0 0x0 >,
+		          < 0xf 0x0 0x0 &pwm3 0x2 0x0 0x0 >,
+		          < 0x10 0x0 0x0 &pwm4 0x1 0x0 0x0 >,
+		          < 0x13 0x0 0x0 &pwm2 0x1 0x0 0x0 >;      /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:180 */
+		phandle = < 0x27 >;                                /* in <RIGC_BUILD>/rig/rig-gen.overlay:11 */
 	};
 };

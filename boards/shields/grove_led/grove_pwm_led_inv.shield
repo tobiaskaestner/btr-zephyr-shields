@@ -1,0 +1,44 @@
+/* Shield: PWM LED, INVERTED polarity variant of grove_pwm_led.shield in
+ * this same folder -- purpose-built for L4-PWM (item 36), not a bridle
+ * port: no such shield exists upstream. It exists to carry a NONZERO PWM
+ * flags value onto a real 3-cell socket (l4-pwm-brief.md Sec 6 acceptance
+ * criterion 5) -- item 34's own three-cell-pwm-brief.md work made
+ * rigc/analyzer/gpio.py::_collect_channel CONDITIONALLY accept a nonzero
+ * flags cell (refused only on a 2-cell socket), and had only a synthetic
+ * fixture (scripts/rigc/tests/fixtures/boards/rigs/pwm-nonzero-flags/) to
+ * prove it with; grove_pwm_led.shield's own literal PWM_POLARITY_NORMAL
+ * is `(0 << 0)` (zero) on every instance, so it can never exercise that
+ * path on real hardware no matter which socket it mates. This shield is
+ * otherwise byte-for-byte grove_pwm_led.shield with one token changed.
+ *
+ * PWM_POLARITY_INVERTED is a plain, vendor-neutral Zephyr PWM flag (not
+ * an STM32-specific one like STM32_PWM_COMPLEMENTARY) -- a real, legal
+ * request on any #pwm-cells = <3> PWM controller, so this shield stays
+ * meaningful on every board this corpus mates it to, not just the two
+ * this slice adds sockets for.
+ *
+ * shield,collect = "pwm-leds" joins the SAME shared collection node
+ * grove_pwm_led.shield's own instances do (Conv. 9) -- an instance of
+ * each shield side by side aggregates into one pwm-leds node with two
+ * entries, the identical shape lotus_pwm_led's own two grove_pwm_led
+ * instances already establish.
+ */
+
+#include <dt-bindings/connector/grove.h>
+#include <zephyr/dt-bindings/pwm/pwm.h>
+
+/ {
+	shield-templates {
+		grove_pwm_led_inv: grove_pwm_led_inv {
+			shield,plugs = "grove";
+			gpli_plug: plug { #gpio-cells = <2>; #pwm-cells = <3>; };
+
+			pwm {
+				gpli_led: led {
+					shield,collect = "pwm-leds";	/* an entry in the shared pwm-leds collection */
+					pwms = <&gpli_plug GROVE_SIG0 20000000 PWM_POLARITY_INVERTED>;	/* 20 ms, INVERTED */
+				};
+			};
+		};
+	};
+};

@@ -7,3 +7,7 @@ shields:
     full_name: Grove PWM LED (bridle grove_pwm_led port)
     vendor: seeed
     template: true
+  - name: grove_pwm_led_inv
+    full_name: Grove PWM LED (inverted-polarity nonzero-flags witness, item 36)
+    vendor: seeed
+    template: true

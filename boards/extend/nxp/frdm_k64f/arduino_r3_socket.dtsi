@@ -105,5 +105,65 @@
 				  <ARDUINO_HEADER_R3_A1 &adc0 13>,
 				  <ARDUINO_HEADER_R3_A2 &adc1 14>,
 				  <ARDUINO_HEADER_R3_A3 &adc1 15>;
+
+		/* L4-PWM (item 36): eight of the twelve digital positions reach a
+		 * real FTM channel, split across TWO controllers (&ftm0 for
+		 * D3/D5/D6/D7/D9, &ftm3 for D10/D11/D12/D13) -- the multi-parent
+		 * io-channel-map above already proved this shape for ADC on this
+		 * same SoC; this map independently confirms it holds for PWM too
+		 * (per the brief's own instruction not to assume the ADC result
+		 * transfers). Channel numbers sourced from the SAME Kinetis
+		 * pin-mux header ADC used, modules/hal/nxp/dts/nxp/kinetis/
+		 * MK64FN1M0VLL12-pinctrl.h, this time its own FTM<n>_CH<m>_PT<x><n>
+		 * macro names, matched against this file's own gpio-map pins
+		 * above (PTA1/PTA2/PTC2/PTC3/PTC4/PTD0/PTD1/PTD2/PTD3):
+		 *   D3  PTA1 -> FTM0_CH6_PTA1  (&ftm0 ch6)
+		 *   D5  PTA2 -> FTM0_CH7_PTA2  (&ftm0 ch7)
+		 *   D6  PTC2 -> FTM0_CH1_PTC2  (&ftm0 ch1)
+		 *   D7  PTC3 -> FTM0_CH2_PTC3  (&ftm0 ch2)
+		 *   D9  PTC4 -> FTM0_CH3_PTC4  (&ftm0 ch3)
+		 *   D10 PTD0 -> FTM3_CH0_PTD0  (&ftm3 ch0)
+		 *   D11 PTD2 -> FTM3_CH2_PTD2  (&ftm3 ch2)
+		 *   D12 PTD3 -> FTM3_CH3_PTD3  (&ftm3 ch3)
+		 *   D13 PTD1 -> FTM3_CH1_PTD1  (&ftm3 ch1)
+		 * Channel numbering cross-checked against this board's OWN
+		 * already-real pin-mux (frdm_k64f-pinctrl.dtsi's ftm0_default /
+		 * ftm3_default): `pinmux = <FTM0_CH0_PTC1>;` for ftm0_default and
+		 * `<FTM3_CH4_PTC8>, <FTM3_CH5_PTC9>;` for ftm3_default confirm the
+		 * macro's own "CHn" digit IS the #pwm-cells channel value used
+		 * with these exact controllers today (PTC1/PTC8/PTC9 are
+		 * unrelated non-Arduino pins, left untouched, same as item 35's
+		 * adc0_default/adc1_default note).
+		 * D2 (PTB9), D4 (PTB23), and D8 (PTC12) are DECLARED BY ABSENCE:
+		 * PTB9's only macros are SPI1_PCS1/UART3_CTS_b (no FTM_CH* at
+		 * all); PTB23's are SPI2_SIN/SPI0_PCS5 (same); PTC12's ONLY FTM
+		 * macro is FTM3_FLT0_PTC12 -- a FAULT/break INPUT, not a PWM
+		 * output channel, so it carries no usable #pwm-cells channel
+		 * either. None of the three has an alternate route -- this is
+		 * "not timer-capable at all," not a clash to avoid (contrast
+		 * nucleo's D4/D12, excluded for a channel-clash reason instead;
+		 * see that file's own comment).
+		 * &ftm0/&ftm3 (dts/arm/nxp/kinetis/nxp_k6x.dtsi, compatible
+		 * "nxp,ftm", overridden to "nxp,ftm-pwm" + #pwm-cells = <3> by
+		 * frdm_k64f.dts itself) are ALREADY real top-level labels --
+		 * unlike nucleo's TIM1/TIM3/TIM4, no label needs adding here.
+		 * Pin-mux for these eight positions is board-provided and stays
+		 * STUBBED per Sec 4, same ruling as the ADC map above: this
+		 * board wires exactly two PWM pinctrl groups today
+		 * (ftm0_default/ftm3_default, both for unrelated non-Arduino
+		 * pins), and authoring eight more is board work with no
+		 * upstream fact behind it. */
+		#pwm-cells = <3>;
+		pwm-map-mask = <0xffffffff 0x00000000 0x00000000>;
+		pwm-map-pass-thru = <0x00000000 0xffffffff 0xffffffff>;
+		pwm-map = <ARDUINO_HEADER_R3_D3  0 0 &ftm0 6 0 0>,
+			   <ARDUINO_HEADER_R3_D5  0 0 &ftm0 7 0 0>,
+			   <ARDUINO_HEADER_R3_D6  0 0 &ftm0 1 0 0>,
+			   <ARDUINO_HEADER_R3_D7  0 0 &ftm0 2 0 0>,
+			   <ARDUINO_HEADER_R3_D9  0 0 &ftm0 3 0 0>,
+			   <ARDUINO_HEADER_R3_D10 0 0 &ftm3 0 0 0>,
+			   <ARDUINO_HEADER_R3_D11 0 0 &ftm3 2 0 0>,
+			   <ARDUINO_HEADER_R3_D12 0 0 &ftm3 3 0 0>,
+			   <ARDUINO_HEADER_R3_D13 0 0 &ftm3 1 0 0>;
 	};
 };

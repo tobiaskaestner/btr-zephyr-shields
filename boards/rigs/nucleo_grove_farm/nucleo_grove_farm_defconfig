@@ -2,11 +2,12 @@
 #
 # Assembly: 1x seeed_grove_base_v2 (pure copper carrier, no Kconfig of its
 # own) + 1x grove_sens_bme280 (bosch,bme280 over I2C) + 1x grove_btn
-# (gpio-keys) + 1x grove_light (ADC light sensor, L4-ADC item 35). Checked
-# against the driver Kconfig (zephyr-rigs), same umbrellas
+# (gpio-keys) + 1x grove_light (ADC light sensor, L4-ADC item 35) +
+# 1x grove_pwm_led + 1x grove_pwm_led_inv (PWM LEDs, pwm-leds, L4-PWM item
+# 36). Checked against the driver Kconfig (zephyr-rigs), same umbrellas
 # grove_sens_pinned_defconfig and lotus_buttons_defconfig already
-# establish for the first two shields, and lotus_pwm_defconfig for the
-# third:
+# establish for the first two shields, lotus_pwm_defconfig for the third,
+# and lotus_pwm_led_defconfig for the last two:
 #   - SENSOR is a bare `if SENSOR` menuconfig gate (drivers/sensor/Kconfig)
 #     with no default; RTC_PCF8523-style dt_compat_enabled auto-select
 #     cannot reach through it, so the rig opens it explicitly
@@ -21,7 +22,14 @@
 #     CONFIG_ADC=y, unchanged here) -- grove_light's own vnd,light-sensor
 #     compatible carries no real driver (dts/bindings/test/), so this
 #     umbrella is what a --build-only twister run actually needs.
+#   - PWM/LED are lotus_pwm_led_defconfig's own pair, unchanged here: LED
+#     is the umbrella drivers/led/led_pwm.c (the pwm-leds driver) sits
+#     under, PWM the controller subsystem it drives through -- both
+#     instances' shield,collect = "pwm-leds" entries join ONE pwm-leds
+#     collection node (Conv. 9), so one umbrella pair covers both.
 CONFIG_SENSOR=y
 CONFIG_INPUT=y
 CONFIG_GPIO=y
 CONFIG_ADC=y
+CONFIG_PWM=y
+CONFIG_LED=y

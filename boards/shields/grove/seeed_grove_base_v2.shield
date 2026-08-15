@@ -14,6 +14,46 @@
  * grove_a0..a3: authored per ruling 3, same shape and same confirmed
  * no-op io-channel-map as v1's grove_a0..a4 -- see that file's own comment
  * for the full rationale (grove-carriers-brief.md Sec 6).
+ *
+ * grove_d2..d8: pwm-map added here (L4-PWM, item 36) -- the carrier-level
+ * counterpart of grove_a0..a3's own io-channel-map above, same reasoning:
+ * a pure pass-through, SIG0/SIG1 to the plug's own ARDUINO_HEADER_R3_Dn
+ * position, #pwm-cells = <3> to match arduino-r3.yaml's own declared
+ * count (this slice) and mask/pass-thru forwarding period+flags verbatim
+ * (the same shape this slice's board sockets use, boards/extend/{st/
+ * nucleo_f401re,nxp/frdm_k64f}/arduino_r3_socket.dtsi). A NO-OP until a
+ * real socket's own pwm-map gives it something to resolve through --
+ * exactly the same "confirmed no-op" status the ADC one carried before
+ * item 35 gave it a real target; this one now has real targets on BOTH
+ * boards from its own first commit (nucleo_f401re's &pwm1/2/3/4, frdm_k64f's
+ * &ftm0/&ftm3), proven by boards/rigs/nucleo_grove_farm's own pwm_a/pwm_b
+ * instances on grove_d3/grove_d6.
+ *
+ * NOT every SIG of every grove_dN gets a pwm-map row: rigc's own
+ * phys-subset check (analyzer/carrier.py) requires EVERY position a
+ * carrier's own map declares to resolve through whichever real board
+ * socket it is plugged into, on EVERY board this same carrier content
+ * might mate to -- this shield is not board-specific, and
+ * nucleo_grove_farm's own tests.yaml builds it on BOTH nucleo_f401re and
+ * frdm_k64f. Each row below is declared ONLY where the Arduino digital
+ * position it targets is timer-capable on BOTH boards' own real pwm-map
+ * (boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi declares
+ * D2/D3/D5/D6/D7/D8/D9/D10/D13; boards/extend/nxp/frdm_k64f/
+ * arduino_r3_socket.dtsi declares D3/D5/D6/D7/D9/D10/D11/D12/D13 -- the
+ * intersection over D2-D9, the range this V2 carrier's own gpio-map
+ * reaches, is D3/D5/D6/D7/D9): grove_d2's SIG1(D3)/not SIG0(D2, nucleo-only);
+ * grove_d3's SIG0(D3)/not SIG1(D4, neither board); grove_d4's SIG1(D5)/not
+ * SIG0(D4); grove_d5's SIG0(D5) AND SIG1(D6), both; grove_d6's SIG0(D6) AND
+ * SIG1(D7), both; grove_d7's SIG0(D7)/not SIG1(D8, nucleo-only);
+ * grove_d8's SIG1(D9)/not SIG0(D8). This is the SAME "declare only what
+ * you can source" rule the board sockets themselves follow (l4-pwm-brief.md
+ * Sec 3), applied one level up: a carrier that claimed a position no real
+ * board underneath it can route would fail this soundness check the
+ * instant it mated to either board, not merely go unused.
+ * seeed_grove_base_v1.shield (this same folder) does NOT get this
+ * treatment in this slice -- no rig instance needs it yet, and adding it
+ * unexercised would be the same speculative authorship rule 8 warns
+ * against at the board level; flagged as an open gap, not fixed here.
  */
 
 #include <dt-bindings/connector/arduino-r3.h>
@@ -23,7 +63,7 @@
 	shield-templates {
 		seeed_grove_base_v2: seeed_grove_base_v2 {
 			shield,plugs = "arduino-r3";
-			sgbv2_plug: plug { #gpio-cells = <2>; #io-channel-cells = <1>; };
+			sgbv2_plug: plug { #gpio-cells = <2>; #io-channel-cells = <1>; #pwm-cells = <3>; };
 
 			grove_i2c: grove_i2c {
 				compatible = "socket,grove";
@@ -75,42 +115,77 @@
 				#gpio-cells = <2>;
 				gpio-map = <GROVE_SIG0 0 &sgbv2_plug ARDUINO_HEADER_R3_D2 0>,
 					   <GROVE_SIG1 0 &sgbv2_plug ARDUINO_HEADER_R3_D3 0>;
+				/* SIG0/D2: nucleo-only, not frdm_k64f -- not declared here */
+				#pwm-cells = <3>;
+				pwm-map-mask = <0xffffffff 0x00000000 0x00000000>;
+				pwm-map-pass-thru = <0x00000000 0xffffffff 0xffffffff>;
+				pwm-map = <GROVE_SIG1 0 0 &sgbv2_plug ARDUINO_HEADER_R3_D3 0 0>;
 			};
 			grove_d3: grove_d3 {
 				compatible = "socket,grove";
 				#gpio-cells = <2>;
 				gpio-map = <GROVE_SIG0 0 &sgbv2_plug ARDUINO_HEADER_R3_D3 0>,
 					   <GROVE_SIG1 0 &sgbv2_plug ARDUINO_HEADER_R3_D4 0>;
+				/* SIG1/D4: not timer-capable on either board -- not declared here */
+				#pwm-cells = <3>;
+				pwm-map-mask = <0xffffffff 0x00000000 0x00000000>;
+				pwm-map-pass-thru = <0x00000000 0xffffffff 0xffffffff>;
+				pwm-map = <GROVE_SIG0 0 0 &sgbv2_plug ARDUINO_HEADER_R3_D3 0 0>;
 			};
 			grove_d4: grove_d4 {
 				compatible = "socket,grove";
 				#gpio-cells = <2>;
 				gpio-map = <GROVE_SIG0 0 &sgbv2_plug ARDUINO_HEADER_R3_D4 0>,
 					   <GROVE_SIG1 0 &sgbv2_plug ARDUINO_HEADER_R3_D5 0>;
+				/* SIG0/D4: not timer-capable on either board -- not declared here */
+				#pwm-cells = <3>;
+				pwm-map-mask = <0xffffffff 0x00000000 0x00000000>;
+				pwm-map-pass-thru = <0x00000000 0xffffffff 0xffffffff>;
+				pwm-map = <GROVE_SIG1 0 0 &sgbv2_plug ARDUINO_HEADER_R3_D5 0 0>;
 			};
 			grove_d5: grove_d5 {
 				compatible = "socket,grove";
 				#gpio-cells = <2>;
 				gpio-map = <GROVE_SIG0 0 &sgbv2_plug ARDUINO_HEADER_R3_D5 0>,
 					   <GROVE_SIG1 0 &sgbv2_plug ARDUINO_HEADER_R3_D6 0>;
+				#pwm-cells = <3>;
+				pwm-map-mask = <0xffffffff 0x00000000 0x00000000>;
+				pwm-map-pass-thru = <0x00000000 0xffffffff 0xffffffff>;
+				pwm-map = <GROVE_SIG0 0 0 &sgbv2_plug ARDUINO_HEADER_R3_D5 0 0>,
+					   <GROVE_SIG1 0 0 &sgbv2_plug ARDUINO_HEADER_R3_D6 0 0>;
 			};
 			grove_d6: grove_d6 {
 				compatible = "socket,grove";
 				#gpio-cells = <2>;
 				gpio-map = <GROVE_SIG0 0 &sgbv2_plug ARDUINO_HEADER_R3_D6 0>,
 					   <GROVE_SIG1 0 &sgbv2_plug ARDUINO_HEADER_R3_D7 0>;
+				#pwm-cells = <3>;
+				pwm-map-mask = <0xffffffff 0x00000000 0x00000000>;
+				pwm-map-pass-thru = <0x00000000 0xffffffff 0xffffffff>;
+				pwm-map = <GROVE_SIG0 0 0 &sgbv2_plug ARDUINO_HEADER_R3_D6 0 0>,
+					   <GROVE_SIG1 0 0 &sgbv2_plug ARDUINO_HEADER_R3_D7 0 0>;
 			};
 			grove_d7: grove_d7 {
 				compatible = "socket,grove";
 				#gpio-cells = <2>;
 				gpio-map = <GROVE_SIG0 0 &sgbv2_plug ARDUINO_HEADER_R3_D7 0>,
 					   <GROVE_SIG1 0 &sgbv2_plug ARDUINO_HEADER_R3_D8 0>;
+				/* SIG1/D8: nucleo-only, not frdm_k64f -- not declared here */
+				#pwm-cells = <3>;
+				pwm-map-mask = <0xffffffff 0x00000000 0x00000000>;
+				pwm-map-pass-thru = <0x00000000 0xffffffff 0xffffffff>;
+				pwm-map = <GROVE_SIG0 0 0 &sgbv2_plug ARDUINO_HEADER_R3_D7 0 0>;
 			};
 			grove_d8: grove_d8 {
 				compatible = "socket,grove";
 				#gpio-cells = <2>;
 				gpio-map = <GROVE_SIG0 0 &sgbv2_plug ARDUINO_HEADER_R3_D8 0>,
 					   <GROVE_SIG1 0 &sgbv2_plug ARDUINO_HEADER_R3_D9 0>;
+				/* SIG0/D8: nucleo-only, not frdm_k64f -- not declared here */
+				#pwm-cells = <3>;
+				pwm-map-mask = <0xffffffff 0x00000000 0x00000000>;
+				pwm-map-pass-thru = <0x00000000 0xffffffff 0xffffffff>;
+				pwm-map = <GROVE_SIG1 0 0 &sgbv2_plug ARDUINO_HEADER_R3_D9 0 0>;
 			};
 		};
 	};

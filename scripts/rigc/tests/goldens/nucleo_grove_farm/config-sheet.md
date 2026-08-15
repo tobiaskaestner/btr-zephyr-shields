@@ -11,6 +11,8 @@ Board: **nucleo_f401re/stm32f401xe/rig**
 | btn_a | grove_btn | grove_1.grove_d2 |
 | grove_1 | seeed_grove_base_v2 | arduino_r3 |
 | light_a | grove_light | grove_1.grove_a0 |
+| pwm_a | grove_pwm_led | grove_1.grove_d3 |
+| pwm_b | grove_pwm_led_inv | grove_1.grove_d6 |
 | sensor_a | grove_sens_bme280 | grove_1.grove_i2c |
 
 ## Straps / jumpers
@@ -22,6 +24,8 @@ Board: **nucleo_f401re/stm32f401xe/rig**
 The expander enables these controllers; the SoC pin-mux for each pin is board-provided and must be applied (stubbed):
 
 - light_a/light (grove_1.grove_a0 SIG0) → ADC adc1 ch0: mux the pin to the controller
+- pwm_a/led (grove_1.grove_d3 SIG0) → PWM pwm2 ch2: mux the pin to the controller
+- pwm_b/led (grove_1.grove_d6 SIG0) → PWM pwm2 ch3: mux the pin to the controller
 
 ## Parameters
 

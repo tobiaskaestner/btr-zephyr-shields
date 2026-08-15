@@ -24,8 +24,14 @@ description: |
   four properties (that binding's own description explains the OPTIONAL-
   not-`include:`-required shape and why: not every arduino-r3 socket wires
   every analog position to a real ADC channel, subset exposure declared by
-  absence exactly like socket,uart above). pwm-map and its trio are
-  deliberately NOT added here — that is item 36, sequenced after this one.
+  absence exactly like socket,uart above).
+
+  pwm-map / pwm-map-mask / pwm-map-pass-thru / #pwm-cells (L4-PWM, item
+  36): the PWM nexus, same shape and same OPTIONAL reasoning as the ADC
+  quartet above and as grove.yaml's own copy of this same trio+cells —
+  not every arduino-r3 digital position reaches a timer channel (several
+  do not, on both real sockets that declare this map today), subset
+  exposure declared by absence.
 
   Shield side (`plug,*` extension keys — opaque to edtlib's own model,
   preserved in Binding.raw under the vendor-namespaced top-level key
@@ -69,6 +75,15 @@ properties:
   io-channel-map-pass-thru:
     type: array
   "#io-channel-cells":
+    type: int
+
+  pwm-map:
+    type: compound
+  pwm-map-mask:
+    type: array
+  pwm-map-pass-thru:
+    type: array
+  "#pwm-cells":
     type: int
 
 gpio-cells:

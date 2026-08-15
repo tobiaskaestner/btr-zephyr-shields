@@ -95,5 +95,117 @@
 				  <ARDUINO_HEADER_R3_A3 &adc1 8>,
 				  <ARDUINO_HEADER_R3_A4 &adc1 11>,
 				  <ARDUINO_HEADER_R3_A5 &adc1 10>;
+
+		/* L4-PWM (item 36): nine of the twelve digital positions reach a
+		 * real timer channel -- FOUR distinct parent timers (&pwm1/2/3/4
+		 * below), the multi-parent case the brief asked to be confirmed
+		 * for PWM independently of ADC's own (Sec 3). Channels sourced
+		 * from the SAME stm32f401r(d-e)tx-pinctrl.dtsi header ADC used
+		 * (modules/hal/stm32/dts/st/f4/), this time its own
+		 * tim<N>_ch<M>_p<x><n> node names, matched against this file's own
+		 * gpio-map pins above (PA10/PB3/PB5/PB4/PB10/PA8/PA9/PC7/PB6/PA7/
+		 * PA6/PA5) -- and CROSS-CHECKED against a real, independent
+		 * upstream fact for this exact connector: bridle's own
+		 * boards/shields/grove/boards/seeed_grove_base_v1 (and _v2)/
+		 * nucleo_f401re_bbe.overlay ("grove_laced_if_v1"/"_v2", compatible
+		 * "seeed,grove-laced-if"), a real per-board Arduino-header PWM
+		 * reachability table for this SAME connector that predates this
+		 * slice. Every channel below matches that overlay exactly:
+		 *   D2  PA10 -> tim1_ch3_pa10  (&pwm1 ch3)  -- bridle: PWM1CH3
+		 *   D3  PB3  -> tim2_ch2_pb3   (&pwm2 ch2)  -- bridle: PWM2CH2
+		 *   D5  PB4  -> tim3_ch1_pb4   (&pwm3 ch1)  -- bridle: PWM3CH1
+		 *   D6  PB10 -> tim2_ch3_pb10  (&pwm2 ch3)  -- bridle: PWM2CH3
+		 *   D7  PA8  -> tim1_ch1_pa8   (&pwm1 ch1)  -- bridle: PWM1CH1
+		 *   D8  PA9  -> tim1_ch2_pa9   (&pwm1 ch2)  -- bridle: PWM1CH2
+		 *   D9  PC7  -> tim3_ch2_pc7   (&pwm3 ch2)  -- bridle: PWM3CH2
+		 *   D10 PB6  -> tim4_ch1_pb6   (&pwm4 ch1)  -- bridle: PWM4CH1
+		 *   D13 PA5  -> tim2_ch1_pa5   (&pwm2 ch1)  -- bridle: PWM2CH1,
+		 *       and independently cross-checked a THIRD way: this
+		 *       board's own nucleo_f401re.dts already wires
+		 *       pwm2's own pinctrl-0 set to tim2_ch1_pa5, under
+		 *       &timers2, for the real onboard green_pwm_led -- so D13's
+		 *       channel is not just sourced, it is the SAME channel a
+		 *       real, already-status-okay consumer on this exact pin
+		 *       already uses (D13 doubles as that onboard LED's pin, a
+		 *       genuine shared-net fact, not a slice-introduced one).
+		 * D4 (PB5) and D12 (PA6) are DECLARED BY ABSENCE, matching
+		 * bridle's own overlay exactly ("not possible" in both its v1 and
+		 * v2 files): PB5's only PWM pinctrl node is tim3_ch2_pb5 -- the
+		 * SAME channel D9 (PC7, tim3_ch2_pc7) already claims on this map,
+		 * and PA6's only one is tim3_ch1_pa6 -- the SAME channel D5
+		 * already claims. TIM3 has no alternate route to either channel
+		 * from these pins, so exposing D4/D12 here would force a
+		 * standing channel clash on every rig that used them, not a
+		 * clash a rig's own socket choice could avoid; the position is
+		 * simply not independently usable, not merely undeclared.
+		 * D11 (PA7) is ALSO declared by absence, despite having a pinctrl
+		 * node (tim1_ch1n_pa7): that "n" suffix is TIM1 channel 1's
+		 * COMPLEMENTARY output, not channel 1 itself -- bridle's own
+		 * overlay reaches it anyway by forcing STM32_PWM_COMPLEMENTARY
+		 * into the map's own flags cell (a partial pwm-map-mask/pass-thru
+		 * split this corpus's *-map rows have never needed elsewhere).
+		 * rigc's own board_edt.py::_project_channel_map and
+		 * analyzer/gpio.py::_collect_channel never read a map row's own
+		 * flags cell at all -- only entry.parent_specifiers[0] (the
+		 * channel) and the REQUESTING device's own declared ref.flags
+		 * carry into the resolved reference -- so a map here could not
+		 * force the complementary bit the way bridle's real board file
+		 * does; declaring D11 as plain "&pwm1 ch1" would silently accept
+		 * a NORMAL request that is electrically wrong on this pin
+		 * (PA7 only ever carries TIM1 CH1's complementary output). Rather
+		 * than invent a channel this expander cannot correctly gate,
+		 * D11 stays undeclared -- a call flagged for review, not a fact
+		 * asserted with full confidence the way the other nine are.
+		 * &pwm2 (this file's own #io-channel-cells-adjacent sibling) is
+		 * the REAL existing label nucleo_f401re.dts already attaches to
+		 * &timers2's pwm child (status "okay", real pinctrl, driving
+		 * green_pwm_led) -- reused verbatim, untouched, below. &pwm1/
+		 * &pwm3/&pwm4 do not exist upstream (TIM1/TIM3/TIM4's own pwm
+		 * children are unlabeled, disabled, pinctrl-less stm32f4.dtsi
+		 * boilerplate on every F401 board that never touches them, the
+		 * same shape every other untouched STM32 peripheral in the tree
+		 * ships in) -- so this file adds ONLY a label to each, below,
+		 * mirroring exactly what nucleo_f401re.dts already did for pwm2,
+		 * minus the status/pinctrl that board file added for its OWN
+		 * real consumer. Pin-mux (which pinctrl group actually routes
+		 * each of these nine pins to its timer) is board-provided and
+		 * stays STUBBED here (L4-PWM-brief Sec 4), same ruling as the
+		 * ADC map above: a --build-only twister run needs none of it,
+		 * and authoring nine new pinctrl groups is board work with no
+		 * upstream fact behind it (this board wires exactly one PWM
+		 * pinctrl group today, tim2_ch1_pa5, for the onboard LED). */
+		#pwm-cells = <3>;
+		pwm-map-mask = <0xffffffff 0x00000000 0x00000000>;
+		pwm-map-pass-thru = <0x00000000 0xffffffff 0xffffffff>;
+		pwm-map = <ARDUINO_HEADER_R3_D2  0 0 &pwm1 3 0 0>,
+			   <ARDUINO_HEADER_R3_D3  0 0 &pwm2 2 0 0>,
+			   <ARDUINO_HEADER_R3_D5  0 0 &pwm3 1 0 0>,
+			   <ARDUINO_HEADER_R3_D6  0 0 &pwm2 3 0 0>,
+			   <ARDUINO_HEADER_R3_D7  0 0 &pwm1 1 0 0>,
+			   <ARDUINO_HEADER_R3_D8  0 0 &pwm1 2 0 0>,
+			   <ARDUINO_HEADER_R3_D9  0 0 &pwm3 2 0 0>,
+			   <ARDUINO_HEADER_R3_D10 0 0 &pwm4 1 0 0>,
+			   <ARDUINO_HEADER_R3_D13 0 0 &pwm2 1 0 0>;
 	};
+};
+
+/* L4-PWM (item 36): label-only additions to TIM1/TIM3/TIM4's own existing
+ * (upstream, disabled, pinctrl-less) pwm child nodes -- see the pwm-map
+ * comment above for why these three need a fresh label (unlike &pwm2,
+ * &adc1, &i2c1, &spi1 above, none of which needed one) and why leaving
+ * them disabled with no pinctrl is safe (the same shape every untouched
+ * STM32 peripheral in the upstream tree already ships in, proven by the
+ * fact that every OTHER F401 board already builds fine without ever
+ * touching TIM1/TIM3/TIM4). Neither block changes any property these
+ * nodes already declare. */
+&timers1 {
+	pwm1: pwm { };
+};
+
+&timers3 {
+	pwm3: pwm { };
+};
+
+&timers4 {
+	pwm4: pwm { };
 };

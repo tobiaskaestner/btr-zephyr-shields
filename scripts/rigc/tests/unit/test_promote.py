@@ -139,15 +139,18 @@ def test_both_paths_error_names_both_offending_locations() -> None:
 def test_discover_shields_finds_the_real_corpus_and_agrees_with_template_flag() -> None:
     """Census (Sec 4): every discovered name (marker file present) whose
     shield.yml declares `template: true` shows up as promotable, and
-    every one of today's 24 corpus shields does -- 15 one-per-folder plus
+    every one of today's 25 corpus shields does -- 15 one-per-folder plus
     four plurality folders: lcd_char_1602/lcd_tft_24 (shield-plurality-
     brief.md Sec 5, boards/shields/arduino_lcd/, named neither),
     grove_sens_bme280/grove_sens_bmp280/grove_sens_dps310
     (boards/shields/grove_sens/, named neither -- three shields, one
     `.shield` per name, following arduino_lcd's own precedent),
-    grove_led/grove_pwm_led (boards/shields/grove_led/, sharing the
-    folder bridle's own grove_led/ keeps both LED kinds in -- the one
-    plurality folder actually named after one of its own members), and
+    grove_led/grove_pwm_led/grove_pwm_led_inv (boards/shields/grove_led/,
+    sharing the folder bridle's own grove_led/ keeps both LED kinds in --
+    the one plurality folder actually named after one of its own members;
+    grove_pwm_led_inv, item 36's own nonzero-flags witness, is NOT a
+    bridle port and joins this same folder rather than a new one, since
+    it is grove_pwm_led's own inverted-polarity sibling), and
     seeed_grove_base_v1/seeed_grove_base_v2 (grove-carriers-brief.md,
     boards/shields/grove/, named neither -- the `arduino_lcd` falsifier
     shape again, acceptance criterion 1); can_span_click and
@@ -160,7 +163,7 @@ def test_discover_shields_finds_the_real_corpus_and_agrees_with_template_flag() 
     assertion (see the mutation test below) -- this one just proves the
     real tree is clean today."""
     shields = discover_shields()
-    assert len(shields) == 24
+    assert len(shields) == 25
     for info in shields.values():
         assert info.has_yml, f"{info.name}: discovered but no shield.yml"
         assert info.template, f"{info.name}: shield.yml omits template: true"

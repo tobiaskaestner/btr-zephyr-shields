@@ -23,6 +23,33 @@
 		gpio-map-pass-thru = <0 0x3f>;
 		gpio-map = <0 0 &nucleo_ard 8 0>,
 			   <1 0 &nucleo_ard 9 0>;
+		#pwm-cells = <3>;
+		pwm-map-mask = <0xffffffff 0x00000000 0x00000000>;
+		pwm-map-pass-thru = <0x00000000 0xffffffff 0xffffffff>;
+		pwm-map = <1 0 0 &nucleo_ard 9 0 0>;
+	};
+	grove_1_grove_d3: grove_1_grove_d3 {
+		#gpio-cells = <2>;
+		gpio-map-mask = <0xffffffff 0xffffffc0>;
+		gpio-map-pass-thru = <0 0x3f>;
+		gpio-map = <0 0 &nucleo_ard 9 0>,
+			   <1 0 &nucleo_ard 10 0>;
+		#pwm-cells = <3>;
+		pwm-map-mask = <0xffffffff 0x00000000 0x00000000>;
+		pwm-map-pass-thru = <0x00000000 0xffffffff 0xffffffff>;
+		pwm-map = <0 0 0 &nucleo_ard 9 0 0>;
+	};
+	grove_1_grove_d6: grove_1_grove_d6 {
+		#gpio-cells = <2>;
+		gpio-map-mask = <0xffffffff 0xffffffc0>;
+		gpio-map-pass-thru = <0 0x3f>;
+		gpio-map = <0 0 &nucleo_ard 12 0>,
+			   <1 0 &nucleo_ard 13 0>;
+		#pwm-cells = <3>;
+		pwm-map-mask = <0xffffffff 0x00000000 0x00000000>;
+		pwm-map-pass-thru = <0x00000000 0xffffffff 0xffffffff>;
+		pwm-map = <0 0 0 &nucleo_ard 12 0 0>,
+			   <1 0 0 &nucleo_ard 13 0 0>;
 	};
 	grove_1_grove_i2c: grove_1_grove_i2c {
 		#gpio-cells = <2>;
@@ -51,6 +78,17 @@
 			gpios = <&grove_1_grove_d2 0 0x20>;	/* SIG0 */
 		};
 	};
+	pwm_leds: pwm_leds {
+		compatible = "pwm-leds";
+		pwm_a_gpl_led: pwm_a_gpl_led {
+			label = "pwm_a_gpl_led";
+			pwms = <&grove_1_grove_d3 0 20000000 0x0>;	/* SIG0 */
+		};
+		pwm_b_gpli_led: pwm_b_gpli_led {
+			label = "pwm_b_gpli_led";
+			pwms = <&grove_1_grove_d6 0 20000000 0x1>;	/* SIG0 */
+		};
+	};
 };
 
 / {
@@ -67,3 +105,4 @@
  * for each muxed pin is board-provided and must be applied —
  * stubbed here, see the config sheet. */
 &adc1 { status = "okay"; };
+&pwm2 { status = "okay"; };

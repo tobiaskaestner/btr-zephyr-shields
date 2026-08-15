@@ -499,12 +499,12 @@
 			clock-frequency = < 0x61a80 >;               /* in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:113 */
 			phandle = < 0x21 >;                          /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:708 */
 
-			/* node '/soc/i2c@40005400/sensor@76' defined in <RIGC_BUILD>/rig/rig-gen.overlay:37 */
+			/* node '/soc/i2c@40005400/sensor@76' defined in <RIGC_BUILD>/rig/rig-gen.overlay:64 */
 			sensor_a_gsbme_dev: sensor@76 {
-				compatible = "bosch,bme280";                      /* in <RIGC_BUILD>/rig/rig-gen.overlay:38 */
-				friendly-name = "Grove THP Sensor V1.0 (BME280)"; /* in <RIGC_BUILD>/rig/rig-gen.overlay:39 */
-				reg = < 0x76 >;                                   /* in <RIGC_BUILD>/rig/rig-gen.overlay:40 */
-				status = "okay";                                  /* in <RIGC_BUILD>/rig/rig-gen.overlay:41 */
+				compatible = "bosch,bme280";                      /* in <RIGC_BUILD>/rig/rig-gen.overlay:65 */
+				friendly-name = "Grove THP Sensor V1.0 (BME280)"; /* in <RIGC_BUILD>/rig/rig-gen.overlay:66 */
+				reg = < 0x76 >;                                   /* in <RIGC_BUILD>/rig/rig-gen.overlay:67 */
+				status = "okay";                                  /* in <RIGC_BUILD>/rig/rig-gen.overlay:68 */
 			};
 		};
 
@@ -594,10 +594,11 @@
 			status = "disabled";            /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:388 */
 
 			/* node '/soc/timers@40010000/pwm' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:390 */
-			pwm {
+			pwm1: pwm {
 				compatible = "st,stm32-pwm"; /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:391 */
 				status = "disabled";         /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:392 */
 				#pwm-cells = < 0x3 >;        /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:393 */
+				phandle = < 0x29 >;          /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:180 */
 			};
 
 			/* node '/soc/timers@40010000/counter' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:396 */
@@ -630,9 +631,9 @@
 			pwm2: pwm {
 				compatible = "st,stm32-pwm";   /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:420 */
 				#pwm-cells = < 0x3 >;          /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:422 */
-				status = "okay";               /* in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:181 */
 				pinctrl-0 = < &tim2_ch1_pa5 >; /* in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:182 */
 				pinctrl-names = "default";     /* in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:183 */
+				status = "okay";               /* in <RIGC_BUILD>/rig/rig-gen.overlay:108 */
 				phandle = < 0x26 >;            /* in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:40 */
 			};
 
@@ -663,10 +664,11 @@
 			status = "disabled";            /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:446 */
 
 			/* node '/soc/timers@40000400/pwm' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:448 */
-			pwm {
+			pwm3: pwm {
 				compatible = "st,stm32-pwm"; /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:449 */
 				status = "disabled";         /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:450 */
 				#pwm-cells = < 0x3 >;        /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:451 */
+				phandle = < 0x2a >;          /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:180 */
 			};
 
 			/* node '/soc/timers@40000400/counter' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:454 */
@@ -696,10 +698,11 @@
 			status = "disabled";            /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:475 */
 
 			/* node '/soc/timers@40000800/pwm' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:477 */
-			pwm {
+			pwm4: pwm {
 				compatible = "st,stm32-pwm"; /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:478 */
 				status = "disabled";         /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:479 */
 				#pwm-cells = < 0x3 >;        /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:480 */
+				phandle = < 0x2b >;          /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:180 */
 			};
 
 			/* node '/soc/timers@40000800/counter' defined in zephyr/dts/arm/st/f4/stm32f4.dtsi:483 */
@@ -866,7 +869,7 @@
 			pinctrl-names = "default";                                   /* in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:195 */
 			st,adc-clock-source = "SYNC";                                /* in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:196 */
 			st,adc-prescaler = < 0x2 >;                                  /* in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:197 */
-			status = "okay";                                             /* in <RIGC_BUILD>/rig/rig-gen.overlay:69 */
+			status = "okay";                                             /* in <RIGC_BUILD>/rig/rig-gen.overlay:107 */
 			phandle = < 0x1f >;                                          /* in zephyr/dts/arm/st/f4/stm32f4.dtsi:680 */
 		};
 
@@ -1275,7 +1278,7 @@
 
 	/* node '/gpio_keys' defined in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:44 */
 	gpio_keys: gpio_keys {
-		compatible = "gpio-keys"; /* in <RIGC_BUILD>/rig/rig-gen.overlay:47 */
+		compatible = "gpio-keys"; /* in <RIGC_BUILD>/rig/rig-gen.overlay:74 */
 
 		/* node '/gpio_keys/button' defined in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:47 */
 		user_button: button {
@@ -1284,20 +1287,20 @@
 			zephyr,code = < 0xb >;      /* in zephyr/boards/st/nucleo_f401re/nucleo_f401re.dts:50 */
 		};
 
-		/* node '/gpio_keys/btn_a_gb_key' defined in <RIGC_BUILD>/rig/rig-gen.overlay:48 */
+		/* node '/gpio_keys/btn_a_gb_key' defined in <RIGC_BUILD>/rig/rig-gen.overlay:75 */
 		btn_a_gb_key: btn_a_gb_key {
-			label = "btn_a_gb_key";                 /* in <RIGC_BUILD>/rig/rig-gen.overlay:49 */
-			zephyr,code = < 0xb >;                  /* in <RIGC_BUILD>/rig/rig-gen.overlay:50 */
-			gpios = < &grove_1_grove_d2 0x0 0x20 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:51 */
+			label = "btn_a_gb_key";                 /* in <RIGC_BUILD>/rig/rig-gen.overlay:76 */
+			zephyr,code = < 0xb >;                  /* in <RIGC_BUILD>/rig/rig-gen.overlay:77 */
+			gpios = < &grove_1_grove_d2 0x0 0x20 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:78 */
 		};
 	};
 
 	/* node '/connector_arduino_r3' defined in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:27 */
 	nucleo_ard: arduino_r3: connector_arduino_r3 {
-		compatible = "socket,arduino-r3";          /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:28 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:29 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:30 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:31 */
+		compatible = "socket,arduino-r3";                  /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:28 */
+		#gpio-cells = < 0x2 >;                             /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:29 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >;         /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:30 */
+		gpio-map-pass-thru = < 0x0 0x3f >;                 /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:31 */
 		gpio-map = < 0x0 0x0 &gpioa 0x0 0x0 >,
 		           < 0x1 0x0 &gpioa 0x1 0x0 >,
 		           < 0x2 0x0 &gpioa 0x4 0x0 >,
@@ -1319,20 +1322,32 @@
 		           < 0x12 0x0 &gpioa 0x6 0x0 >,
 		           < 0x13 0x0 &gpioa 0x5 0x0 >,
 		           < 0x14 0x0 &gpiob 0x9 0x0 >,
-		           < 0x15 0x0 &gpiob 0x8 0x0 >;    /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:32 */
-		socket,i2c = < &i2c1 >;                    /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:54 */
-		socket,spi = < &spi1 >;                    /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:55 */
-		socket,stackable;                          /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:56 */
-		#io-channel-cells = < 0x1 >;               /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:89 */
-		io-channel-map-mask = < 0xffffffff >;      /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:90 */
-		io-channel-map-pass-thru = < 0x0 >;        /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:91 */
+		           < 0x15 0x0 &gpiob 0x8 0x0 >;            /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:32 */
+		socket,i2c = < &i2c1 >;                            /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:54 */
+		socket,spi = < &spi1 >;                            /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:55 */
+		socket,stackable;                                  /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:56 */
+		#io-channel-cells = < 0x1 >;                       /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:89 */
+		io-channel-map-mask = < 0xffffffff >;              /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:90 */
+		io-channel-map-pass-thru = < 0x0 >;                /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:91 */
 		io-channel-map = < 0x0 &adc1 0x0 >,
 		                 < 0x1 &adc1 0x1 >,
 		                 < 0x2 &adc1 0x4 >,
 		                 < 0x3 &adc1 0x8 >,
 		                 < 0x4 &adc1 0xb >,
-		                 < 0x5 &adc1 0xa >;        /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:92 */
-		phandle = < 0x29 >;                        /* in <RIGC_BUILD>/rig/rig-gen.overlay:12 */
+		                 < 0x5 &adc1 0xa >;                /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:92 */
+		#pwm-cells = < 0x3 >;                              /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:177 */
+		pwm-map-mask = < 0xffffffff 0x0 0x0 >;             /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:178 */
+		pwm-map-pass-thru = < 0x0 0xffffffff 0xffffffff >; /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:179 */
+		pwm-map = < 0x8 0x0 0x0 &pwm1 0x3 0x0 0x0 >,
+		          < 0x9 0x0 0x0 &pwm2 0x2 0x0 0x0 >,
+		          < 0xb 0x0 0x0 &pwm3 0x1 0x0 0x0 >,
+		          < 0xc 0x0 0x0 &pwm2 0x3 0x0 0x0 >,
+		          < 0xd 0x0 0x0 &pwm1 0x1 0x0 0x0 >,
+		          < 0xe 0x0 0x0 &pwm1 0x2 0x0 0x0 >,
+		          < 0xf 0x0 0x0 &pwm3 0x2 0x0 0x0 >,
+		          < 0x10 0x0 0x0 &pwm4 0x1 0x0 0x0 >,
+		          < 0x13 0x0 0x0 &pwm2 0x1 0x0 0x0 >;      /* in btr-shields/boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi:180 */
+		phandle = < 0x2c >;                                /* in <RIGC_BUILD>/rig/rig-gen.overlay:12 */
 	};
 
 	/* node '/grove_1_grove_a0' defined in <RIGC_BUILD>/rig/rig-gen.overlay:8 */
@@ -1347,36 +1362,86 @@
 		io-channel-map-pass-thru = < 0x0 >;         /* in <RIGC_BUILD>/rig/rig-gen.overlay:16 */
 		io-channel-map = < 0x0 &nucleo_ard 0x0 >,
 		                 < 0x1 &nucleo_ard 0x1 >;   /* in <RIGC_BUILD>/rig/rig-gen.overlay:17 */
-		phandle = < 0x2a >;                         /* in <RIGC_BUILD>/rig/rig-gen.overlay:60 */
+		phandle = < 0x2f >;                         /* in <RIGC_BUILD>/rig/rig-gen.overlay:98 */
 	};
 
 	/* node '/grove_1_grove_d2' defined in <RIGC_BUILD>/rig/rig-gen.overlay:20 */
 	grove_1_grove_d2: grove_1_grove_d2 {
-		#gpio-cells = < 0x2 >;                      /* in <RIGC_BUILD>/rig/rig-gen.overlay:21 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >;  /* in <RIGC_BUILD>/rig/rig-gen.overlay:22 */
-		gpio-map-pass-thru = < 0x0 0x3f >;          /* in <RIGC_BUILD>/rig/rig-gen.overlay:23 */
+		#gpio-cells = < 0x2 >;                             /* in <RIGC_BUILD>/rig/rig-gen.overlay:21 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >;         /* in <RIGC_BUILD>/rig/rig-gen.overlay:22 */
+		gpio-map-pass-thru = < 0x0 0x3f >;                 /* in <RIGC_BUILD>/rig/rig-gen.overlay:23 */
 		gpio-map = < 0x0 0x0 &nucleo_ard 0x8 0x0 >,
-		           < 0x1 0x0 &nucleo_ard 0x9 0x0 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:24 */
-		phandle = < 0x27 >;                         /* in <RIGC_BUILD>/rig/rig-gen.overlay:51 */
+		           < 0x1 0x0 &nucleo_ard 0x9 0x0 >;        /* in <RIGC_BUILD>/rig/rig-gen.overlay:24 */
+		#pwm-cells = < 0x3 >;                              /* in <RIGC_BUILD>/rig/rig-gen.overlay:26 */
+		pwm-map-mask = < 0xffffffff 0x0 0x0 >;             /* in <RIGC_BUILD>/rig/rig-gen.overlay:27 */
+		pwm-map-pass-thru = < 0x0 0xffffffff 0xffffffff >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:28 */
+		pwm-map = < 0x1 0x0 0x0 &nucleo_ard 0x9 0x0 0x0 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:29 */
+		phandle = < 0x27 >;                                /* in <RIGC_BUILD>/rig/rig-gen.overlay:78 */
 	};
 
-	/* node '/grove_1_grove_i2c' defined in <RIGC_BUILD>/rig/rig-gen.overlay:27 */
+	/* node '/grove_1_grove_d3' defined in <RIGC_BUILD>/rig/rig-gen.overlay:31 */
+	grove_1_grove_d3: grove_1_grove_d3 {
+		#gpio-cells = < 0x2 >;                             /* in <RIGC_BUILD>/rig/rig-gen.overlay:32 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >;         /* in <RIGC_BUILD>/rig/rig-gen.overlay:33 */
+		gpio-map-pass-thru = < 0x0 0x3f >;                 /* in <RIGC_BUILD>/rig/rig-gen.overlay:34 */
+		gpio-map = < 0x0 0x0 &nucleo_ard 0x9 0x0 >,
+		           < 0x1 0x0 &nucleo_ard 0xa 0x0 >;        /* in <RIGC_BUILD>/rig/rig-gen.overlay:35 */
+		#pwm-cells = < 0x3 >;                              /* in <RIGC_BUILD>/rig/rig-gen.overlay:37 */
+		pwm-map-mask = < 0xffffffff 0x0 0x0 >;             /* in <RIGC_BUILD>/rig/rig-gen.overlay:38 */
+		pwm-map-pass-thru = < 0x0 0xffffffff 0xffffffff >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:39 */
+		pwm-map = < 0x0 0x0 0x0 &nucleo_ard 0x9 0x0 0x0 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:40 */
+		phandle = < 0x2d >;                                /* in <RIGC_BUILD>/rig/rig-gen.overlay:85 */
+	};
+
+	/* node '/grove_1_grove_d6' defined in <RIGC_BUILD>/rig/rig-gen.overlay:42 */
+	grove_1_grove_d6: grove_1_grove_d6 {
+		#gpio-cells = < 0x2 >;                             /* in <RIGC_BUILD>/rig/rig-gen.overlay:43 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >;         /* in <RIGC_BUILD>/rig/rig-gen.overlay:44 */
+		gpio-map-pass-thru = < 0x0 0x3f >;                 /* in <RIGC_BUILD>/rig/rig-gen.overlay:45 */
+		gpio-map = < 0x0 0x0 &nucleo_ard 0xc 0x0 >,
+		           < 0x1 0x0 &nucleo_ard 0xd 0x0 >;        /* in <RIGC_BUILD>/rig/rig-gen.overlay:46 */
+		#pwm-cells = < 0x3 >;                              /* in <RIGC_BUILD>/rig/rig-gen.overlay:48 */
+		pwm-map-mask = < 0xffffffff 0x0 0x0 >;             /* in <RIGC_BUILD>/rig/rig-gen.overlay:49 */
+		pwm-map-pass-thru = < 0x0 0xffffffff 0xffffffff >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:50 */
+		pwm-map = < 0x0 0x0 0x0 &nucleo_ard 0xc 0x0 0x0 >,
+		          < 0x1 0x0 0x0 &nucleo_ard 0xd 0x0 0x0 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:51 */
+		phandle = < 0x2e >;                                /* in <RIGC_BUILD>/rig/rig-gen.overlay:89 */
+	};
+
+	/* node '/grove_1_grove_i2c' defined in <RIGC_BUILD>/rig/rig-gen.overlay:54 */
 	grove_1_grove_i2c: grove_1_grove_i2c {
-		#gpio-cells = < 0x2 >;                      /* in <RIGC_BUILD>/rig/rig-gen.overlay:28 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >;  /* in <RIGC_BUILD>/rig/rig-gen.overlay:29 */
-		gpio-map-pass-thru = < 0x0 0x3f >;          /* in <RIGC_BUILD>/rig/rig-gen.overlay:30 */
+		#gpio-cells = < 0x2 >;                      /* in <RIGC_BUILD>/rig/rig-gen.overlay:55 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >;  /* in <RIGC_BUILD>/rig/rig-gen.overlay:56 */
+		gpio-map-pass-thru = < 0x0 0x3f >;          /* in <RIGC_BUILD>/rig/rig-gen.overlay:57 */
 		gpio-map = < 0x0 0x0 &nucleo_ard 0x5 0x0 >,
-		           < 0x1 0x0 &nucleo_ard 0x4 0x0 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:31 */
+		           < 0x1 0x0 &nucleo_ard 0x4 0x0 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:58 */
 	};
 
-	/* node '/light_a' defined in <RIGC_BUILD>/rig/rig-gen.overlay:57 */
+	/* node '/pwm_leds' defined in <RIGC_BUILD>/rig/rig-gen.overlay:81 */
+	pwm_leds: pwm_leds {
+		compatible = "pwm-leds"; /* in <RIGC_BUILD>/rig/rig-gen.overlay:82 */
+
+		/* node '/pwm_leds/pwm_a_gpl_led' defined in <RIGC_BUILD>/rig/rig-gen.overlay:83 */
+		pwm_a_gpl_led: pwm_a_gpl_led {
+			label = "pwm_a_gpl_led";                        /* in <RIGC_BUILD>/rig/rig-gen.overlay:84 */
+			pwms = < &grove_1_grove_d3 0x0 0x1312d00 0x0 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:85 */
+		};
+
+		/* node '/pwm_leds/pwm_b_gpli_led' defined in <RIGC_BUILD>/rig/rig-gen.overlay:87 */
+		pwm_b_gpli_led: pwm_b_gpli_led {
+			label = "pwm_b_gpli_led";                       /* in <RIGC_BUILD>/rig/rig-gen.overlay:88 */
+			pwms = < &grove_1_grove_d6 0x0 0x1312d00 0x1 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:89 */
+		};
+	};
+
+	/* node '/light_a' defined in <RIGC_BUILD>/rig/rig-gen.overlay:95 */
 	light_a {
 
-		/* node '/light_a/light' defined in <RIGC_BUILD>/rig/rig-gen.overlay:58 */
+		/* node '/light_a/light' defined in <RIGC_BUILD>/rig/rig-gen.overlay:96 */
 		light_a_light: light {
-			compatible = "vnd,light-sensor";         /* in <RIGC_BUILD>/rig/rig-gen.overlay:59 */
-			io-channels = < &grove_1_grove_a0 0x0 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:60 */
-			status = "okay";                         /* in <RIGC_BUILD>/rig/rig-gen.overlay:61 */
+			compatible = "vnd,light-sensor";         /* in <RIGC_BUILD>/rig/rig-gen.overlay:97 */
+			io-channels = < &grove_1_grove_a0 0x0 >; /* in <RIGC_BUILD>/rig/rig-gen.overlay:98 */
+			status = "okay";                         /* in <RIGC_BUILD>/rig/rig-gen.overlay:99 */
 		};
 	};
 };

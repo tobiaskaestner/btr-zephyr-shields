@@ -543,6 +543,7 @@
 			pinctrl-0 = < &ftm0_default >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:189 */
 			pinctrl-names = "default";     /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:190 */
 			clock-source = "fixed";        /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:191 */
+			phandle = < 0x27 >;            /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:159 */
 		};
 
 		/* node '/soc/ftm@40039000' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:405 */
@@ -577,6 +578,7 @@
 			pinctrl-0 = < &ftm3_default >; /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:198 */
 			pinctrl-names = "default";     /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:199 */
 			clock-source = "fixed";        /* in zephyr/boards/nxp/frdm_k64f/frdm_k64f.dts:200 */
+			phandle = < 0x28 >;            /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:159 */
 		};
 
 		/* node '/soc/adc@4003b000' defined in zephyr/dts/arm/nxp/kinetis/nxp_k6x.dtsi:432 */
@@ -1170,10 +1172,10 @@
 
 	/* node '/connector_arduino_r3' defined in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:31 */
 	frdm_ard: arduino_r3: connector_arduino_r3 {
-		compatible = "socket,arduino-r3";          /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:32 */
-		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:33 */
-		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:34 */
-		gpio-map-pass-thru = < 0x0 0x3f >;         /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:35 */
+		compatible = "socket,arduino-r3";                  /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:32 */
+		#gpio-cells = < 0x2 >;                             /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:33 */
+		gpio-map-mask = < 0xffffffff 0xffffffc0 >;         /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:34 */
+		gpio-map-pass-thru = < 0x0 0x3f >;                 /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:35 */
 		gpio-map = < 0x0 0x0 &gpiob 0x2 0x0 >,
 		           < 0x1 0x0 &gpiob 0x3 0x0 >,
 		           < 0x2 0x0 &gpiob 0xa 0x0 >,
@@ -1195,19 +1197,31 @@
 		           < 0x12 0x0 &gpiod 0x3 0x0 >,
 		           < 0x13 0x0 &gpiod 0x1 0x0 >,
 		           < 0x14 0x0 &gpioe 0x19 0x0 >,
-		           < 0x15 0x0 &gpioe 0x18 0x0 >;   /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:36 */
-		socket,i2c = < &i2c0 >;                    /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:59 */
-		socket,spi = < &spi0 >;                    /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:60 */
-		socket,uart = < &uart3 >;                  /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:61 */
-		socket,stackable;                          /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:62 */
-		#io-channel-cells = < 0x1 >;               /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:101 */
-		io-channel-map-mask = < 0xffffffff >;      /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:102 */
-		io-channel-map-pass-thru = < 0x0 >;        /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:103 */
+		           < 0x15 0x0 &gpioe 0x18 0x0 >;           /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:36 */
+		socket,i2c = < &i2c0 >;                            /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:59 */
+		socket,spi = < &spi0 >;                            /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:60 */
+		socket,uart = < &uart3 >;                          /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:61 */
+		socket,stackable;                                  /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:62 */
+		#io-channel-cells = < 0x1 >;                       /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:101 */
+		io-channel-map-mask = < 0xffffffff >;              /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:102 */
+		io-channel-map-pass-thru = < 0x0 >;                /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:103 */
 		io-channel-map = < 0x0 &adc0 0xc >,
 		                 < 0x1 &adc0 0xd >,
 		                 < 0x2 &adc1 0xe >,
-		                 < 0x3 &adc1 0xf >;        /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:104 */
-		phandle = < 0x27 >;                        /* in <RIGC_BUILD>/rig/rig-gen.overlay:11 */
+		                 < 0x3 &adc1 0xf >;                /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:104 */
+		#pwm-cells = < 0x3 >;                              /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:156 */
+		pwm-map-mask = < 0xffffffff 0x0 0x0 >;             /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:157 */
+		pwm-map-pass-thru = < 0x0 0xffffffff 0xffffffff >; /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:158 */
+		pwm-map = < 0x9 0x0 0x0 &ftm0 0x6 0x0 0x0 >,
+		          < 0xb 0x0 0x0 &ftm0 0x7 0x0 0x0 >,
+		          < 0xc 0x0 0x0 &ftm0 0x1 0x0 0x0 >,
+		          < 0xd 0x0 0x0 &ftm0 0x2 0x0 0x0 >,
+		          < 0xf 0x0 0x0 &ftm0 0x3 0x0 0x0 >,
+		          < 0x10 0x0 0x0 &ftm3 0x0 0x0 0x0 >,
+		          < 0x11 0x0 0x0 &ftm3 0x2 0x0 0x0 >,
+		          < 0x12 0x0 0x0 &ftm3 0x3 0x0 0x0 >,
+		          < 0x13 0x0 0x0 &ftm3 0x1 0x0 0x0 >;      /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:159 */
+		phandle = < 0x29 >;                                /* in <RIGC_BUILD>/rig/rig-gen.overlay:11 */
 	};
 
 	/* node '/adapter_1_mb1' defined in <RIGC_BUILD>/rig/rig-gen.overlay:7 */

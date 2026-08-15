@@ -176,15 +176,26 @@ def _promotion_target(shield: str) -> str:
 
 
 # Which eligible shields are expected to REJECT on both sides rather than
-# emit comparable artifacts. Today exactly one: adafruit_winc1500 needs a
-# routing-jumper selection (`config:`) that neither side supplies, so both
-# reject identically -- a real instance of the law (a promoted rig fails
-# exactly the way the checked-in rig it stands for would), but one that
-# compares STDERR and no artifact at all. Pinned because the reject
-# branch is the law's weak path: if it ever silently widened, the suite
-# would stay green while comparing nothing. See
-# test_singleton_law_holds's own verdict assertion.
-EXPECTED_REJECTING = {"adafruit_winc1500"}
+# emit comparable artifacts. adafruit_winc1500 needs a routing-jumper
+# selection (`config:`) that neither side supplies, so both reject
+# identically -- a real instance of the law (a promoted rig fails exactly
+# the way the checked-in rig it stands for would), but one that compares
+# STDERR and no artifact at all. grove_pwm_led_inv (L4-PWM, item 36) joins
+# it for a different, equally real reason: this fixture board's own
+# singleton-law Grove socket ("nexus_grove", tests/fixtures/boards/
+# mainboards/singleton_law_board.dts) is a 2-cell (channel, period) PWM
+# nexus, the lotus/SAMD21 shape -- and grove_pwm_led_inv's whole PURPOSE
+# is to author a nonzero PWM flags value (PWM_POLARITY_INVERTED), which
+# rigc/analyzer/gpio.py::_collect_channel correctly refuses on a 2-cell
+# socket (three-cell-pwm-brief.md Sec 3c: "there is no cell for flags").
+# Both sides reject identically on that same phys-function diagnostic --
+# the law still holds, it just has nothing to compare on this particular
+# fixture board (the shield's REAL, comparable use is nucleo_f401re's own
+# 3-cell socket, exercised by boards/rigs/nucleo_grove_farm's pwm_b
+# instance instead). Pinned because the reject branch is the law's weak
+# path: if it ever silently widened, the suite would stay green while
+# comparing nothing. See test_singleton_law_holds's own verdict assertion.
+EXPECTED_REJECTING = {"adafruit_winc1500", "grove_pwm_led_inv"}
 
 # `--promote`'s materialized pair lives inside rigc's OWN workdir
 # (`<--out-dir>/rigc-generated`, cli.WORKDIR_NAME -- kept on a reject,
