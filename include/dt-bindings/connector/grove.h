@@ -2,7 +2,7 @@
  * SPDX-License-Identifier: Apache-2.0
  *
  * Grove position indices — THE single source of truth shared by: board
- * socket gpio-map/socket,pwm-map/socket,adc-map child pins, shield plug
+ * socket gpio-map/pwm-map/io-channel-map child pins, shield plug
  * references, binding docs. (Pattern: include/dt-bindings/connector/mikrobus.h
  * from 3a; no upstream dt-bindings header exists for Grove position indices
  * either, so btr-shields is the one true source for its own typed socket

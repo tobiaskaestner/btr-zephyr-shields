@@ -1,7 +1,7 @@
 # The same physical pin used as PWM and as ADC, on the real Seeeduino Lotus.
 # A servo on grove_d2 (PWM → tcc0 ch0) and a light sensor on grove_a0 (ADC →
 # adc0 ch0). The expander resolves each position through the board's
-# per-function nexus (socket,pwm-map / socket,adc-map), emits resolved
+# per-function nexus (pwm-map / io-channel-map), emits resolved
 # pwms/io-channels, enables the controllers, and notes the board pin-mux.
 # Exercises ontology Refinement 1: functions live on endpoints, not nets.
 #
