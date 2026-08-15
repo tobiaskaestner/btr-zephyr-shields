@@ -26,11 +26,60 @@ does not reach:
 |---|---|---|
 | `quail_can_span` | `can_span_click` plugging **two** mikroBUS sockets — one instance, but the multi-plug corpus witness | no |
 | `pilot_variants` | the variants axis, across **five** golden sets (`_2`, `_variant_b`, `_variant_b_2`, `_variant_c`) | no |
-| `grove_sens_pinned` | `config:` pinning the address strap to its NON-default state (0x77), against the allocated half | no |
+| `grove_sens_pinned` | the PINNED half of a two-state strap, frozen as goldens — see §2a, this row was WRONG in the first draft | **partly — corrected** |
 | `ard_datalogger` | the corpus's only rig genuinely built on **two** boards, with its own `ARD_DATALOGGER_FRDM_BOARD` constant | no |
 | `nucleo_datalogger` | see §2 | partly |
 
 Deleting any of the first four removes coverage, not duplication.
+
+## 2a. CORRECTION — a non-default strap address IS promotable
+
+**The first draft of this file claimed promotion could not express
+`grove_sens_pinned`'s pinned address. That was wrong.** It carried an
+analysis made BEFORE `0246554` landed `config.<label>=` and did not
+re-check it afterwards. `config.` serves straps exactly as it serves
+routing jumpers — `rigc/loader/params.py::apply_config_block` resolves
+both by label and never distinguishes them.
+
+Verified, not reasoned:
+
+```
+$ west rigs --explain "grove_sens_bme280:config.gsbme_addr_strap=0x77"
+instances:
+  - name: grove_sens_bme280
+    shield: grove_sens_bme280
+    config:
+      gsbme_addr_strap: 0x77
+
+$ west rigs --boards-for "grove_sens_bme280:config.gsbme_addr_strap=0x77"
+m5stack_nanoc6/esp32c6/hpcore/rig
+```
+
+That is the same board `grove_sens_pinned` uses, resolving through the
+real analyzer, and the printed content differs from the checked-in rig
+only in the instance NAME — which is precisely what the singleton
+identity law exists to normalise.
+
+**So what actually distinguishes the rig is narrower, and it is real.**
+A strap has TWO states and each needs a witness:
+
+- the **allocated** half (rig silent, allocator picks the default 0x76),
+  covered today by the singleton-law census promoting this shield with
+  no `config:` at all;
+- the **pinned** half (0x77 authored), covered today by
+  `grove_sens_pinned` — **with frozen goldens**, which a twister suite
+  does not give: a suite proves it BUILDS, the corpus freezes the bytes
+  of the emitted overlay and the config sheet.
+
+The law gives exactly ONE promotion per shield, so adding
+`grove_sens_bme280` to `_CONFIG_ASSIGNMENTS` would SWAP which half is
+covered, not add to it. Deleting the rig therefore trades frozen-byte
+coverage of the pinned path for nothing, unless the law grows a way to
+promote one shield twice.
+
+That is a much weaker reason to keep it than "promotion cannot reach
+it", and it is the true one. If frozen goldens for the pinned half are
+not wanted, the rig is genuinely deletable — that is a call, not a fact.
 
 ## 2. `nucleo_datalogger` — the one real duplicate, and why it is not free
 
