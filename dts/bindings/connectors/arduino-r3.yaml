@@ -18,6 +18,15 @@ description: |
   mating more than one shield (stacking headers); socket,cs-pool gives the
   expander's chip-select pool its ordered candidate positions (D10, D9, D8).
 
+  io-channel-map / io-channel-map-mask / io-channel-map-pass-thru /
+  #io-channel-cells (L4-ADC, item 35): the ADC nexus, shaped and declared
+  IDENTICALLY to dts/bindings/connectors/grove.yaml's own copy of these same
+  four properties (that binding's own description explains the OPTIONAL-
+  not-`include:`-required shape and why: not every arduino-r3 socket wires
+  every analog position to a real ADC channel, subset exposure declared by
+  absence exactly like socket,uart above). pwm-map and its trio are
+  deliberately NOT added here — that is item 36, sequenced after this one.
+
   Shield side (`plug,*` extension keys — opaque to edtlib's own model,
   preserved in Binding.raw under the vendor-namespaced top-level key
   exemption, carried commit 1a657124349): plug,bus-proxies names the proxy
@@ -52,6 +61,15 @@ properties:
     type: array
     default: [16, 15, 14]
     description: ordered chip-select candidate positions (D10, D9, D8) for expander CS-pool allocation
+
+  io-channel-map:
+    type: compound
+  io-channel-map-mask:
+    type: array
+  io-channel-map-pass-thru:
+    type: array
+  "#io-channel-cells":
+    type: int
 
 gpio-cells:
   - pin

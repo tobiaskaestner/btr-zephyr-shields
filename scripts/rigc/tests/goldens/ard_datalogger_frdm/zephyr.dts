@@ -1171,7 +1171,7 @@
 	};
 
 	/* node '/connector_arduino_r3' defined in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:31 */
-	frdm_ard: connector_arduino_r3 {
+	frdm_ard: arduino_r3: connector_arduino_r3 {
 		compatible = "socket,arduino-r3";          /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:32 */
 		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:33 */
 		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:34 */
@@ -1202,6 +1202,13 @@
 		socket,spi = < &spi0 >;                    /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:60 */
 		socket,uart = < &uart3 >;                  /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:61 */
 		socket,stackable;                          /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:62 */
+		#io-channel-cells = < 0x1 >;               /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:101 */
+		io-channel-map-mask = < 0xffffffff >;      /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:102 */
+		io-channel-map-pass-thru = < 0x0 >;        /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:103 */
+		io-channel-map = < 0x0 &adc0 0xc >,
+		                 < 0x1 &adc0 0xd >,
+		                 < 0x2 &adc1 0xe >,
+		                 < 0x3 &adc1 0xf >;        /* in btr-shields/boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi:104 */
 		phandle = < 0x6 >;                         /* in <RIGC_BUILD>/rig/rig-gen.overlay:11 */
 	};
 

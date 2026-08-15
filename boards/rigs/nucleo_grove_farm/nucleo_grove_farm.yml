@@ -19,6 +19,23 @@
 # rigs name it, so sitting beside this board's own goldens adds no new
 # plain-build cost at all, where frdm_k64f (2 existing rigs) or a sixth
 # board (0) would.
+#
+# light_a (L4-ADC, item 35/backlog): grove_light on grove_1's grove_a0 --
+# the ADC-through-a-carrier witness this slice exists to reach
+# (l4-adc-brief.md Sec 5/acceptance criterion 3). EXTENDING this rig
+# rather than adding a sibling: nucleo_f401re's own zephyr.dts golden is
+# already moving in this slice (its socket gained a real io-channel-map,
+# l4-adc-brief.md Sec 2), so a new instance here costs nothing extra --
+# where a fresh rig would need a whole new golden set for no added
+# coverage. grove_a0's own io-channel-map (boards/shields/grove/
+# seeed_grove_base_v2.shield) targets ARDUINO_HEADER_R3_A0 (SIG0) and
+# ARDUINO_HEADER_R3_A1 (SIG1) on the arduino-r3 plug -- both now real
+# io-channel-map entries on nucleo_f401re's own socket (single parent,
+# &adc1), so this stays a single-parent witness; the multi-parent case
+# (frdm_k64f's A0-A3 split across &adc0/&adc1) is confirmed by a
+# dedicated board_edt unit test instead (l4-adc-brief.md Sec 3/acceptance
+# criterion 5), since nothing in this rig's own topology needs two
+# parents to resolve.
 instances:
   - name: grove_1
     shield: seeed_grove_base_v2
@@ -32,3 +49,6 @@ instances:
     params:
       gb_key:
         zephyr,code: INPUT_KEY_0
+  - name: light_a
+    shield: grove_light
+    socket: grove_1.grove_a0

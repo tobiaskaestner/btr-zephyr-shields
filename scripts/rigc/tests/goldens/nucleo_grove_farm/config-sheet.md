@@ -10,11 +10,18 @@ Board: **nucleo_f401re/stm32f401xe/rig**
 |---|---|---|
 | btn_a | grove_btn | grove_1.grove_d2 |
 | grove_1 | seeed_grove_base_v2 | arduino_r3 |
+| light_a | grove_light | grove_1.grove_a0 |
 | sensor_a | grove_sens_bme280 | grove_1.grove_i2c |
 
 ## Straps / jumpers
 
 - **sensor_a** (grove_1.grove_i2c): set **ADDR solder bridge** to state 0 → device address 0x76
+
+## PWM / analog pin-mux (board-provided pinctrl)
+
+The expander enables these controllers; the SoC pin-mux for each pin is board-provided and must be applied (stubbed):
+
+- light_a/light (grove_1.grove_a0 SIG0) → ADC adc1 ch0: mux the pin to the controller
 
 ## Parameters
 

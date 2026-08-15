@@ -57,5 +57,43 @@
 		/* no socket,uart: subset exposure, declared by absence
 		 * (matches the legacy board: neither usart1 nor usart2 is
 		 * routed as the Arduino serial pins on this Nucleo variant) */
+
+		/* L4-ADC (item 35): all six analog positions reach real ADC1
+		 * channels -- single parent, no multi-controller split on this
+		 * SoC (STM32F401 has exactly one ADC instance). Channel numbers
+		 * sourced from the SAME pinctrl header the real board .dts
+		 * itself uses for A0 (nucleo_f401re.dts's own &adc1 node sets
+		 * pinctrl-0 to adc1_in0_pa0, confirming A0/PA0 = channel 0):
+		 * modules/hal/stm32/dts/st/f4/stm32f401r(d-e)tx-pinctrl.dtsi's
+		 * adc1_inN_paX/pbX/pcX node names, N = the ADC1 channel number,
+		 * matched against the same A0-A5 -> pin table this file's own
+		 * gpio-map above already carries (PA0/PA1/PA4/PB0/PC1/PC0):
+		 *   A0 PA0 -> adc1_in0_pa0   (channel 0)
+		 *   A1 PA1 -> adc1_in1_pa1   (channel 1)
+		 *   A2 PA4 -> adc1_in4_pa4   (channel 4)
+		 *   A3 PB0 -> adc1_in8_pb0   (channel 8)
+		 *   A4 PC1 -> adc1_in11_pc1  (channel 11)
+		 *   A5 PC0 -> adc1_in10_pc0  (channel 10)
+		 * &adc1 itself (dts/arm/st/f4/stm32f4.dtsi, compatible
+		 * "st,stm32f4-adc"/"st,stm32-adc") declares
+		 * #io-channel-cells = <1>, matching this socket's own -- no
+		 * pass-thru bits needed (mask fully covers the position cell),
+		 * same shape as the seeeduino_lotus grove_a* precedent
+		 * (boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi).
+		 * Pin-mux (which pinctrl group actually routes each pin to
+		 * ADC1) is board-provided and stays STUBBED here (L4-ADC-brief
+		 * Sec 4): the upstream board only wires ONE such group today
+		 * (adc1_in0_pa0, for A0); a --build-only twister run needs none
+		 * of the rest, and authoring the other five would be board work
+		 * with no upstream fact behind it. */
+		#io-channel-cells = <1>;
+		io-channel-map-mask = <0xffffffff>;
+		io-channel-map-pass-thru = <0x00000000>;
+		io-channel-map = <ARDUINO_HEADER_R3_A0 &adc1 0>,
+				  <ARDUINO_HEADER_R3_A1 &adc1 1>,
+				  <ARDUINO_HEADER_R3_A2 &adc1 4>,
+				  <ARDUINO_HEADER_R3_A3 &adc1 8>,
+				  <ARDUINO_HEADER_R3_A4 &adc1 11>,
+				  <ARDUINO_HEADER_R3_A5 &adc1 10>;
 	};
 };

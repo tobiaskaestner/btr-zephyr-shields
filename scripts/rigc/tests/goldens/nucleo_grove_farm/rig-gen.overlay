@@ -5,6 +5,18 @@
 
 /* carrier-exported sockets, synthesized as gpio-nexus nodes */
 / {
+	grove_1_grove_a0: grove_1_grove_a0 {
+		#gpio-cells = <2>;
+		gpio-map-mask = <0xffffffff 0xffffffc0>;
+		gpio-map-pass-thru = <0 0x3f>;
+		gpio-map = <0 0 &nucleo_ard 0 0>,
+			   <1 0 &nucleo_ard 1 0>;
+		#io-channel-cells = <1>;
+		io-channel-map-mask = <0xffffffff>;
+		io-channel-map-pass-thru = <0x00000000>;
+		io-channel-map = <0 &nucleo_ard 0>,
+			   <1 &nucleo_ard 1>;
+	};
 	grove_1_grove_d2: grove_1_grove_d2 {
 		#gpio-cells = <2>;
 		gpio-map-mask = <0xffffffff 0xffffffc0>;
@@ -40,3 +52,18 @@
 		};
 	};
 };
+
+/ {
+	light_a {
+		light_a_light: light {
+			compatible = "vnd,light-sensor";
+			io-channels = <&grove_1_grove_a0 0>;	/* SIG0 */
+			status = "okay";
+		};
+	};
+};
+
+/* PWM/ADC: enable the resolved controllers; the pin-mux (pinctrl)
+ * for each muxed pin is board-provided and must be applied —
+ * stubbed here, see the config sheet. */
+&adc1 { status = "okay"; };

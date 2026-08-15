@@ -2,9 +2,11 @@
 #
 # Assembly: 1x seeed_grove_base_v2 (pure copper carrier, no Kconfig of its
 # own) + 1x grove_sens_bme280 (bosch,bme280 over I2C) + 1x grove_btn
-# (gpio-keys). Checked against the driver Kconfig (zephyr-rigs), same
-# umbrellas grove_sens_pinned_defconfig and lotus_buttons_defconfig already
-# establish for these exact two shields:
+# (gpio-keys) + 1x grove_light (ADC light sensor, L4-ADC item 35). Checked
+# against the driver Kconfig (zephyr-rigs), same umbrellas
+# grove_sens_pinned_defconfig and lotus_buttons_defconfig already
+# establish for the first two shields, and lotus_pwm_defconfig for the
+# third:
 #   - SENSOR is a bare `if SENSOR` menuconfig gate (drivers/sensor/Kconfig)
 #     with no default; RTC_PCF8523-style dt_compat_enabled auto-select
 #     cannot reach through it, so the rig opens it explicitly
@@ -14,6 +16,12 @@
 #     DT_HAS_GPIO_KEYS_ENABLED, and selects GPIO transitively
 #     (lotus_buttons_defconfig's own CONFIG_INPUT=y/CONFIG_GPIO=y, listed
 #     explicitly below for the same clarity that file gives).
+#   - ADC is likewise a bare umbrella (drivers/adc/Kconfig), no
+#     dt_compat_enabled auto-select of its own (lotus_pwm_defconfig's own
+#     CONFIG_ADC=y, unchanged here) -- grove_light's own vnd,light-sensor
+#     compatible carries no real driver (dts/bindings/test/), so this
+#     umbrella is what a --build-only twister run actually needs.
 CONFIG_SENSOR=y
 CONFIG_INPUT=y
 CONFIG_GPIO=y
+CONFIG_ADC=y

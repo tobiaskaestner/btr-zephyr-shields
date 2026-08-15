@@ -60,5 +60,50 @@
 		socket,spi = <&spi0>;
 		socket,uart = <&uart3>;
 		socket,stackable;
+
+		/* L4-ADC (item 35): A0-A3 reach real ADC channels, split across
+		 * TWO controllers (&adc0 for A0/A1, &adc1 for A2/A3) -- the
+		 * multi-parent io-channel-map the brief expected on this SoC.
+		 * Channel numbers sourced from the Kinetis pin-mux header
+		 * modules/hal/nxp/dts/nxp/kinetis/MK64FN1M0VLL12-pinctrl.h's own
+		 * ADCn_SEc_PTxy macro names (c = the channel number), matched
+		 * against the pin each position reaches per this file's own
+		 * gpio-map above (PTB2/PTB3/PTB10/PTB11):
+		 *   A0 PTB2  -> ADC0_SE12_PTB2  (adc0 channel 12)
+		 *   A1 PTB3  -> ADC0_SE13_PTB3  (adc0 channel 13)
+		 *   A2 PTB10 -> ADC1_SE14_PTB10 (adc1 channel 14)
+		 *   A3 PTB11 -> ADC1_SE15_PTB11 (adc1 channel 15)
+		 * A4 (PTC11) and A5 (PTC10) are DECLARED BY ABSENCE, the same
+		 * subset-exposure rule socket,uart already applies elsewhere in
+		 * this file: their only channel macros in that same header are
+		 * ADC1_SE7b_PTC11 / ADC1_SE6b_PTC10 -- the trailing "b" means
+		 * they are reachable ONLY through &adc1's alternate input mux
+		 * (the "channel-mux-b" property dts/bindings/adc/
+		 * nxp,kinetis-adc16.yaml declares, a CONTROLLER-WIDE selection,
+		 * not a per-channel one). Channels 14/15 above have no such
+		 * alternate (no ADC1_SE14b/SE15b macro exists in the header),
+		 * so setting channel-mux-b to reach A4/A5 would not disturb
+		 * them -- but authoring that property is itself the same
+		 * board-provided pin-routing work Sec 4 stubs out for pinctrl
+		 * groups, with no upstream fact (no existing pinctrl group
+		 * routes either pin to an ADC input today), so it stays out of
+		 * this slice rather than being invented.
+		 * &adc0/&adc1 (dts/arm/nxp/kinetis/nxp_k6x.dtsi, compatible
+		 * "nxp,kinetis-adc16") both declare #io-channel-cells = <1>,
+		 * matching this socket's own -- no pass-thru bits needed. Pin-
+		 * mux stays stubbed per Sec 4 regardless: the upstream board's
+		 * own adc0_default (ADC0_SE14_PTC0, an unrelated non-Arduino
+		 * pin) and adc1_default (ADC1_SE14_PTB10 -- coincidentally
+		 * A2's own pin/channel, but wired there for whatever consumer
+		 * adc1_default already served, not authored by this slice) are
+		 * left untouched; A0, A1, and A3 have no pinctrl group of their
+		 * own at all, same as A4/A5 above. */
+		#io-channel-cells = <1>;
+		io-channel-map-mask = <0xffffffff>;
+		io-channel-map-pass-thru = <0x00000000>;
+		io-channel-map = <ARDUINO_HEADER_R3_A0 &adc0 12>,
+				  <ARDUINO_HEADER_R3_A1 &adc0 13>,
+				  <ARDUINO_HEADER_R3_A2 &adc1 14>,
+				  <ARDUINO_HEADER_R3_A3 &adc1 15>;
 	};
 };

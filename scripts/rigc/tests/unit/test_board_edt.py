@@ -298,6 +298,99 @@ def test_adc_map_resolves_position_to_controller_and_channel() -> None:
     assert _socket().adc_map[2] == ("adc_ctrl0", 1)
 
 
+# ------------------------------------------ multi-parent io-channel-map (L4-ADC)
+#
+# l4-adc-brief.md Sec 3/acceptance criterion 5: frdm_k64f's own real
+# io-channel-map splits across &adc0/&adc1, but nothing else in the tree
+# exercised a socket whose io-channel-map ENTRIES name two DIFFERENT ADC
+# controllers before this slice -- confirmed here directly against
+# `_project_channel_map` (board_edt.py's shared checked read), which reads
+# `entry.parent` PER ROW, never once for the whole map. A dedicated,
+# hermetic edtlib.EDT (own binding, own DTS text), same reasoning as
+# `_multibus_edt` above: no other test in this file needs a second ADC
+# controller, so widening the shared fixture_board.dts just for this
+# would be pure churn on every OTHER test that fixture already serves.
+
+
+def _multi_adc_edt(tmp_path: Path):
+    binding_dir = tmp_path / "bindings"
+    binding_dir.mkdir()
+    (binding_dir / "socket-fixture-multiadc.yaml").write_text(textwrap.dedent("""\
+        description: purpose-built fixture binding for the multi-parent ADC test
+        compatible: "socket,fixture-multiadc"
+        properties:
+          "#io-channel-cells":
+            type: int
+            required: true
+          io-channel-map:
+            type: compound
+            required: true
+          io-channel-map-mask:
+            type: array
+          io-channel-map-pass-thru:
+            type: array
+        """))
+    dts_path = tmp_path / "multiadc.dts"
+    dts_path.write_text(textwrap.dedent("""\
+        /dts-v1/;
+        / {
+            #address-cells = <1>;
+            #size-cells = <1>;
+
+            adc_a: adc_ctrl@0 {
+                compatible = "fixturetest,adc-ctrl";
+                reg = <0x0 0x4>;
+                #io-channel-cells = <1>;
+            };
+            adc_b: adc_ctrl@10 {
+                compatible = "fixturetest,adc-ctrl";
+                reg = <0x10 0x4>;
+                #io-channel-cells = <1>;
+            };
+
+            multiadc_socket: connector_multiadc {
+                compatible = "socket,fixture-multiadc";
+                #io-channel-cells = <1>;
+                io-channel-map-mask = <0xffffffff>;
+                io-channel-map-pass-thru = <0x00000000>;
+                io-channel-map = <0 &adc_a 12>,
+                                 <1 &adc_a 13>,
+                                 <2 &adc_b 14>,
+                                 <3 &adc_b 15>;
+            };
+        };
+        """))
+    ensure_devicetree_on_path()
+    from devicetree import edtlib
+    return edtlib.EDT(str(dts_path), [str(binding_dir)], default_prop_types=True)
+
+
+def test_adc_map_resolves_each_position_against_its_own_row_parent(
+        tmp_path: Path) -> None:
+    """Confirms rigc handles a multi-parent io-channel-map (l4-adc-brief.md
+    Sec 3): positions 0/1 resolve through adc_a, positions 2/3 through
+    adc_b -- ALL FOUR from the ONE socket's ONE io-channel-map, never one
+    controller silently winning."""
+    board = board_edt.project_edt(_multi_adc_edt(tmp_path), "multiadc-board")
+    socket = board.sockets["multiadc_socket"]
+    assert socket.adc_map[0] == ("adc_a", 12)
+    assert socket.adc_map[1] == ("adc_a", 13)
+    assert socket.adc_map[2] == ("adc_b", 14)
+    assert socket.adc_map[3] == ("adc_b", 15)
+
+
+def test_adc_map_multi_parent_channel_count_is_the_single_row_read(
+        tmp_path: Path) -> None:
+    """adc_cells stays the ONE declared count (1) regardless of how many
+    DISTINCT controllers the map's rows name -- _project_channel_map reads
+    cells per row but this socket's rows all agree, so the returned count
+    is unambiguous."""
+    board = board_edt.project_edt(_multi_adc_edt(tmp_path), "multiadc-board")
+    socket = board.sockets["multiadc_socket"]
+    assert socket.adc_cells == 1
+    assert len(socket.adc_map) == 4
+
+
 # ------------------------------------------------- pwm_cells / adc_cells (Sec 3c)
 #
 # carrier-analog-passthrough-brief.md Sec 3: "a carrier does not get to
