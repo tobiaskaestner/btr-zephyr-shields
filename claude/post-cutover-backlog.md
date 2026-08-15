@@ -524,7 +524,36 @@ All three are now CLOSED — two with no work to do, one implemented.
    nonzero PWM flags cell as `phys-function`, which is a ruling that
    should be revisited once flags can actually be carried).
 
-35. **L4-ADC: give the Arduino R3 connector and the two twister boards an
+35. **CLOSED, LANDED 2026-08-14 (`d09fd37`, `l4-adc-brief.md`).**
+   `grove_light` resolves through a carrier-exposed `grove_a0` on
+   `nucleo_f401re`, which is the payoff `grove-carriers-brief.md` §5
+   described. k64f's map is the corpus's first MULTI-PARENT nexus,
+   splitting across `&adc0` and `&adc1` inside one socket; its A4/A5 are
+   declared by absence, because `PTC11`/`PTC10` reach only `ADC1_SE7b`/
+   `SE6b` and `channel-mux-b` is controller-wide, so claiming them would
+   move every other b-channel with them.
+
+   Landed with it (`642883b`): `test_golden_path_hygiene.py`. Two
+   goldens had been committed carrying an un-normalized build directory
+   — one naming another session's scratch dir — and nothing could catch
+   it, because `conftest.py::normalize_dts_provenance`'s regex matches
+   only pytest's DEFAULT basetemp and `dts_equiv.py` ignores comments
+   entirely. See item 37.
+
+36. **CLOSED, LANDED 2026-08-14 (`06ae4ad`, `l4-pwm-brief.md`).**
+   `grove_pwm_led` runs somewhere other than `seeeduino_lotus` for the
+   first time — lotus is not a twister platform, so this is that
+   shield's first CI coverage anywhere. Channels were sourced from the
+   SoC HALs and then independently confirmed against bridle's own
+   `boards/shields/grove/boards/seeed_grove_base_v1/nucleo_f401re_bbe.overlay`,
+   which is a real pre-existing table for this exact connector; all nine
+   nucleo channels matched, including bridle's own "not possible"
+   positions. See item 38 for the one position that could NOT be
+   matched.
+
+   Original entries follow, kept for the reasoning that produced them:
+
+   **L4-ADC: give the Arduino R3 connector and the two twister boards an
    ADC nexus.** `dts/bindings/connectors/arduino-r3.yaml` gains
    `io-channel-map` and friends; `boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi`
    and `boards/extend/nxp/frdm_k64f/arduino_r3_socket.dtsi` gain a real
@@ -549,6 +578,41 @@ All three are now CLOSED — two with no work to do, one implemented.
    gives a working end-to-end witness (`grove_light` through a grove base
    carrier on a twister platform) at a fraction of the cost, which is
    worth having in hand before taking on the pinctrl work.
+
+37. **`rigc/board_census.py::_SOCKET_NODE_RE` is brace-non-nesting and
+   comment-blind.** It is `(?P<labels>…)(?P<name>\w+)\s*\{(?P<body>[^{}]*)\}`
+   over RAW TEXT, with no comment stripping, so a literal `{` or `}`
+   inside a comment within a socket node breaks the match and **silently
+   drops that socket from the census**. Hit for real during item 35: a
+   draft comment containing `&adc1 { pinctrl-0 = <&adc1_in0_pa0>; }`
+   made `nucleo_f401re`'s arduino_r3 socket vanish, surfacing only as a
+   failing integration test (`west rigs --boards-for` answered one board
+   instead of two). Worked around by rephrasing the comment; the
+   fragility is untouched. A socket node is not guaranteed childless
+   either — the regex assumes it.
+
+38. **A nexus map row's FLAGS cell is discarded, and it costs a real
+   position.** `rigc/board_edt.py::_project_channel_map` reads
+   `entry.parent_specifiers[0]` and drops the rest, so a flags value
+   authored INTO a `pwm-map` row cannot reach the emitted overlay.
+
+   Bridle uses exactly that mechanism, and it is why `nucleo_f401re`'s
+   Arduino D11 is declared by absence here (item 36):
+   `nucleo_f401re_bbe.overlay` writes
+   `<11 0 0 &pwm1 1 0 STM32_PWM_COMPLEMENTARY>` with a partial
+   `pwm-map-mask = <0xffffffff 0 0xffffffc0>` that FORCES the
+   complementary flag into the map's own flags cell. Under rigc that
+   flag vanishes, and D11 would resolve as a plain `&pwm1 ch1` — the
+   channel D7 already holds, driven as a NORMAL output on a pin that
+   only carries CH1's complementary one. Refusing to declare it was the
+   conservative call; carrying the cell is the fix.
+
+   Scope note: this interacts with item 34's flags handling. Today a
+   consuming shield's own `ref.flags` is the only flags source, and the
+   analyzer refuses a nonzero one on a 2-cell socket. A map-row flag is
+   a SECOND source with different semantics — a board fact about the
+   pin, not a shield's request — so combining them is a design question,
+   not a plumbing one. Rule it before implementing.
 
 ---
 
