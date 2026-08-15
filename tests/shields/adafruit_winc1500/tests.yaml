@@ -1,0 +1,12 @@
+# RIG's config.w_irq_jmp=D2 moves the WINC1500's IRQ routing jumper off
+# its default D7 (promotion-config-brief.md Sec 5): D7 would ALSO be a
+# legal selection on this platform (nothing else here claims it), but D2
+# matches nucleo_wifi_logger_ok's own choice, keeping this promoted rig
+# comparable to that checked-in one -- the point of the singleton identity
+# law this shield's --promote path is now covered by.
+tests:
+  shields.adafruit_winc1500:
+    platform_allow: nucleo_f401re/stm32f401xe/rig
+    tags: shields
+    extra_args:
+      - RIG=adafruit_winc1500:config.w_irq_jmp=D2

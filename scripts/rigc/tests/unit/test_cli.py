@@ -487,6 +487,35 @@ def test_promote_with_revision_bakes_the_shields_own_revision(
     assert "shield: i2c_sensor@2" in expected.content
 
 
+def test_promote_with_a_dotted_config_opt_writes_a_config_block_verbatim(
+        tmp_path: Path, capsys: pytest.CaptureFixture[str],
+        monkeypatch: pytest.MonkeyPatch) -> None:
+    """The end-to-end `--promote <shield>:config.<label>=<value>` path
+    (promotion-config-brief.md Sec 2), threaded through cli.py's own
+    `--promote` branch (args.promote.partition(":") -> parse_promotion_
+    opts -> promote_shield) rather than calling promote_shield directly:
+    proves `ParsedPromotionOpts.config` actually reaches the printed
+    text via THIS module's own plumbing, not merely via promote.py's own
+    printer in isolation. A MUTATION that routed `config.<label>=` to
+    `params` instead (or dropped `config=opts.config or None` from this
+    module's own promote_shield call) would make this fail on the
+    PRINTED BLOCK itself -- either as a `params:` block quoting `config`
+    as a device label, or as a missing `config:` block entirely."""
+    from rigc.promote import promote_shield
+
+    out_dir = tmp_path / "out"
+    ret, err = _run(capsys, [
+        "expand", "--promote", "adafruit_winc1500:config.w_irq_jmp=D2",
+        "--out-dir", str(out_dir), *_no_shields(tmp_path)])
+
+    assert ret == 1
+    workdir = _workdir_of(out_dir)
+    expected = promote_shield("adafruit_winc1500", config={"w_irq_jmp": "D2"})
+    assert (workdir / expected.content_name).read_text() == expected.content
+    assert "    config:\n      w_irq_jmp: D2\n" in expected.content
+    assert (workdir / "rig.yml").read_text() == expected.rig_yml
+
+
 # --------------------------------------------------- logging (rigc-r45-brief.md Part B)
 
 def test_stderr_carries_only_renderer_bytes_when_rigc_log_is_unset(

@@ -384,6 +384,7 @@ class Rigs(WestCommand):
                 promoted = promote.promote_shield(
                     name, revision, socket=opts.fixed.get('socket'),
                     sockets=opts.sockets or None,
+                    config=opts.config or None,
                     params=opts.params or None)
                 revision = None
         variant = None
@@ -463,6 +464,7 @@ class Rigs(WestCommand):
             promoted = promote.promote_shield(
                 name, revision, socket=opts.fixed.get('socket'),
                 sockets=opts.sockets or None,
+                config=opts.config or None,
                 params=opts.params or None)
             self._print_pair(('rig.yml', promoted.rig_yml),
                              (promoted.content_name, promoted.content))

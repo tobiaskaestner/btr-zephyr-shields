@@ -141,6 +141,25 @@ _SOCKET_ASSIGNMENTS: Dict[str, Dict[str, str]] = {
                               "right": "nexus_mikrobus2"},
 }
 
+# For a shield listed here, the census supplies exactly this config-
+# element LABEL -> value assignment (promotion-config-brief.md Sec 2's
+# `config.<label>=<value>` grammar) on BOTH sides of the law -- the
+# fixture's own config: block (_materialize_fixture) and --promote's own
+# dotted CLI opts (_promotion_target), threaded the SAME way
+# _REQUIRED_PARAM_ASSIGNMENTS/_SOCKET_ASSIGNMENTS already are. Only
+# adafruit_winc1500 needs one today: its w_irq_jmp routing jumper has a
+# {D7, D2} domain with no default the allocator may pick (non-CS
+# positions are never auto-allocated), so a rig -- promoted or
+# checked-in -- must choose. D2 matches nucleo_wifi_logger_ok's own
+# choice (boards/rigs/nucleo_wifi_logger_ok/nucleo_wifi_logger_ok.yml),
+# keeping this census's promoted rig comparable to the real checked-in
+# one, which is the point of the law; D7 would ALSO be legal (it is the
+# domain's default position) and realizable on this fixture board, since
+# nothing else here claims D7.
+_CONFIG_ASSIGNMENTS: Dict[str, Dict[str, str]] = {
+    "adafruit_winc1500": {"w_irq_jmp": "D2"},
+}
+
 
 def _socket_promotion_opts(shield: str) -> List[str]:
     """The `:`-separated promotion-option fragments `_SOCKET_ASSIGNMENTS`
@@ -157,45 +176,61 @@ def _socket_promotion_opts(shield: str) -> List[str]:
     return [f"socket.{slot}={label}" for slot, label in assignment.items()]
 
 
+def _config_promotion_opts(shield: str) -> List[str]:
+    """The `config.<label>=<value>` fragments `_CONFIG_ASSIGNMENTS`
+    contributes for `shield` -- one fragment per assigned label, empty
+    for a shield with no entry. A fresh list the caller owns."""
+    assignment = _CONFIG_ASSIGNMENTS.get(shield)
+    if not assignment:
+        return []
+    return [f"config.{label}={value}" for label, value in assignment.items()]
+
+
 def _promotion_target(shield: str) -> str:
     """The `--promote` value for `shield`, carrying its own
-    `_SOCKET_ASSIGNMENTS`/`_REQUIRED_PARAM_ASSIGNMENTS` entries (socket
-    options first, params second -- promote_shield's own printed order)
-    as CLI opts when it has either -- the bare name otherwise. Built
-    straight from the same tables `_materialize_fixture` reads, so the
-    two sides can never assign a different value without this module's
-    own domain tables changing."""
+    `_SOCKET_ASSIGNMENTS`/`_CONFIG_ASSIGNMENTS`/
+    `_REQUIRED_PARAM_ASSIGNMENTS` entries (socket options first, config
+    second, params third -- promote_shield's own printed order) as CLI
+    opts when it has any -- the bare name otherwise. Built straight from
+    the same tables `_materialize_fixture` reads, so the two sides can
+    never assign a different value without this module's own domain
+    tables changing."""
     param_assignment = _REQUIRED_PARAM_ASSIGNMENTS.get(shield)
     param_opts = [f"{dev_label}.{prop_name}={value}"
                  for dev_label, props in (param_assignment or {}).items()
                  for prop_name, value in props.items()]
-    opts = _socket_promotion_opts(shield) + param_opts
+    opts = (_socket_promotion_opts(shield) + _config_promotion_opts(shield)
+           + param_opts)
     if not opts:
         return shield
     return f"{shield}:{':'.join(opts)}"
 
 
 # Which eligible shields are expected to REJECT on both sides rather than
-# emit comparable artifacts. adafruit_winc1500 needs a routing-jumper
-# selection (`config:`) that neither side supplies, so both reject
-# identically -- a real instance of the law (a promoted rig fails exactly
-# the way the checked-in rig it stands for would), but one that compares
-# STDERR and no artifact at all. grove_pwm_led_inv (L4-PWM, item 36) joins
-# it for a different, equally real reason: this fixture board's own
-# singleton-law Grove socket ("nexus_grove", tests/fixtures/boards/
-# mainboards/singleton_law_board.dts) is a 2-cell (channel, period) PWM
-# nexus, the lotus/SAMD21 shape -- and grove_pwm_led_inv's whole PURPOSE
-# is to author a nonzero PWM flags value (PWM_POLARITY_INVERTED), which
-# rigc/analyzer/gpio.py::_collect_channel correctly refuses on a 2-cell
-# socket (three-cell-pwm-brief.md Sec 3c: "there is no cell for flags").
-# Both sides reject identically on that same phys-function diagnostic --
-# the law still holds, it just has nothing to compare on this particular
-# fixture board (the shield's REAL, comparable use is nucleo_f401re's own
-# 3-cell socket, exercised by boards/rigs/nucleo_grove_farm's pwm_b
-# instance instead). Pinned because the reject branch is the law's weak
-# path: if it ever silently widened, the suite would stay green while
-# comparing nothing. See test_singleton_law_holds's own verdict assertion.
-EXPECTED_REJECTING = {"adafruit_winc1500", "grove_pwm_led_inv"}
+# emit comparable artifacts. adafruit_winc1500 USED TO be here: it needs a
+# routing-jumper selection (`config:`) that, before promotion-config-
+# brief.md's slice, neither side of the law could supply. As of that
+# slice, `_CONFIG_ASSIGNMENTS` gives BOTH sides the identical
+# `w_irq_jmp: D2` assignment (config.w_irq_jmp=D2 on the promoted side,
+# a config: block on the fixture side), so it now emits comparable
+# artifacts like any other eligible shield and has moved OFF this set.
+#
+# grove_pwm_led_inv (L4-PWM, item 36) is what keeps this set non-empty:
+# this fixture board's own singleton-law Grove socket ("nexus_grove",
+# tests/fixtures/boards/mainboards/singleton_law_board.dts) is a 2-cell
+# (channel, period) PWM nexus, the lotus/SAMD21 shape -- and
+# grove_pwm_led_inv's whole PURPOSE is to author a nonzero PWM flags
+# value (PWM_POLARITY_INVERTED), which rigc/analyzer/gpio.py::
+# _collect_channel correctly refuses on a 2-cell socket (three-cell-pwm-
+# brief.md Sec 3c: "there is no cell for flags"). Both sides reject
+# identically on that same phys-function diagnostic -- the law still
+# holds, it just has nothing to compare on this particular fixture board
+# (the shield's REAL, comparable use is nucleo_f401re's own 3-cell
+# socket, exercised by boards/rigs/nucleo_grove_farm's pwm_b instance
+# instead). Pinned because the reject branch is the law's weak path: if
+# it ever silently widened, the suite would stay green while comparing
+# nothing. See test_singleton_law_holds's own verdict assertion.
+EXPECTED_REJECTING = {"grove_pwm_led_inv"}
 
 # `--promote`'s materialized pair lives inside rigc's OWN workdir
 # (`<--out-dir>/rigc-generated`, cli.WORKDIR_NAME -- kept on a reject,
@@ -329,13 +364,15 @@ def _materialize_fixture(name: str, tmp_path: Path) -> Path:
 
     A `name` with a `_SOCKET_ASSIGNMENTS` entry gets a socket:/sockets:
     block appended (single-plug/plural spelling per the entry's own
-    shape, `promote.promote_shield`'s identical rule), and a `name` with
-    a `_REQUIRED_PARAM_ASSIGNMENTS` entry gets that exact assignment
-    appended as a params: block, in the SAME shape `promote.
-    promote_shield` prints on the other side of the law (Sec 2.2
-    symmetry) -- the value the promoted side supplies via its own CLI
-    opts and the value this fixture assigns must be the identical string
-    for the comparison to prove anything.
+    shape, `promote.promote_shield`'s identical rule); a `name` with a
+    `_CONFIG_ASSIGNMENTS` entry gets that exact assignment appended as a
+    config: block next (`promote.promote_shield`'s own print order,
+    Sec 3.4); and a `name` with a `_REQUIRED_PARAM_ASSIGNMENTS` entry
+    gets that exact assignment appended as a params: block last, in the
+    SAME shape `promote.promote_shield` prints on the other side of the
+    law (Sec 2.2 symmetry) -- the value the promoted side supplies via
+    its own CLI opts and the value this fixture assigns must be the
+    identical string for the comparison to prove anything.
 
     Returns the written rig.yml's path; the content file
     (`<name>.yml`, matching promote.PromotedRig's own naming) sits
@@ -355,6 +392,11 @@ def _materialize_fixture(name: str, tmp_path: Path) -> Path:
             content += "    sockets:\n"
             for slot, label in sockets.items():
                 content += f"      {slot}: {label}\n"
+    config = _CONFIG_ASSIGNMENTS.get(name)
+    if config:
+        content += "    config:\n"
+        for label, value in config.items():
+            content += f"      {label}: {value}\n"
     assignment = _REQUIRED_PARAM_ASSIGNMENTS.get(name)
     if assignment:
         content += "    params:\n"
@@ -445,11 +487,15 @@ def test_singleton_law_holds(shield: str, tmp_path: Path) -> None:
     (via --promote) and `--board b --rig <the fixture rig containing one
     socket-less instance of that shield>` (via the path directly) behave
     IDENTICALLY -- same verdict, and either the same rejection (e.g.
-    adafruit_winc1500: both sides reject identically on its own required
-    routing-jumper selection, `config:`, an axis outside Sec 2.3's own
+    grove_pwm_led_inv: both sides reject identically on the fixture
+    board's own 2-cell Grove socket, an axis outside Sec 2.3's own
     required-PARAM domain but one the law still holds for -- a promoted
     rig fails exactly the way the checked-in rig it stands for would) or
-    every emitted artifact byte-for-byte plus context.cmake (Sec 2.2)."""
+    every emitted artifact byte-for-byte plus context.cmake (Sec 2.2).
+    adafruit_winc1500 used to be a reject-branch example too, before
+    `_CONFIG_ASSIGNMENTS` gave both sides its required routing-jumper
+    selection (`config:`, promotion-config-brief.md); it now takes the
+    ACCEPT branch like any other config-carrying shield."""
     fixture_out = tmp_path / "fixture-out"
     promoted_out = tmp_path / "promoted-out"
     fixture_rig = _materialize_fixture(shield, tmp_path)

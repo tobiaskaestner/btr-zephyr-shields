@@ -898,3 +898,133 @@ def test_list_element_not_a_shield_error_names_the_element_and_target() -> None:
     msg = list_element_not_a_shield_error("no_such_thing", "eth_click;no_such_thing")
     assert "no_such_thing" in msg
     assert "eth_click;no_such_thing" in msg
+
+
+# ------------------- config.<label>= config-element grammar (promotion-config-brief.md Sec 2)
+
+def test_config_dot_label_parses_as_a_config_assignment_not_a_param() -> None:
+    """The config. dotted-key prefix is RESERVED, config's exact analogue
+    of socket. above: it never routes to params, even with no shield
+    given to validate the label against (the reservation is
+    unconditional, purely syntactic)."""
+    parsed = parse_promotion_opts("config.w_irq_jmp=D2", "t")
+    assert parsed == ParsedPromotionOpts(
+        fixed={}, params={}, config={"w_irq_jmp": "D2"})
+
+
+def test_two_config_assignments_compose() -> None:
+    parsed = parse_promotion_opts(
+        "config.w_irq_jmp=D2:config.other_strap=A1", "t")
+    assert parsed == ParsedPromotionOpts(
+        fixed={}, params={},
+        config={"w_irq_jmp": "D2", "other_strap": "A1"})
+
+
+def test_a_repeated_config_label_is_refused_rather_than_last_wins() -> None:
+    err = parse_promotion_opts("config.w_irq_jmp=D2:config.w_irq_jmp=D7", "t")
+    assert isinstance(err, str)
+    assert "given more than once" in err
+
+
+def test_a_config_assignment_with_an_empty_value_is_refused() -> None:
+    err = parse_promotion_opts("config.w_irq_jmp=", "t")
+    assert isinstance(err, str)
+    assert "empty value" in err
+
+
+def test_a_config_assignment_with_no_label_is_malformed() -> None:
+    err = parse_promotion_opts("config.=D2", "t")
+    assert isinstance(err, str)
+    assert "<device>.<prop>" in err
+
+
+def test_config_needs_no_shield_to_parse() -> None:
+    """Unconditional reservation (Sec 2): unlike socket.<slot>=, config.
+    has no validation branch at all -- parse_promotion_opts deliberately
+    never checks a label against the shield's real config elements
+    (that's the loader's job), so passing a shield changes nothing here."""
+    parsed = parse_promotion_opts(
+        "config.w_irq_jmp=D2", "t", _SINGLE_SHIELD)
+    assert parsed == ParsedPromotionOpts(
+        fixed={}, params={}, config={"w_irq_jmp": "D2"})
+
+
+def test_promote_shield_with_config_emits_it_on_the_one_instance() -> None:
+    """Criterion 2: matches boards/rigs/nucleo_wifi_logger_ok/
+    nucleo_wifi_logger_ok.yml's own spelling exactly -- 4-space config:,
+    6-space label: value, value a position NAME, not an index."""
+    promoted = promote_shield(
+        "adafruit_winc1500", socket="arduino_r3",
+        config={"w_irq_jmp": "D2"})
+    assert promoted.content == (
+        "instances:\n"
+        "  - name: adafruit_winc1500\n"
+        "    shield: adafruit_winc1500\n"
+        "    socket: arduino_r3\n"
+        "    config:\n"
+        "      w_irq_jmp: D2\n")
+
+
+def test_promote_shield_with_no_config_omits_the_block() -> None:
+    assert "config:" not in promote_shield("adafruit_winc1500").content
+    assert "config:" not in promote_shield(
+        "adafruit_winc1500", config={}).content
+
+
+def test_promote_shield_with_config_and_params_orders_config_before_params() -> None:
+    """Print order (Sec 3.4): socket:/sockets:, then config:, then
+    params: -- exactly nucleo_wifi_logger_ok.yml's own layout."""
+    promoted = promote_shield(
+        "fixture_shield", config={"w_irq_jmp": "D2"},
+        params={"gb_key": {"zephyr,code": "INPUT_KEY_0"}})
+    assert promoted.content == (
+        "instances:\n"
+        "  - name: fixture_shield\n"
+        "    shield: fixture_shield\n"
+        "    config:\n"
+        "      w_irq_jmp: D2\n"
+        "    params:\n"
+        "      gb_key:\n"
+        "        zephyr,code: INPUT_KEY_0\n")
+
+
+def test_a_config_carrying_promoted_shield_round_trips_through_the_loader(
+        tmp_path: Path) -> None:
+    """The config: counterpart of the socket/params round-trip proofs
+    above: the synthesized config: block is not merely well-formed, it
+    LOADS against the real adafruit_winc1500 template, and the jumper
+    assignment reaches the instance the loader builds (apply_config_
+    block's own contract: keyed by the element's NODE NAME, 'irq-jmp',
+    not the rig-author-facing LABEL 'w_irq_jmp')."""
+    promoted = promote_shield(
+        "adafruit_winc1500", socket="arduino_r3", config={"w_irq_jmp": "D2"})
+    rig_dir = tmp_path / "rig"
+    rig_dir.mkdir()
+    (rig_dir / "rig.yml").write_text(promoted.rig_yml)
+    (rig_dir / promoted.content_name).write_text(promoted.content)
+
+    types, _deps = load_types()
+    rig, diags, _load_deps = loader.load(
+        str(rig_dir / "rig.yml"), str(tmp_path / "workdir"), types=types,
+        board="some_board")
+
+    assert diags == [], diags
+    assert rig is not None
+    assert rig.instances[0].jumpers == {"irq-jmp": "D2"}
+
+
+def test_promote_shield_list_of_one_with_config_is_byte_identical_to_promote_shield() -> None:
+    """Criterion 3, Sec 3.3's own byte-identity invariant WITH a config
+    assignment in play: a one-element list must render byte-for-byte the
+    same as a bare promote_shield call, proving the invariant survived
+    this slice's own new field rather than being quietly dropped by one
+    of the two paths."""
+    single = promote_shield(
+        "adafruit_winc1500", socket="arduino_r3", config={"w_irq_jmp": "D2"})
+    listed = promote_shield_list(
+        [("adafruit_winc1500", None,
+          ParsedPromotionOpts(fixed={"socket": "arduino_r3"}, params={},
+                              config={"w_irq_jmp": "D2"}))])
+    assert listed.rig_yml == single.rig_yml
+    assert listed.content_name == single.content_name
+    assert listed.content == single.content

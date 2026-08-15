@@ -425,7 +425,8 @@ def _expand(args: argparse.Namespace) -> int:
                     return _reject([diag_error("lang-promote-opts", opts)])
                 promoted = promote.promote_shield(
                     shield_name, args.revision, socket=opts.fixed.get("socket"),
-                    sockets=opts.sockets or None, params=opts.params or None)
+                    sockets=opts.sockets or None, config=opts.config or None,
+                    params=opts.params or None)
             rig_path = os.path.join(workdir, "rig.yml")
             with open(rig_path, "w") as f:
                 f.write(promoted.rig_yml)

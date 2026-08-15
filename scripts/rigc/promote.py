@@ -145,28 +145,44 @@ class PromotedRig:
 #: device labeled literally `socket` can no longer receive a promotion
 #: parameter through this grammar (verified against the real corpus and
 #: every fixture, 2026-08-12: no such device label exists anywhere).
+#:
+#: `config` is `socket`'s exact analogue (promotion-config-brief.md Sec
+#: 2): when the device-label half of a dotted key is exactly `config`,
+#: the property-name half is a config-element LABEL (a strap or routing
+#: jumper, `Shield.config_element`), not a device property, and the
+#: assignment routes to `ParsedPromotionOpts.config` instead of `params`
+#: -- reserved unconditionally, the same trade `socket` already accepted:
+#: a shield device labeled literally `config` can no longer receive a
+#: promotion parameter through this grammar (and, one layer down, a
+#: shield's own DTS already reserves `config` as its config-elements node
+#: name, so this collision was accepted there first).
 _PROMOTION_OPTS = ("socket",)
 
 
 @dataclass(frozen=True)
 class ParsedPromotionOpts:
     """A parsed promotion target's `:`-separated assignment list, split
-    into its three grammar categories: `fixed`, the closed
+    into its four grammar categories: `fixed`, the closed
     `_PROMOTION_OPTS` keywords other than the slot form (today just bare
     `socket=`, single-plug only); `sockets`, every `socket.<slot>=<value>`
     slot assignment (slot name -> board socket label, plural shields
-    only, multi-plug-promotion-brief.md Sec 2); and `params`, every other
-    `<device>.<prop>=<value>` assignment -- device label -> property name
-    -> value, the identical shape `Instance.params` (model.py) already
-    carries, so `promote_shield` can print it with the SAME structure a
-    real rig.yml's own params: block already uses. A flat `Dict[str, str]`
-    cannot hold all three without overloading one key namespace with
-    unrelated meanings, so each lives in its own field.
+    only, multi-plug-promotion-brief.md Sec 2); `config`, every
+    `config.<label>=<value>` config-element assignment (config-element
+    LABEL -> value, promotion-config-brief.md Sec 2 -- the routing-jumper/
+    strap analogue of `sockets`, reserved the same unconditional way);
+    and `params`, every other `<device>.<prop>=<value>` assignment --
+    device label -> property name -> value, the identical shape
+    `Instance.params` (model.py) already carries, so `promote_shield` can
+    print it with the SAME structure a real rig.yml's own params: block
+    already uses. A flat `Dict[str, str]` cannot hold all four without
+    overloading one key namespace with unrelated meanings, so each lives
+    in its own field.
 
-    All three are fresh dicts/mappings the caller owns."""
+    All four are fresh dicts/mappings the caller owns."""
     fixed: Dict[str, str]
     params: Dict[str, Dict[str, str]]
     sockets: Dict[str, str] = field(default_factory=dict)
+    config: Dict[str, str] = field(default_factory=dict)
 
 
 def parse_promotion_opts(opts: Optional[str], target: str,
@@ -203,7 +219,18 @@ def parse_promotion_opts(opts: Optional[str], target: str,
     assignment routes to `sockets` -- reserved unconditionally, never
     checked against a shield's real device labels (`promote_shield`
     never validates device/property existence either; that stays the
-    loader's job).
+    loader's job). When the device-label half is exactly `config`
+    (promotion-config-brief.md Sec 2), the property-name half is a
+    config-element LABEL, not a property, and the assignment routes to
+    `config` -- the exact same analogy, reserved unconditionally and
+    never validated against the shield's real config elements here: a
+    label naming no strap/jumper of the shield is refused by the loader
+    (`rigc.loader.params.apply_config_block`), which already renders the
+    valid labels on a miss, not by this function. An empty label or an
+    empty value under `config.` is refused with its own sentence, and a
+    label given more than once within one target is refused
+    unconditionally, mirroring `sockets`'/`params`' own duplicate rule
+    exactly.
 
     `shield`, when given -- the caller's own already-resolved
     `resolve_for_promotion` result -- supplies the slot-validation
@@ -220,10 +247,11 @@ def parse_promotion_opts(opts: Optional[str], target: str,
     of the target string alone, exactly like a duplicate fixed key or
     parameter)."""
     if not opts:
-        return ParsedPromotionOpts(fixed={}, params={}, sockets={})
+        return ParsedPromotionOpts(fixed={}, params={}, sockets={}, config={})
     fixed: Dict[str, str] = {}
     params: Dict[str, Dict[str, str]] = {}
     sockets: Dict[str, str] = {}
+    config: Dict[str, str] = {}
     plural = shield is not None and shield_is_multiplug(shield)
     for assignment in opts.split(":"):
         key, sep, value = assignment.partition("=")
@@ -256,6 +284,16 @@ def parse_promotion_opts(opts: Optional[str], target: str,
                             f"'socket.{slot_name}=' has an empty value")
                 sockets[slot_name] = value
                 continue
+            if dev_label == "config":
+                label_name = prop_name
+                if label_name in config:
+                    return (f"'{target}': config label 'config.{label_name}' "
+                            f"given more than once")
+                if not value:
+                    return (f"'{target}': promotion config option "
+                            f"'config.{label_name}=' has an empty value")
+                config[label_name] = value
+                continue
             if prop_name in params.get(dev_label, {}):
                 return (f"'{target}': parameter '{dev_label}.{prop_name}' "
                         f"given more than once")
@@ -279,12 +317,14 @@ def parse_promotion_opts(opts: Optional[str], target: str,
             return (f"'{target}': promotion option '{key}=' has an empty "
                     f"value")
         fixed[key] = value
-    return ParsedPromotionOpts(fixed=fixed, params=params, sockets=sockets)
+    return ParsedPromotionOpts(fixed=fixed, params=params, sockets=sockets,
+                               config=config)
 
 
 def _render_instance(name: str, revision: Optional[str] = None,
                      socket: Optional[str] = None,
                      sockets: Optional[Dict[str, str]] = None,
+                     config: Optional[Dict[str, str]] = None,
                      params: Optional[Dict[str, Dict[str, str]]] = None,
                      ) -> str:
     """One `instances:` list entry, exactly the text `promote_shield`
@@ -298,6 +338,13 @@ def _render_instance(name: str, revision: Optional[str] = None,
     instance's own block (`  - name: ...` through its trailing
     `params:`, if any) rather than a full `PromotedRig`.
 
+    Print order is FIXED: `socket:`/`sockets:`, then `config:`, then
+    `params:` -- exactly where `boards/rigs/nucleo_wifi_logger_ok/
+    nucleo_wifi_logger_ok.yml` puts its own `config:` block
+    (promotion-config-brief.md Sec 3.4), and matching
+    `_promotion_target`'s own CLI-option order (test_singleton_identity_
+    law.py) so the two sides of the singleton law cannot drift.
+
     Returns a fresh string the caller owns, always ending in `\\n`."""
     shield_ref = f"{name}@{revision}" if revision else name
     block = f"  - name: {name}\n    shield: {shield_ref}\n"
@@ -307,6 +354,10 @@ def _render_instance(name: str, revision: Optional[str] = None,
             block += f"      {slot_name}: {label}\n"
     elif socket is not None:
         block += f"    socket: {socket}\n"
+    if config:
+        block += "    config:\n"
+        for label, value in config.items():
+            block += f"      {label}: {value}\n"
     if params:
         block += "    params:\n"
         for dev_label, props in params.items():
@@ -319,6 +370,7 @@ def _render_instance(name: str, revision: Optional[str] = None,
 def promote_shield(name: str, revision: Optional[str] = None,
                    socket: Optional[str] = None,
                    sockets: Optional[Dict[str, str]] = None,
+                   config: Optional[Dict[str, str]] = None,
                    params: Optional[Dict[str, Dict[str, str]]] = None,
                    ) -> PromotedRig:
     """The natural mapping `a -> [a]` (ruling 4), written out: a rig.yml
@@ -379,6 +431,21 @@ def promote_shield(name: str, revision: Optional[str] = None,
     place a shield's `revisions:` axis is already read; duplicating it
     here would be a second authority for the same fact.
 
+    `config`, when given (config-element LABEL -> value, the identical
+    shape `ParsedPromotionOpts.config` carries -- a strap/routing-jumper
+    assignment, resolved by DTS LABEL, not node name, promotion-config-
+    brief.md Sec 2), prints one `config:` block onto the same instance,
+    positioned after `socket:`/`sockets:` and before `params:` (`_render_
+    instance`'s own fixed print order), in the SAME shape a checked-in
+    rig.yml's own `config:` block already uses (4-space `config:`,
+    6-space `<label>: <value>`) -- exactly `nucleo_wifi_logger_ok.yml`'s
+    own spelling, value a position NAME like `D2`, never an index. This
+    function performs NO validation of its own against the shield's real
+    config elements -- that stays `rigc.loader.params.apply_config_block`'s
+    job, the one place a miss already renders the valid labels; a second
+    check here would be a second authority for the same fact. An empty
+    or absent mapping omits the block entirely.
+
     `params`, when given (device label -> property name -> value, the
     identical shape `ParsedPromotionOpts.params`/`Instance.params` both
     carry), prints one `params:` block onto the same instance, in the
@@ -399,7 +466,8 @@ def promote_shield(name: str, revision: Optional[str] = None,
     before this ever runs). Returns a PromotedRig the caller owns."""
     rig_yml = f"rig:\n  name: {name}\n"
     content = "instances:\n" + _render_instance(
-        name, revision, socket=socket, sockets=sockets, params=params)
+        name, revision, socket=socket, sockets=sockets, config=config,
+        params=params)
     return PromotedRig(rig_yml=rig_yml, content_name=f"{name}.yml", content=content)
 
 
@@ -436,6 +504,7 @@ def promote_shield_list(
     content = "instances:\n" + "".join(
         _render_instance(name, revision, socket=opts.fixed.get("socket"),
                          sockets=opts.sockets or None,
+                         config=opts.config or None,
                          params=opts.params or None)
         for name, revision, opts in elements)
     return PromotedRig(rig_yml=f"rig:\n  name: {rig_name}\n",
