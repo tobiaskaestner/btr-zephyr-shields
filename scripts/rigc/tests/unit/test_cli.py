@@ -353,7 +353,7 @@ def test_accept_path_now_accepts_and_writes_artifacts(
     assert 'set(RIG_SHIELDS "")' in context_text
 
 
-# --------------------------------------------- the workdir (cutover-decisions.md D10)
+# ----------------------------------------- the workdir (workdir-retention-ruling.md)
 
 def _workdir_of(out_dir: Path) -> Path:
     """Where cli.py puts its workdir for a given --out-dir. Derived from
@@ -370,13 +370,19 @@ def _workdir_of(out_dir: Path) -> Path:
     return out_dir / cli.WORKDIR_NAME
 
 
-def test_accept_path_removes_the_workdir(
+def test_accept_path_keeps_the_workdir(
         tmp_path: Path, capsys: pytest.CaptureFixture[str],
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """D10: a clean accept must not leak cli.py's own workdir -- 7001
-    directories / 787MB measured accumulating in one session before this
-    fix. The control against "cleanup fired too early and broke the run":
-    the accept path's own artifacts must still have landed."""
+    """workdir-retention-ruling.md (2026-08-19), REVERSING D10's
+    accept-path deletion: an ACCEPTED run is the one that produces an
+    overlay somebody later doubts, so its intermediates -- the shield
+    `.dts` the loader wrote, the cpp-preprocessed `.pre` of each, a
+    promoted shield's synthesized pair -- are exactly the evidence that
+    doubt needs, and success is no reason to burn them.
+
+    The control against "then it never wrote anything at all": the
+    accept path's own artifacts must still have landed in --out-dir,
+    which is a different directory."""
     _write_zero_instance_rig(tmp_path)
     _stub_board_reading(monkeypatch)
 
@@ -387,20 +393,24 @@ def test_accept_path_removes_the_workdir(
                              "--board", "some_board/soc/rig"])
 
     assert ret == 0
-    assert not _workdir_of(out_dir).exists()
-    assert (out_dir / "context.cmake").is_file()   # cleanup didn't race the writer
+    assert _workdir_of(out_dir).is_dir()
+    assert (out_dir / "context.cmake").is_file()
 
 
 def test_reject_path_keeps_the_workdir(
         tmp_path: Path, capsys: pytest.CaptureFixture[str],
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """D10's other half, and the negative control for the accept-path
-    test above: a naive "always delete" fix would pass THAT test but fail
-    this one, just as a naive "never delete" (today's bug) would pass
-    this one but fail that one -- only a real accept/reject distinction
-    satisfies both. A rejected board-dts is real evidence a cpp failure's
-    own rendered diagnostic points at (e.g. param-missing-header), so the
-    directory must survive exactly this exit."""
+    """The other exit, kept for the same reason and unchanged by the
+    2026-08-19 reversal: a rejected board-dts is real evidence a cpp
+    failure's own rendered diagnostic points at (e.g.
+    `param-missing-header`, which embeds this very path inside gcc's
+    stderr text), so the directory must survive this exit too.
+
+    Held as a SEPARATE test rather than folded into the accept one now
+    that both verdicts agree: the two exits reach the end of `_expand`
+    by different routes (this one returns early from `_reject`, the
+    other falls off the end), and one route surviving proves nothing
+    about the other."""
     _write_zero_instance_rig(tmp_path)
     out_dir = tmp_path / "out"
 
@@ -414,16 +424,26 @@ def test_reject_path_keeps_the_workdir(
     assert _workdir_of(out_dir).is_dir()
 
 
-def test_rigc_keep_workdir_env_overrides_the_accept_path_deletion(
+def test_entry_wipe_clears_a_previous_runs_workdir(
         tmp_path: Path, capsys: pytest.CaptureFixture[str],
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """RIGC_KEEP_WORKDIR is the escape hatch for inspecting a run that
-    succeeded -- the one case the reject-path test above cannot cover,
-    since a reject already keeps its directory regardless of this knob."""
+    """The one deletion `_expand` still does, and the negative control
+    for the two retention tests above: "keep the workdir" must not decay
+    into "accumulate every run's intermediates in one directory".
+
+    A stale file left in the workdir by a previous run into the same
+    --out-dir is GONE after the next run, because a `.pre` that no
+    longer corresponds to the overlay sitting next to it is worse
+    evidence than no `.pre` at all. Planted under a name nothing in the
+    pipeline writes, so its survival could only mean the entry wipe
+    stopped happening."""
     _write_zero_instance_rig(tmp_path)
     _stub_board_reading(monkeypatch)
-    monkeypatch.setenv("RIGC_KEEP_WORKDIR", "1")
+
     out_dir = tmp_path / "out"
+    stale = _workdir_of(out_dir) / "a-previous-runs-leftover.dts.pre"
+    stale.parent.mkdir(parents=True)
+    stale.write_text("/* the run before this one */\n")
 
     ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
                              "--out-dir", str(out_dir),
@@ -431,7 +451,8 @@ def test_rigc_keep_workdir_env_overrides_the_accept_path_deletion(
                              "--board", "some_board/soc/rig"])
 
     assert ret == 0
-    assert _workdir_of(out_dir).is_dir()
+    assert _workdir_of(out_dir).is_dir()      # kept, per the ruling
+    assert not stale.exists()                 # but not this run's content
 
 
 # --------------------------------------------------------------- --promote

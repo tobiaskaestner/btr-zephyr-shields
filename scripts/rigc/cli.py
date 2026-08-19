@@ -61,13 +61,23 @@ absolute path and byte-mismatches a golden that has nothing else wrong
 with it. Recorded here because it is exactly the kind of "confusing
 session" trap R0's own CMAKE_CONFIGURE_DEPENDS finding warned about.
 
-**The workdir is removed on a clean accept, KEPT on any non-zero exit**
-(cutover-decisions.md D10, post-cutover-backlog.md group A item 1): a cpp
-failure embeds the workdir path in its rendered diagnostic, which is
-exactly why the harness carries the `_WORKDIR_RE` normalization above, so
-deleting it unconditionally would destroy the evidence a reject is
-pointing at. `RIGC_KEEP_WORKDIR` (any non-empty value) overrides the
-accept-path deletion too, for inspecting a run that succeeded."""
+**The workdir is KEPT, on every exit** (workdir-retention-ruling.md,
+2026-08-19; supersedes cutover-decisions.md D10's accept-path deletion,
+post-cutover-backlog.md group A item 1). What it holds is the only record
+of what this run actually fed its own parsers -- a promoted shield's
+synthesized rig.yml/content pair, each shield's `.dts`, and the
+cpp-preprocessed `.pre` of each, the board's included -- and an ACCEPTED
+run is exactly the run whose emitted overlay someone later questions, so
+deleting the intermediates on success threw away the evidence for the one
+verdict that produces an artifact to doubt. D10's deletion answered an
+ACCUMULATION problem (7001 directories / 787MB in one session) that the
+move out of /tmp had already solved on its own: the name is deterministic
+and the directory is wiped on entry, so one --out-dir can hold exactly
+ONE of these (~80KB, dominated by the preprocessed board .dts), and it
+dies with the build directory that owns it. There is no knob --
+`RIGC_KEEP_WORKDIR` is RETIRED rather than left as a no-op that reads as
+if it still decided something, and `west build -p` / `rm -rf build/`
+already reap the space."""
 
 from __future__ import annotations
 
@@ -213,11 +223,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="path to the rig's metadata file, rig.yml",
     )
     rig_or_promote.add_argument(
-        "--promote", default=None, metavar="SHIELD",
-        help="a shield name to promote in place of a real rig.yml: "
-        "synthesizes promote.promote_shield's own rig.yml/content pair "
-        "into this run's workdir and loads that -- mutually exclusive "
-        "with the positional rig",
+        "--promote", default=None, metavar="TARGET",
+        help="a promotion TARGET to expand in place of a real rig.yml: "
+        "<shield>[@rev][:<key>=<value>...], or a `;`-separated list of "
+        "those -- synthesizes promote.promote_shield's own rig.yml/"
+        "content pair into this run's workdir and loads that. Mutually "
+        "exclusive with the positional rig",
     )
     p.add_argument(
         "--shield-dir",
@@ -229,9 +240,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p.add_argument(
         "--board", default=None, metavar="NAME",
-        help="the board to build against, overriding rig.yml's board: "
-        "(or the selected variant's) unconditionally; omit to resolve "
-        "the board from the rig exactly as without this option",
+        help="the board to build against, in Zephyr's own "
+        "<board>/<soc>/<variant> spelling -- the ONLY source of a rig's "
+        "board (no rig file declares one). Omitted, the rig loads with "
+        "an empty board, which every stage but the board reader accepts",
     )
     p.add_argument("--board-dts", default=None, help="the rig's board's own .dts")
     p.add_argument(
@@ -337,215 +349,199 @@ def _expand(args: argparse.Namespace) -> int:
     # The workdir lives INSIDE --out-dir, never in /tmp: a build directory
     # already has an owner and a lifetime, and the workdir now inherits
     # both. `west build -p`, `rm -rf build/` and pytest's own tmp_path
-    # retention each reap it for free, which is what /tmp never did -- D10
-    # keeps the directory on every non-zero exit ON PURPOSE, and a test
-    # suite rejects ~39 times per run, so under /tmp the keeps simply
-    # accumulated forever with nothing responsible for them.
+    # retention each reap it for free, which is what /tmp never did -- and
+    # it is what makes "keep it on EVERY exit" (this module's docstring,
+    # workdir-retention-ruling.md) affordable at all: under /tmp the keeps
+    # were permanent and unowned, 292 of them counted in one session.
     #
     # DETERMINISTIC, not mkdtemp: a random suffix inside a long-lived
     # build directory would just move the pile rather than end it (one
     # more directory per configure). One name per out-dir, wiped on entry
     # so a previous run's intermediates can never be mistaken for this
-    # run's -- and a stale keep from a rejected configure is cleaned by
-    # the next attempt rather than surviving it.
+    # run's -- which is ALSO what bounds the retention above to one
+    # directory per --out-dir rather than one per configure.
+    #
+    # The entry wipe is the one deletion this module still does, and it is
+    # a different question from the retention: keeping a PREVIOUS run's
+    # files would hand a debugging session a `.pre` that no longer
+    # corresponds to the overlay next to it, which is worse than having
+    # none.
     out_dir = os.path.abspath(args.out_dir)
     log.info("out-dir: %s", out_dir)
     workdir = os.path.join(out_dir, WORKDIR_NAME)
     shutil.rmtree(workdir, ignore_errors=True)
     os.makedirs(workdir)
     log.info("workdir: %s", workdir)
-    accepted = False
-    try:
-        # --promote materializes promote.promote_shield's own two
-        # documents into THIS run's workdir and loads them by path --
-        # everything past this point (loader, deps, diagnostics, emitter)
-        # runs on a real rig.yml on a real path, exactly as for an
-        # authored one. D10 keeps the workdir on a reject, so a rejected
-        # promoted shield leaves the synthesized pair on disk: the
-        # evidence a user needs to look at, at a path inside the workdir
-        # the rendered diagnostic itself names.
-        revision = args.revision
-        if args.promote is not None:
-            # --promote's value is the promotion TARGET, not a bare
-            # shield name: `<shield>[@rev][:<key>=<value>...]`, or (multi-
-            # plug-list-brief.md) a `;`-separated LIST of such targets.
-            # cmake forwards list_rigs' `{PROMOTED}` here opaquely and
-            # never parses it, so this is the one parser for the option
-            # grammar no matter how many options -- or elements -- it
-            # grows.
-            if ";" in args.promote:
-                # A list target carries EACH element's own `@rev` inline
-                # (unlike the single-target branch below): there is no
-                # single scalar `--revision` flag that could carry N
-                # separate per-element revisions, so a list's `--promote`
-                # value is never revision-stripped the way a single
-                # target's is (list_rigs.PromotedListTarget's own
-                # docstring). check_promotable/the rig-in-a-list/
-                # duplicate refusals are deliberately NOT re-checked
-                # here, mirroring the single-element branch's own "trust
-                # the upstream namespace validation" boundary --
-                # list_rigs.py/west_commands/rigs.py already ran them
-                # before ever forwarding a target this far.
-                elements = []
-                for element in args.promote.split(";"):
-                    shield_name, elem_revision, opt_text = _split_list_element(element)
-                    resolved = promote.resolve_for_promotion(shield_name, shield_dirs)
-                    opts = promote.parse_promotion_opts(opt_text, element, resolved)
-                    if isinstance(opts, str):
-                        return _reject([diag_error("lang-promote-opts", opts)])
-                    elements.append((shield_name, elem_revision, opts))
-                dup_err = promote.check_list_no_duplicate_elements(
-                    [name for name, _rev, _opts in elements], args.promote)
-                if dup_err is not None:
-                    return _reject([diag_error("lang-promote-opts", dup_err)])
-                promoted = promote.promote_shield_list(elements)
-            else:
-                shield_name, _, opt_text = args.promote.partition(":")
-                # Resolved here, ahead of parse_promotion_opts's own
-                # slot-validation grammar (multi-plug-promotion-brief.md Sec
-                # 2: a bare socket= on a plural shield, a socket.<slot>= on
-                # a single-plug one, an unknown slot) -- this cmake-seam
-                # caller was missing from the brief's own predicted call-site
-                # list (verified by grep, multi-plug-promotion-brief.md Sec
-                # 3's own recorded lesson: run every caller, do not trust a
-                # brief's list). check_promotable is deliberately NOT called
-                # here: list_rigs.py/west_commands/rigs.py already validated
-                # promotability before ever forwarding a target this far
-                # (list_rigs.PromotedTarget.promotion_target, cli.py's own
-                # module docstring), and this is the one entry point every
-                # OTHER caller's --promote value already passed through --
-                # duplicating the check here would be a second authority for
-                # the same fact.
+    # --promote materializes promote.promote_shield's own two
+    # documents into THIS run's workdir and loads them by path --
+    # everything past this point (loader, deps, diagnostics, emitter)
+    # runs on a real rig.yml on a real path, exactly as for an
+    # authored one. The workdir is kept on every exit, so a promoted
+    # shield always leaves the synthesized pair on disk -- the evidence a
+    # user needs to look at, at a path inside the workdir the rendered
+    # diagnostic itself names, whether the run rejected or accepted.
+    revision = args.revision
+    if args.promote is not None:
+        # --promote's value is the promotion TARGET, not a bare
+        # shield name: `<shield>[@rev][:<key>=<value>...]`, or (multi-
+        # plug-list-brief.md) a `;`-separated LIST of such targets.
+        # cmake forwards list_rigs' `{PROMOTED}` here opaquely and
+        # never parses it, so this is the one parser for the option
+        # grammar no matter how many options -- or elements -- it
+        # grows.
+        if ";" in args.promote:
+            # A list target carries EACH element's own `@rev` inline
+            # (unlike the single-target branch below): there is no
+            # single scalar `--revision` flag that could carry N
+            # separate per-element revisions, so a list's `--promote`
+            # value is never revision-stripped the way a single
+            # target's is (list_rigs.PromotedListTarget's own
+            # docstring). check_promotable/the rig-in-a-list/
+            # duplicate refusals are deliberately NOT re-checked
+            # here, mirroring the single-element branch's own "trust
+            # the upstream namespace validation" boundary --
+            # list_rigs.py/west_commands/rigs.py already ran them
+            # before ever forwarding a target this far.
+            elements = []
+            for element in args.promote.split(";"):
+                shield_name, elem_revision, opt_text = _split_list_element(element)
                 resolved = promote.resolve_for_promotion(shield_name, shield_dirs)
-                opts = promote.parse_promotion_opts(
-                    opt_text or None, args.promote, resolved)
+                opts = promote.parse_promotion_opts(opt_text, element, resolved)
                 if isinstance(opts, str):
-                    # No SourceRef: the offending text is argv, not a file,
-                    # and the message already quotes the target verbatim.
                     return _reject([diag_error("lang-promote-opts", opts)])
-                promoted = promote.promote_shield(
-                    shield_name, args.revision, socket=opts.fixed.get("socket"),
-                    sockets=opts.sockets or None, config=opts.config or None,
-                    params=opts.params or None)
-            rig_path = os.path.join(workdir, "rig.yml")
-            with open(rig_path, "w") as f:
-                f.write(promoted.rig_yml)
-            with open(os.path.join(workdir, promoted.content_name), "w") as f:
-                f.write(promoted.content)
-            # The SHIELD's own revision is already baked into
-            # promoted.content's `shield:` reference above; a promoted
-            # rig declares no revisions: axis of its own, so this is
-            # never also passed to loader.load as a rig-level selection.
-            revision = None
-        assert rig_path is not None  # argparse's mutually exclusive group guarantees one of rig/--promote
-
-        try:
-            rig, diags, rig_deps = loader.load(
-                rig_path,
-                workdir,
-                shield_dirs=shield_dirs,
-                revision=revision,
-                variant=args.variant,
-                board=args.board,
-                types=types,
-                include_dirs=header_dirs,
-            )
-        except LoadError as e:
-            # Backstop only (the registry load above): loader.load()
-            # converts its own LoadErrors to the normal return shape,
-            # priors included.
-            return _reject(list(e.diags))
-        if rig is None or has_errors(diags):
-            return _reject(diags)
-
-        # Pass 1: board reading (rigc-r4-brief.md Sec 1). The recipe is
-        # resolved HERE, not up front alongside the other inputs: it opens
-        # a real file (--build-info) eagerly, and doing that before the
-        # loader even runs would turn a caller's typo'd --build-info path
-        # into an unhandled crash on a rig that was going to be rejected
-        # anyway (never a traceback, the reject convention) -- resolving
-        # it only once the loader has already accepted is what
-        # board.load_board's own "no usable recipe" diagnostic exists to
-        # report cleanly instead.
-        #
-        # rig.board is "" whenever this run injected none (board-
-        # coordinate-s6-brief.md Sec 11: the loader itself never requires
-        # one any more, since a rig's TOPOLOGY never needed a board to
-        # assemble). This is the one place that still does -- passing ""
-        # straight to boarddt.load_board would search for a board literally
-        # named "" and report the confusing "unknown board ''" rather than
-        # the honest fact that none was given, so it is caught here first,
-        # before boarddt ever runs. Unlike a `lang-*` loader finding, this
-        # has no rig.yml line to blame (there is no longer a `board:` key
-        # to point at) -- phys-board, no refs, matching every other
-        # board-reading diagnostic's own unanchored shape.
-        if not rig.board:
-            return _reject(diags + [diag_error(
-                "phys-board",
-                f"rig '{rig.name}': no board given -- a rig has no board "
-                "of its own any more (board: left rig.yml's grammar "
-                "entirely); pass --board <name>")])
-        #
-        # board.load_board's own diagnostics carry no `rig`-side src ref
-        # (a "phys-board" finding is never anchored to a rig.yml line), so
-        # they simply extend the diags list gathered so far, matching the
-        # blueprint's continuation shape (rigc-r2-brief.md Sec 6): a
-        # rejection here is never a reason to drop the loader's own
-        # (empty, since has_errors already returned above) findings.
-        recipe = _resolve_recipe(args.include_dirs, args.bindings_dirs, args.build_info)
-        board, board_diags, board_deps = boarddt.load_board(
-            rig.board, workdir, board_dts=board_dts, recipe=recipe
-        )
-        diags += board_diags
-        if board is None:
-            return _reject(diags)
-
-        # Pass 2: the analyzer (rigc-r4-brief.md Sec 2) -- mating/socket
-        # resolution, nets, addresses, CS, wires, labels.
-        solved, analyzer_diags = analyzer.analyze(rig, board, types)
-        diags += analyzer_diags
-        if has_errors(diags):
-            return _reject(diags)
-
-        # Accept: emit the rig artifacts (emitter.emit -- strong contract,
-        # cannot fail here) plus the build-glue handoff (context.render,
-        # rigc-r5-brief.md Sec 2 -- kept a SEPARATE value function so
-        # cli.py never builds context.cmake's text itself), then ONE
-        # writer for everything. RIG_DEPENDS is every real source-tree
-        # file this run actually touched: the connector-type registry,
-        # the loader's own closure (rig.yml, its content file, qualifier
-        # delta fragments, every shield resolution across all three
-        # topology stages -- eager scan breadth and resolution history
-        # alike, see loader.load's own docstring), and the board's .dts.
-        all_deps = deps_union(types_deps, rig_deps, board_deps)
-        artifacts = emit(rig, solved, types, workdir, include_dirs=header_dirs)
-        artifacts["context.cmake"] = context.render(rig, all_deps)
-        write_artifacts(out_dir, artifacts)
-
-        log.info("verdict: accepted, exit 0")
-        if diags:  # warnings only -- errors would have exited above
-            print(render(diags), file=sys.stderr)
-        accepted = True
-        return 0
-    finally:
-        # D10 (cutover-decisions.md; post-cutover-backlog.md group A item
-        # 1): every invocation used to leak this directory -- 7001/787MB
-        # measured in one session, and dts.cmake runs the expander once
-        # per real configure too. A reject keeps it (the evidence a cpp
-        # failure's own rendered diagnostic points at, e.g.
-        # param-missing-header); RIGC_KEEP_WORKDIR overrides the
-        # accept-path deletion for inspecting a run that succeeded.
-        #
-        # A KEPT directory is no longer unowned: it sits in --out-dir, so
-        # it dies with the build directory it belongs to and is wiped by
-        # the next run into the same out-dir. That is what makes "keep on
-        # reject" affordable -- under /tmp the keeps were permanent, and
-        # 292 of them had accumulated by the time anyone counted.
-        if accepted and not os.environ.get("RIGC_KEEP_WORKDIR"):
-            log.debug("workdir: removing %s (accepted)", workdir)
-            shutil.rmtree(workdir, ignore_errors=True)
+                elements.append((shield_name, elem_revision, opts))
+            dup_err = promote.check_list_no_duplicate_elements(
+                [name for name, _rev, _opts in elements], args.promote)
+            if dup_err is not None:
+                return _reject([diag_error("lang-promote-opts", dup_err)])
+            promoted = promote.promote_shield_list(elements)
         else:
-            log.debug("workdir: keeping %s", workdir)
+            shield_name, _, opt_text = args.promote.partition(":")
+            # Resolved here, ahead of parse_promotion_opts's own
+            # slot-validation grammar (multi-plug-promotion-brief.md Sec
+            # 2: a bare socket= on a plural shield, a socket.<slot>= on
+            # a single-plug one, an unknown slot) -- this cmake-seam
+            # caller was missing from the brief's own predicted call-site
+            # list (verified by grep, multi-plug-promotion-brief.md Sec
+            # 3's own recorded lesson: run every caller, do not trust a
+            # brief's list). check_promotable is deliberately NOT called
+            # here: list_rigs.py/west_commands/rigs.py already validated
+            # promotability before ever forwarding a target this far
+            # (list_rigs.PromotedTarget.promotion_target, cli.py's own
+            # module docstring), and this is the one entry point every
+            # OTHER caller's --promote value already passed through --
+            # duplicating the check here would be a second authority for
+            # the same fact.
+            resolved = promote.resolve_for_promotion(shield_name, shield_dirs)
+            opts = promote.parse_promotion_opts(
+                opt_text or None, args.promote, resolved)
+            if isinstance(opts, str):
+                # No SourceRef: the offending text is argv, not a file,
+                # and the message already quotes the target verbatim.
+                return _reject([diag_error("lang-promote-opts", opts)])
+            promoted = promote.promote_shield(
+                shield_name, args.revision, socket=opts.fixed.get("socket"),
+                sockets=opts.sockets or None, config=opts.config or None,
+                params=opts.params or None)
+        rig_path = os.path.join(workdir, "rig.yml")
+        with open(rig_path, "w") as f:
+            f.write(promoted.rig_yml)
+        with open(os.path.join(workdir, promoted.content_name), "w") as f:
+            f.write(promoted.content)
+        # The SHIELD's own revision is already baked into
+        # promoted.content's `shield:` reference above; a promoted
+        # rig declares no revisions: axis of its own, so this is
+        # never also passed to loader.load as a rig-level selection.
+        revision = None
+    assert rig_path is not None  # argparse's mutually exclusive group guarantees one of rig/--promote
+
+    try:
+        rig, diags, rig_deps = loader.load(
+            rig_path,
+            workdir,
+            shield_dirs=shield_dirs,
+            revision=revision,
+            variant=args.variant,
+            board=args.board,
+            types=types,
+            include_dirs=header_dirs,
+        )
+    except LoadError as e:
+        # Backstop only (the registry load above): loader.load()
+        # converts its own LoadErrors to the normal return shape,
+        # priors included.
+        return _reject(list(e.diags))
+    if rig is None or has_errors(diags):
+        return _reject(diags)
+
+    # Pass 1: board reading (rigc-r4-brief.md Sec 1). The recipe is
+    # resolved HERE, not up front alongside the other inputs: it opens
+    # a real file (--build-info) eagerly, and doing that before the
+    # loader even runs would turn a caller's typo'd --build-info path
+    # into an unhandled crash on a rig that was going to be rejected
+    # anyway (never a traceback, the reject convention) -- resolving
+    # it only once the loader has already accepted is what
+    # board.load_board's own "no usable recipe" diagnostic exists to
+    # report cleanly instead.
+    #
+    # rig.board is "" whenever this run injected none (board-
+    # coordinate-s6-brief.md Sec 11: the loader itself never requires
+    # one any more, since a rig's TOPOLOGY never needed a board to
+    # assemble). This is the one place that still does -- passing ""
+    # straight to boarddt.load_board would search for a board literally
+    # named "" and report the confusing "unknown board ''" rather than
+    # the honest fact that none was given, so it is caught here first,
+    # before boarddt ever runs. Unlike a `lang-*` loader finding, this
+    # has no rig.yml line to blame (there is no longer a `board:` key
+    # to point at) -- phys-board, no refs, matching every other
+    # board-reading diagnostic's own unanchored shape.
+    if not rig.board:
+        return _reject(diags + [diag_error(
+            "phys-board",
+            f"rig '{rig.name}': no board given -- a rig has no board "
+            "of its own any more (board: left rig.yml's grammar "
+            "entirely); pass --board <name>")])
+    #
+    # board.load_board's own diagnostics carry no `rig`-side src ref
+    # (a "phys-board" finding is never anchored to a rig.yml line), so
+    # they simply extend the diags list gathered so far, matching the
+    # blueprint's continuation shape (rigc-r2-brief.md Sec 6): a
+    # rejection here is never a reason to drop the loader's own
+    # (empty, since has_errors already returned above) findings.
+    recipe = _resolve_recipe(args.include_dirs, args.bindings_dirs, args.build_info)
+    board, board_diags, board_deps = boarddt.load_board(
+        rig.board, workdir, board_dts=board_dts, recipe=recipe
+    )
+    diags += board_diags
+    if board is None:
+        return _reject(diags)
+
+    # Pass 2: the analyzer (rigc-r4-brief.md Sec 2) -- mating/socket
+    # resolution, nets, addresses, CS, wires, labels.
+    solved, analyzer_diags = analyzer.analyze(rig, board, types)
+    diags += analyzer_diags
+    if has_errors(diags):
+        return _reject(diags)
+
+    # Accept: emit the rig artifacts (emitter.emit -- strong contract,
+    # cannot fail here) plus the build-glue handoff (context.render,
+    # rigc-r5-brief.md Sec 2 -- kept a SEPARATE value function so
+    # cli.py never builds context.cmake's text itself), then ONE
+    # writer for everything. RIG_DEPENDS is every real source-tree
+    # file this run actually touched: the connector-type registry,
+    # the loader's own closure (rig.yml, its content file, qualifier
+    # delta fragments, every shield resolution across all three
+    # topology stages -- eager scan breadth and resolution history
+    # alike, see loader.load's own docstring), and the board's .dts.
+    all_deps = deps_union(types_deps, rig_deps, board_deps)
+    artifacts = emit(rig, solved, types, workdir, include_dirs=header_dirs)
+    artifacts["context.cmake"] = context.render(rig, all_deps)
+    write_artifacts(out_dir, artifacts)
+
+    log.info("verdict: accepted, exit 0")
+    if diags:  # warnings only -- errors would have exited above
+        print(render(diags), file=sys.stderr)
+    return 0
 
 
 def main(argv: list[str] | None = None) -> int:
