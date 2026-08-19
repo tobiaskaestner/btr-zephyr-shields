@@ -14,8 +14,10 @@
 / {
 	shield-templates {
 		tc_servo_plain: tc_servo_plain {
-			shield,plugs = "three-cell-pwm-nexus";
-			tcsp_plug: plug { #pwm-cells = <3>; };
+			tcsp_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "three-cell-pwm-nexus";
+			};
 
 			pwm {
 				servo: servo {

@@ -10,21 +10,23 @@
 / {
 	shield-templates {
 		eth_click: eth_click {
-			shield,plugs = "mikrobus";
-			eth_plug: plug { #gpio-cells = <2>; };
+			eth_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "mikrobus";
 
-			spi {
-				eth: eth {
-					compatible = "microchip,enc28j60";
-					spi-max-frequency = <20000000>;
-					int-gpios = <&eth_plug MIKROBUS_INT GPIO_ACTIVE_LOW>;
-					/* ENC28J60 has no built-in MAC. The driver reads
-					 * local-mac-address unconditionally (initializer), so a
-					 * placeholder is required; zephyr,random-mac-address then
-					 * makes each instance derive a distinct MAC at runtime, so
-					 * a template stamped N times does not collide on the wire. */
-					local-mac-address = [00 00 00 00 00 00];
-					zephyr,random-mac-address;
+				spi {
+					eth: eth {
+						compatible = "microchip,enc28j60";
+						spi-max-frequency = <20000000>;
+						int-gpios = <&eth_plug MIKROBUS_INT GPIO_ACTIVE_LOW>;
+						/* ENC28J60 has no built-in MAC. The driver reads
+						 * local-mac-address unconditionally (initializer), so a
+						 * placeholder is required; zephyr,random-mac-address then
+						 * makes each instance derive a distinct MAC at runtime, so
+						 * a template stamped N times does not collide on the wire. */
+						local-mac-address = [00 00 00 00 00 00];
+						zephyr,random-mac-address;
+					};
 				};
 			};
 		};

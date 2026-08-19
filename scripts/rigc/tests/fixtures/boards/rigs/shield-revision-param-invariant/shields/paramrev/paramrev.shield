@@ -9,13 +9,15 @@
 / {
 	shield-templates {
 		paramrev: paramrev {
-			shield,plugs = "i2c-port";
-			pr_plug: plug { #gpio-cells = <2>; };
+			pr_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "i2c-port";
 
-			i2c {
-				pr_dev: dev@50 {
-					compatible = "vnd,temp0x48";
-					reg = <0x50>;
+				i2c {
+					pr_dev: dev@50 {
+						compatible = "vnd,temp0x48";
+						reg = <0x50>;
+					};
 				};
 			};
 		};

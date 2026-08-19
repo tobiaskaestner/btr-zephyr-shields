@@ -7,13 +7,15 @@
 / {
 	shield-templates {
 		badyml_fixture: badyml_fixture {
-			shield,plugs = "i2c-port";
-			by_plug: plug { #gpio-cells = <2>; };
+			by_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "i2c-port";
 
-			i2c {
-				by_sensor: sensor@60 {
-					compatible = "vnd,temp0x48";
-					reg = <0x60>;
+				i2c {
+					by_sensor: sensor@60 {
+						compatible = "vnd,temp0x48";
+						reg = <0x60>;
+					};
 				};
 			};
 		};

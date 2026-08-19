@@ -10,13 +10,15 @@
 / {
 	shield-templates {
 		fixture_spi_motor: fixture_spi_motor {
-			shield,plugs = "fixture-multibus";
-			fsm_plug: plug { #gpio-cells = <2>; };
+			fsm_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "fixture-multibus";
 
-			spi-motors {
-				fsm_driver: driver {
-					compatible = "vnd,fixture-spi-motor-driver";
-					spi-max-frequency = <1000000>;
+				spi-motors {
+					fsm_driver: driver {
+						compatible = "vnd,fixture-spi-motor-driver";
+						spi-max-frequency = <1000000>;
+					};
 				};
 			};
 		};

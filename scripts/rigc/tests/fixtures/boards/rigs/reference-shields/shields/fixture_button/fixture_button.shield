@@ -17,8 +17,10 @@
 / {
 	shield-templates {
 		fixture_button: fixture_button {
-			shield,plugs = "fixture-nexus";
-			fb_plug: plug { #gpio-cells = <2>; };
+			fb_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "fixture-nexus";
+			};
 
 			gpio {
 				fb_key: button {

@@ -48,7 +48,7 @@ ScopeEntry = Tuple[str, Tuple[str, object]]
 class SocketResolution:
     # instance name -> slot name -> resolved socket (multi-plug-shield-
     # brief.md Sec 3): a slot absent from the inner map never resolved.
-    # The single-plug form's own shape is one entry, `{"plug": socket}`.
+    # A shield with one plug has one entry, keyed by that plug's name.
     # Consumed ONLY through analyzer/socketmap.py's accessor family
     # (acceptance criterion 6) -- this pass, and this module's own
     # `resolve_sockets`, are the sole exception (they BUILD the map).

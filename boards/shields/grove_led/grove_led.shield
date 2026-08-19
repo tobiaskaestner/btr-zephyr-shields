@@ -9,8 +9,10 @@
 / {
 	shield-templates {
 		grove_led: grove_led {
-			shield,plugs = "grove";
-			gl_plug: plug { #gpio-cells = <2>; };
+			gl_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "grove";
+			};
 
 			gpio {
 				gl_led: led {

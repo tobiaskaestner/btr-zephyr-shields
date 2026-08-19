@@ -11,12 +11,10 @@
 			x: x {
 				compatible = "shield,plug";
 				shield,plugs = "fixture-mp-a";
-				#gpio-cells = <2>;
 			};
 			y: y {
 				compatible = "shield,plug";
 				shield,plugs = "fixture-mp-a";
-				#gpio-cells = <2>;
 			};
 		};
 	};

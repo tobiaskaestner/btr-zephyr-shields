@@ -24,96 +24,110 @@ and exposed sockets resolve against.
 Declaring the connector
 --------------------------
 
-A shield names the :term:`connector type` it plugs, in one of two
-mutually exclusive shapes, discriminated by presence or absence of a
-template-level ``shield,plugs``.
+A shield names the :term:`connector type` it plugs **on the plug node
+itself**, one per plug. There is one shape, whether the shield has one
+plug or four: plug *plurality is a count*, never a separate authored form.
 
-``shield,plugs`` (single form)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-:Where: the template root node (the shield's own node under
-   ``shield-templates``).
-:Type: string — a connector type name (``"arduino-r3"``, ``"grove"``,
-   ``"mikrobus"``, ``"i2c-port"``).
-:Required or optional: this is the **single-plug form**. Present at
-   template level, it requires a child node literally named ``plug`` (see
-   below); absent, the shield must instead declare one or more
-   ``shield,plug``-compatible children (the plural form, next entry) — a
-   shield with *neither* shape is refused.
-:Refuses: ``lang-shield-type`` (names a connector type the registry does
-   not know); ``lang-shield-plug`` (neither ``shield,plugs`` nor a
-   ``shield,plug`` child is present); ``lang-shield-plurality`` (both a
-   template-level ``shield,plugs`` **and** one or more ``shield,plug``
-   children are present at once — a shield is one shape or the other,
-   never both).
-
-Example — ``boards/shields/adafruit_data_logger/adafruit_data_logger.shield``:
-
-.. code-block:: devicetree
-
-   shield,plugs = "arduino-r3";
-
-``compatible = "shield,plug"`` / per-plug ``shield,plugs`` (plural form)
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+``compatible = "shield,plug"`` / ``shield,plugs``
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 :Where: a child node of the template root, one per plug the shield
    declares.
 :Type: the child's ``compatible`` is the literal string ``"shield,plug"``;
    its own ``shield,plugs`` property is a string naming *that plug's*
-   connector type, exactly like the single form's template-level property.
-:Required or optional: this is the **plural form** — a shield with more
-   than one plug (two mikroBUS sockets at once, say). The child node's own
-   name is the **slot name** other properties reference it by; it may be
-   anything except the reserved name ``plug``. Absent entirely (no
-   ``shield,plug`` children, no template-level ``shield,plugs``), the
-   shield declares no connector at all and is refused.
-:Refuses: ``lang-shield-plurality`` (a plug child is named ``plug`` — that
-   name is reserved for the single form's own default slot);
-   ``lang-shield-type`` (a plug child declares no ``shield,plugs`` of its
-   own, or names an unknown connector type).
+   connector type (``"arduino-r3"``, ``"grove"``, ``"mikrobus"``,
+   ``"i2c-port"``).
+:Required or optional: at least one is required — a template with no
+   ``shield,plug``-compatible child declares no connector at all and is
+   refused. The child node's own name is the **slot name** other
+   properties reference it by; ``plug`` is the conventional name for a
+   shield with one and is reserved for nothing.
+:Refuses: ``lang-shield-plug`` (no ``shield,plug`` child at all; also a
+   ``shield,plugs`` on the TEMPLATE node, the retired spelling — the
+   message says where the property moved); ``lang-shield-type`` (a plug
+   declares no ``shield,plugs`` of its own, or names a connector type the
+   registry does not know).
+
+Example — ``boards/shields/adafruit_data_logger/adafruit_data_logger.shield``
+(one plug):
+
+.. code-block:: devicetree
+
+   dl_plug: plug {
+           compatible = "shield,plug";
+           shield,plugs = "arduino-r3";
+   };
 
 Example — ``boards/shields/can_span_click/can_span_click.shield`` (two
-mikroBUS plugs on one shield):
+mikroBUS plugs on one shield, declared exactly the same way):
 
 .. code-block:: devicetree
 
    left_plug: left {
            compatible = "shield,plug";
            shield,plugs = "mikrobus";
-           #gpio-cells = <2>;
    };
    right_plug: right {
            compatible = "shield,plug";
            shield,plugs = "mikrobus";
-           #gpio-cells = <2>;
    };
 
 The plug node
 ~~~~~~~~~~~~~~~
 
-:Where: a child of the template root — named exactly ``plug`` for the
-   single form, or the slot's own chosen name for a plural shield's
-   ``shield,plug`` child.
+:Where: a child of the template root — one per plug, named whatever the
+   shield calls that slot.
 :Type: not a property but a node: the :term:`plug` itself, the position
    reference frame every ``gpios``/``pwms``/``io-channels`` property on
-   this shield's devices resolves a phandle against. Its own
-   ``#gpio-cells`` / ``#pwm-cells`` / ``#io-channel-cells`` declare how
-   many cells a position reference through it carries per function;
-   absent, the expander assumes the generic Zephyr default for that
-   function (2 for gpio, 3 for pwm, 1 for adc —
-   ``scripts/rigc/shields.py::_FUNCTION_DEFAULT_CELLS``).
-:Required or optional: required for the single form (a shield with
-   ``shield,plugs`` but no ``plug`` child node is refused). A plural
-   shield's plug nodes are themselves required by construction — they are
-   what ``shield,plug`` children are.
-:Refuses: ``lang-shield-plug`` (single form names ``shield,plugs`` but has
-   no ``plug`` child).
+   this shield's devices resolves a phandle against, and the parent of
+   this plug's own bus groups (see "Where a group goes" below).
+:Required or optional: at least one, by construction — a plug node is
+   what a ``shield,plug``-compatible child *is*.
+:Refuses: ``lang-shield-plug-cells`` — a plug node may not declare
+   ``#gpio-cells`` / ``#pwm-cells`` / ``#io-channel-cells``. A position
+   reference through a plug carries the generic count for its function (2
+   for gpio, 3 for pwm, 1 for adc,
+   ``scripts/rigc/shields.py::_FUNCTION_DEFAULT_CELLS``), and so does the
+   parent side of an exposed socket's ``gpio-map``/``pwm-map``/
+   ``io-channel-map`` row. Only a node whose arity genuinely differs says
+   so — a :term:`routing jumper`, which supplies the position itself and
+   therefore declares ``#gpio-cells = <1>``.
 
-Example — ``boards/shields/adafruit_data_logger/adafruit_data_logger.shield``:
+Where a group goes
+~~~~~~~~~~~~~~~~~~~~
+
+One placement rule, at any plug count:
+
+**Bus groups nest under their owning plug.** A group named after one of
+that plug's ``plug,bus-proxies`` (``i2c``/``spi``/``uart``, bare or
+role-qualified) is a child of the plug node. The nesting is what
+distinguishes two same-kind buses on a shield with two plugs, and it is
+also what gives each plug's bus its own chip-select pool namespace. A
+bus-shaped group at template level is refused
+(``lang-shield-proxy``, naming the plugs it could have nested under).
+
+**Plain groups stay at template level.** A group that is not a bus proxy
+(``gpio``, ``pwm``, ``adc``, or any other non-reserved name) is
+plug-agnostic: its devices' own references each name the plug they
+resolve through, by phandle. Nesting one under a plug is refused
+(``lang-shield-proxy``). With exactly one plug such a device is
+attributed to it; with more, to none.
+
+``pads`` and ``config`` are template level too, whatever the count — they
+are shield-level facts, not per-plug ones.
 
 .. code-block:: devicetree
 
-   dl_plug: plug { #gpio-cells = <2>; };
+   dl_plug: plug {
+           compatible = "shield,plug";
+           shield,plugs = "arduino-r3";
+
+           i2c { dl_rtc: rtc@68 { /* ... */ }; };    /* bus: under the plug */
+           spi { dl_sd: sdhc { /* ... */ }; };
+   };
+
+   gpio { dl_led1: led-1 { /* ... */ }; };           /* plain: template level */
+   pads { dl_sq: sq { /* ... */ }; };
 
 Devices
 ---------
@@ -293,8 +307,8 @@ Pads
 
 A pad is an arity-1 connector: a signal that belongs to a device but is
 not itself claimable through any plug — an RTC's square-wave output, say.
-Pads live under a ``pads`` group at template level, regardless of
-plurality.
+Pads live under a ``pads`` group at template level, whatever the shield's
+plug count.
 
 ``shield,role``
 ~~~~~~~~~~~~~~~~~
@@ -384,11 +398,16 @@ strap-selectable I2C address, referenced by ``shield,addr-from`` above):
 :Type: an array of ``(connector-position index, jumper-state)`` ``<u32>``
    pairs — the position-side twin of a strap's address domain.
 :Required or optional: presence itself makes the node a jumper. **On a
-   plural shield, declaring one at all is refused outright** — the
-   position domain has no plug axis to resolve through, so a jumper only
-   makes sense on a single-plug shield.
-:Refuses: ``lang-shield-plurality`` (a plural shield declares a routing
-   jumper).
+   shield with more than one plug, declaring one at all is refused
+   outright** — the position domain has no plug axis to resolve through,
+   so a jumper only makes sense where there is exactly one plug.
+:Refuses: ``lang-shield-plurality`` (a shield with two or more plugs
+   declares a routing jumper).
+
+   A jumper is also the one node in a template that legitimately declares
+   a cell count: ``#gpio-cells = <1>``, because it supplies the position
+   itself and leaves only the flags to the referring property. A plug
+   never does (see "The plug node" above).
 
 Example — ``boards/shields/adafruit_winc1500/adafruit_winc1500.shield``
 (IRQ routed to D7 by default, or D2 via a solder jumper):
@@ -428,9 +447,16 @@ exposed sockets are ordinary nodes with a ``compatible = "socket,<type>"``,
 authored *inside* the ``.shield`` file: they carry the identical
 vocabulary a real board socket does (``gpio-map``, ``socket,<bus>``,
 ``socket,cs-pool``, ...), documented in full on :doc:`board-socket`, plus
-this shield-only ``shield,channel`` above. A plural carrier's exposed
-socket may compose its rows from *any* of the carrier's own plugs, exactly
-as a device's own cross-plug references do.
+this shield-only ``shield,channel`` above. A carrier with several plugs may
+compose one exposed socket's rows from *any* of them, exactly as a
+device's own cross-plug references do.
+
+Note the asymmetry in a map row's two halves: the CHILD side carries the
+count the exposed socket declares for itself (``#gpio-cells`` and friends,
+on the socket node), while the PARENT side is a plug and therefore always
+carries the generic count for that function — 2 for gpio, 3 for pwm, 1 for
+adc. A plug declares no counts of its own, so there is nothing there to
+vary.
 
 Example — pass-through, ``boards/shields/arduino_uno_click/arduino_uno_click.shield``
 (an Arduino R3 shield re-exporting two mikroBUS sockets, SPI/I2C passed

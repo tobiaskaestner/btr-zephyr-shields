@@ -8,15 +8,17 @@
 / {
 	shield-templates {
 		restate_fixture: restate_fixture {
-			shield,plugs = "arduino-r3";
-			rf_plug: plug { #gpio-cells = <2>; };
+			rf_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "arduino-r3";
 
-			i2c {
-				rf_sensor: sensor@51 {
-					compatible = "vnd,temp0x48";
-					reg = <0x51>;
-					shield,params = "vnd,threshold";
-					vnd,threshold = <10>;	/* authored default: OPTIONAL */
+				i2c {
+					rf_sensor: sensor@51 {
+						compatible = "vnd,temp0x48";
+						reg = <0x51>;
+						shield,params = "vnd,threshold";
+						vnd,threshold = <10>;	/* authored default: OPTIONAL */
+					};
 				};
 			};
 		};

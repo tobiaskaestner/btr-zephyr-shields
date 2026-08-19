@@ -11,8 +11,10 @@
 / {
 	shield-templates {
 		broken_cpp: broken_cpp {
-			shield,plugs = "i2c-port";
-			plug: plug { #gpio-cells = <2>; };
+			plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "i2c-port";
+			};
 		};
 	};
 };

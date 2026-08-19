@@ -5,13 +5,15 @@
 / {
 	shield-templates {
 		decl_alpha: decl_alpha {
-			shield,plugs = "i2c-port";
-			pba_plug: plug { #gpio-cells = <2>; };
+			pba_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "i2c-port";
 
-			i2c {
-				pba_sensor: sensor@60 {
-					compatible = "vnd,temp0x48";
-					reg = <0x60>;
+				i2c {
+					pba_sensor: sensor@60 {
+						compatible = "vnd,temp0x48";
+						reg = <0x60>;
+					};
 				};
 			};
 		};

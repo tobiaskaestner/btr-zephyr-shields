@@ -172,12 +172,13 @@ persisted rig — whose instances name their own in the rig content file:
 
 ``socket=<label>``
    Which board socket the shield plugs. Needed when the board carries more
-   than one socket the shield's plug mates. Single-plug shields only.
+   than one socket the shield's plug mates. Accepted only for a shield with
+   exactly one plug, where naming the slot would say nothing.
 
 ``socket.<slot>=<label>``
    The same, per plug slot, for a shield that plugs several sockets at
-   once. Plural shields only; ``<slot>`` is one of the shield's own plug
-   names.
+   once. Accepted only above one plug; ``<slot>`` is one of the shield's
+   own plug node names.
 
 ``config.<label>=<value>``
    Which position or address a strap or routing jumper is set to, named by

@@ -13,13 +13,15 @@
 / {
 	shield-templates {
 		i2c_mux: i2c_mux {
-			shield,plugs = "arduino-r3";
-			mux_plug: plug { #gpio-cells = <2>; };
+			mux_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "arduino-r3";
 
-			i2c {
-				mux: mux@70 {
-					compatible = "ti,tca9548a";
-					reg = <0x70>;			/* fixed on the host bus */
+				i2c {
+					mux: mux@70 {
+						compatible = "ti,tca9548a";
+						reg = <0x70>;			/* fixed on the host bus */
+					};
 				};
 			};
 

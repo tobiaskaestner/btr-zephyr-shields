@@ -33,14 +33,16 @@
 / {
 	shield-templates {
 		grove_sens_bme280: grove_sens_bme280 {
-			shield,plugs = "grove";
-			gsbme_plug: plug { #gpio-cells = <2>; };
+			gsbme_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "grove";
 
-			i2c {
-				gsbme_dev: sensor@addr_strap {
-					compatible = "bosch,bme280";
-					friendly-name = "Grove THP Sensor V1.0 (BME280)";
-					shield,addr-from = <&gsbme_addr_strap>;
+				i2c {
+					gsbme_dev: sensor@addr_strap {
+						compatible = "bosch,bme280";
+						friendly-name = "Grove THP Sensor V1.0 (BME280)";
+						shield,addr-from = <&gsbme_addr_strap>;
+					};
 				};
 			};
 

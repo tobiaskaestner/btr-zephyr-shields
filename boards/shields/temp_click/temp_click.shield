@@ -11,18 +11,20 @@
 / {
 	shield-templates {
 		temp_click: temp_click {
-			shield,plugs = "mikrobus";
-			tc_plug: plug { #gpio-cells = <2>; };
+			tc_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "mikrobus";
 
-			i2c {
-				/* symbolic unit-address = readable deferral marker
-				 * (dtlib-legal, lowercase); shield,addr-from is the
-				 * checked reference. Expander authors the real
-				 * reg + @addr pair in the output. */
-				tc_sensor: sensor@addr_strap {
-					compatible = "vnd,temp1234";
-					shield,addr-from = <&tc_addr_strap>;
-					int-gpios = <&tc_plug MIKROBUS_INT GPIO_ACTIVE_LOW>;
+				i2c {
+					/* symbolic unit-address = readable deferral marker
+					 * (dtlib-legal, lowercase); shield,addr-from is the
+					 * checked reference. Expander authors the real
+					 * reg + @addr pair in the output. */
+					tc_sensor: sensor@addr_strap {
+						compatible = "vnd,temp1234";
+						shield,addr-from = <&tc_addr_strap>;
+						int-gpios = <&tc_plug MIKROBUS_INT GPIO_ACTIVE_LOW>;
+					};
 				};
 			};
 

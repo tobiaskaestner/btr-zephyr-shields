@@ -13,8 +13,10 @@
 / {
 	shield-templates {
 		grove_servo_flags: grove_servo_flags {
-			shield,plugs = "grove";
-			gsvf_plug: plug { #gpio-cells = <2>; #pwm-cells = <3>; };
+			gsvf_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "grove";
+			};
 
 			pwm {
 				servo: servo {

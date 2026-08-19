@@ -8,12 +8,14 @@
 / {
 	shield-templates {
 		uart_probe: uart_probe {
-			shield,plugs = "arduino-r3";
-			up_plug: plug { #gpio-cells = <2>; };
+			up_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "arduino-r3";
 
-			uart {
-				up_dev: dev {
-					compatible = "vnd,uart-probe";
+				uart {
+					up_dev: dev {
+						compatible = "vnd,uart-probe";
+					};
 				};
 			};
 		};

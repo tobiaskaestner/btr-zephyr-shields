@@ -1,6 +1,7 @@
 /* Shield: Grove analog light sensor (ADC). Uses the Grove signal pin as an
- * ADC input: io-channels targets the plug in the adc function
- * (#io-channel-cells = 1: position); the expander resolves the position
+ * ADC input: io-channels targets the plug in the adc function, a 1-cell
+ * claim (position -- the generic count, so the plug node declares none);
+ * the expander resolves the position
  * through the socket's adc-map to a (adc, channel). Same multi-function
  * machinery as PWM, different nexus.
  */
@@ -10,8 +11,10 @@
 / {
 	shield-templates {
 		grove_light: grove_light {
-			shield,plugs = "grove";
-			gl_plug: plug { #gpio-cells = <2>; #io-channel-cells = <1>; };
+			gl_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "grove";
+			};
 
 			adc {
 				light: light {

@@ -11,24 +11,27 @@
 / {
 	shield-templates {
 		data_logger: adafruit_data_logger {
-			shield,plugs = "arduino-r3";
-			dl_plug: plug { #gpio-cells = <2>; };
+			dl_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "arduino-r3";
 
-			i2c {
-				dl_rtc: rtc@68 {
-					compatible = "nxp,pcf8523";
-					reg = <0x68>;		/* fixed: 1-element domain */
-					alarms-count = <1>;
-					battery-switch-over = "standard";
-					int1-gpios = <&dl_plug ARDUINO_HEADER_R3_D7
-						      (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+				i2c {
+					dl_rtc: rtc@68 {
+						compatible = "nxp,pcf8523";
+						reg = <0x68>;		/* fixed: 1-element domain */
+						alarms-count = <1>;
+						battery-switch-over = "standard";
+						int1-gpios = <&dl_plug ARDUINO_HEADER_R3_D7
+							      (GPIO_ACTIVE_LOW | GPIO_PULL_UP)>;
+					};
 				};
-			};
-			spi {
-				dl_sd: sdhc {
-					compatible = "zephyr,sdhc-spi-slot";
-					shield,cs-position = <ARDUINO_HEADER_R3_D10>;
-					spi-max-frequency = <24000000>;
+
+				spi {
+					dl_sd: sdhc {
+						compatible = "zephyr,sdhc-spi-slot";
+						shield,cs-position = <ARDUINO_HEADER_R3_D10>;
+						spi-max-frequency = <24000000>;
+					};
 				};
 			};
 

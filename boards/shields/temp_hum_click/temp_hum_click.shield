@@ -8,13 +8,15 @@
 / {
 	shield-templates {
 		temp_hum_click: temp_hum_click {
-			shield,plugs = "mikrobus";
-			th_plug: plug { #gpio-cells = <2>; };
+			th_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "mikrobus";
 
-			i2c {
-				th_sensor: sensor@5f {
-					compatible = "st,hts221";
-					reg = <0x5f>;		/* fixed: 1-element domain */
+				i2c {
+					th_sensor: sensor@5f {
+						compatible = "st,hts221";
+						reg = <0x5f>;		/* fixed: 1-element domain */
+					};
 				};
 			};
 		};

@@ -9,15 +9,17 @@
 / {
 	shield-templates {
 		flash_click: flash_click {
-			shield,plugs = "mikrobus";
-			fc_plug: plug { #gpio-cells = <2>; };
+			fc_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "mikrobus";
 
-			spi {
-				fc_nor: nor {
-					compatible = "jedec,spi-nor";
-					spi-max-frequency = <8000000>;
-					jedec-id = [c8 40 15];
-					size = <0x400000>;
+				spi {
+					fc_nor: nor {
+						compatible = "jedec,spi-nor";
+						spi-max-frequency = <8000000>;
+						jedec-id = [c8 40 15];
+						size = <0x400000>;
+					};
 				};
 			};
 		};

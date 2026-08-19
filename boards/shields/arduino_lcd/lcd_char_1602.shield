@@ -16,8 +16,10 @@
 / {
 	shield-templates {
 		lcd_char_1602: lcd_char_1602 {
-			shield,plugs = "arduino-r3";
-			lc_plug: plug { #gpio-cells = <2>; };
+			lc_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "arduino-r3";
+			};
 
 			gpio {
 				lc_lcd: lcd {

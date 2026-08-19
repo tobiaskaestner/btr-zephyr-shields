@@ -19,14 +19,16 @@
 / {
 	shield-templates {
 		grove_sens_dps310: grove_sens_dps310 {
-			shield,plugs = "grove";
-			gsdps_plug: plug { #gpio-cells = <2>; };
+			gsdps_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "grove";
 
-			i2c {
-				gsdps_dev: sensor@addr_strap {
-					compatible = "infineon,dps310";
-					friendly-name = "Grove High Precision TP Sensor V1.0 (DPS310)";
-					shield,addr-from = <&gsdps_addr_strap>;
+				i2c {
+					gsdps_dev: sensor@addr_strap {
+						compatible = "infineon,dps310";
+						friendly-name = "Grove High Precision TP Sensor V1.0 (DPS310)";
+						shield,addr-from = <&gsdps_addr_strap>;
+					};
 				};
 			};
 

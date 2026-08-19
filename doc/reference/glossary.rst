@@ -94,3 +94,13 @@ Glossary
       human-facing wiring instructions for the rig — which module goes in
       which socket, which jumper to set, which chip-select each device
       ended up on.
+
+   routing jumper
+      A solder jumper or strap on a :term:`shield template` that selects
+      which :term:`position` a signal reaches the :term:`plug` on — a
+      config element carrying a ``shield,position-domain``. The choice is
+      the rig's to make, so a device referencing one supplies flags only
+      and leaves the position to the jumper, which is why a jumper node
+      declares ``#gpio-cells = <1>`` where a plug declares no cell counts
+      at all. Only meaningful on a shield with exactly one plug: the
+      position domain has no plug axis.

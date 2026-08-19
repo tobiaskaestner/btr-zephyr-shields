@@ -6,13 +6,15 @@
 / {
 	shield-templates {
 		i2c_sensor: i2c_sensor {
-			shield,plugs = "i2c-port";
-			is_plug: plug { #gpio-cells = <2>; };
+			is_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "i2c-port";
 
-			i2c {
-				sensor: sensor@48 {
-					compatible = "vnd,temp0x48";
-					reg = <0x48>;		/* fixed: 1-element domain */
+				i2c {
+					sensor: sensor@48 {
+						compatible = "vnd,temp0x48";
+						reg = <0x48>;		/* fixed: 1-element domain */
+					};
 				};
 			};
 		};

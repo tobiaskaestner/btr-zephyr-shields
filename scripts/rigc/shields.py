@@ -11,25 +11,40 @@ done here:
   - authored reg matches the unit-address; symbolic unit-addresses are
     linted against the addr-from target
 
-**Two authored forms** (multi-plug-shield-brief.md Sec 2), discriminated
-by the template-level `shield,plugs` property's presence:
+**ONE authored form** (plug-unification-brief.md): N plug nodes, N >= 1,
+each a child of the template with `compatible = "shield,plug"` and its
+own `shield,plugs` naming that plug's connector type. The child's NODE
+NAME is the slot name (shield-owned); `plug` is the conventional name for
+a shield with one, and carries no special meaning. Plurality is a COUNT,
+never an authored form -- which is what every consumer below this module
+always tested (`len(shield.plugs) > 1`).
 
-  single (unchanged, byte-identical forever) -- `shield,plugs` on the
-    template node + the reserved `plug` child; normalizes internally to
-    one slot named `"plug"`, the node's own literal name.
-  plural -- template-level `shield,plugs` ABSENT; instead N children
-    `compatible = "shield,plug"`, each naming its own connector type. The
-    child's NODE NAME is the slot name (shield-owned). Bus groups nest
-    UNDER their owning plug node; a bus group at template level is
-    rejected. Plain (non-bus) device groups stay at template level,
-    plug-agnostic -- their devices' refs each carry their own plug by
-    phandle (Conv. 2/3, widened from "must be THIS shield's plug" to
-    "one of this shield's plugs", ruling 2). Promotion and routing
-    jumpers are refused outright on a plural shield (Sec 6) -- straps are
-    unaffected (bus-scoped, not plug-scoped). A plural shield MAY declare
-    an exposed socket (multi-plug-carrier-brief.md): its gpio-map rows and
-    socket,<bus> properties each resolve through one of the carrier's
-    plugs, exactly like a device's own cross-plug refs.
+Placement, the same rule at either count:
+
+  bus groups NEST UNDER their owning plug node -- that nesting is what
+    dissolves the sibling-name collision two same-kind buses would
+    otherwise have; a bus-shaped group at template level is rejected.
+  plain (non-bus) device groups stay at TEMPLATE level, plug-agnostic --
+    their devices' refs each carry their own plug by phandle (Conv. 2/3,
+    "one of this shield's plugs", ruling 2); a plain group nested under a
+    plug is rejected. With exactly one plug, such a device is attributed
+    to it; with more, to none.
+
+  `pads` and `config` are template-level too, whatever the plug count:
+    they are shield-level facts. Promotion and routing jumpers are
+    refused above one plug (multi-plug-shield-brief.md Sec 6) -- straps
+    are unaffected (bus-scoped, not plug-scoped). A carrier of any plug
+    count may declare an exposed socket (multi-plug-carrier-brief.md):
+    its gpio-map rows and socket,<bus> properties each resolve through
+    one of the carrier's plugs, exactly like a device's own cross-plug
+    refs.
+
+**A plug node declares no cell counts.** `#gpio-cells`/`#pwm-cells`/
+`#io-channel-cells` are refused there (plug-unification-brief.md Sec 5):
+every value the corpus ever gave one was `_FUNCTION_DEFAULT_CELLS`
+restated, the node is never emitted so nothing validates it, and a wrong
+value silently changed a reference's arity. The `_ncells` mechanism stays
+for the nodes that genuinely differ -- a routing jumper's own `<1>`.
 
 **Diagnostics are RETURN values** (mission brief Sec 6): every parse
 function below returns (value, diagnostics) rather than writing into a
@@ -68,12 +83,21 @@ from .model import (ConnectorType, Device, ExposedSocket, GpioRef, Jumper,
 #: today) is handled separately below: it carries no kind in its own
 #: name, so it is not this pattern's concern.
 
-_RESERVED = {"plug", "pads", "config"}
+#: template-level group names that are NOT device groups. `plug` is
+#: deliberately absent, and its removal is a CLEANUP, not the fix: a plug
+#: node is recognized structurally by its `compatible` (`_is_plug_node`)
+#: and skipped by identity, so reserving the name buys nothing now. What
+#: unswallowed the groups an author nests under a plug is the per-plug
+#: walk over `nodes_by_slot` below -- the retired single form had no such
+#: walk, so a reserved NAME was the only thing standing between those
+#: groups and the parser (plug-unification-brief.md Sec 1). Verified by
+#: mutation: restoring `"plug"` here changes no behavior at all.
+_RESERVED = {"pads", "config"}
 _MODEL_PROPS = {"reg", "compatible", "shield,addr-from", "shield,cs-position",
                "shield,collect", "shield,params", "shield,param-includes"}
 
 #: path -> (slot name, connector type) for every plug this shield declares
-#: (one entry for the single form, N for the plural form) -- the map
+#: -- one entry per plug node, at any count -- the map
 #: `_parse_pos_ref` resolves a phandle against to decide which slot a
 #: reference names and to validate its position, replacing "the shield's
 #: one plug" with "one of the shield's plugs" (ruling 2).
@@ -134,27 +158,17 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
     plugs_prop = node.props.get("shield,plugs")
     plug_children = [c for c in node.nodes.values() if _is_plug_node(c)]
 
-    if plugs_prop is not None and plug_children:
+    if plugs_prop is not None:
         diags.append(error(
-            "lang-shield-plurality",
-            f"shield '{node.name}' declares template-level shield,plugs "
-            "AND one or more 'shield,plug'-compatible children -- a "
-            "shield is either the single form (shield,plugs on the "
-            "template) or the plural form (N plug nodes), never both",
-            (src_of(node),)))
+            "lang-shield-plug",
+            f"shield '{node.name}' declares shield,plugs on the TEMPLATE "
+            "node -- that spelling is retired: move it onto the plug node "
+            "itself, beside a 'compatible = \"shield,plug\"', so one plug "
+            "and many are declared the same way "
+            "(plug-unification-brief.md)",
+            (src_of(plugs_prop),)))
         return Shield(name=node.name, label=label, plugs={}, src=src_of(node)), diags
 
-    named_plug = next((c for c in plug_children if c.name == "plug"), None)
-    if named_plug is not None:
-        diags.append(error(
-            "lang-shield-plurality",
-            f"shield '{node.name}': a plural shield's plug node may not "
-            "be named 'plug' -- that name is reserved for the "
-            "single-plug form's own default slot",
-            (src_of(named_plug),)))
-        return Shield(name=node.name, label=label, plugs={}, src=src_of(node)), diags
-
-    is_plural = bool(plug_children)
     shield = Shield(name=node.name, label=label, plugs={}, src=src_of(node))
     shield.by_path[node.path] = shield
 
@@ -162,59 +176,56 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
     nodes_by_slot: Dict[str, Any] = {}
     plugs_by_path: PlugsByPath = {}
 
-    if is_plural:
-        for child in plug_children:
-            slot = child.name
-            type_v = child.props.get("shield,plugs")
-            if type_v is None:
+    if not plug_children:
+        diags.append(error(
+            "lang-shield-plug",
+            f"shield '{shield.name}' declares no 'shield,plug'-compatible "
+            "child -- the plug is the position reference frame, and a "
+            "shield names its connector type on it (Conv. 2)",
+            (src_of(node),)))
+        return shield, diags
+
+    for child in plug_children:
+        slot = child.name
+        for cells in _FUNCTION_CELLS.values():
+            if cells in child.props:
                 diags.append(error(
-                    "lang-shield-type",
-                    f"shield '{shield.name}': plug '{slot}' declares no "
-                    "shield,plugs of its own -- every plug of a plural "
-                    "shield names its own connector type",
-                    (src_of(child),)))
-                continue
-            type_name = type_v.to_string()
-            ctype = types.get(type_name)
-            if ctype is None:
-                diags.append(error(
-                    "lang-shield-type",
-                    f"shield '{shield.name}': plug '{slot}' plugs unknown "
-                    f"connector type '{type_name}'\nknown types: "
-                    f"{', '.join(sorted(types))}",
-                    (src_of(type_v),)))
-            shield.plugs[slot] = type_name
-            ctypes_by_slot[slot] = ctype
-            nodes_by_slot[slot] = child
-            plugs_by_path[child.path] = (slot, ctype)
-    else:
-        if plugs_prop is None:
+                    "lang-shield-plug-cells",
+                    f"shield '{shield.name}': plug '{slot}' declares "
+                    f"{cells} -- a plug node declares no cell counts. A "
+                    "position reference through a plug carries the generic "
+                    "count for its function (2 gpio, 3 pwm, 1 adc); only a "
+                    "node that genuinely differs, such as a routing "
+                    "jumper, says so (plug-unification-brief.md Sec 5)",
+                    (src_of(child.props[cells]),)))
+        type_v = child.props.get("shield,plugs")
+        if type_v is None:
             diags.append(error(
-                "lang-shield-plug",
-                f"shield '{shield.name}' declares no shield,plugs and no "
-                "shield,plug-compatible child -- a shield names its "
-                "connector type either way (Conv. 2)",
-                (src_of(node),)))
-            return shield, diags
-        type_name = plugs_prop.to_string()
+                "lang-shield-type",
+                f"shield '{shield.name}': plug '{slot}' declares no "
+                "shield,plugs of its own -- every plug names its own "
+                "connector type",
+                (src_of(child),)))
+            continue
+        type_name = type_v.to_string()
         ctype = types.get(type_name)
         if ctype is None:
             diags.append(error(
                 "lang-shield-type",
-                f"shield '{shield.name}' plugs unknown connector type "
-                f"'{type_name}'\nknown types: {', '.join(sorted(types))}",
-                (src_of(plugs_prop),)))
-        shield.plugs["plug"] = type_name
-        plug_node = node.nodes.get("plug")
-        if plug_node is None:
-            diags.append(error(
-                "lang-shield-plug",
-                f"shield '{shield.name}' has no plug node — the plug is the "
-                "position reference frame (Conv. 2)", (src_of(node),)))
-        else:
-            ctypes_by_slot["plug"] = ctype
-            nodes_by_slot["plug"] = plug_node
-            plugs_by_path[plug_node.path] = ("plug", ctype)
+                f"shield '{shield.name}': plug '{slot}' plugs unknown "
+                f"connector type '{type_name}'\nknown types: "
+                f"{', '.join(sorted(types))}",
+                (src_of(type_v),)))
+        shield.plugs[slot] = type_name
+        ctypes_by_slot[slot] = ctype
+        nodes_by_slot[slot] = child
+        plugs_by_path[child.path] = (slot, ctype)
+
+    #: the slot a plug-agnostic (plain-group) device belongs to: the only
+    #: one when there IS only one, else none. Replaces the retired single
+    #: form's hardcoded `"plug"`, which was right only for a shield whose
+    #: plug node happened to carry that name.
+    only_slot = next(iter(shield.plugs)) if len(shield.plugs) == 1 else None
 
     # two-phase: pads/config first -- devices reference straps
     # (shield,addr-from) regardless of group order in the file. Both stay
@@ -233,13 +244,13 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
         elif group.name == "config":
             for snode in group.nodes.values():
                 if "shield,position-domain" in snode.props:
-                    if is_plural:
+                    if len(shield.plugs) > 1:
                         diags.append(error(
                             "lang-shield-plurality",
-                            f"shield '{shield.name}': plural shields "
-                            f"cannot declare a routing jumper "
-                            f"('{snode.name}') -- the position domain has "
-                            "no plug axis (multi-plug slice 1)",
+                            f"shield '{shield.name}': a shield with more "
+                            f"than one plug cannot declare a routing "
+                            f"jumper ('{snode.name}') -- the position "
+                            "domain has no plug axis (multi-plug slice 1)",
                             (src_of(snode),)))
                         continue
                     jmp, d = _parse_jumper(snode, shield.name)
@@ -259,90 +270,72 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
     # device groups FIRST -- an exposed socket may reference a device as
     # its scope root (S8 mux channel), so the device must be in by_path
     # already.
-    if not is_plural:
-        ctype = ctypes_by_slot.get("plug")
-        for group in node.nodes.values():
-            if group.name in _RESERVED or is_exposed(group):
-                continue
+    # template-level groups: plug-agnostic (plain groups) only -- a group
+    # whose name is bus-shaped is rejected, since bus groups nest under
+    # their owning plug (the placement rule), never sit at template level.
+    # This holds at ONE plug exactly as at many: it is the rule the single
+    # form inverted, and inverting it is what silently dropped every group
+    # an author nested under `plug` (plug-unification-brief.md Sec 1).
+    for group in node.nodes.values():
+        if group.name in _RESERVED or is_exposed(group) or group in plug_children:
+            continue
+        if bus_kind_of(group.name) is not None:
+            candidates = sorted(
+                slot for slot, ct in ctypes_by_slot.items()
+                if ct and group.name in ct.bus_proxies)
+            diags.append(error(
+                "lang-shield-proxy",
+                f"shield '{shield.name}' has a '{group.name}' bus proxy "
+                "at template level -- bus groups nest under their owning "
+                "plug"
+                + (f" — candidate plugs: {', '.join(candidates)}"
+                   if candidates else ""),
+                (src_of(group),)))
+        for dnode in group.nodes.values():
+            dev, d = _parse_device(dnode, shield, plugs_by_path, None,
+                                   group.name, only_slot)
+            diags += d
+            shield.devices.append(dev)
+            shield.by_path[dnode.path] = dev
+
+    # each plug's OWN bus groups, matched against ITS OWN connector
+    # type's bus_proxies -- the plug binding, structural. A group nested
+    # under a plug that is NEITHER a bus this plug's ctype allows NOR
+    # bus-kind-named at all is a plain group in the wrong place: the
+    # placement rule keeps plain groups at template level (plug-agnostic),
+    # so nesting one under a plug is rejected here rather than silently
+    # recorded with Device.plug = slot -- the same symmetry the
+    # template-level walk above applies to a misplaced BUS group (its own
+    # lang-shield-proxy branch).
+    for slot, plug_node in nodes_by_slot.items():
+        ctype = ctypes_by_slot[slot]
+        for group in plug_node.nodes.values():
             bus = group.name if ctype and group.name in ctype.bus_proxies else None
-            if bus is None and ctype and bus_kind_of(group.name) is not None:
-                diags.append(error(
-                    "lang-shield-proxy",
-                    f"shield '{shield.name}' has a '{group.name}' bus proxy "
-                    f"but the '{ctype.name}' plug binding allows only: "
-                    f"{', '.join(ctype.bus_proxies)}",
-                    (src_of(group),)))
+            if bus is None:
+                if ctype and bus_kind_of(group.name) is not None:
+                    diags.append(error(
+                        "lang-shield-proxy",
+                        f"shield '{shield.name}': plug '{slot}' has a "
+                        f"'{group.name}' bus proxy but the '{ctype.name}' "
+                        f"plug binding allows only: "
+                        f"{', '.join(ctype.bus_proxies)}",
+                        (src_of(group),)))
+                else:
+                    diags.append(error(
+                        "lang-shield-proxy",
+                        f"shield '{shield.name}': plug '{slot}' has a "
+                        f"'{group.name}' group nested under it -- plain "
+                        "device groups belong at template level "
+                        "(plug-agnostic; their devices' refs each carry "
+                        "their own plug by phandle)",
+                        (src_of(group),)))
             for dnode in group.nodes.values():
                 dev, d = _parse_device(dnode, shield, plugs_by_path, bus,
-                                       None if bus else group.name, "plug")
+                                       None if bus else group.name,
+                                       slot if bus else None)
                 diags += d
                 shield.devices.append(dev)
                 shield.by_path[dnode.path] = dev
-    else:
-        # template-level groups: plug-agnostic (plain groups) -- a group
-        # whose name is bus-shaped is rejected, since a plural shield's
-        # bus groups must nest under their owning plug (Sec 2 placement
-        # rule), never sit at template level.
-        for group in node.nodes.values():
-            if group.name in _RESERVED or is_exposed(group) or group in plug_children:
-                continue
-            if bus_kind_of(group.name) is not None:
-                candidates = sorted(
-                    slot for slot, ct in ctypes_by_slot.items()
-                    if ct and group.name in ct.bus_proxies)
-                diags.append(error(
-                    "lang-shield-proxy",
-                    f"shield '{shield.name}' has a '{group.name}' bus proxy "
-                    "at template level, but a plural shield nests bus "
-                    "groups under their owning plug"
-                    + (f" — candidate plugs: {', '.join(candidates)}"
-                       if candidates else ""),
-                    (src_of(group),)))
-            for dnode in group.nodes.values():
-                dev, d = _parse_device(dnode, shield, plugs_by_path, None,
-                                       group.name, None)
-                diags += d
-                shield.devices.append(dev)
-                shield.by_path[dnode.path] = dev
-
-        # each plug's OWN bus groups, matched against ITS OWN connector
-        # type's bus_proxies -- the plug binding, structural (Sec 2). A
-        # group nested under a plug that is NEITHER a bus this plug's
-        # ctype allows NOR bus-kind-named at all is a plain group in the
-        # wrong place: Sec 2's placement rule keeps plain groups at
-        # template level (plug-agnostic), so nesting one under a plug is
-        # rejected here rather than silently recorded with Device.plug =
-        # slot -- the same symmetry the template-level walk above applies
-        # to a misplaced BUS group (its own lang-shield-proxy branch).
-        for slot, plug_node in nodes_by_slot.items():
-            ctype = ctypes_by_slot[slot]
-            for group in plug_node.nodes.values():
-                bus = group.name if ctype and group.name in ctype.bus_proxies else None
-                if bus is None:
-                    if ctype and bus_kind_of(group.name) is not None:
-                        diags.append(error(
-                            "lang-shield-proxy",
-                            f"shield '{shield.name}': plug '{slot}' has a "
-                            f"'{group.name}' bus proxy but the '{ctype.name}' "
-                            f"plug binding allows only: "
-                            f"{', '.join(ctype.bus_proxies)}",
-                            (src_of(group),)))
-                    else:
-                        diags.append(error(
-                            "lang-shield-proxy",
-                            f"shield '{shield.name}': plug '{slot}' has a "
-                            f"'{group.name}' group nested under it -- plain "
-                            "device groups belong at template level "
-                            "(plug-agnostic; their devices' refs each carry "
-                            "their own plug by phandle)",
-                            (src_of(group),)))
-                for dnode in group.nodes.values():
-                    dev, d = _parse_device(dnode, shield, plugs_by_path, bus,
-                                           None if bus else group.name,
-                                           slot if bus else None)
-                    diags += d
-                    shield.devices.append(dev)
-                    shield.by_path[dnode.path] = dev
 
     # then re-exported sockets (R19 pass-through, or S8 scope creation) --
     # a plural shield may declare one too (multi-plug-carrier-brief.md):

@@ -72,9 +72,9 @@ class GpioRef:
     already validates the phandle against a plug; this records WHICH one),
     granularity PER-REFERENCE rather than per-device: a device sitting on
     one plug's bus may still carry a gpio ref that names a DIFFERENT plug
-    (a cross-plug reference, multi-plug-shield-brief.md Sec 2). `"plug"`
-    (the single form's own default slot name) for every reference of a
-    single-plug shield."""
+    (a cross-plug reference, multi-plug-shield-brief.md Sec 2). For a
+    shield with one plug this is that plug's own node name -- `"plug"` by
+    convention, but its NAME, not a default."""
 
     prop: str
     position: Optional[int]
@@ -219,13 +219,13 @@ class Shield:
     name: str                       # node name: "adafruit-data-logger"
     label: str                      # DTS label: data_logger
     # slot name -> consumed connector type, in AUTHORING order
-    # (multi-plug-shield-brief.md Sec 3). The single-plug authored form
-    # (template-level `shield,plugs`) normalizes to the one-entry
-    # `{"plug": "<type>"}` at parse time, the node's own reserved name --
-    # so this is a Dict of exactly one entry for every shield until a
-    # plural one is authored, and every consumer keys through it rather
-    # than assuming a bare string. `len(plugs) > 1` IS the plurality
-    # discriminator this slice's rendering/refusal rules gate on.
+    # (multi-plug-shield-brief.md Sec 3). One entry per plug NODE, keyed by
+    # that node's own name -- conventionally `"plug"` for a shield with one
+    # (plug-unification-brief.md: there is one authored form, so a single
+    # plug is not a normalized special case). Every consumer keys through
+    # this rather than assuming a bare string, and `len(plugs) > 1` IS the
+    # plurality discriminator every rendering/refusal rule gates on --
+    # never the authored shape, which no longer varies.
     plugs: Dict[str, str]
     devices: List[Device] = field(default_factory=list)
     pads: Dict[str, Pad] = field(default_factory=dict)
@@ -327,9 +327,8 @@ class Instance:
     # (socket-inference-brief.md), now per slot. The loader carries the
     # absence through unresolved rather than picking one itself: it never
     # sees the board, which is precisely what lets it stay ignorant of
-    # board identity everywhere else. The single-plug form's own shape is
-    # `{"plug": <value-or-None>}` -- one entry, same default slot name
-    # Shield.plugs normalizes to.
+    # board identity everywhere else. A shield with one plug has one entry,
+    # keyed by that plug's own name exactly as `Shield.plugs` is.
     sockets: Dict[str, Optional[str]]
     invert: bool = False            # flip the active level of the module's gpio signals
     pins: Dict[str, int] = field(default_factory=dict)          # strap name -> pinned address

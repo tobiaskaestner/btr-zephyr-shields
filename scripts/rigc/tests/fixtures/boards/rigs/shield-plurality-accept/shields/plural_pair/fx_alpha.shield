@@ -8,8 +8,10 @@
 / {
 	shield-templates {
 		fx_alpha: fx_alpha {
-			shield,plugs = "fixture-nexus";
-			fxa_plug: plug { #gpio-cells = <2>; };
+			fxa_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "fixture-nexus";
+			};
 
 			gpio {
 				fxa_led: led {

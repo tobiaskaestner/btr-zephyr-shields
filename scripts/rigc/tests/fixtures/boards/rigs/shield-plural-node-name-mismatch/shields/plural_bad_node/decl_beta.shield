@@ -7,13 +7,15 @@
 / {
 	shield-templates {
 		wrong_node: wrong_node {
-			shield,plugs = "i2c-port";
-			pbb_plug: plug { #gpio-cells = <2>; };
+			pbb_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "i2c-port";
 
-			i2c {
-				pbb_sensor: sensor@61 {
-					compatible = "vnd,temp0x48";
-					reg = <0x61>;
+				i2c {
+					pbb_sensor: sensor@61 {
+						compatible = "vnd,temp0x48";
+						reg = <0x61>;
+					};
 				};
 			};
 		};

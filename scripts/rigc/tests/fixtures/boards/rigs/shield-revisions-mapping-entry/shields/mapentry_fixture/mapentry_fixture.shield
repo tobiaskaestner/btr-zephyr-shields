@@ -8,13 +8,15 @@
 / {
 	shield-templates {
 		mapentry_fixture: mapentry_fixture {
-			shield,plugs = "i2c-port";
-			me_plug: plug { #gpio-cells = <2>; };
+			me_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "i2c-port";
 
-			i2c {
-				me_sensor: sensor@60 {
-					compatible = "vnd,temp0x48";
-					reg = <0x60>;
+				i2c {
+					me_sensor: sensor@60 {
+						compatible = "vnd,temp0x48";
+						reg = <0x60>;
+					};
 				};
 			};
 		};

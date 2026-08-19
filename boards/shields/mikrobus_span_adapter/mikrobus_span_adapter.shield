@@ -23,12 +23,10 @@
 			left_plug: left {
 				compatible = "shield,plug";
 				shield,plugs = "mikrobus";
-				#gpio-cells = <2>;
 			};
 			right_plug: right {
 				compatible = "shield,plug";
 				shield,plugs = "mikrobus";
-				#gpio-cells = <2>;
 			};
 
 			combined: combined {

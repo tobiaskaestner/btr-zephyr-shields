@@ -9,13 +9,15 @@
 / {
 	shield-templates {
 		fixture_spi_sensor: fixture_spi_sensor {
-			shield,plugs = "fixture-multibus";
-			fss_plug: plug { #gpio-cells = <2>; };
+			fss_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "fixture-multibus";
 
-			spi-sensors {
-				fss_sensor: sensor {
-					compatible = "vnd,fixture-spi-sensor";
-					spi-max-frequency = <1000000>;
+				spi-sensors {
+					fss_sensor: sensor {
+						compatible = "vnd,fixture-spi-sensor";
+						spi-max-frequency = <1000000>;
+					};
 				};
 			};
 		};

@@ -10,8 +10,10 @@
 / {
 	shield-templates {
 		tc_pwm_consumer: tc_pwm_consumer {
-			shield,plugs = "three-cell-pwm-nexus";
-			plug: plug { #pwm-cells = <3>; };
+			plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "three-cell-pwm-nexus";
+			};
 
 			pwm {
 				led: led {

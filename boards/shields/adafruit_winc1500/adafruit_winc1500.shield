@@ -19,8 +19,21 @@
 / {
 	shield-templates {
 		winc1500: adafruit_winc1500 {
-			shield,plugs = "arduino-r3";
-			w_plug: plug { #gpio-cells = <2>; };
+			w_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "arduino-r3";
+
+				spi {
+					w_wifi: wifi {
+						compatible = "atmel,winc1500";
+						/* no shield,cs-position -> CS pool-allocated */
+						spi-max-frequency = <24000000>;
+						irq-gpios = <&w_irq_jmp GPIO_ACTIVE_LOW>;	/* position deferred to the jumper */
+						reset-gpios = <&w_plug ARDUINO_HEADER_R3_D5 GPIO_ACTIVE_LOW>;
+						enable-gpios = <&w_plug ARDUINO_HEADER_R3_D6 GPIO_ACTIVE_HIGH>;
+					};
+				};
+			};
 
 			config {
 				w_irq_jmp: irq-jmp {
@@ -28,17 +41,6 @@
 					shield,position-domain = <ARDUINO_HEADER_R3_D7 0>,	/* default */
 								 <ARDUINO_HEADER_R3_D2 1>;	/* alt */
 					shield,sheet-label = "IRQ select (SJ2)";
-				};
-			};
-
-			spi {
-				w_wifi: wifi {
-					compatible = "atmel,winc1500";
-					/* no shield,cs-position -> CS pool-allocated */
-					spi-max-frequency = <24000000>;
-					irq-gpios = <&w_irq_jmp GPIO_ACTIVE_LOW>;	/* position deferred to the jumper */
-					reset-gpios = <&w_plug ARDUINO_HEADER_R3_D5 GPIO_ACTIVE_LOW>;
-					enable-gpios = <&w_plug ARDUINO_HEADER_R3_D6 GPIO_ACTIVE_HIGH>;
 				};
 			};
 		};

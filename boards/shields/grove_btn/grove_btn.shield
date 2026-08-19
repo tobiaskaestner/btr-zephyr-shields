@@ -26,8 +26,10 @@
 / {
 	shield-templates {
 		grove_btn: grove_btn {
-			shield,plugs = "grove";
-			gb_plug: plug { #gpio-cells = <2>; };
+			gb_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "grove";
+			};
 
 			gpio {
 				gb_key: button {

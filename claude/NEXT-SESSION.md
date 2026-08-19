@@ -1,6 +1,222 @@
 # Rigs — Session Handoff
 
-## RESUME (2026-08-19) — ALL THREE BLOCKERS ARE CLOSED. The expander keeps its workdir, the docs build from the workspace `.venv`, and `doc/reference/` gained a COMMAND reference plus the full rigc API reference. NEXT = reference slices 2/3, then rig-schema.yaml → BRIDLE MIGRATION.
+## RESUME (2026-08-19b) — THERE IS NOW **ONE** PLUG FORM. Tobi's review of the docs and the corpus killed the single/plural asymmetry and took the cell counts off every plug node. **NOTHING IS COMMITTED** — read the state section before touching anything. NEXT = commit this, then reference slices 2/3, then rig-schema.yaml → BRIDLE MIGRATION.
+
+### STATE AT SESSION CLOSE (2026-08-19b) — UNCOMMITTED, READ THIS FIRST
+
+**The tree is DIRTY and nothing from this slice is committed.** `main` is
+still **ahead 54 of origin**, HEAD still `b5d36e5` (the previous block's
+own handoff commit). ~66 files are modified in the working tree. Derive
+the real state from `git status` and `git diff --stat`, never from this
+paragraph — it was written before the commit existed, which is the exact
+failure mode the previous three blocks each hit from the other direction.
+
+**Gate DRIVER-VERIFIED at close: `check.sh: ALL GREEN`, exit 0** — the
+FULL gate, build tier included, run after the goldens were refrozen. The
+first full run FAILED on 6 golden mismatches (see "the goldens" below);
+this is the second. Re-derive anyway, per this file's own rule.
+
+| | measured at close |
+|---|---|
+| mypy | clean, **107** source files |
+| unit | **777** passed (was 771: +6 net) |
+| coverage | **94%** vs the 88 floor |
+| integration | **297** passed, none deselected (was 294: +3 doc laws) |
+| docs | `-W --keep-going` **build succeeded**; `sphinxlint` clean |
+
+Note the gate's own exit status is what says this, not a tail of its log:
+the first run's `EXIT=1` was masked by how it was invoked (see CARRIED).
+
+### 1. The ruling — one authored form (`claude/plug-unification-brief.md`)
+
+Tobi, reviewing `adafruit_data_logger` against `can_span_click`: *"note how
+the adafruit_datalogger defines the i2c and spi nodes as sibling of the
+plug node, whereas the can_span_click has these nodes as child nodes of
+the left_plug and right_plug nodes respectively. It would be much more
+consistent if the single plug syntax would work the same."* Plus a
+question: *"for what the #gpio-cells property is actually needed on a plug
+node."*
+
+Both were ruled the maximal way, on evidence:
+
+1. **FULL unification.** N plug nodes, N ≥ 1, each carrying
+   `compatible = "shield,plug"` and its own `shield,plugs`.
+   **Template-level `shield,plugs` is RETIRED** with a diagnostic that
+   names where it moved. The `plug`-is-a-reserved-name rule is gone.
+2. **Cells leave the plug node** — `#gpio-cells`/`#pwm-cells`/
+   `#io-channel-cells` stripped everywhere and now REFUSED there
+   (`lang-shield-plug-cells`). `_ncells` and `_FUNCTION_DEFAULT_CELLS`
+   stay: a routing jumper's own `<1>` is genuinely load-bearing.
+
+### 2. The asymmetry was a SILENT-FAILURE TRAP, not a style wart
+
+This is the finding that justified the scope. Probed against
+`parse_shields` before writing anything: a single-plug shield with its bus
+groups **nested** under `plug` — the spelling Tobi wanted to work —
+parsed to **0 devices and 0 diagnostics**. Same for a plain group nested
+there. `_RESERVED` held `"plug"`, the single-form walk skipped every
+reserved name, so the plug node's children were never visited at all. An
+author writing the plural spelling on a single-plug shield got an empty
+overlay and no complaint: **item 41's defect shape one level up**, and the
+tutorial taught the form that hits it.
+
+### 3. THE KEY FACT that made it cheap — downstream never knew
+
+Every consumer of plurality below `shields.py` already discriminated on a
+COUNT (`len(shield.plugs) > 1`), never on the authored form:
+`analyzer/sockets.py`, `emitter/sheet.py`, `promote.py`. And the retired
+single branch already normalized into the same `shield.plugs` /
+`nodes_by_slot` / `plugs_by_path` the plural walk consumed. `shields.py`
+is the ONLY module that reads `shield,plugs` at all. So the slice was a
+parse-layer change plus a mechanical migration — not a pipeline refactor.
+Re-derive that before relying on it.
+
+### 4. What moved
+
+- **`shields.py`** — the `is_plural` fork deleted; one group walk with the
+  plural rules for everybody; the retirement diagnostic; the cells
+  refusal; the jumper refusal now `len(shield.plugs) > 1`; plain-group
+  devices get `only_slot` (the one plug's own NAME) instead of the
+  hardcoded `"plug"`.
+- **22 corpus `.shield` files**, ~32 integration fixtures, ~40 inline
+  `test_shields.py` fixtures — migrated by a throwaway brace-aware
+  transform (session-local, NOT kept: it emitted a diff per file, reviewed
+  one by one, and reported rather than touched anything it could not
+  classify). Two negative fixtures it correctly refused were hand-migrated
+  — but two it DID rewrite had their deliberately-retired spellings eaten
+  and had to be rebuilt as tests of the new refusals. **If a future slice
+  scripts a corpus migration, check what it did to the negative fixtures
+  first.**
+- **Docs** — `shield-template.rst`'s two form sections collapsed to one,
+  plus a new "Where a group goes" section stating the placement rule
+  once; `write-a-shield-template.rst`; `commands.rst`'s promotion
+  grammar (now count-worded); `glossary.rst` gained **routing jumper**.
+- **Six stale shield comments** and five stale source comments that the
+  change falsified (`model.py`, `analyzer/sockets.py`, `shields.py`).
+
+### 5. Six mutations, and the one that SURVIVED is the useful one
+
+Mutated one at a time, `__pycache__` purged on both sides, source
+verified restored byte-identical: the cells refusal; the per-plug walk;
+the template-level bus-group refusal; the retirement diagnostic;
+`only_slot` → the retired hardcoded `"plug"`; the nested plain-group
+refusal. Six mutations, six kills. (The harness was session-local and is
+not kept — the list above is the durable part.) The first attempt at one
+of them **survived**: restoring
+`"plug"` to `_RESERVED` changes NO behavior, because plug nodes are now
+skipped by identity and their children are reached by the per-plug walk,
+which never consults `_RESERVED`. So that removal is a CLEANUP, not the
+fix — mutating the **per-plug walk** is what kills the test. The
+`_RESERVED` comment says exactly this and names the mutation. **The rule
+holds again: run the mutation, do not reason about it** — I had written a
+confident, wrong causal claim in the brief and the mutation corrected it.
+
+### 6. The goldens — Sec 2 of the brief was HALF WRONG
+
+The brief predicted byte-identical goldens. **Overlays: correct, all
+untouched. Six stderr goldens: WRONG** — the full gate found them
+(`test_emitted_golden` for the five `REJECT_CASES`, plus
+`test_pwm_nonzero_flags_golden`). A diagnostic cites its source location,
+and moving a bus group moved both halves:
+
+- **line numbers** shifted in every migrated file (a one-line plug node
+  became a block);
+- **DTS node paths gained a `plug/` segment** for bus devices —
+  `/shield-templates/adafruit_winc1500/spi/wifi` →
+  `.../adafruit_winc1500/plug/spi/wifi`.
+
+Refrozen with `RIGC_REFREEZE=1`, and **the refrozen diff is itself the
+proof the change was placement-only: every changed line is an
+`at <file>:<line> (<dts path>)` location** — no verdict, no message body,
+no exit code, no overlay. Two things in it worth keeping:
+
+- `grove_servo`'s path stayed `/shield-templates/grove_servo/pwm/servo`.
+  `pwm` is a PLAIN group, so it did not move — the goldens confirm on real
+  output that the placement rule discriminates bus from plain as intended.
+- The `plug/` segment makes the diagnostic strictly better: it now says
+  WHICH plug a conflicting reference resolves through, which the old path
+  could not carry on a two-plug shield.
+
+**The lesson that outlives this slice:** a byte-compared stderr golden
+makes every source LINE NUMBER part of the contract. Any edit that moves
+lines in a `.shield` file changes goldens however semantically inert it
+is — so "no behavior change" never implies "no golden change", and
+`CHECK_FAST=1` checks none of them.
+
+### 7. Two new doc laws, both mutation-checked, and why they were needed
+
+`test_dts_vocabulary_drift.py` gained: **no doc example shows
+template-level `shield,plugs`** (every documented `shield,plugs` sits
+beside a `compatible = "shield,plug"`), **no doc example declares cells on
+a plug node**, and a **vacuity control** (floors on blocks found, pages
+covered, plug nodes present). The existing vocabulary scan could see
+neither change — `shield,plugs` is a real production literal wherever it
+sits, and `#<fn>-cells` is not in the `shield,*`/`plug,*`/`socket,*`
+families at all. Both laws were mutated against real doc pages — the
+tutorial reverted to template-level `shield,plugs`, the reference given
+back a `#gpio-cells` on a plug node — and both killed.
+
+### 8. One fixture had the only non-default plug cells anywhere
+
+`carrier-analog-passthrough`'s `fixture_analog_carrier` declared
+`#pwm-cells = <2>` on its plug and shaped its `pwm-map` rows to a 2-cell
+parent side. Four integration tests red on `truncated entry` until the
+rows gained a third parent cell. **Every real carrier already used three**
+(`seeed_grove_base_v2`), so the fixture was the outlier. The consequence,
+now documented on `shield-template.rst` and in the fixture header: a
+pass-through map row's two halves differ in kind — the CHILD side carries
+whatever the exposed socket declares, the PARENT side is a plug and is
+therefore always the generic count (2 gpio, 3 pwm, 1 adc), with nothing
+left to vary.
+
+### Backlog delta
+
+Closed: nothing numbered — this slice came from Tobi's review, not the
+backlog. The `#gpio-cells = <3>`-on-a-plug hole (an unvalidated knob,
+item 40's family) is closed by the refusal, incidentally.
+
+Opened: nothing. **41** (`rig.yml` silently ignores unknown keys under
+`rig:`) and **42** (`west rigs --rig TARGET` accepted and never read) are
+**both still open and still unruled** — untouched by this slice.
+
+Unchanged and still the destination: **rig-schema.yaml (item 7) → BRIDLE
+MIGRATION (item 9)**, with reference slices 2/3 still unstarted before
+them.
+
+### NEXT
+
+1. **COMMIT THIS SLICE** — it is one coherent change (parse rule + corpus
+   + fixtures + tests + docs + goldens) and the gate must be re-derived
+   first, since the second full run's verdict never reached this file.
+2. **Reference slices 2 and 3** — unchanged, still unstarted: (2)
+   `rig-file.rst` + `promotion.rst`, (3) the 42-code diagnostic
+   catalogue. `promotion.rst` should take over the promotion grammar's
+   semantics from `commands.rst`.
+3. **`rig-schema.yaml`** (item 7), which item 41 belongs to.
+4. **BRIDLE MIGRATION** (item 9) — the mission goal, and the reason this
+   slice went first: every shield ported from bridle would otherwise have
+   been authored in the form now retired. Re-run
+   `bridle-migration.md`'s triage against bridle's CURRENT upstream.
+
+### CARRIED — one correction
+
+**`RIGC_REFREEZE=1` is NOT blocked** — the previous three blocks carried
+"still blocked by the harness classifier" and it ran without complaint
+today, refreezing six goldens in 16s. Drop the warning.
+
+Still true: from a session rooted at `/wrk/z/ws-up`,
+`rig-implementor`/`rig-reviewer` are NOT agent types. `ZEPHYR_BASE` for
+this workspace is `/wrk/z/ws-up/zephyr`. `doc/_build/html` is a local
+render, never committed — **rebuild before reading it.**
+
+One harness note worth carrying: invoking the gate as
+`scripts/check.sh > log; echo $?; tail log` in a BACKGROUND command
+reports the COMPOUND's exit status (`tail`'s, always 0), which read as a
+green gate for a run that exited 1. Make `check.sh` the last command.
+
+---
+
+## RESUME (2026-08-19, superseded) — ALL THREE BLOCKERS ARE CLOSED. The expander keeps its workdir, the docs build from the workspace `.venv`, and `doc/reference/` gained a COMMAND reference plus the full rigc API reference. NEXT = reference slices 2/3, then rig-schema.yaml → BRIDLE MIGRATION.
 
 ### STATE AT SESSION CLOSE (2026-08-19)
 

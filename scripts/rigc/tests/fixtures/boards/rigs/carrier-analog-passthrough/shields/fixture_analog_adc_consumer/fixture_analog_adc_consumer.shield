@@ -6,8 +6,10 @@
 / {
 	shield-templates {
 		fixture_analog_adc_consumer: fixture_analog_adc_consumer {
-			shield,plugs = "fixture-analog-nexus";
-			plug: plug { #gpio-cells = <2>; #io-channel-cells = <1>; };
+			plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "fixture-analog-nexus";
+			};
 
 			adc {
 				faac_sensor: sensor {

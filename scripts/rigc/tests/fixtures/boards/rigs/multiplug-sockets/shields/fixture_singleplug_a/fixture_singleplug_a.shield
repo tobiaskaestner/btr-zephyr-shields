@@ -6,8 +6,10 @@
 / {
 	shield-templates {
 		fixture_singleplug_a: fixture_singleplug_a {
-			shield,plugs = "fixture-mp-a";
-			plug: plug { #gpio-cells = <2>; };
+			plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "fixture-mp-a";
+			};
 		};
 	};
 };

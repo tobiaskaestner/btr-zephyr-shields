@@ -20,12 +20,12 @@
 			left_plug: left {
 				compatible = "shield,plug";
 				shield,plugs = "mikrobus";
-				#gpio-cells = <2>;
 
-				/* Bus groups NEST under their plug in the plural form
-				 * (structural, no new property) -- this is what
-				 * dissolves the sibling-name collision two same-kind
-				 * buses would otherwise have. */
+				/* Bus groups NEST under their plug (structural, no
+				 * new property) -- this is what dissolves the
+				 * sibling-name collision two same-kind buses would
+				 * otherwise have, and since plug-unification-brief.md
+				 * it is the rule at ANY plug count, one included. */
 				spi {
 					can0: can0 {
 						compatible = "microchip,mcp2515";
@@ -39,7 +39,6 @@
 			right_plug: right {
 				compatible = "shield,plug";
 				shield,plugs = "mikrobus";
-				#gpio-cells = <2>;
 
 				spi {
 					log_flash: log_flash {

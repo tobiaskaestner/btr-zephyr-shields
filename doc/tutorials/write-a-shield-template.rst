@@ -35,8 +35,10 @@ uses. The one substitution is the file extension: where a Zephyr shield has
    / {
            shield-templates {
                    acme_grove_led: acme_grove_led {
-                           shield,plugs = "grove";
-                           agl_plug: plug { #gpio-cells = <2>; };
+                           agl_plug: plug {
+                                   compatible = "shield,plug";
+                                   shield,plugs = "grove";
+                           };
 
                            gpio {
                                    agl_led: led {
@@ -59,15 +61,19 @@ uses. The one substitution is the file extension: where a Zephyr shield has
 
 Three things in that ``.shield`` file carry the whole idea:
 
-``shield,plugs = "grove"``
-   What this module mates with. It is the same :term:`connector type` name
-   the board's socket used, and it is the entire compatibility check: a
-   Grove module goes in a Grove socket, and an attempt to put it anywhere
-   else is rejected before the build starts.
-
-``agl_plug: plug``
+``agl_plug: plug`` with ``compatible = "shield,plug"``
    The :term:`plug` — the module's own side of the connector, as a nexus
-   node. It stands in for "whatever socket I end up in".
+   node. It stands in for "whatever socket I end up in". A shield declares
+   one node like this per plug it has; the node's name (``plug`` here) is
+   just what this shield calls that slot, and a module with two connectors
+   declares two such nodes with two names. Nothing about having one is a
+   special case.
+
+``shield,plugs = "grove"``
+   What this plug mates with, declared *on the plug*. It is the same
+   :term:`connector type` name the board's socket used, and it is the
+   entire compatibility check: a Grove module goes in a Grove socket, and
+   an attempt to put it anywhere else is rejected before the build starts.
 
 ``gpios = <&agl_plug GROVE_SIG0 GPIO_ACTIVE_HIGH>``
    The LED is wired to the connector's first signal. Not to ``gpioa 10``,

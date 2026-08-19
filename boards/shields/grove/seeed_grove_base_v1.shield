@@ -46,8 +46,10 @@
 / {
 	shield-templates {
 		seeed_grove_base_v1: seeed_grove_base_v1 {
-			shield,plugs = "arduino-r3";
-			sgbv1_plug: plug { #gpio-cells = <2>; #io-channel-cells = <1>; };
+			sgbv1_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "arduino-r3";
+			};
 
 			grove_i2c: grove_i2c {
 				compatible = "socket,grove";

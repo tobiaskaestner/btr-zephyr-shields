@@ -10,13 +10,15 @@
 / {
 	shield-templates {
 		fixture_spi_unknown: fixture_spi_unknown {
-			shield,plugs = "fixture-multibus";
-			fsu_plug: plug { #gpio-cells = <2>; };
+			fsu_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "fixture-multibus";
 
-			spi-unknown-name {
-				fsu_dev: dev {
-					compatible = "vnd,fixture-spi-unknown";
-					spi-max-frequency = <1000000>;
+				spi-unknown-name {
+					fsu_dev: dev {
+						compatible = "vnd,fixture-spi-unknown";
+						spi-max-frequency = <1000000>;
+					};
 				};
 			};
 		};

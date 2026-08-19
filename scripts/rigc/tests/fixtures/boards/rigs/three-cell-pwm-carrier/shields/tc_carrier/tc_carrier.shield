@@ -14,8 +14,10 @@
 / {
 	shield-templates {
 		tc_carrier: tc_carrier {
-			shield,plugs = "three-cell-pwm-nexus";
-			plug: plug { #pwm-cells = <3>; };
+			plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "three-cell-pwm-nexus";
+			};
 
 			tc_out: tc_out {
 				compatible = "socket,three-cell-pwm-nexus";

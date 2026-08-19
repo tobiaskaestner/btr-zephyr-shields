@@ -30,8 +30,10 @@
 / {
 	shield-templates {
 		grove_pwm_led_inv: grove_pwm_led_inv {
-			shield,plugs = "grove";
-			gpli_plug: plug { #gpio-cells = <2>; #pwm-cells = <3>; };
+			gpli_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "grove";
+			};
 
 			pwm {
 				gpli_led: led {

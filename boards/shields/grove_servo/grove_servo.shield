@@ -1,6 +1,7 @@
 /* Shield: Grove Servo (PWM). Uses the Grove signal pin as PWM: the pwms
- * property targets the plug in the PWM function (#pwm-cells = 3: position,
- * period, flags); the expander resolves the position through the socket's
+ * property targets the plug in the PWM function, a 3-cell claim (position,
+ * period, flags -- the generic count, which is why the plug node declares
+ * none); the expander resolves the position through the socket's
  * pwm-map to a (timer, channel), emits the resolved pwms, enables the
  * timer, and notes the board pin-mux.
  */
@@ -11,8 +12,10 @@
 / {
 	shield-templates {
 		grove_servo: grove_servo {
-			shield,plugs = "grove";
-			gsv_plug: plug { #gpio-cells = <2>; #pwm-cells = <3>; };
+			gsv_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "grove";
+			};
 
 			pwm {
 				servo: servo {

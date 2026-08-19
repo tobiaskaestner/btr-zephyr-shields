@@ -12,8 +12,10 @@
 / {
 	shield-templates {
 		pilot_alt_button: pilot_alt_button {
-			shield,plugs = "arduino-r3";
-			pab_plug: plug { #gpio-cells = <2>; };
+			pab_plug: plug {
+				compatible = "shield,plug";
+				shield,plugs = "arduino-r3";
+			};
 
 			gpio {
 				pab_key: button {

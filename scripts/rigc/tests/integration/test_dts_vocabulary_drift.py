@@ -193,3 +193,84 @@ def test_dts_vocabulary_qualified_families_are_documented_by_pattern() -> None:
         assert bare in documented, (
             f"bare bus proxy '{bare}' (rigc.buskind.BUS_KINDS) has no "
             "dedicated heading on either reference page")
+
+
+# ------------------------------------------------- the retired plug spelling
+# The vocabulary scan above cannot see this one: `shield,plugs` is a real
+# production literal either way, so a page still showing it on the TEMPLATE
+# node passes every check above while teaching a form the loader refuses
+# (plug-unification-brief.md). This is the law that catches that, over
+# EVERY doc page rather than the two reference ones -- a tutorial's example
+# is the copy a reader actually pastes.
+
+_DEVICETREE_BLOCK = re.compile(
+    r"^([ \t]*)\.\. code-block:: devicetree[ \t]*\n(.*?)(?=\n\1\S|\Z)",
+    re.S | re.M)
+
+
+def _devicetree_blocks():
+    """(page, block text) for every `.. code-block:: devicetree` under
+    doc/, tutorials and how-tos included."""
+    for page in sorted((REPO_ROOT / "doc").rglob("*.rst")):
+        if "_build" in page.parts:
+            continue
+        for m in _DEVICETREE_BLOCK.finditer(page.read_text()):
+            yield page, m.group(2)
+
+
+def test_no_doc_example_shows_the_retired_template_level_shield_plugs() -> None:
+    """A plug declares its own connector type, so every documented
+    `shield,plugs` sits beside a `compatible = "shield,plug"` in the same
+    example. A block naming the property without the compatible is either
+    the retired template-level spelling or an excerpt that cannot be
+    pasted -- both mislead the reader the same way."""
+    offenders = [
+        str(page.relative_to(REPO_ROOT))
+        for page, block in _devicetree_blocks()
+        if "shield,plugs" in block and 'compatible = "shield,plug"' not in block]
+    assert offenders == [], (
+        "doc example(s) show shield,plugs without the plug node's own "
+        f"compatible = \"shield,plug\": {offenders}")
+
+
+def test_no_doc_example_declares_cells_on_a_plug_node() -> None:
+    """And the cells ruling, in the same place: a plug node declares no
+    `#<fn>-cells` (`lang-shield-plug-cells`). A jumper's own
+    `#gpio-cells = <1>` is fine and must stay documented, so this looks
+    only inside the plug node's own braces."""
+    cells = ("#gpio-cells", "#pwm-cells", "#io-channel-cells")
+    offenders = []
+    for page, block in _devicetree_blocks():
+        lines = block.split("\n")
+        for i, line in enumerate(lines):
+            if 'compatible = "shield,plug"' not in line:
+                continue
+            # walk back to the node's opening brace, then forward to its close
+            start = next(j for j in range(i, -1, -1) if "{" in lines[j])
+            depth = 0
+            for j in range(start, len(lines)):
+                depth += lines[j].count("{") - lines[j].count("}")
+                if any(c in lines[j] for c in cells):
+                    offenders.append(
+                        f"{page.relative_to(REPO_ROOT)}: {lines[j].strip()}")
+                if depth <= 0 and j > start:
+                    break
+    assert offenders == [], (
+        f"doc example(s) declare cell counts on a plug node: {offenders}")
+
+
+def test_the_devicetree_block_scan_finds_something() -> None:
+    """The control for the two laws above: both assert an EMPTY offender
+    list, so a block regex that matched nothing would let them pass
+    vacuously -- `test_cli_reference_drift`'s own lesson
+    (plug-unification-brief.md, and the handoff's "run the mutation; do
+    not reason about it"). Fixed floors, deliberately well under the real
+    counts so ordinary doc growth never trips them."""
+    blocks = list(_devicetree_blocks())
+    assert len(blocks) >= 15, f"only {len(blocks)} devicetree blocks found"
+    pages = {page for page, _ in blocks}
+    assert len(pages) >= 4, f"only {len(pages)} pages carry one"
+    with_plug = [b for _, b in blocks if 'compatible = "shield,plug"' in b]
+    assert len(with_plug) >= 3, (
+        f"only {len(with_plug)} block(s) show a plug node -- the cells law "
+        "has nothing to look inside")
