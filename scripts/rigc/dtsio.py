@@ -5,7 +5,7 @@ touches the board DT (that is an analyzer-slice concern); what's here is
 cpp + stock dtlib parsing of `.shield` translation units (Ground rule 3
 -- shield templates are pre-instantiation text with no binding/schema of
 their own, so there is nothing for edtlib to attach type info to),
-dt-bindings/connector/*.h position-index header parsing, and
+``dt-bindings/connector/*.h`` position-index header parsing, and
 resolve_token/check_include, the per-instance-parameter mechanism's own
 synthetic-TU resolution.
 

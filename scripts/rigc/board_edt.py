@@ -11,7 +11,7 @@ io-channel-map nexuses -- read the same way gpio-map already is, via
 edtlib.Node.maps() -- onto a position -> (controller label, channel) shape
 (see boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi). Not every
 socket carries these maps (only PWM/ADC-capable ones do); node.maps simply
-omits the key for a *-map property the node doesn't author, so the loops
+omits the key for a ``*-map`` property the node doesn't author, so the loops
 below are no-ops for sockets without one.
 """
 from __future__ import annotations

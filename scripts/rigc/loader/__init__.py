@@ -1,7 +1,7 @@
 """The loader proper: rig.yml metadata (qualifier axes), the shield
 library, the required content file, fragment discovery, and the V1b
-delta engine with params/pins fully wired -- assembled here from the
-loader's own submodules:
+delta engine with params/config fully wired -- assembled here from the
+loader's own submodules::
 
   documents.py  -- mark-aware YAML, content-filename construction
   axes.py       -- revisions:/variants: declaration + resolution (the
@@ -14,7 +14,7 @@ loader's own submodules:
   fragments.py  -- rule 10, the fragment-presence check
   library.py    -- the shield library: scan, axes, lazy revision
                    resolution (rigc-r3-brief.md Sec 4)
-  params.py     -- params/pin machinery (Sec 5); the per-instance-
+  params.py     -- params:/config: machinery (Sec 5); the per-instance-
                    parameter vocabulary is the owning DEVICE's own
                    declared_param_includes (param-vocabulary-brief.md),
                    never a rig.yml declaration
@@ -28,8 +28,10 @@ BEFORE rig.yml even opens, mirroring the blueprint's own `load():1186` --
 therefore precedes every rig-side one.
 
 `load()` returns (Rig | None, diagnostics) rather than raising on a
-reject: a load that finds nothing wrong falls through to cli.py's own
-Unimplemented("expand: the accept path...") -- never a silent 0.
+reject: a load that finds nothing wrong hands its Rig to cli.py, which
+carries on into the board reader, the analyzer and the emitter (the
+accept path has been complete since R5; this used to fall through to an
+Unimplemented refusal instead).
 
 **Three phases (rigc-r45-brief.md Part A)**: `load()` itself is now just
 the library scan, three phase calls, and the final Rig assembly --

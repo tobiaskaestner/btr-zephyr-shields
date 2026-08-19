@@ -60,7 +60,8 @@ class ConnectorType:
 
 @dataclass
 class GpioRef:
-    """A gpio-spec property on a shield device. Two shapes (Conv. 2):
+    """A gpio-spec property on a shield device. Two shapes (Conv. 2)::
+
       fixed position  -- <&plug POSITION flags>: position is position.
       deferred (R6)   -- <&jumper flags>: position selected by a routing
                         jumper, jumper names it and position is None

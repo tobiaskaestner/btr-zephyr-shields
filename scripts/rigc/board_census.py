@@ -13,7 +13,7 @@ needs cpp + edtlib + a BuildRecipe, and every board this tooling can build
 is an hwmv2 extension a standalone catalog scan never sees -- a real
 per-board read costs a real cmake configure per candidate. That is not a
 query. So this module censuses board rig-extension SOURCES instead
-(*.dts/*.dtsi text, regex, no dtlib) and answers a narrower, cheaper
+(``*.dts``/``*.dtsi`` text, regex, no dtlib) and answers a narrower, cheaper
 question: which boards' typed sockets satisfy a rig's socket requirements
 -- reference resolution (defining label or conventional alias), connector-
 type mating, bus subset exposure, and stackability. It is NOT a promise
@@ -34,7 +34,7 @@ CensusBoard's type_name in place.
 **The partial Board** this census can build (brief Sec 4.1): only label,
 type_name, buses (membership, not target -- see `census_board`), src and
 path are real; gpio_map/pwm_map/adc_map/cs_pool stay empty/None, since a
-text scan cannot resolve a *-map's phandle target or a binding's default.
+text scan cannot resolve a ``*-map``'s phandle target or a binding's default.
 Its only valid consumer is `analyzer.sockets.resolve_sockets`, which is
 exactly what `boards_for` runs -- ONE implementation of the mating/subset/
 alias/stackability rule, never restated here. An unrouted gpio_map is

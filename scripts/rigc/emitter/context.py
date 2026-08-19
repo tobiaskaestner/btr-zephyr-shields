@@ -46,21 +46,22 @@ def render(rig: Rig, deps: Deps) -> bytes:
     fresh bytes value the caller owns.
 
     RIG_NAME/RIG_BOARD/RIG_SHIELDS always appear. RIG_BOARD is `rig.board`
-    verbatim, which since the board coordinate landed
-    (board-coordinate-s1-brief.md) is the board this build actually used
-    -- the CLI's `--board`, when the invocation gave one, or the rig's own
-    declared board otherwise; this function has no injection logic of its
-    own, it only ever echoes what the loader already resolved.
-    RIG_SHIELD_REVISIONS/
-    RIG_REVISION/RIG_VARIANT appear only when the rig actually declares
-    the corresponding axis/shield-revision -- the "no declaration, no
-    artifact" rule that keeps an axis-less rig's context.cmake
-    byte-identical to one from before the axis existed. RIG_REVISION is
-    always the RESOLVED value (hwmv2's nearest-lower match already
-    applied, hwmv2-revision-semantics-brief.md Sec 3); RIG_REVISION_
-    REQUESTED appears alongside it only when a request was made AND it
-    differs from what it resolved to -- dts.cmake's own configure-log line
-    reads this to print "requested -> resolved" only in that case, never
+    verbatim -- the board this build actually used, which since
+    board-coordinate-s6-brief.md Sec 11 can only ever be the CLI's own
+    `--board` (no rig file declares one any more, so there is no other
+    source to prefer); this function has no injection logic of its own, it
+    only ever echoes what the loader already resolved.
+
+    RIG_SHIELD_REVISIONS/RIG_REVISION/RIG_VARIANT appear only when the rig
+    actually declares the corresponding axis/shield-revision -- the "no
+    declaration, no artifact" rule that keeps an axis-less rig's
+    context.cmake byte-identical to one from before the axis existed.
+    RIG_REVISION is always the RESOLVED value (hwmv2's nearest-lower match
+    already applied, hwmv2-revision-semantics-brief.md Sec 3);
+    RIG_REVISION_REQUESTED appears alongside it only when a request was
+    made AND it differs from what it resolved to -- dts.cmake's own
+    configure-log line reads this to print "requested -> resolved" only in
+    that case, never
     when a rig simply took its declared default. RIG_DEPENDS is always
     present, sorted, each element escaped for a CMake list literal
     (`_cmake_list_escape`)."""

@@ -1,13 +1,18 @@
 """The loud-refusal channel for functionality rigc does not have yet.
 
-During the differential period (rigc-mission-brief.md Sec 4) most of the
-frozen suite reaches paths rigc has not built. Those paths must fail
-DISTINCTLY: `rigc: not implemented: <what>` on stderr and exit status 3 --
-never exit 1 (the reject convention: a differential red must never be
-mistakable for a wrong diagnostic), never a traceback, and never a silent
-accept. Exit 2 stays argparse's own usage-error code, so the full exit
-vocabulary is 0 accept / 1 rejected input / 2 usage error / 3 not
-implemented (rigc-r1-brief.md Sec 1).
+Such a path must fail DISTINCTLY: `rigc: not implemented: <what>` on
+stderr and exit status 3 -- never exit 1 (the reject convention: "we
+cannot do this yet" must never be mistakable for "your input is wrong"),
+never a traceback, and never a silent accept. Exit 2 stays argparse's own
+usage-error code, so the full exit vocabulary is 0 accept / 1 rejected
+input / 2 usage error / 3 not implemented (rigc-r1-brief.md Sec 1).
+
+It was introduced for the differential period (rigc-mission-brief.md Sec
+4), when most of the frozen suite reached paths rigc had not built yet.
+That period is over -- nothing in the frozen corpus reaches it any more.
+What still does: an unreadable, empty or non-mapping YAML document
+(loader/documents.py), and cli.py's unreachable unknown-subcommand
+branch.
 
 Raised anywhere inside the pipeline, caught ONCE in cli.main().
 """
