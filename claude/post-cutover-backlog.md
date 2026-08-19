@@ -650,6 +650,42 @@ All three are now CLOSED — two with no work to do, one implemented.
    reference does not imply behaviour that does not exist. Found
    2026-08-15, same pass as item 39.
 
+41. **`rig.yml` silently IGNORES unknown keys under `rig:`.**
+   `loader/__init__.py::_resolve_metadata` reads `name`, `revision` and
+   `variants` and never looks at what else the mapping holds. So a
+   `board:` — the grammar `board-coordinate-s6-brief.md` Sec 11 retired —
+   is neither honoured nor refused: the rig builds against whatever
+   `-DBOARD` says while its own file names a different board, and nothing
+   says a word. Reproduced 2026-08-19 with a hand-written rig.
+
+   Not hypothetical: `doc/tutorials/make-the-rig-permanent.rst` taught
+   readers to author exactly that file until the same day, so any rig
+   written from the tutorial carries a `board:` line the tool ignores.
+   The docs are fixed; the loader is not.
+
+   Item 39/40's family — declared, parsed past, never read — but with a
+   RETIRED grammar rather than an inert one, which makes the decision
+   sharper: refuse an unknown key under `rig:` (a strict schema, and the
+   only thing that catches a pre-S6 rig), refuse `board:` SPECIFICALLY
+   with a diagnostic naming what replaced it (kinder, and the migration
+   path), or warn. Needs a ruling; `rig-schema.yaml` (item 7) is the
+   natural home for whichever it is. Found while writing
+   `doc/reference/commands.rst`.
+
+42. **`west rigs --rig TARGET` is accepted and ignored.**
+   `list_rigs.add_args()` contributes `--rig` to the parser (it is shared
+   with the standalone resolver cmake calls, whose query mode DOES consume
+   it) and `west_commands/rigs.py::Rigs.do_run` never reads `args.rig` —
+   so the flag silently prints the full listing instead of resolving the
+   target. Confirmed 2026-08-19 by running it.
+
+   Two fixes, and the choice is a surface decision rather than a bug fix:
+   wire it to the resolution `--explain` already performs, or stop
+   offering it on this command (add only `--board-root` instead of the
+   whole shared block). Documented as ineffective on
+   `doc/reference/commands.rst` in the meantime — honest, not a fix — and
+   `test_cli_reference_drift.py` will demand an entry for it either way.
+
 ---
 
 ## D. Test and coverage debt C2 created or exposed

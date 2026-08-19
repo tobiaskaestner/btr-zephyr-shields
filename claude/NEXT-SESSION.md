@@ -1,6 +1,178 @@
 # Rigs — Session Handoff
 
-## RESUME (2026-08-15) — THE ANALOG THREAD IS COMPLETE, and TWO OF THREE BLOCKERS ARE CLEARED. Carriers pass PWM and ADC, both twister boards have real nexuses, promotion can select a config element, and `doc/reference/` finally documents the DTS vocabulary. NEXT = reference slices 2/3, the venv ruling, then rig-schema.yaml → BRIDLE MIGRATION.
+## RESUME (2026-08-19) — ALL THREE BLOCKERS ARE CLOSED. The expander keeps its workdir, the docs build from the workspace `.venv`, and `doc/reference/` gained a COMMAND reference plus the full rigc API reference. NEXT = reference slices 2/3, then rig-schema.yaml → BRIDLE MIGRATION.
+
+### STATE AT SESSION CLOSE (2026-08-19)
+
+The session's work is `9c84454`..`bcfd327`; **HEAD is this handoff's own
+commit**, one past that (the previous two blocks each got this off by one
+by naming a hash before their own doc commit existed). `main` is **ahead
+54 of origin, NOT pushed** — pushing needs Tobi's word. **Tree is
+CLEAN.** Read all three from git anyway, per this file's own rule.
+
+**Gate DRIVER-VERIFIED at close, twice, not carried**: mypy clean
+(**107** source files, +2 = the two new drift-guard modules), unit
+**771**, integration **294** (+7, both new guards), coverage **94%** vs
+the 88 floor. Docs build **`-W --keep-going` clean** from the workspace
+`.venv` with the API reference in the toctree, and `sphinxlint` finds
+nothing. Re-derive anyway.
+
+| commit | what |
+|---|---|
+| `9c84454` | **the workdir is KEPT on every exit** (+ two stale `rigc expand --help` strings) |
+| `1bd76ae` | **the docs build from the workspace `.venv`** — blocker 3 closed |
+| `9804a04` | **`doc/reference/commands.rst`** + the CLI's own documentation made current |
+| `bcfd327` | **`doc/reference/api/`** — the whole expander, via autodoc |
+
+### 1. The workdir ruling (`claude/workdir-retention-ruling.md`)
+
+Tobi: *"rigc should not delete the temporary files it writes under
+`build/rig/rigc-generated`."* D10's accept-path deletion is REVERSED —
+kept on every exit now. The accumulation problem D10 answered (7001
+directories / 787MB in one session) was already solved by the move out of
+`/tmp`: deterministic name, wiped on entry, so one `--out-dir` holds
+exactly ONE of these — **72KB measured** on a real `nucleo_datalogger`
+build, 63KB of it the preprocessed board `.dts`.
+
+Three sub-decisions, all mine per Tobi's "decide and move on":
+**the entry wipe STAYS** (a `.pre` that no longer matches the overlay
+beside it is worse than none); **`RIGC_KEEP_WORKDIR` is RETIRED**, not
+inverted (a no-op knob is item 40's defect shape); **the `try/finally`
+goes** — `git diff -w` on cli.py shows 22 deletions and nothing else.
+
+Both mutations were run one at a time with `__pycache__` purged between:
+restoring the accept-path `rmtree` reds the accept + entry-wipe tests,
+neutering the entry wipe reds the entry-wipe test alone.
+
+### 2. The `.venv` ruling — BLOCKER 3 CLOSED
+
+Tobi: *"dismiss `.docvenv`, docs should build from the workspace
+`.venv`."* `doc/howto/build-the-docs.rst` was the half that disagreed with
+reality. **All three of the 2026-08-15 blockers are now closed.**
+
+### 3. Was rigc's CLI documented and up to date? NO, on both counts
+
+**Not documented at all**: no reference page for any command — the three
+surfaces appeared only as steps inside tutorials, and
+`grep -rn 'rigc-generated' doc/` found nothing.
+`doc/reference/commands.rst` now covers `west build-rig`, `west rigs` and
+`rigc expand`: every option, the promotion grammar, the exit vocabulary,
+`RIGC_LOG`, the emitted artifacts and the workdir.
+
+**Not up to date**: eight stale statements, six of them S6 fallout
+(`board-coordinate-s6-brief.md` retiring rig-level `board:`) — two
+`--help` strings on `west build-rig`/`west rigs`, two on `rigc expand`,
+two tutorials showing or AUTHORING a `rig.yml` with `board:`, and three
+glossary entries describing a rig as carrying a board. Worse: **three
+tutorial commands could not work** — `west build-rig --rig <name> <app>`
+with no `-b` has been a configure `FATAL_ERROR` since S6, and it was the
+headline command of the first tutorial.
+
+**Every command that appears in the fixed docs was RUN.** Four real
+builds, and the run is what caught a board name I invented
+(`quail/stm32f411xe/rig`; the real one is `mikroe_quail/stm32f427xx/rig`).
+Three `--help` strings also cited `claude/` briefs in text argparse prints
+to users; those citations moved into code comments.
+
+### 4. The API reference — autodoc, seven pages, all 37 modules
+
+`doc/reference/api/`, one `automodule` per module, no hand-written prose
+about any of them. Feasibility was MEASURED first: every rigc module
+imports with no Zephyr tree and no `ZEPHYR_BASE` (the `devicetree`
+imports are all deferred into function bodies), and a trial build over all
+37 produced **ten** reST warnings, not hundreds — all ten formatting, all
+ten fixed.
+
+`undoc-members` ON (model.py's dataclasses document fields in trailing
+comments autodoc cannot see), `private-members` OFF. Pages split by
+pipeline stage, which makes `api/index.rst` the first document in the tree
+that states the pipeline's shape to someone not already inside it.
+
+**The one guideline decision**: docstrings cite `claude/` briefs, and
+`documentation-guidelines.rst` keeps the design record out of `doc/`.
+Rather than strip 9,600 lines of source or hand-write drifting pages, the
+rule is scoped to AUTHORED pages, and an admonition on `api/index.rst`
+tells the reader those documents are working notes and provenance. Full
+reasoning in `claude/api-reference-brief.md`.
+
+### 5. Two new drift guards, both mutation-checked
+
+`test_api_reference_drift.py` (4 tests) and
+`test_cli_reference_drift.py` (3), beside `test_dts_vocabulary_drift.py`
+as corpus-level laws. Both directions each, plus a
+does-the-scan-find-anything control so neither can pass vacuously.
+
+**The lesson worth carrying**: `test_cli_reference_drift`'s forward check
+first scanned the whole page and **passed a mutation** that renamed the
+`--explain` entry — a paragraph elsewhere begins with ``--explain`` and
+reads as a definition term. It now requires a real entry (a table cell, or
+a term whose next line is indented). That is
+`test_dts_vocabulary_drift.py`'s heading-only rule re-learned by running
+the negative control. **Run the mutation; do not reason about it.**
+
+### 6. Writing the reference found five stale docstrings and TWO new defects
+
+Reference slice 1 said "writing reference documentation is a defect-finding
+activity"; this slice's mechanism was publication itself, since autodoc puts
+a docstring in front of a reader. Fixed: `rigc/__init__.py` still announced
+"R2 state" and a loud refusal for anything needing the shield library
+(three slices out of date), `loader/__init__.py` claimed a fall-through to
+an `Unimplemented` that no longer exists AND called `params.py`
+"params/pin machinery" after item 29's rename to `config:`,
+`unimplemented.py` described only the finished differential period,
+`emitter/context.py::render` claimed `RIG_BOARD` may come from a rig's
+declared board.
+
+**Opened, both needing a ruling, neither fixed:**
+- **41 — `rig.yml` silently IGNORES unknown keys under `rig:`.** A
+  retired `board:` is neither honoured nor refused. Not hypothetical: the
+  tutorial taught authoring exactly that file until this morning. Strict
+  schema, a specific `board:` diagnostic, or a warning — `rig-schema.yaml`
+  (item 7) is the natural home.
+- **42 — `west rigs --rig TARGET` is accepted and never read.** Silently
+  lists everything. Wire it to `--explain`'s resolver, or stop offering
+  it. Documented as ineffective in the meantime.
+
+### NEXT
+
+1. **Reference slices 2 and 3** — still sequenced, still unstarted: (2)
+   `rig-file.rst` + `promotion.rst`, (3) the 42-code diagnostic
+   catalogue. `commands.rst` documents the promotion target GRAMMAR
+   because a reference for `--rig` cannot omit what its value looks like;
+   when `promotion.rst` lands it should own the semantics and
+   `commands.rst` should link to it rather than restate.
+2. **`rig-schema.yaml`** (item 7) — unchanged, and item 41 now belongs to
+   it.
+3. **BRIDLE MIGRATION** (item 9) — the mission goal. Re-run
+   `bridle-migration.md`'s triage against bridle's CURRENT upstream.
+
+### THE BUILT DOCS — rebuilt at close, and a trap to know about
+
+`doc/_build/html/index.html`, rebuilt from the workspace `.venv` at
+session close with everything below in it (`doc/.gitignore` ignores
+`_build/`, so it is never committed — it is a local render, not an
+artifact).
+
+**The trap**: that directory already existed and held a **2026-08-14**
+build whose `reference/` had only `glossary.html` and `index.html` — it
+predated reference slice 1, never mind this session. A stale render looks
+exactly like a current one in a browser. **Rebuild before reading it**:
+
+```
+$ sphinx-build -W --keep-going -b html doc doc/_build/html
+```
+
+### CARRIED, unchanged
+
+`RIGC_REFREEZE=1` is still blocked by the harness classifier. From a
+session rooted at `/wrk/z/ws-up`, `rig-implementor`/`rig-reviewer` are
+NOT agent types. `ZEPHYR_BASE` for this workspace is
+`/wrk/z/ws-up/zephyr` — there is no `zephyr-rigs` checkout, whatever
+`rigs.py`'s discovery heuristic hopes for.
+
+---
+
+## RESUME (2026-08-15, superseded) — THE ANALOG THREAD IS COMPLETE, and TWO OF THREE BLOCKERS ARE CLEARED. Carriers pass PWM and ADC, both twister boards have real nexuses, promotion can select a config element, and `doc/reference/` finally documents the DTS vocabulary. NEXT = reference slices 2/3, the venv ruling, then rig-schema.yaml → BRIDLE MIGRATION.
 
 ### STATE AT SESSION CLOSE (2026-08-15)
 
