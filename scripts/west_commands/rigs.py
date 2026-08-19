@@ -85,16 +85,20 @@ class Rigs(WestCommand):
 
             - name: rig name (the rig.yml `rig.name` field, the rig's identity)
             - dir: directory that contains the rig definition
-            - revisions: declared revision axis values (rig-variants-
-              revisions.md V1a), comma-separated, empty if undeclared
+            - revisions: declared revision axis values, comma-separated,
+              empty if undeclared
             - variants: declared variant axis values, comma-separated,
               empty if undeclared
 
-            No `board` column (board-coordinate-s6-brief.md Sec 8
-            criterion 6): a rig no longer declares one, so this listing
-            has nothing of its own to print -- use --boards-for to ask
-            which real boards a rig's typed sockets are satisfiable on.
+            There is no `board` column: a rig no longer declares a board,
+            so this listing has nothing of its own to print -- use
+            --boards-for to ask which real boards a rig's typed sockets
+            are satisfiable on.
             '''))
+        # The epilog above is user-visible too, and carries its own facts
+        # without citing them: rig-variants-revisions.md V1a for the axis
+        # columns, board-coordinate-s6-brief.md Sec 8 criterion 6 for the
+        # absent board column.
 
         # Remember to update west-commands.yml help if you add or remove flags.
         parser.add_argument('-f', '--format', default=default_fmt,
@@ -103,47 +107,53 @@ class Rigs(WestCommand):
         parser.add_argument('-n', '--name', dest='name_re',
                             help='''a regular expression; only rigs whose names
                             match NAME_RE will be listed''')
+        # Every help string in this parser is USER-VISIBLE text, so none of
+        # them cites a brief or a ruling (doc/explanation/documentation-
+        # guidelines.rst: the design record stays under claude/). The facts
+        # behind the two below live in board-as-coordinate-brief.md Sec
+        # 9.2/9.3 (both namespaces) and multi-plug-list-brief.md (the
+        # `;`-separated list form).
         parser.add_argument(
             '--boards-for', metavar='TARGET', default=None,
             help='''instead of listing rigs, print the boards whose typed
                  sockets satisfy TARGET (name[@rev][/variant][:opts]):
-                 mating,
-                 bus-subset exposure, alias-aware reference resolution and
-                 stackability, censused from board rig-extension SOURCES
-                 (no cmake configure). TARGET is resolved against BOTH
-                 namespaces, exactly as --explain resolves it: a persisted
-                 rig, or a discoverable shield promoted to one -- so
-                 "which boards can host this shield?" is askable without a
-                 rig existing for it. A promoted shield may name the
-                 socket it plugs -- "<shield>:socket=<label>" -- which is
-                 what makes a shield askable at all on a board carrying
-                 more than one socket of its type. TARGET may also be a
-                 `;`-separated LIST of shields (multi-plug-list-brief.md),
-                 e.g. "eth_click;temp_click" -- answers boards where the
-                 WHOLE desugared rig resolves clean, socket exclusivity
-                 across elements included. This is NOT a promise
-                 the rig
-                 actually builds on a listed board -- GPIO position
-                 routing, CS-pool allocation, address domains and net
-                 analysis need the board's real devicetree, which this
+                 mating, bus-subset exposure, alias-aware reference
+                 resolution and stackability, censused from board
+                 rig-extension SOURCES (no cmake configure). TARGET is
+                 resolved against BOTH namespaces, exactly as --explain
+                 resolves it: a persisted rig, or a discoverable shield
+                 promoted to one -- so "which boards can host this
+                 shield?" is askable without a rig existing for it. A
+                 promoted shield may carry the same ":<key>=<value>"
+                 assignments `west build-rig --rig` accepts, e.g.
+                 "<shield>:socket=<label>" -- which is what makes a shield
+                 askable at all on a board carrying more than one socket
+                 of its type. TARGET may also be a `;`-separated LIST of
+                 shields, e.g. "eth_click;temp_click" -- answers boards
+                 where the WHOLE desugared rig resolves clean, socket
+                 exclusivity across elements included. This is NOT a
+                 promise the rig actually builds on a listed board -- GPIO
+                 position routing, CS-pool allocation, address domains and
+                 net analysis need the board's real devicetree, which this
                  census cannot see. Short-circuits the listing: -f/-n do
                  not apply.''')
         parser.add_argument(
             '--explain', metavar='TARGET', default=None,
             help='''instead of listing rigs, print the rig.yml and content
-                 file TARGET (name[@rev][/variant][:opts]) stands for: verbatim
-                 from disk for a persisted rig, or the synthesized pair a
-                 shield name desugars to when TARGET names a discoverable
-                 shield instead (board-as-coordinate-brief.md Sec 9.2/9.3)
-                 -- printed AS AUTHORED, with no axis resolved into the
-                 text (a variant's fragment folded in, a revision
-                 selected). A name that is both a rig folder and a shield
-                 is an error naming both paths; a promoted shield takes
-                 only "@rev" (the shield's own revision) -- "/variant"
-                 on one is refused, since a promoted shield has no
-                 variant axis -- plus ":<key>=<value>" promotion options
-                 ("socket=<label>" today), which apply to a promoted
-                 shield only and are refused on a persisted rig. Short-circuits the listing like
+                 file TARGET (name[@rev][/variant][:opts]) stands for:
+                 verbatim from disk for a persisted rig, or the
+                 synthesized pair a shield name desugars to when TARGET
+                 names a discoverable shield instead -- printed AS
+                 AUTHORED, with no axis resolved into the text (a
+                 variant's fragment folded in, a revision selected). A
+                 name that is both a rig folder and a shield is an error
+                 naming both paths; a promoted shield takes only "@rev"
+                 (the shield's own revision) -- "/variant" on one is
+                 refused, since a promoted shield has no variant axis --
+                 plus ":<key>=<value>" promotion assignments (socket=,
+                 socket.<slot>=, config.<label>=, <device>.<prop>=), which
+                 apply to a promoted shield only and are refused on a
+                 persisted rig. Short-circuits the listing like
                  --boards-for: -f/-n do not apply.''')
         list_rigs.add_args(parser)
 

@@ -5,10 +5,12 @@ Glossary
    :sorted:
 
    rig
-      A board together with the modules plugged into it, described as
+      The set of modules plugged into a board's sockets, described as
       data. A rig is two files in ``boards/rigs/<name>/``: the
-      :term:`rig metadata file` and the :term:`rig content file`. It is
-      built with ``west build-rig --rig <name> <app>``.
+      :term:`rig metadata file` and the :term:`rig content file`. Neither
+      names a board — a rig is a topology, and the board is the other half
+      of the :term:`invocation coordinate`. It is built with
+      ``west build-rig -b <board> --rig <name> <app>``.
 
    connector type
       The contract a family of sockets shares — which :term:`position`\ s
@@ -53,8 +55,8 @@ Glossary
 
    rig metadata file
       ``boards/rigs/<name>/rig.yml`` — the rig's identity and its axes
-      (name, optional default board, optional variants and revisions).
-      Carries no hardware description at all.
+      (name, optional variants and revisions). Carries no hardware
+      description at all, and no board.
 
    rig content file
       ``boards/rigs/<name>/<name>.yml`` — the assembly itself:
@@ -76,9 +78,10 @@ Glossary
 
    invocation coordinate
       The pair naming what to build: a board and a rig, given
-      independently (``--board`` and ``--rig``). A rig may declare a
-      default board, but a board passed on the command line wins — the
-      same rig can be built against any board whose sockets satisfy it.
+      independently (``-b``/``--board`` and ``--rig``). The invocation is
+      the *only* source of the board — no rig file declares one — so the
+      same rig can be built against any board whose sockets satisfy it,
+      and a rig build with no board given is a configure error.
 
    carrier
       A :term:`shield template` that itself provides :term:`socket`\ s, so

@@ -79,7 +79,8 @@ so ``status`` lands on ``gpioa 10`` and ``fault`` on ``gpiob 5``.
 
 .. code-block:: console
 
-   $ west build-rig --rig acme_bench btr-shields/samples/rigs/scenario-1
+   $ west build-rig -b nucleo_f411re/stm32f411xe/rig --rig acme_bench \
+       btr-shields/samples/rigs/scenario-1
    $ cat build/rig/config-sheet.md
 
 .. code-block:: text

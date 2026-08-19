@@ -37,7 +37,6 @@ Each of those names a directory under ``boards/rigs/``. Take
    $ cat btr-shields/boards/rigs/nucleo_datalogger/rig.yml
    rig:
      name: nucleo_datalogger
-     board: nucleo_f401re/stm32f401xe/rig
 
 .. code-block:: console
 
@@ -45,11 +44,11 @@ Each of those names a directory under ``boards/rigs/``. Take
    instances:
      - name: logger
        shield: adafruit_data_logger
-       socket: nucleo_ard
+       socket: arduino_r3
 
 That is the whole rig. Two files, and the second one is the interesting
 half: **one Adafruit Data Logger, named** ``logger``\ **, plugged into the
-socket called** ``nucleo_ard``. No pins, no overlay, no ``&gpiob`` anywhere
+socket called** ``arduino_r3``. No pins, no overlay, no ``&gpiob`` anywhere
 — those are the board's business and the module's business respectively,
 and neither belongs in the sentence "this module is plugged in there".
 
@@ -65,7 +64,13 @@ Build it
 
 .. code-block:: console
 
-   $ west build-rig --rig nucleo_datalogger btr-shields/samples/rigs/scenario-1 -p always
+   $ west build-rig -b nucleo_f401re/stm32f401xe/rig --rig nucleo_datalogger \
+       btr-shields/samples/rigs/scenario-1 -p always
+
+The board comes from ``-b``, exactly as in any Zephyr build. A rig names a
+topology — what is plugged where — and nothing else; it has no board of its
+own to fall back to, so a rig build without a board is a configure error
+that says so.
 
 Watch for four lines in the configure output. They are the rig machinery
 reporting what it decided, and every later tutorial is about changing one
@@ -104,10 +109,15 @@ The expansion wrote a directory into the build tree:
 .. code-block:: console
 
    $ ls build/rig
-   config-sheet.md  context.cmake  expectations.yml  rerun-expand.sh  rig-gen.overlay
+   config-sheet.md  context.cmake  expectations.yml  rerun-expand.sh
+   rig-gen.overlay  rigc-generated
 
 ``rig-gen.overlay`` is the devicetree overlay — the file you would
-otherwise have written by hand, now derived. Look at it later; the more
+otherwise have written by hand, now derived. ``rigc-generated`` is the
+:term:`expander`'s own scratch directory, kept rather than cleaned up: it
+holds the devicetree fragments it fed its parsers, which is where to look
+when a build fails for a reason the diagnostic alone does not settle
+(:doc:`../reference/commands` describes it). Both can wait; the more
 interesting one for a human is ``config-sheet.md``:
 
 .. code-block:: text
@@ -120,7 +130,7 @@ interesting one for a human is ``config-sheet.md``:
 
    | instance | shield | socket |
    |---|---|---|
-   | logger | adafruit_data_logger | nucleo_ard |
+   | logger | adafruit_data_logger | arduino_r3 |
 
    ## Chip-selects
 

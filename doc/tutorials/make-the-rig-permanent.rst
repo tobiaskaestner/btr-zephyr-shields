@@ -28,7 +28,6 @@ Write the two files
    # acme-rigs/boards/rigs/acme_bench/rig.yml
    rig:
      name: acme_bench
-     board: nucleo_f411re/stm32f411xe/rig
 
 .. code-block:: yaml
 
@@ -42,7 +41,8 @@ Build it by name:
 
 .. code-block:: console
 
-   $ west build-rig --rig acme_bench btr-shields/samples/rigs/scenario-1
+   $ west build-rig -b nucleo_f411re/stm32f411xe/rig --rig acme_bench \
+       btr-shields/samples/rigs/scenario-1
 
 .. note::
 
@@ -60,8 +60,8 @@ Why two files
 ---------------
 
 ``rig.yml`` is the :term:`rig metadata file`. It answers *which rig is
-this*: the name, and — optionally — a default board. It contains no
-hardware description whatsoever.
+this*: the name, and the revision/variant axes it declares. It contains
+no hardware description whatsoever — not even a board.
 
 ``acme_bench.yml`` is the :term:`rig content file`. It answers *what is
 assembled*: instances, and later wires and parameters.
@@ -69,23 +69,24 @@ assembled*: instances, and later wires and parameters.
 The reason they are separate is that they answer questions at different
 times. The build system must know which rig you named, and where its
 files are, **before** it can read any hardware description — that is how
-``-DRIG=acme_bench`` turns into a board and a directory. Content that
-cannot be read that early has no business being in the file that is.
+``-DRIG=acme_bench`` turns into a directory. Content that cannot be read
+that early has no business being in the file that is.
 
-It is also why the content file names no board. Look at what it says now:
-one LED module, in a Grove socket. Nothing in that sentence is about a
-NUCLEO. Move the ``board:`` line out and the same content file describes
-the same assembly on any board with a Grove socket — which is what
-:doc:`build-a-rig-on-the-fly` was already relying on, and what the
-``board:`` line in ``rig.yml`` is a *default* for rather than a
-requirement:
+Neither file names a board, and that is the second half of the split.
+Look at what the content file says: one LED module, in a Grove socket.
+Nothing in that sentence is about a NUCLEO. The same two files describe
+the same assembly on any board with a Grove socket, and which board it is
+today is the invocation's answer — the same ``-b`` you already passed
+above, and the only place a board is ever named:
 
 .. code-block:: console
 
    $ west build-rig -b nucleo_f411re/stm32f411xe/rig --rig acme_bench \
        btr-shields/samples/rigs/scenario-1
 
-A board given on the command line wins over the rig's declared one.
+Point ``-b`` at another board carrying a Grove socket and the same two
+files build there, with no edit in between — because the board was never
+in the rig to begin with.
 
 Three things you could not have before
 ----------------------------------------
