@@ -159,8 +159,7 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
             f"shield '{node.name}' declares shield,plugs on the TEMPLATE "
             "node -- that spelling is retired: move it onto the plug node "
             "itself, beside a 'compatible = \"shield,plug\"', so one plug "
-            "and many are declared the same way "
-            "(plug-unification-brief.md)",
+            "and many are declared the same way",
             (src_of(plugs_prop),)))
         return Shield(name=node.name, label=label, plugs={}, src=src_of(node)), diags
 
@@ -172,7 +171,7 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
             "lang-shield-plug",
             f"shield '{shield.name}' declares no 'shield,plug'-compatible "
             "child -- the plug is the position reference frame, and a "
-            "shield names its connector type on it (Conv. 2)",
+            "shield names its connector type on it",
             (src_of(node),)))
         return shield, diags
 
@@ -246,7 +245,7 @@ def _parse_plugs(plug_children, shield: Shield, types: Dict[str, ConnectorType],
                     "position reference through a plug carries the generic "
                     "count for its function (2 gpio, 3 pwm, 1 adc); only a "
                     "node that genuinely differs, such as a routing "
-                    "jumper, says so (plug-unification-brief.md Sec 5)",
+                    "jumper, says so",
                     (src_of(child.props[cells]),)))
         type_v = child.props.get("shield,plugs")
         if type_v is None:
@@ -295,7 +294,7 @@ def _parse_pads_and_config(node, shield: Shield) -> List[Diagnostic]:
                             f"shield '{shield.name}': a shield with more "
                             f"than one plug cannot declare a routing "
                             f"jumper ('{snode.name}') -- the position "
-                            "domain has no plug axis (multi-plug slice 1)",
+                            "domain has no plug axis",
                             (src_of(snode),)))
                         continue
                     jmp, d = _parse_jumper(snode, shield.name)
@@ -597,9 +596,8 @@ def _parse_pos_ref(prop, function: str, shield: Shield, plugs_by_path: PlugsByPa
                 what = "THIS shield's plug node"
             diags.append(error(
                 "lang-pos-ref",
-                f"'{prop.name}' must reference {what} (fixed position, "
-                "Conv. 3)"
-                + ("" if function != "gpio" else " or one of its routing jumpers (R6)")
+                f"'{prop.name}' must reference {what} (fixed position)"
+                + ("" if function != "gpio" else " or one of its routing jumpers")
                 + f" — it points at {where}",
                 (src_of(prop),)))
     return refs, diags
@@ -646,7 +644,7 @@ def _parse_gpio_map(node, plugs_by_path: PlugsByPath, is_plural: bool,
                 diags.append(error(
                     "lang-exposed",
                     f"exposed socket '{node.name}': gpio-map parent must "
-                    f"be {what} (pass-through, R19)",
+                    f"be {what} (pass-through)",
                     (src_of(node),)))
                 continue
             slot, _pctype = plug_entry
@@ -687,8 +685,8 @@ def _parse_exposed_buses(node, shield: Shield, plugs_by_path: PlugsByPath,
             diags.append(error(
                 "lang-exposed",
                 f"exposed socket '{node.name}': {prop_name} must be "
-                f"{what} (pass-through, R19) or <&device> (new scope, "
-                "R26)", (src_of(node),)))
+                f"{what} (pass-through) or <&device> (new scope)",
+                (src_of(node),)))
     return buses, diags
 
 
@@ -780,8 +778,8 @@ def _parse_channel_map(node, prop_name: str, cells_prop: str, function: str,
         diags.append(error(
             "lang-exposed",
             f"exposed socket '{node.name}': {prop_name} needs a "
-            f"{cells_prop} declaration alongside it (RULED 2026-08-14, "
-            "require-and-check: the carrier states its own cell count, "
+            f"{cells_prop} declaration alongside it (require-and-check: "
+            "the carrier states its own cell count, "
             "the analyzer checks it against the resolved parent's)",
             (src_of(node),)))
         return {}, None, diags
@@ -789,8 +787,7 @@ def _parse_channel_map(node, prop_name: str, cells_prop: str, function: str,
         diags.append(error(
             "lang-exposed",
             f"exposed socket '{node.name}': {cells_prop} needs a "
-            f"{prop_name} declaration alongside it (RULED 2026-08-14, "
-            "require-and-check)",
+            f"{prop_name} declaration alongside it (require-and-check)",
             (src_of(node),)))
         return {}, None, diags
     if not has_map:
@@ -828,7 +825,7 @@ def _parse_channel_map(node, prop_name: str, cells_prop: str, function: str,
             diags.append(error(
                 "lang-exposed",
                 f"exposed socket '{node.name}': {prop_name} parent must "
-                f"be {what} (pass-through, R19)",
+                f"be {what} (pass-through)",
                 (src_of(node),)))
             i += row_len
             continue
@@ -846,7 +843,7 @@ def _parse_pad(node, shield_name: str) -> Tuple[Pad, List[Diagnostic]]:
         diags.append(error(
             "lang-pad-role",
             f"pad '{node.name}': unknown role '{role}' (driver / listener "
-            "/ bidir, R23)", (src_of(node),)))
+            "/ bidir)", (src_of(node),)))
     of = None
     if "shield,of" in node.props:
         of = node.props["shield,of"].to_node().name.partition("@")[0]

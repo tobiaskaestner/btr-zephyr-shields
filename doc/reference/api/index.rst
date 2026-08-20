@@ -13,14 +13,6 @@ cannot fall behind the code without the code changing under it — and
 ``test_api_reference_drift.py`` fails the test suite if a module is added
 with no page to document it.
 
-.. note::
-
-   Docstrings in this package cite design-record documents under
-   ``claude/`` (``…-brief.md``, ``cutover-decisions.md``). Those are
-   working notes rather than documentation, and are not part of this
-   documentation set. Read them as provenance for a decision, not as a
-   reference you are expected to have.
-
 The pipeline
 --------------
 

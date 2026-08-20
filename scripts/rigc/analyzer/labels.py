@@ -27,7 +27,7 @@ def check_labels(rig: Rig) -> List[Diagnostic]:
                 diags.append(error(
                     "phys-label",
                     f"generated label '{label}' collides (instances '{inst.name}' "
-                    "twice in one rig?) — deterministic naming (R10) cannot "
+                    "twice in one rig?) — deterministic naming cannot "
                     "disambiguate", (inst.src,) if inst.src else ()))
             seen[label] = inst
     return diags

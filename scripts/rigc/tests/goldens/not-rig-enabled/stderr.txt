@@ -1,1 +1,1 @@
-error[phys-board]: board 'socketless_board' has a devicetree (tests/fixtures/boards/mainboards/socketless_board.dts) but declares no socket,* nodes — it exists, but is not rig-enabled (Conv. 4: a board opts in with a typed socket node)
+error[phys-board]: board 'socketless_board' has a devicetree (tests/fixtures/boards/mainboards/socketless_board.dts) but declares no socket,* nodes — it exists, but is not rig-enabled (a board opts in with a typed socket node)

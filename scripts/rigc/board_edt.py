@@ -260,7 +260,7 @@ def _project_channel_map(node: "edtlib.Node", label: str, specifier_space: str,
                 f"<{child_n}>, but {fn.upper()} controller '{ctrl_label}' "
                 f"declares {spec['cells_prop']} = <{parent_n}> -- a "
                 "socket's own declared cell count must equal its parent "
-                "controller's (RULED: rigc does not translate between "
+                "controller's (rigc does not translate between "
                 "specifier widths)",
                 (SourceRef(node.filename, node.lineno, label),)))
         pos = entry.child_specifiers[0]

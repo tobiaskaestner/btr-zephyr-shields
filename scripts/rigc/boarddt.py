@@ -104,7 +104,7 @@ def load_board(name: str, workdir: str,
             # text (see the rerun-script note in the integration conftest).
             f"board '{name}' has a devicetree ({anchor_path(board_dts)}) "
             "but declares no socket,* nodes — it exists, but is not "
-            "rig-enabled (Conv. 4: a board opts in with a typed socket node)")], deps
+            "rig-enabled (a board opts in with a typed socket node)")], deps
     log.info("board '%s' resolved: %s", name, board_dts)
     return board, [], deps
 

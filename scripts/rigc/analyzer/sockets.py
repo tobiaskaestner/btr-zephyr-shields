@@ -108,7 +108,7 @@ def _compose_buses(socket_label: str, carrier_name: str, exposed: ExposedSocket,
                     "phys-subset",
                     f"carrier '{carrier_name}' passes {kind.upper()} through socket "
                     f"'{exposed.name}', but its parent socket '{parent.label}'{slot_note} "
-                    f"offers no socket,{kind} (R19 pass-through needs the parent to provide it)",
+                    f"offers no socket,{kind} (pass-through needs the parent to provide it)",
                     refs))
         else:                                           # new scope: ("scope", dev-label)
             root = f"{carrier_name}_{marker[1]}"

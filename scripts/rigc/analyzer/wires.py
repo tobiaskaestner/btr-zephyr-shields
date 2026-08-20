@@ -85,7 +85,7 @@ def check_wires(rig: Rig, sockets: Sockets,
                 f"{e.instance_name}.{e.node} ({r})" for e, r in roles)
             diags.append(error(
                 "phys-wire",
-                f"a net needs exactly one driver and ≥1 listener (R22); "
+                f"a net needs exactly one driver and ≥1 listener; "
                 f"wire has {len(drivers)} drivers: {claims}",
                 (wire.src,)))
 

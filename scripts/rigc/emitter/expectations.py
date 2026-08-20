@@ -46,7 +46,7 @@ def render_expectations(rig: Rig, s: Solved) -> str:
     """expectations.yml's full text. rig/s are read-only; returns a fresh
     string the caller owns."""
     out = [f"# {GEN}",
-           "# test expectations stub (A6): what a runtime harness must observe",
+           "# test expectations stub: what a runtime harness must observe",
            f"rig: {rig.name}", f"board: {rig.board}", "expect:"]
     for (inst_name, dev_name), addr in sorted(s.addr.items()):
         inst, dev = _find_instance_device(rig, inst_name, dev_name)

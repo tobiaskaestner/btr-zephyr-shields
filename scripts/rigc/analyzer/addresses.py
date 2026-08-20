@@ -230,7 +230,7 @@ def _address_problem_diagnostics(bus_label: str, problems: List[AddressProblem],
                 f"{_how(problem.identity, by_identity, kind_of, strap_of)}\n"
                 "two devices cannot share one address on one bus. This topology is "
                 "not realizable as assembled: use a second I2C bus, put one device "
-                "behind an I2C mux (scope creation, S8), or drop one instance.",
+                "behind an I2C mux (scope creation), or drop one instance.",
                 tuple(x for x in (o_dev.src, o_inst.src, dev.src, inst.src) if x)))
         else:  # "exhausted"
             strap = strap_of[problem.identity]
