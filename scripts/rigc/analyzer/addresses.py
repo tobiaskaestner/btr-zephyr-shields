@@ -39,6 +39,10 @@ from ..model import BoardSocket, Device, Instance, Rig, Strap
 from .ordering import allocation_key
 from .socketmap import Sockets, for_bus_device
 
+#: One scope member ready for grouping: the rig-model triple every group
+#: (fixed/pinned/free) sorts and translates the same way.
+_ScopeMember = Tuple[Instance, Device, BoardSocket]
+
 log = logging.getLogger(__name__)
 
 
@@ -157,71 +161,50 @@ def allocate_addresses(rig: Rig, sockets: Sockets,
     return result, diags
 
 
-def _allocate_scope(bus_path: str, members: List[Tuple[Instance, Device, BoardSocket]],
-                    result: AddressAllocation) -> List[Diagnostic]:
-    """Build this scope's `AddressMember` list in R18 order (fixed, then
-    pinned, then free -- three separately-sorted groups, concatenated),
-    call the value-shaped core, and translate its placements/problems
-    into diagnostics plus this pass's own `AddressAllocation` fields."""
-    bus_label = result.bus_label[bus_path]
-    by_identity: Dict[str, Tuple[Instance, Device, BoardSocket]] = {}
-    kind_of: Dict[str, str] = {}
-    strap_of: Dict[str, Strap] = {}
-
-    fixed_scope: List[Tuple[Instance, Device, BoardSocket]] = []
-    pinned_scope: List[Tuple[Instance, Device, BoardSocket]] = []
-    free_scope: List[Tuple[Instance, Device, BoardSocket]] = []
-    for inst, dev, socket in members:
-        if dev.reg is not None:
-            fixed_scope.append((inst, dev, socket))
-        elif dev.addr_from and dev.addr_from in inst.pins:
-            pinned_scope.append((inst, dev, socket))
-        else:
-            free_scope.append((inst, dev, socket))
-
-    address_members: List[AddressMember] = []
-
-    for inst, dev, socket in sorted(fixed_scope, key=lambda m: allocation_key(m[0], m[1], m[2])):
+def _address_member(kind: str, inst: Instance, dev: Device,
+                    ) -> Optional[Tuple[AddressMember, Optional[Strap]]]:
+    """Build one member's `AddressMember` plus the strap its domain comes
+    from (None for a fixed member, which has no domain to consult), or
+    None to skip the member entirely -- a "free" member with no
+    `addr_from` strap, which the loader already reported as an
+    addr-authority violation."""
+    identity = f"{inst.name}/{dev.name}"
+    if kind == "fixed":
         assert dev.reg is not None
-        identity = f"{inst.name}/{dev.name}"
-        by_identity[identity] = (inst, dev, socket)
-        kind_of[identity] = "fixed"
-        address_members.append(AddressMember(identity=identity, fixed=dev.reg))
-
-    for inst, dev, socket in sorted(pinned_scope, key=lambda m: allocation_key(m[0], m[1], m[2])):
+        return AddressMember(identity=identity, fixed=dev.reg), None
+    if kind == "pinned":
         assert dev.addr_from is not None
         strap = inst.shield.straps[dev.addr_from]
         want = inst.pins[dev.addr_from]
-        identity = f"{inst.name}/{dev.name}"
-        by_identity[identity] = (inst, dev, socket)
-        kind_of[identity] = "pinned"
-        strap_of[identity] = strap
-        address_members.append(AddressMember(
-            identity=identity, pin=(want, tuple(strap.domain))))
+        return AddressMember(identity=identity,
+                             pin=(want, tuple(strap.domain))), strap
+    free_strap = inst.shield.straps.get(dev.addr_from) if dev.addr_from else None
+    if free_strap is None:
+        return None
+    return AddressMember(identity=identity, free=tuple(free_strap.domain)), free_strap
 
-    for inst, dev, socket in sorted(free_scope, key=lambda m: allocation_key(m[0], m[1], m[2])):
-        free_strap = inst.shield.straps.get(dev.addr_from) if dev.addr_from else None
-        if free_strap is None:
-            continue  # the loader already reported the addr-authority violation
-        identity = f"{inst.name}/{dev.name}"
-        by_identity[identity] = (inst, dev, socket)
-        kind_of[identity] = "free"
-        strap_of[identity] = free_strap
-        address_members.append(AddressMember(
-            identity=identity, free=tuple(free_strap.domain)))
 
-    placements, problems = allocate_scope_addresses(address_members)
+def _how(identity: str, by_identity: Dict[str, _ScopeMember],
+        kind_of: Dict[str, str], strap_of: Dict[str, Strap]) -> str:
+    """How one member came to hold its address, for a conflict/exhaustion
+    diagnostic's own two-sided listing."""
+    inst, dev, _socket = by_identity[identity]
+    kind = kind_of[identity]
+    if kind == "fixed":
+        return (f"address domain {{{dev.reg:#04x}}}, fixed by copper "
+                "(no address-select)")
+    if kind == "pinned":
+        return f"pinned via rig (strap '{strap_of[identity].name}')"
+    return f"allocated (strap '{strap_of[identity].name}')"
 
-    def how(identity: str) -> str:
-        inst, dev, _socket = by_identity[identity]
-        kind = kind_of[identity]
-        if kind == "fixed":
-            return (f"address domain {{{dev.reg:#04x}}}, fixed by copper "
-                    "(no address-select)")
-        if kind == "pinned":
-            return f"pinned via rig (strap '{strap_of[identity].name}')"
-        return f"allocated (strap '{strap_of[identity].name}')"
 
+def _address_problem_diagnostics(bus_label: str, problems: List[AddressProblem],
+                                 by_identity: Dict[str, _ScopeMember],
+                                 kind_of: Dict[str, str],
+                                 strap_of: Dict[str, Strap]) -> List[Diagnostic]:
+    """Translate the core's problems (already in discovery order) into
+    this pass's own diagnostics -- the only place strap names, device
+    labels, and bus labels enter the picture."""
     diags: List[Diagnostic] = []
     for problem in problems:
         inst, dev, socket = by_identity[problem.identity]
@@ -244,9 +227,9 @@ def _allocate_scope(bus_path: str, members: List[Tuple[Instance, Device, BoardSo
                 f"I2C address {problem.address:#04x} is required twice on bus "
                 f"&{bus_label} (one address space per scope):\n"
                 f"- {o_inst.name} (socket {o_socket.label}): {o_dev.name} — "
-                f"{how(problem.first)}\n"
+                f"{_how(problem.first, by_identity, kind_of, strap_of)}\n"
                 f"- {inst.name} (socket {socket.label}): {dev.name} — "
-                f"{how(problem.identity)}\n"
+                f"{_how(problem.identity, by_identity, kind_of, strap_of)}\n"
                 "two devices cannot share one address on one bus. This topology is "
                 "not realizable as assembled: use a second I2C bus, put one device "
                 "behind an I2C mux (scope creation, S8), or drop one instance.",
@@ -264,6 +247,47 @@ def _allocate_scope(bus_path: str, members: List[Tuple[Instance, Device, BoardSo
                     f"at {a:#04x}"
                     for a, occ_id in problem.occupied),
                 tuple(x for x in (dev.src, inst.src) if x)))
+    return diags
+
+
+def _allocate_scope(bus_path: str, members: List[_ScopeMember],
+                    result: AddressAllocation) -> List[Diagnostic]:
+    """Build this scope's `AddressMember` list in R18 order (fixed, then
+    pinned, then free -- three separately-sorted groups, concatenated),
+    call the value-shaped core, and translate its placements/problems
+    into diagnostics plus this pass's own `AddressAllocation` fields."""
+    bus_label = result.bus_label[bus_path]
+    by_identity: Dict[str, _ScopeMember] = {}
+    kind_of: Dict[str, str] = {}
+    strap_of: Dict[str, Strap] = {}
+
+    fixed_scope: List[_ScopeMember] = []
+    pinned_scope: List[_ScopeMember] = []
+    free_scope: List[_ScopeMember] = []
+    for inst, dev, socket in members:
+        if dev.reg is not None:
+            fixed_scope.append((inst, dev, socket))
+        elif dev.addr_from and dev.addr_from in inst.pins:
+            pinned_scope.append((inst, dev, socket))
+        else:
+            free_scope.append((inst, dev, socket))
+
+    address_members: List[AddressMember] = []
+    for group, kind in ((fixed_scope, "fixed"), (pinned_scope, "pinned"),
+                       (free_scope, "free")):
+        for inst, dev, socket in sorted(group, key=lambda m: allocation_key(m[0], m[1], m[2])):
+            built = _address_member(kind, inst, dev)
+            if built is None:
+                continue
+            member, strap = built
+            by_identity[member.identity] = (inst, dev, socket)
+            kind_of[member.identity] = kind
+            if strap is not None:
+                strap_of[member.identity] = strap
+            address_members.append(member)
+
+    placements, problems = allocate_scope_addresses(address_members)
+    diags = _address_problem_diagnostics(bus_label, problems, by_identity, kind_of, strap_of)
 
     for placement in placements:
         inst, dev, _socket = by_identity[placement.identity]

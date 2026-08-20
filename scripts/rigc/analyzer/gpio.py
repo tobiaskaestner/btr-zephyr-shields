@@ -268,38 +268,65 @@ def _claim_line(c: NetClaim, types: Dict[str, ConnectorType]) -> str:
     return f"- {c.instance.name} (socket {c.socket.label}, {pos}): {c.what}"
 
 
+def _exclusive_verdict(key: NetKey, descr: str, claims: List[NetClaim],
+                       types: Dict[str, ConnectorType]) -> Optional[List[Diagnostic]]:
+    """The exclusive-resource half of one net's verdict: two exclusive
+    claims conflict outright; one exclusive claim plus any signal claims
+    on the same net is also a conflict, since an exclusive resource
+    cannot also carry a shared signal. Returns None when neither applies
+    -- the caller then falls through to the driver-count check."""
+    dedicated = [c for c in claims if c.role == "dedicated"]
+    if len(dedicated) > 1:
+        return [_exclusive_conflict(key, descr, dedicated, types)]
+    if dedicated and len(claims) > 1:
+        others = [c for c in claims if c.role != "dedicated"]
+        return [error(
+            "phys-net",
+            f"{descr} is claimed exclusively "
+            f"({dedicated[0].instance.name}: {dedicated[0].what}) but is also "
+            "claimed as a signal by:\n"
+            + "\n".join(_claim_line(c, types) for c in others),
+            tuple(c.src for c in claims if c.src))]
+    return None
+
+
+def _driver_verdict(descr: str, claims: List[NetClaim],
+                    types: Dict[str, ConnectorType]) -> List[Diagnostic]:
+    """The shared-net half of one net's verdict, reached only once the
+    exclusive-resource check above found nothing: more than one DRIVER
+    on a shared net is a conflict; 1 driver + N listeners, or MCU-driven
+    + N listeners, is a net and legal (R22)."""
+    drivers = [c for c in claims if c.role == "driver"]
+    if len(drivers) > 1:
+        return [error(
+            "phys-net",
+            f"{len(drivers)} drivers on one net — {descr}:\n"
+            + "\n".join(_claim_line(c, types) + " (device output)"
+                        for c in drivers)
+            + "\nnote: if these outputs are open-drain, wired-AND sharing is "
+            "physically legal — drive-type on roles is a pending refinement "
+            "(would downgrade this to a warning).",
+            tuple(c.src for c in drivers if c.src))]
+    return []
+
+
+def _net_verdict(key: NetKey, descr: str, claims: List[NetClaim],
+                 types: Dict[str, ConnectorType]) -> List[Diagnostic]:
+    """One net's verdict (`check_nets`' own per-key logic, lifted out).
+    At most one finding per net -- the driver check never runs once the
+    exclusive-resource check already fired, matching `check_nets`' own
+    `continue`-per-branch shape."""
+    exclusive = _exclusive_verdict(key, descr, claims, types)
+    if exclusive is not None:
+        return exclusive
+    return _driver_verdict(descr, claims, types)
+
+
 def check_nets(nets: Nets, types: Dict[str, ConnectorType]) -> List[Diagnostic]:
     diags: List[Diagnostic] = []
     for key, claims in sorted(nets.items(), key=lambda kv: str(kv[0])):
         descr = _net_descr(key, claims, types)
-
-        dedicated = [c for c in claims if c.role == "dedicated"]
-        if len(dedicated) > 1:
-            diags.append(_exclusive_conflict(key, descr, dedicated, types))
-            continue
-        if dedicated and len(claims) > 1:
-            others = [c for c in claims if c.role != "dedicated"]
-            diags.append(error(
-                "phys-net",
-                f"{descr} is claimed exclusively "
-                f"({dedicated[0].instance.name}: {dedicated[0].what}) but is also "
-                "claimed as a signal by:\n"
-                + "\n".join(_claim_line(c, types) for c in others),
-                tuple(c.src for c in claims if c.src)))
-            continue
-
-        drivers = [c for c in claims if c.role == "driver"]
-        if len(drivers) > 1:
-            diags.append(error(
-                "phys-net",
-                f"{len(drivers)} drivers on one net — {descr}:\n"
-                + "\n".join(_claim_line(c, types) + " (device output)"
-                            for c in drivers)
-                + "\nnote: if these outputs are open-drain, wired-AND sharing is "
-                "physically legal — drive-type on roles is a pending refinement "
-                "(would downgrade this to a warning).",
-                tuple(c.src for c in drivers if c.src)))
-        # 1 driver + N listeners, or MCU-driven + N listeners: a net, legal (R22)
+        diags += _net_verdict(key, descr, claims, types)
     return diags
 
 

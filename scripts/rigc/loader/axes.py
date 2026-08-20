@@ -216,6 +216,52 @@ def parse_variant_decl(container_v: Val, key: str = "variants",
     return AxisDecl(values=values, default=default), diags
 
 
+def _parse_revision_entries(list_v: Optional[Val], fmt: str, key: str,
+                            owner: str) -> tuple[list[str], list[Diagnostic]]:
+    """Each `revisions:` list entry: a mapping {name:} whose name: is a
+    quoted string matching `fmt`'s own pattern. An unquoted numeric-
+    looking id is rejected rather than coerced (it is exactly the value
+    a `major.minor.patch` axis invites an author to type, and YAML would
+    silently read it as a number); a name that does not match `fmt` is
+    likewise rejected here, since a malformed DECLARED name is this
+    file's own defect.
+
+    Returns (values, diagnostics): only the entries that passed every
+    check, in list order."""
+    diags: list[Diagnostic] = []
+    values: list[str] = []
+    for item_v in (list_v.value if list_v is not None else []):
+        if not isinstance(item_v.value, dict):
+            diags.append(error(
+                "lang-schema",
+                f"{owner} {key}: a revisions: entry must be a mapping "
+                "{name:} -- this axis takes no bare scalar entries",
+                (item_v.src,)))
+            continue
+        name_v, d = require(item_v, "name", f"{owner} {key} entry")
+        diags += d
+        if name_v is None:
+            continue
+        if not isinstance(name_v.value, str):
+            diags.append(error(
+                "lang-schema",
+                f"{owner} {key}: revision id {name_v.value!r} must be a "
+                "quoted string -- an unquoted id can parse as a YAML "
+                "number and silently change value",
+                (name_v.src,)))
+            continue
+        name = name_v.value
+        if not _format_matches(fmt, name):
+            diags.append(error(
+                "lang-schema",
+                f"{owner} {key}: revision '{name}' does not match format "
+                f"{fmt!r} (expected {_FORMAT_DESCRIPTIONS[fmt]})",
+                (name_v.src,)))
+            continue
+        values.append(name)
+    return values, diags
+
+
 def parse_revision_decl(container_v: Val, key: str = "revision",
                         owner: str = "rig",
                         ) -> tuple[Optional[AxisDecl], list[Diagnostic]]:
@@ -268,36 +314,8 @@ def parse_revision_decl(container_v: Val, key: str = "revision",
         return None, diags
 
     list_v = axis_map.get("revisions")
-    values: list[str] = []
-    for item_v in (list_v.value if list_v is not None else []):
-        if not isinstance(item_v.value, dict):
-            diags.append(error(
-                "lang-schema",
-                f"{owner} {key}: a revisions: entry must be a mapping "
-                "{name:} -- this axis takes no bare scalar entries",
-                (item_v.src,)))
-            continue
-        name_v, d = require(item_v, "name", f"{owner} {key} entry")
-        diags += d
-        if name_v is None:
-            continue
-        if not isinstance(name_v.value, str):
-            diags.append(error(
-                "lang-schema",
-                f"{owner} {key}: revision id {name_v.value!r} must be a "
-                "quoted string -- an unquoted id can parse as a YAML "
-                "number and silently change value",
-                (name_v.src,)))
-            continue
-        name = name_v.value
-        if not _format_matches(fmt, name):
-            diags.append(error(
-                "lang-schema",
-                f"{owner} {key}: revision '{name}' does not match format "
-                f"{fmt!r} (expected {_FORMAT_DESCRIPTIONS[fmt]})",
-                (name_v.src,)))
-            continue
-        values.append(name)
+    values, entry_diags = _parse_revision_entries(list_v, fmt, key, owner)
+    diags += entry_diags
     if not values:
         diags.append(error(
             "lang-schema",
@@ -433,6 +451,68 @@ def check_axis_collision(rig_name: str, variants: Optional[AxisDecl],
     return diags
 
 
+def _resolve_revision_selection(owner_kind: str, owner_name: str,
+                                axis_kind: str, code: str, decl: AxisDecl,
+                                selected: Optional[str], src: SourceRef,
+                                ) -> tuple[Optional[str], list[Diagnostic]]:
+    """The hwmv2 revision-resolution machinery (extensions.cmake:1048
+    family), reached only once `decl.format is not None`: `format:
+    custom` is rejected loudly the moment the axis is used at all, even
+    via its default, naming the three formats rigc implements. A
+    `selected` value gets hwmv2's own loose typing for
+    `major.minor.patch` (missing trailing components zero-appended)
+    before format validation and membership are checked; a value that
+    does not match the declared format at all is rejected. A value that
+    IS a declared member resolves to itself; otherwise, unless
+    `decl.exact`, hwmv2's nearest-lower match resolves DOWN to the
+    highest declared revision <= the requested one. An unselected axis
+    takes the declared default exactly like a non-hwmv2 axis does.
+
+    Returns (value, diagnostics): the RESOLVED axis value (nearest-lower
+    already applied where it applies), or None either legitimately (no
+    default, nothing selected -- reported) or after a reported failure.
+    `decl` is read-only."""
+    if decl.format not in _REVISION_PATTERNS:
+        supported = ", ".join(_REVISION_PATTERNS)
+        return None, [error(
+            code,
+            f"{owner_kind} '{owner_name}' declares revision format "
+            f"{decl.format!r} -- rigc supports {supported} only "
+            "(format: custom is not implemented)",
+            (src,))]
+
+    if selected is None:
+        if decl.default is not None:
+            return decl.default, []
+        return None, [error(
+            code,
+            f"{owner_kind} '{owner_name}': no {axis_kind} selected, and "
+            f"this {owner_kind} declares no default {axis_kind} -- choose "
+            f"one of: {', '.join(decl.values)}",
+            (src,))]
+
+    assert decl.format is not None    # narrowed by the check above
+    candidate = _zero_append(decl.format, selected)
+    if not _format_matches(decl.format, candidate):
+        return None, [error(
+            code,
+            f"{owner_kind} '{owner_name}': revision '{selected}' does "
+            f"not match this axis's declared format {decl.format!r} -- "
+            f"expected {_FORMAT_DESCRIPTIONS[decl.format]}",
+            (src,))]
+    if candidate in decl.values:
+        return candidate, []
+    if not decl.exact:
+        lower = _nearest_lower(decl.format, decl.values, candidate)
+        if lower is not None:
+            return lower, []
+    return None, [error(
+        code,
+        f"{owner_kind} '{owner_name}': revision '{candidate}' is not "
+        f"declared -- known revisions: {', '.join(decl.values)}",
+        (src,))]
+
+
 def resolve_axis_selection(owner_kind: str, owner_name: str, axis_kind: str,
                            decl_key: str, decl: Optional[AxisDecl],
                            selected: Optional[str], src: SourceRef,
@@ -497,14 +577,8 @@ def resolve_axis_selection(owner_kind: str, owner_name: str, axis_kind: str,
 
     if hwmv2:
         assert decl is not None
-        if decl.format not in _REVISION_PATTERNS:
-            supported = ", ".join(_REVISION_PATTERNS)
-            return None, [error(
-                code,
-                f"{owner_kind} '{owner_name}' declares revision format "
-                f"{decl.format!r} -- rigc supports {supported} only "
-                "(format: custom is not implemented)",
-                (src,))]
+        return _resolve_revision_selection(
+            owner_kind, owner_name, axis_kind, code, decl, selected, src)
 
     if selected is not None:
         if decl is None:
@@ -514,35 +588,14 @@ def resolve_axis_selection(owner_kind: str, owner_name: str, axis_kind: str,
                 f"({selected!r}), but this {owner_kind} declares no "
                 f"{decl_key}: at all",
                 (src,))]
-        if not hwmv2:
-            if selected not in decl.values:
-                return None, [error(
-                    code,
-                    f"{owner_kind} '{owner_name}': {axis_kind} '{selected}' "
-                    f"is not declared -- known {axis_kind}s: "
-                    f"{', '.join(decl.values)}",
-                    (src,))]
-            return selected, []
-        assert decl.format is not None    # `hwmv2` above narrows this
-        candidate = _zero_append(decl.format, selected)
-        if not _format_matches(decl.format, candidate):
+        if selected not in decl.values:
             return None, [error(
                 code,
-                f"{owner_kind} '{owner_name}': revision '{selected}' does "
-                f"not match this axis's declared format {decl.format!r} -- "
-                f"expected {_FORMAT_DESCRIPTIONS[decl.format]}",
+                f"{owner_kind} '{owner_name}': {axis_kind} '{selected}' "
+                f"is not declared -- known {axis_kind}s: "
+                f"{', '.join(decl.values)}",
                 (src,))]
-        if candidate in decl.values:
-            return candidate, []
-        if not decl.exact:
-            lower = _nearest_lower(decl.format, decl.values, candidate)
-            if lower is not None:
-                return lower, []
-        return None, [error(
-            code,
-            f"{owner_kind} '{owner_name}': revision '{candidate}' is not "
-            f"declared -- known revisions: {', '.join(decl.values)}",
-            (src,))]
+        return selected, []
     if decl is None:
         return None, []
     if decl.default is not None:

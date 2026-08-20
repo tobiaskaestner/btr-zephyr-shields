@@ -12,11 +12,44 @@ other one here (`(its piece, diagnostics)`), never writing into a Rig it
 was handed."""
 from __future__ import annotations
 
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 from ..diag import Diagnostic, error
 from ..model import ConnectorType, Instance, Rig, Wire
 from .socketmap import Sockets, for_slot
+
+
+def _resolve_via_route(wire: Wire, route: str, by_name: Dict[str, Instance],
+                       sockets: Sockets, types: Dict[str, ConnectorType],
+                       ) -> Tuple[Union[str, int], List[Diagnostic]]:
+    """The `route: via <position name>` branch of `check_wires`, lifted
+    out: resolved to the connector type's own position INDEX, through
+    the FROM end's socket. Ambiguous for a plural FROM instance (which
+    of its several plugs would the position even be relative to?) --
+    refused loudly rather than guessed at (multi-plug-shield-brief.md
+    Sec 4/6). Returns the route UNCHANGED (still the raw name) whenever
+    it does not resolve, so the caller always builds the same Wire
+    either way, refusal or not."""
+    diags: List[Diagnostic] = []
+    frm_inst = by_name.get(wire.frm.instance_name)
+    if frm_inst is not None and len(frm_inst.shield.plugs) > 1:
+        diags.append(error(
+            "phys-wire",
+            f"route 'via {route}': instance '{frm_inst.name}' plugs "
+            f"more than one socket -- via-routing is not supported "
+            "for a multi-plug instance yet",
+            (wire.src,)))
+        return route, diags
+    socket = (for_slot(sockets, frm_inst, next(iter(frm_inst.shield.plugs)))
+             if frm_inst is not None else None)
+    ctype = types[socket.type_name] if socket is not None else None
+    if ctype is not None and route in ctype.positions:
+        return ctype.positions[route].index, diags
+    diags.append(error(
+        "phys-wire",
+        f"route 'via {route}': no such position on connector type "
+        f"'{ctype.name if ctype is not None else '?'}'", (wire.src,)))
+    return route, diags
 
 
 def check_wires(rig: Rig, sockets: Sockets,
@@ -62,31 +95,8 @@ def check_wires(rig: Rig, sockets: Sockets,
 
         route = wire.route
         if isinstance(route, str) and route != "adhoc":
-            # route: via <position name> -- resolved to the connector
-            # type's own position INDEX, through the FROM end's socket.
-            # Ambiguous for a plural FROM instance (which of its several
-            # plugs would the position even be relative to?) -- refused
-            # loudly rather than guessed at (multi-plug-shield-brief.md
-            # Sec 4/6); ad-hoc routes never reach this branch at all.
-            frm_inst = by_name.get(wire.frm.instance_name)
-            if frm_inst is not None and len(frm_inst.shield.plugs) > 1:
-                diags.append(error(
-                    "phys-wire",
-                    f"route 'via {route}': instance '{frm_inst.name}' plugs "
-                    f"more than one socket -- via-routing is not supported "
-                    "for a multi-plug instance yet",
-                    (wire.src,)))
-                resolved.append(wire)
-                continue
-            socket = (for_slot(sockets, frm_inst, next(iter(frm_inst.shield.plugs)))
-                     if frm_inst is not None else None)
-            ctype = types[socket.type_name] if socket is not None else None
-            if ctype is not None and route in ctype.positions:
-                route = ctype.positions[route].index
-            else:
-                diags.append(error(
-                    "phys-wire",
-                    f"route 'via {route}': no such position on connector type "
-                    f"'{ctype.name if ctype is not None else '?'}'", (wire.src,)))
+            # ad-hoc routes never reach this branch at all.
+            route, d = _resolve_via_route(wire, route, by_name, sockets, types)
+            diags += d
         resolved.append(Wire(frm=wire.frm, to=wire.to, route=route, src=wire.src))
     return resolved, diags

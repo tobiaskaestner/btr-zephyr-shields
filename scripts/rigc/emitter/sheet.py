@@ -93,17 +93,11 @@ def _ref_socket(rig: Rig, s: Solved, inst_name: str, dev_name: str, prop: str,
     return for_ref(s.sockets, inst, ref)
 
 
-def render_sheet(rig: Rig, s: Solved, types: Dict[str, ConnectorType], workdir: str,
-                 include_dirs: Optional[List[str]] = None) -> str:
-    """config-sheet.md's full text. rig/s/types are read-only; returns a
-    fresh string the caller owns. workdir/include_dirs feed the params
-    table's own token resolution (a synthetic cpp/dtlib TU, the same
-    mechanism the loader's own per-instance-parameter resolution uses --
-    see dtsio.resolve_token)."""
-    out = [f"# Physical configuration sheet — rig `{rig.name}`",
-           "", f"<!-- {GEN} -->", "",
-           f"Board: **{rig.board}**", "",
-           "## Socket assignment", "",
+def _socket_table(rig: Rig, s: Solved) -> List[str]:
+    """The Socket assignment table: one row per single-plug instance, one
+    row per slot for a plural instance. rig/s are read-only; returns fresh
+    lines the caller owns."""
+    out = ["## Socket assignment", "",
            "| instance | shield | socket |", "|---|---|---|"]
     for inst in sorted(rig.instances, key=lambda i: i.name):
         if len(inst.shield.plugs) <= 1:
@@ -114,65 +108,111 @@ def render_sheet(rig: Rig, s: Solved, types: Dict[str, ConnectorType], workdir: 
             for slot in inst.shield.plugs:
                 out.append(f"| {inst.name} | {inst.shield.name} | "
                            f"{slot}: {_socket_display(inst, s, slot)} |")
+    return out
 
-    if s.straps or s.jumpers_set:
-        out += ["", "## Straps / jumpers", ""]
-        for inst, strap, state, addr in sorted(
-                s.straps, key=lambda t: (t[0].name, t[1].name)):
-            sheet = strap.sheet_label or strap.name
-            slot = _strap_owner_slot(inst, strap)
-            out.append(
-                f"- **{inst.name}** ({_socket_display(inst, s, slot)}): set **{sheet}** to state "
-                f"{state} → device address {addr:#04x}")
-        for inst, jmp, jmp_state, pos in sorted(
-                s.jumpers_set, key=lambda t: (t[0].name, t[1].name)):
-            # Routing jumpers are refused outright on a plural shield
-            # (Sec 6) -- inst.shield.plugs always has exactly one entry
-            # here, whatever its plug node is actually named.
-            sheet = jmp.sheet_label or jmp.name
-            slot = next(iter(inst.shield.plugs), "plug")
-            socket = for_slot(s.sockets, inst, slot)
-            assert socket is not None
-            posname = types[socket.type_name].posname(pos)
-            out.append(
-                f"- **{inst.name}** ({_socket_display(inst, s, slot)}): set **{sheet}** to state "
-                f"{jmp_state} → routed to pin {posname}")
 
-    if s.channels:
-        out += ["", "## PWM / analog pin-mux (board-provided pinctrl)", "",
-                "The expander enables these controllers; the SoC pin-mux for "
-                "each pin is board-provided and must be applied (stubbed):", ""]
-        # keys are (instance NAME, device NAME, prop) strings, unlike the
-        # Instance/Strap/Jumper OBJECTS the straps/jumpers loops above bind
-        # -- named distinctly (inst_name/dev_name) so the two shapes never
-        # share a variable name of two different types.
-        for (inst_name, dev_name, prop), (fn, ctrl, ch, _p, _f, pos) in sorted(
-                s.channels.items()):
-            socket = _ref_socket(rig, s, inst_name, dev_name, prop)
-            assert socket is not None
-            posname = types[socket.type_name].posname(pos)
-            out.append(f"- {inst_name}/{dev_name} ({socket.label} {posname}) → "
-                       f"{fn.upper()} {ctrl} ch{ch}: mux the pin to the controller")
+def _straps_section(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[str]:
+    """The Straps / jumpers section: one bullet per resolved strap, then one
+    per set routing jumper. rig/s/types are read-only; returns fresh lines
+    the caller owns, empty when there is nothing to report."""
+    if not (s.straps or s.jumpers_set):
+        return []
+    out = ["", "## Straps / jumpers", ""]
+    for inst, strap, state, addr in sorted(
+            s.straps, key=lambda t: (t[0].name, t[1].name)):
+        sheet = strap.sheet_label or strap.name
+        slot = _strap_owner_slot(inst, strap)
+        out.append(
+            f"- **{inst.name}** ({_socket_display(inst, s, slot)}): set **{sheet}** to state "
+            f"{state} → device address {addr:#04x}")
+    for inst, jmp, jmp_state, pos in sorted(
+            s.jumpers_set, key=lambda t: (t[0].name, t[1].name)):
+        # Routing jumpers are refused outright on a plural shield
+        # (Sec 6) -- inst.shield.plugs always has exactly one entry
+        # here, whatever its plug node is actually named.
+        sheet = jmp.sheet_label or jmp.name
+        slot = next(iter(inst.shield.plugs), "plug")
+        socket = for_slot(s.sockets, inst, slot)
+        assert socket is not None
+        posname = types[socket.type_name].posname(pos)
+        out.append(
+            f"- **{inst.name}** ({_socket_display(inst, s, slot)}): set **{sheet}** to state "
+            f"{jmp_state} → routed to pin {posname}")
+    return out
 
-    if s.wires:
-        out += ["", "## Wires", ""]
-        for w in s.wires:
-            route = ("ad-hoc jumper wire (in no connector)"
-                     if w.route == "adhoc" else f"via header position {w.route}")
-            out.append(
-                f"- connect **{w.frm.instance_name}.{w.frm.node}** → "
-                f"**{w.to.instance_name}.{w.to.node}** — {route}")
 
-    if s.cs:
-        out += ["", "## Chip-selects", ""]
-        for (inst_name, dev_name), (index, pos) in sorted(s.cs.items()):
-            socket = _device_socket(rig, s, inst_name, dev_name)
-            assert socket is not None
-            posname = types[socket.type_name].posname(pos)
-            mapping = socket.gpio_map.get(pos)
-            soc = f" → SoC {mapping[0]} pin {mapping[1]}" if mapping else ""
-            out.append(f"- {inst_name}/{dev_name}: CS index {index}, {posname}{soc}")
+def _channels_section(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[str]:
+    """The PWM / analog pin-mux section: one bullet per resolved channel
+    claim. rig/s/types are read-only; returns fresh lines the caller owns,
+    empty when there are no channels."""
+    if not s.channels:
+        return []
+    out = ["", "## PWM / analog pin-mux (board-provided pinctrl)", "",
+           "The expander enables these controllers; the SoC pin-mux for "
+           "each pin is board-provided and must be applied (stubbed):", ""]
+    # keys are (instance NAME, device NAME, prop) strings, unlike the
+    # Instance/Strap/Jumper OBJECTS the straps/jumpers loops above bind
+    # -- named distinctly (inst_name/dev_name) so the two shapes never
+    # share a variable name of two different types.
+    for (inst_name, dev_name, prop), (fn, ctrl, ch, _p, _f, pos) in sorted(
+            s.channels.items()):
+        socket = _ref_socket(rig, s, inst_name, dev_name, prop)
+        assert socket is not None
+        posname = types[socket.type_name].posname(pos)
+        out.append(f"- {inst_name}/{dev_name} ({socket.label} {posname}) → "
+                   f"{fn.upper()} {ctrl} ch{ch}: mux the pin to the controller")
+    return out
 
+
+def _wires_section(s: Solved) -> List[str]:
+    """The Wires section: one bullet per resolved wire, reading only
+    `s.wires` (never `rig.wires`, see the module docstring). s is
+    read-only; returns fresh lines the caller owns, empty when there are
+    no wires."""
+    if not s.wires:
+        return []
+    out = ["", "## Wires", ""]
+    for w in s.wires:
+        route = ("ad-hoc jumper wire (in no connector)"
+                 if w.route == "adhoc" else f"via header position {w.route}")
+        out.append(
+            f"- connect **{w.frm.instance_name}.{w.frm.node}** → "
+            f"**{w.to.instance_name}.{w.to.node}** — {route}")
+    return out
+
+
+def _cs_section(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[str]:
+    """The Chip-selects section: one bullet per resolved CS index. rig/s/
+    types are read-only; returns fresh lines the caller owns, empty when
+    there are no chip-selects."""
+    if not s.cs:
+        return []
+    out = ["", "## Chip-selects", ""]
+    for (inst_name, dev_name), (index, pos) in sorted(s.cs.items()):
+        socket = _device_socket(rig, s, inst_name, dev_name)
+        assert socket is not None
+        posname = types[socket.type_name].posname(pos)
+        mapping = socket.gpio_map.get(pos)
+        soc = f" → SoC {mapping[0]} pin {mapping[1]}" if mapping else ""
+        out.append(f"- {inst_name}/{dev_name}: CS index {index}, {posname}{soc}")
+    return out
+
+
+def render_sheet(rig: Rig, s: Solved, types: Dict[str, ConnectorType], workdir: str,
+                 include_dirs: Optional[List[str]] = None) -> str:
+    """config-sheet.md's full text. rig/s/types are read-only; returns a
+    fresh string the caller owns. workdir/include_dirs feed the params
+    table's own token resolution (a synthetic cpp/dtlib TU, the same
+    mechanism the loader's own per-instance-parameter resolution uses --
+    see dtsio.resolve_token)."""
+    out = [f"# Physical configuration sheet — rig `{rig.name}`",
+           "", f"<!-- {GEN} -->", "",
+           f"Board: **{rig.board}**", ""]
+    out += _socket_table(rig, s)
+    out += _straps_section(rig, s, types)
+    out += _channels_section(rig, s, types)
+    out += _wires_section(s)
+    out += _cs_section(rig, s, types)
     out += _params_table(rig, workdir, include_dirs)
     return "\n".join(out) + "\n"
 

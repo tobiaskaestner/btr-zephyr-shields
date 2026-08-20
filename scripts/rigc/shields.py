@@ -125,6 +125,11 @@ def _is_plug_node(g) -> bool:
     return "compatible" in g.props and g.props["compatible"].to_string() == "shield,plug"
 
 
+def _is_exposed_node(g) -> bool:
+    return "compatible" in g.props and \
+        g.props["compatible"].to_string().startswith("socket,")
+
+
 def _require_label(node, kind: str, shield_name: str) -> Tuple[str, List[Diagnostic]]:
     """The DTS label a rig->shield reference (`config:`/`wires:`/
     `socket:`) resolves against, for a device, pad, strap, jumper or
@@ -172,10 +177,6 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
     shield = Shield(name=node.name, label=label, plugs={}, src=src_of(node))
     shield.by_path[node.path] = shield
 
-    ctypes_by_slot: Dict[str, Optional[ConnectorType]] = {}
-    nodes_by_slot: Dict[str, Any] = {}
-    plugs_by_path: PlugsByPath = {}
-
     if not plug_children:
         diags.append(error(
             "lang-shield-plug",
@@ -185,6 +186,68 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
             (src_of(node),)))
         return shield, diags
 
+    ctypes_by_slot, nodes_by_slot, plugs_by_path, d = _parse_plugs(
+        plug_children, shield, types)
+    diags += d
+
+    #: the slot a plug-agnostic (plain-group) device belongs to: the only
+    #: one when there IS only one, else none. Replaces the retired single
+    #: form's hardcoded `"plug"`, which was right only for a shield whose
+    #: plug node happened to carry that name.
+    only_slot = next(iter(shield.plugs)) if len(shield.plugs) == 1 else None
+
+    # two-phase: pads/config first -- devices reference straps
+    # (shield,addr-from) regardless of group order in the file. Both stay
+    # TEMPLATE-LEVEL regardless of plurality (shield-level facts) -- a
+    # routing jumper is the one exception: its position domain has no
+    # plug axis, so a plural shield declaring one is refused (Sec 4/6)
+    # rather than silently mishandled; straps are address-domain and
+    # bus-scoped, unaffected either way.
+    diags += _parse_pads_and_config(node, shield)
+
+    # device groups FIRST -- an exposed socket may reference a device as
+    # its scope root (S8 mux channel), so the device must be in by_path
+    # already.
+    # template-level groups: plug-agnostic (plain groups) only -- a group
+    # whose name is bus-shaped is rejected, since bus groups nest under
+    # their owning plug (the placement rule), never sit at template level.
+    # This holds at ONE plug exactly as at many: it is the rule the single
+    # form inverted, and inverting it is what silently dropped every group
+    # an author nested under `plug` (plug-unification-brief.md Sec 1).
+    diags += _parse_template_groups(
+        node, shield, plug_children, ctypes_by_slot, plugs_by_path, only_slot)
+
+    # each plug's OWN bus groups, matched against ITS OWN connector
+    # type's bus_proxies -- the plug binding, structural. A group nested
+    # under a plug that is NEITHER a bus this plug's ctype allows NOR
+    # bus-kind-named at all is a plain group in the wrong place: the
+    # placement rule keeps plain groups at template level (plug-agnostic),
+    # so nesting one under a plug is rejected here rather than silently
+    # recorded with Device.plug = slot -- the same symmetry the
+    # template-level walk above applies to a misplaced BUS group (its own
+    # lang-shield-proxy branch).
+    diags += _parse_plug_groups(shield, nodes_by_slot, ctypes_by_slot, plugs_by_path)
+
+    # then re-exported sockets (R19 pass-through, or S8 scope creation) --
+    # a plural shield may declare one too (multi-plug-carrier-brief.md):
+    # each gpio-map row and each socket,<bus> resolves through ONE of the
+    # carrier's plugs, per plugs_by_path, exactly as a device's own
+    # cross-plug refs do (ruling 2, applied one level up).
+    diags += _parse_exposed_sockets(node, shield, plug_children, plugs_by_path, types)
+    return shield, diags
+
+
+def _parse_plugs(plug_children, shield: Shield, types: Dict[str, ConnectorType],
+                 ) -> Tuple[Dict[str, Optional[ConnectorType]], Dict[str, Any],
+                            PlugsByPath, List[Diagnostic]]:
+    """Every plug child in authoring order: validates its cell counts and
+    resolves its connector type, and records `shield.plugs[slot]` (in that
+    same order -- shield.plugs' own ordering contract) alongside the three
+    lookup maps the rest of `_parse_shield` walks against."""
+    diags: List[Diagnostic] = []
+    ctypes_by_slot: Dict[str, Optional[ConnectorType]] = {}
+    nodes_by_slot: Dict[str, Any] = {}
+    plugs_by_path: PlugsByPath = {}
     for child in plug_children:
         slot = child.name
         for cells in _FUNCTION_CELLS.values():
@@ -220,20 +283,15 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
         ctypes_by_slot[slot] = ctype
         nodes_by_slot[slot] = child
         plugs_by_path[child.path] = (slot, ctype)
+    return ctypes_by_slot, nodes_by_slot, plugs_by_path, diags
 
-    #: the slot a plug-agnostic (plain-group) device belongs to: the only
-    #: one when there IS only one, else none. Replaces the retired single
-    #: form's hardcoded `"plug"`, which was right only for a shield whose
-    #: plug node happened to carry that name.
-    only_slot = next(iter(shield.plugs)) if len(shield.plugs) == 1 else None
 
-    # two-phase: pads/config first -- devices reference straps
-    # (shield,addr-from) regardless of group order in the file. Both stay
-    # TEMPLATE-LEVEL regardless of plurality (shield-level facts) -- a
-    # routing jumper is the one exception: its position domain has no
-    # plug axis, so a plural shield declaring one is refused (Sec 4/6)
-    # rather than silently mishandled; straps are address-domain and
-    # bus-scoped, unaffected either way.
+def _parse_pads_and_config(node, shield: Shield) -> List[Diagnostic]:
+    """The `pads` and `config` template-level groups, in that authoring
+    order. A `config` child with `shield,position-domain` is a routing
+    jumper (refused above one plug); every other `config` child is a
+    strap."""
+    diags: List[Diagnostic] = []
     for group in node.nodes.values():
         if group.name == "pads":
             for pnode in group.nodes.values():
@@ -262,22 +320,20 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
                     diags += d
                     shield.straps[strap.name] = strap
                     shield.by_path[snode.path] = strap
+    return diags
 
-    def is_exposed(g) -> bool:
-        return "compatible" in g.props and \
-            g.props["compatible"].to_string().startswith("socket,")
 
-    # device groups FIRST -- an exposed socket may reference a device as
-    # its scope root (S8 mux channel), so the device must be in by_path
-    # already.
-    # template-level groups: plug-agnostic (plain groups) only -- a group
-    # whose name is bus-shaped is rejected, since bus groups nest under
-    # their owning plug (the placement rule), never sit at template level.
-    # This holds at ONE plug exactly as at many: it is the rule the single
-    # form inverted, and inverting it is what silently dropped every group
-    # an author nested under `plug` (plug-unification-brief.md Sec 1).
+def _parse_template_groups(node, shield: Shield, plug_children,
+                           ctypes_by_slot: Dict[str, Optional[ConnectorType]],
+                           plugs_by_path: PlugsByPath,
+                           only_slot: Optional[str]) -> List[Diagnostic]:
+    """Plug-agnostic device groups at template level. A bus-shaped group
+    here is rejected -- bus groups nest under their owning plug -- but its
+    devices are still parsed, so a misplaced group's own diagnostics don't
+    mask its devices' problems."""
+    diags: List[Diagnostic] = []
     for group in node.nodes.values():
-        if group.name in _RESERVED or is_exposed(group) or group in plug_children:
+        if group.name in _RESERVED or _is_exposed_node(group) or group in plug_children:
             continue
         if bus_kind_of(group.name) is not None:
             candidates = sorted(
@@ -297,16 +353,17 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
             diags += d
             shield.devices.append(dev)
             shield.by_path[dnode.path] = dev
+    return diags
 
-    # each plug's OWN bus groups, matched against ITS OWN connector
-    # type's bus_proxies -- the plug binding, structural. A group nested
-    # under a plug that is NEITHER a bus this plug's ctype allows NOR
-    # bus-kind-named at all is a plain group in the wrong place: the
-    # placement rule keeps plain groups at template level (plug-agnostic),
-    # so nesting one under a plug is rejected here rather than silently
-    # recorded with Device.plug = slot -- the same symmetry the
-    # template-level walk above applies to a misplaced BUS group (its own
-    # lang-shield-proxy branch).
+
+def _parse_plug_groups(shield: Shield, nodes_by_slot: Dict[str, Any],
+                       ctypes_by_slot: Dict[str, Optional[ConnectorType]],
+                       plugs_by_path: PlugsByPath) -> List[Diagnostic]:
+    """Each plug's own nested groups, matched against its own connector
+    type's bus_proxies. A group that is neither an allowed bus proxy nor
+    bus-kind-named at all is a plain group in the wrong place; either way
+    its devices are still parsed and attributed to this plug."""
+    diags: List[Diagnostic] = []
     for slot, plug_node in nodes_by_slot.items():
         ctype = ctypes_by_slot[slot]
         for group in plug_node.nodes.values():
@@ -336,28 +393,34 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
                 diags += d
                 shield.devices.append(dev)
                 shield.by_path[dnode.path] = dev
+    return diags
 
-    # then re-exported sockets (R19 pass-through, or S8 scope creation) --
-    # a plural shield may declare one too (multi-plug-carrier-brief.md):
-    # each gpio-map row and each socket,<bus> resolves through ONE of the
-    # carrier's plugs, per plugs_by_path, exactly as a device's own
-    # cross-plug refs do (ruling 2, applied one level up).
+
+def _parse_exposed_sockets(node, shield: Shield, plug_children,
+                           plugs_by_path: PlugsByPath,
+                           types: Dict[str, ConnectorType]) -> List[Diagnostic]:
+    """Every re-exported socket at template level, in authoring order."""
+    diags: List[Diagnostic] = []
     for group in node.nodes.values():
-        if group.name in _RESERVED or not is_exposed(group) or group in plug_children:
+        if group.name in _RESERVED or not _is_exposed_node(group) or group in plug_children:
             continue
         exp, d = _parse_exposed(group, plugs_by_path, shield, types)
         diags += d
         shield.exposes[exp.name] = exp
         shield.by_path[group.path] = exp
-    return shield, diags
+    return diags
 
 
-def _parse_device(node, shield: Shield, plugs_by_path: PlugsByPath, bus, group,
-                  dev_plug: Optional[str]) -> Tuple[Device, List[Diagnostic]]:
+def _parse_device_addressing(node, shield: Shield, bus, unit: str,
+                             ) -> Tuple[Optional[int], Optional[str], List[Diagnostic]]:
+    """reg / shield,addr-from / unit-address, together: the address
+    authority rule requires exactly one of reg / addr-from on an
+    addressable bus, and the unit-address (when present) must agree with
+    whichever of the two actually authors the address.
+
+    Returns (reg, addr_from, diagnostics): addr_from is the strap's own
+    name when shield,addr-from resolves, else None."""
     diags: List[Diagnostic] = []
-    name, _, unit = node.name.partition("@")
-    compat = node.props["compatible"].to_string() if "compatible" in node.props else None
-
     reg = node.props["reg"].to_num() if "reg" in node.props else None
     addr_from = None
     if "shield,addr-from" in node.props:
@@ -405,6 +468,17 @@ def _parse_device(node, shield: Shield, plugs_by_path: PlugsByPath, bus, group,
             f"'{node.name}': symbolic unit-address @{unit} does not match "
             f"its resolver '{addr_from}' (lint: marker must name the "
             "addr-from target)", (src_of(node),)))
+    return reg, addr_from, diags
+
+
+def _parse_device(node, shield: Shield, plugs_by_path: PlugsByPath, bus, group,
+                  dev_plug: Optional[str]) -> Tuple[Device, List[Diagnostic]]:
+    diags: List[Diagnostic] = []
+    name, _, unit = node.name.partition("@")
+    compat = node.props["compatible"].to_string() if "compatible" in node.props else None
+
+    reg, addr_from, d = _parse_device_addressing(node, shield, bus, unit)
+    diags += d
 
     cs_position = None
     if "shield,cs-position" in node.props:
@@ -566,28 +640,12 @@ def _valid_position(prop, pos: int, ctype) -> Tuple[bool, List[Diagnostic]]:
     return True, []
 
 
-def _parse_exposed(node, plugs_by_path: PlugsByPath, shield: Shield,
-                   types: Dict[str, ConnectorType],
-                   ) -> Tuple[ExposedSocket, List[Diagnostic]]:
-    """A re-exported socket, now potentially composed from SEVERAL named
-    parents (multi-plug-carrier-brief.md Sec 1 ruling 1). gpio-map binds
-    exposed positions to ONE of the carrier's own plug positions
-    (pass-through, R19) -- RECORDING which slot the phandle named, per
-    row, exactly as `_parse_pos_ref` widens "must be THIS shield's plug"
-    to "one of this shield's plugs" (ruling 2, applied one level up).
-    socket,<bus> (bare, or role-qualified per the multi-bus vocabulary)
-    is either <&some-plug> (pass through THAT plug's own bus, S6) or
-    <&device> (a NEW scope rooted in that device of the shield, S8). The
-    CHILD-side qualified name is the EXPOSED connector type's OWN
-    vocabulary -- validated exact-match against its declared bus_proxies,
-    no fallback, independent of whichever parent-side bus a pass-through
-    eventually selects (that selection is compose_socket's own job, by
-    KIND, once the parent is a real resolved socket)."""
+def _parse_gpio_map(node, plugs_by_path: PlugsByPath, is_plural: bool,
+                    ) -> Tuple[Dict[int, Tuple[str, int, int]], List[Diagnostic]]:
+    """gpio-map's own 5-cell rows: child pos, child flags, phandle, parent
+    pos, parent flags. Each phandle must land on one of the carrier's own
+    plugs (pass-through, R19); RECORDS which slot it named, per row."""
     diags: List[Diagnostic] = []
-    type_name = node.props["compatible"].to_string().split(",", 1)[1]
-    ctype = types.get(type_name)
-    is_plural = len(plugs_by_path) > 1
-
     gpio_map: Dict[int, Tuple[str, int, int]] = {}
     if "gpio-map" in node.props:
         cells = words(node.props["gpio-map"])
@@ -606,14 +664,17 @@ def _parse_exposed(node, plugs_by_path: PlugsByPath, shield: Shield,
                 continue
             slot, _pctype = plug_entry
             gpio_map[pos] = (slot, parent_pos, parent_flags)
+    return gpio_map, diags
 
-    pwm_map, pwm_cells, d = _parse_channel_map(
-        node, "pwm-map", "#pwm-cells", "pwm", plugs_by_path, is_plural)
-    diags += d
-    adc_map, adc_cells, d = _parse_channel_map(
-        node, "io-channel-map", "#io-channel-cells", "adc", plugs_by_path, is_plural)
-    diags += d
 
+def _parse_exposed_buses(node, shield: Shield, plugs_by_path: PlugsByPath,
+                         ctype: Optional[ConnectorType], type_name: str,
+                         is_plural: bool) -> Tuple[Dict[str, object], List[Diagnostic]]:
+    """The socket,<bus> (and role-qualified) properties, in sorted
+    property-name order: each is either a pass-through of one of the
+    carrier's plugs (S6) or a new scope rooted at a device of the shield
+    (S8)."""
+    diags: List[Diagnostic] = []
     buses: Dict[str, object] = {}
     qualified_props = sorted(name for name in node.props if _BUS_PROP_RE.match(name))
     for prop_name in qualified_props:
@@ -642,6 +703,44 @@ def _parse_exposed(node, plugs_by_path: PlugsByPath, shield: Shield,
                 f"exposed socket '{node.name}': {prop_name} must be "
                 f"{what} (pass-through, R19) or <&device> (new scope, "
                 "R26)", (src_of(node),)))
+    return buses, diags
+
+
+def _parse_exposed(node, plugs_by_path: PlugsByPath, shield: Shield,
+                   types: Dict[str, ConnectorType],
+                   ) -> Tuple[ExposedSocket, List[Diagnostic]]:
+    """A re-exported socket, now potentially composed from SEVERAL named
+    parents (multi-plug-carrier-brief.md Sec 1 ruling 1). gpio-map binds
+    exposed positions to ONE of the carrier's own plug positions
+    (pass-through, R19) -- RECORDING which slot the phandle named, per
+    row, exactly as `_parse_pos_ref` widens "must be THIS shield's plug"
+    to "one of this shield's plugs" (ruling 2, applied one level up).
+    socket,<bus> (bare, or role-qualified per the multi-bus vocabulary)
+    is either <&some-plug> (pass through THAT plug's own bus, S6) or
+    <&device> (a NEW scope rooted in that device of the shield, S8). The
+    CHILD-side qualified name is the EXPOSED connector type's OWN
+    vocabulary -- validated exact-match against its declared bus_proxies,
+    no fallback, independent of whichever parent-side bus a pass-through
+    eventually selects (that selection is compose_socket's own job, by
+    KIND, once the parent is a real resolved socket)."""
+    diags: List[Diagnostic] = []
+    type_name = node.props["compatible"].to_string().split(",", 1)[1]
+    ctype = types.get(type_name)
+    is_plural = len(plugs_by_path) > 1
+
+    gpio_map, d = _parse_gpio_map(node, plugs_by_path, is_plural)
+    diags += d
+
+    pwm_map, pwm_cells, d = _parse_channel_map(
+        node, "pwm-map", "#pwm-cells", "pwm", plugs_by_path, is_plural)
+    diags += d
+    adc_map, adc_cells, d = _parse_channel_map(
+        node, "io-channel-map", "#io-channel-cells", "adc", plugs_by_path, is_plural)
+    diags += d
+
+    buses, d = _parse_exposed_buses(
+        node, shield, plugs_by_path, ctype, type_name, is_plural)
+    diags += d
 
     cs_pool: Dict[str, List[int]] = {}
     if "socket,cs-pool" in node.props:

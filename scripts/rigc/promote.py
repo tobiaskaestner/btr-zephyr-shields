@@ -32,6 +32,7 @@ a filesystem. `rigc.loader.load` is what PROVES the printed text is real
 from __future__ import annotations
 
 import os
+import re
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -261,46 +262,10 @@ def parse_promotion_opts(opts: Optional[str], target: str,
                     f"assignments (known keys: "
                     f"{', '.join(_PROMOTION_OPTS)})")
         if "." in key:
-            dev_label, _, prop_name = key.partition(".")
-            if not dev_label or not prop_name:
-                return (f"'{target}': promotion parameter '{key}' is not "
-                        f"'<device>.<prop>=<value>' -- both the device "
-                        f"label and the property name must be non-empty")
-            if dev_label == "socket":
-                slot_name = prop_name
-                if shield is not None and not plural:
-                    return (f"'{target}': shield has a single plug -- use "
-                            f"socket=<label>, not socket.{slot_name}="
-                            f"<label>")
-                if shield is not None and slot_name not in shield.plugs:
-                    return (f"'{target}': socket.{slot_name} names unknown "
-                            f"slot '{slot_name}' -- known slots: "
-                            f"{', '.join(shield.plugs)}")
-                if slot_name in sockets:
-                    return (f"'{target}': slot 'socket.{slot_name}' given "
-                            f"more than once")
-                if not value:
-                    return (f"'{target}': promotion slot option "
-                            f"'socket.{slot_name}=' has an empty value")
-                sockets[slot_name] = value
-                continue
-            if dev_label == "config":
-                label_name = prop_name
-                if label_name in config:
-                    return (f"'{target}': config label 'config.{label_name}' "
-                            f"given more than once")
-                if not value:
-                    return (f"'{target}': promotion config option "
-                            f"'config.{label_name}=' has an empty value")
-                config[label_name] = value
-                continue
-            if prop_name in params.get(dev_label, {}):
-                return (f"'{target}': parameter '{dev_label}.{prop_name}' "
-                        f"given more than once")
-            if not value:
-                return (f"'{target}': promotion parameter '{key}=' has an "
-                        f"empty value")
-            params.setdefault(dev_label, {})[prop_name] = value
+            err = _route_dotted_promotion_assignment(
+                key, value, target, shield, plural, sockets, config, params)
+            if err is not None:
+                return err
             continue
         if key not in _PROMOTION_OPTS:
             return (f"'{target}': unknown promotion option '{key}' "
@@ -319,6 +284,94 @@ def parse_promotion_opts(opts: Optional[str], target: str,
         fixed[key] = value
     return ParsedPromotionOpts(fixed=fixed, params=params, sockets=sockets,
                                config=config)
+
+
+def _route_dotted_promotion_assignment(
+        key: str, value: str, target: str, shield: Optional[Shield],
+        plural: bool, sockets: Dict[str, str], config: Dict[str, str],
+        params: Dict[str, Dict[str, str]]) -> Optional[str]:
+    """Route one dotted `<label>.<name>=<value>` promotion assignment
+    (`key` already confirmed to contain a `.`) to whichever of
+    sockets/config/params its label half selects -- `socket` and
+    `config` are the two reserved labels (`parse_promotion_opts`'s own
+    docstring), any other label a device parameter. Mutates whichever
+    of sockets/config/params the assignment belongs to in place; shield
+    is read-only. Returns an error message naming why the assignment is
+    refused, or None once it has been recorded."""
+    dev_label, _, prop_name = key.partition(".")
+    if not dev_label or not prop_name:
+        return (f"'{target}': promotion parameter '{key}' is not "
+                f"'<device>.<prop>=<value>' -- both the device "
+                f"label and the property name must be non-empty")
+    if dev_label == "socket":
+        return _parse_socket_slot_assignment(
+            prop_name, value, target, shield, plural, sockets)
+    if dev_label == "config":
+        return _parse_config_label_assignment(prop_name, value, target, config)
+    return _parse_promotion_param_assignment(dev_label, prop_name, value,
+                                             target, params)
+
+
+def _parse_socket_slot_assignment(
+        slot_name: str, value: str, target: str, shield: Optional[Shield],
+        plural: bool, sockets: Dict[str, str]) -> Optional[str]:
+    """Route one `socket.<slot>=<value>` assignment against `shield`'s
+    real slots -- reserved unconditionally, never checked against a
+    shield's real device labels. Mutates sockets in place; shield is
+    read-only. Returns an error message on a malformed, unknown-slot,
+    or duplicate assignment, None once recorded."""
+    if shield is not None and not plural:
+        return (f"'{target}': shield has a single plug -- use "
+                f"socket=<label>, not socket.{slot_name}="
+                f"<label>")
+    if shield is not None and slot_name not in shield.plugs:
+        return (f"'{target}': socket.{slot_name} names unknown "
+                f"slot '{slot_name}' -- known slots: "
+                f"{', '.join(shield.plugs)}")
+    if slot_name in sockets:
+        return (f"'{target}': slot 'socket.{slot_name}' given "
+                f"more than once")
+    if not value:
+        return (f"'{target}': promotion slot option "
+                f"'socket.{slot_name}=' has an empty value")
+    sockets[slot_name] = value
+    return None
+
+
+def _parse_config_label_assignment(
+        label_name: str, value: str, target: str,
+        config: Dict[str, str]) -> Optional[str]:
+    """Route one `config.<label>=<value>` assignment -- `socket`'s exact
+    analogue, reserved unconditionally and never validated against the
+    shield's real config elements here (`rigc.loader.params.
+    apply_config_block` is the one place a miss already renders the
+    valid labels). Mutates config in place. Returns an error message on
+    a duplicate or empty-value assignment, None once recorded."""
+    if label_name in config:
+        return (f"'{target}': config label 'config.{label_name}' "
+                f"given more than once")
+    if not value:
+        return (f"'{target}': promotion config option "
+                f"'config.{label_name}=' has an empty value")
+    config[label_name] = value
+    return None
+
+
+def _parse_promotion_param_assignment(
+        dev_label: str, prop_name: str, value: str, target: str,
+        params: Dict[str, Dict[str, str]]) -> Optional[str]:
+    """Route one `<device>.<prop>=<value>` parameter assignment -- the
+    residual dotted-key case once `socket`/`config` are ruled out.
+    Mutates params in place. Returns an error message on a duplicate or
+    empty-value assignment, None once recorded."""
+    if prop_name in params.get(dev_label, {}):
+        return (f"'{target}': parameter '{dev_label}.{prop_name}' "
+                f"given more than once")
+    if not value:
+        return (f"'{target}': promotion parameter '{dev_label}.{prop_name}="
+                f"' has an empty value")
+    params.setdefault(dev_label, {})[prop_name] = value
+    return None
 
 
 def _render_instance(name: str, revision: Optional[str] = None,
@@ -690,3 +743,71 @@ def check_list_no_duplicate_elements(names: List[str],
                     f"repeated shield is future work)")
         seen.add(name)
     return None
+
+
+#: One element of a `;`-split `--promote` LIST value (multi-plug-list-
+#: brief.md): `<shield>[@rev][:opts]`, no `/variant` (every element must
+#: be a shield, which has no variant axis to select -- list_rigs.py's/
+#: west_commands/rigs.py's own namespace resolution already refused one
+#: before this ever runs, `check_promotable`'s own gate). Package-local
+#: rather than importing `list_rigs.py`'s own `_RIG_TARGET_RE`: that
+#: module is a standalone script outside this package, already importing
+#: `rigc.promote` the other way, so importing it back here would cycle.
+_LIST_ELEMENT_RE = re.compile(r"^([^@:]+)(@[^@:]+)?(:(.+))?$")
+
+
+def _split_list_element(element: str) -> Tuple[str, Optional[str], Optional[str]]:
+    """Parse one list-promotion element into (name, revision, opt_text).
+    A malformed element (the regex fails to match at all -- practically
+    unreachable via the west/cmake front doors, which already validated
+    every element before ever forwarding this value, but cli.py's
+    --promote is also directly invocable on its own) falls back to
+    treating the WHOLE text as the name: `resolve_for_promotion`'s own
+    failure to resolve it, surfaced once the synthesized `shield:`
+    reference reaches the loader, is what a caller sees -- the same
+    "trust the upstream namespace validation" boundary `parse_promotion_
+    opts`'s own single-target grammar already keeps."""
+    m = _LIST_ELEMENT_RE.match(element)
+    if not m:
+        return element, None, None
+    name = m.group(1)
+    revision = m.group(2)[1:] if m.group(2) else None
+    opt_text = m.group(4)
+    return name, revision, opt_text
+
+
+def parse_promotion_list(
+        target: str, shield_dirs: Optional[List[str]] = None,
+        ) -> Union[List[Tuple[str, Optional[str], ParsedPromotionOpts]], str]:
+    """Parse a `;`-separated `--promote` LIST target into one (name,
+    revision, parsed opts) triple per element, in the given order.
+
+    A list target carries EACH element's own `@rev` inline (unlike a
+    single `--promote` target's `--revision` flag): there is no single
+    scalar flag that could carry N separate per-element revisions, so a
+    list target is never revision-stripped the way a single target is
+    (list_rigs.PromotedListTarget's own docstring). `check_promotable`/
+    the rig-in-a-list/duplicate refusals are deliberately NOT re-checked
+    here, mirroring `parse_promotion_opts`'s own single-target "trust
+    the upstream namespace validation" boundary -- list_rigs.py/
+    west_commands/rigs.py already ran them before ever forwarding a
+    target this far.
+
+    Returns the parsed elements in order, or an ERROR MESSAGE string
+    (the same return convention every other refusal in this module
+    uses) naming the first element that failed to parse or the first
+    duplicate name. shield_dirs is read-only; the returned list and its
+    elements are the caller's own."""
+    elements: List[Tuple[str, Optional[str], ParsedPromotionOpts]] = []
+    for element in target.split(";"):
+        shield_name, elem_revision, opt_text = _split_list_element(element)
+        resolved = resolve_for_promotion(shield_name, shield_dirs)
+        opts = parse_promotion_opts(opt_text, element, resolved)
+        if isinstance(opts, str):
+            return opts
+        elements.append((shield_name, elem_revision, opts))
+    dup_err = check_list_no_duplicate_elements(
+        [name for name, _rev, _opts in elements], target)
+    if dup_err is not None:
+        return dup_err
+    return elements

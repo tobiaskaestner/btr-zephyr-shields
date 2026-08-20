@@ -50,25 +50,13 @@ def _instance_extra_props(inst: Instance, dev: Device) -> List[Tuple[str, str]]:
     return kept + added
 
 
-def render_overlay(rig: Rig, s: Solved, types: Dict[str, ConnectorType],
-                   needed_includes: Optional[List[str]] = None) -> str:
-    """rig-gen.overlay's full text. rig/s/types are read-only; returns a
-    fresh string the caller owns. `needed_includes`
-    (`emitter._needed_param_includes`) is the caller's own decision about
-    which headers this rig's params actually need -- this function only
-    gates the quoted #include line on whether the list is non-empty; it
-    never derives the list itself."""
-    out = []
-    if needed_includes:
-        # Opens the file: the needed parameter vocabulary reaches cpp
-        # before anything that might use it, via a quoted include
-        # resolved against this file's own directory (<build>/rig/, where
-        # the emitter also writes rig-gen-includes.dtsi).
-        out.append('#include "rig-gen-includes.dtsi"')
-    out += [f"/* {GEN}", f" * rig: {rig.name}  board: {rig.board}", " */", ""]
-
-    out += _synth_nexus_nodes(s)
-
+def _i2c_scopes(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[str]:
+    """The I2C scopes block: one `&bus {...};` per physical I2C bus in use,
+    each device node emitted directly or, for a mux interposer, nested
+    under its own synthesized channel scopes. rig/s/types are read-only;
+    returns fresh lines the caller owns, one bus scope's lines appended
+    after another in `s.bus_label` order."""
+    out: List[str] = []
     # I2C scopes -- expander is the sole author of reg + unit-address, always
     # as a matching pair (address authority rule). Mux channels (S8) are NEW
     # scopes emitted nested inside their mux device, not at the top level.
@@ -93,7 +81,16 @@ def render_overlay(rig: Rig, s: Solved, types: Dict[str, ConnectorType],
                                     unit=f"{addr:x}", reg=f"<{addr:#04x}>")
         out.append("};")
         out.append("")
+    return out
 
+
+def _spi_scopes(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[str]:
+    """The SPI scopes block: one `&bus {...};` per physical SPI bus with
+    chip-selects, its cs-gpios array and each child device's reg written
+    together. rig/s/types are read-only; returns fresh lines the caller
+    owns, one bus scope's lines appended after another in `s.cs_gpios`
+    order."""
+    out: List[str] = []
     # SPI scopes -- cs-gpios array and child reg written together (R16)
     for bus_path, entries in sorted(s.cs_gpios.items()):
         devs = list(_bus_devices(rig, s, "spi", bus_path))
@@ -109,11 +106,14 @@ def render_overlay(rig: Rig, s: Solved, types: Dict[str, ConnectorType],
                                 unit=str(index), reg=f"<{index}>")
         out.append("};")
         out.append("")
+    return out
 
-    # collection bindings (gpio-keys/gpio-leds, ...): entries from every
-    # instance aggregate under ONE node per compatible (gap #4 / R10 sibling)
-    out += _collections(rig, s, types)
 
+def _plain_groups(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[str]:
+    """The plain non-bus device groups block: one `/ { <instance> {...}; };`
+    container per instance that has neither a bus nor a collected device.
+    rig/s/types are read-only; returns fresh lines the caller owns, empty
+    when no instance has a plain device."""
     # plain non-bus device groups (not collected): per-instance container.
     # Own variable names (plain_socket/plain_devs/plain_dev) rather than
     # socket/devs/dev: those names are already bound above, to the
@@ -132,8 +132,37 @@ def render_overlay(rig: Rig, s: Solved, types: Dict[str, ConnectorType],
             root_nodes += ["\t" + line
                            for line in _device_node(s, types, inst, plain_dev)]
         root_nodes.append("\t};")
-    if root_nodes:
-        out += ["/ {", *root_nodes, "};", ""]
+    if not root_nodes:
+        return []
+    return ["/ {", *root_nodes, "};", ""]
+
+
+def render_overlay(rig: Rig, s: Solved, types: Dict[str, ConnectorType],
+                   needed_includes: Optional[List[str]] = None) -> str:
+    """rig-gen.overlay's full text. rig/s/types are read-only; returns a
+    fresh string the caller owns. `needed_includes`
+    (`emitter._needed_param_includes`) is the caller's own decision about
+    which headers this rig's params actually need -- this function only
+    gates the quoted #include line on whether the list is non-empty; it
+    never derives the list itself."""
+    out = []
+    if needed_includes:
+        # Opens the file: the needed parameter vocabulary reaches cpp
+        # before anything that might use it, via a quoted include
+        # resolved against this file's own directory (<build>/rig/, where
+        # the emitter also writes rig-gen-includes.dtsi).
+        out.append('#include "rig-gen-includes.dtsi"')
+    out += [f"/* {GEN}", f" * rig: {rig.name}  board: {rig.board}", " */", ""]
+
+    out += _synth_nexus_nodes(s)
+    out += _i2c_scopes(rig, s, types)
+    out += _spi_scopes(rig, s, types)
+
+    # collection bindings (gpio-keys/gpio-leds, ...): entries from every
+    # instance aggregate under ONE node per compatible (gap #4 / R10 sibling)
+    out += _collections(rig, s, types)
+
+    out += _plain_groups(rig, s, types)
 
     out += _controllers(s)
     return "\n".join(out)

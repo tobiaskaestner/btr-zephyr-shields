@@ -50,6 +50,32 @@ class Topology:
         return [self.effective[n] for n in self.order if n in self.effective]
 
 
+def _build_plural_sockets_map(sockets_v: Optional[Val], shield: Shield,
+                              binding: SocketBinding, inst_name: str,
+                              ) -> Tuple[Dict[str, Optional[str]], List[Diagnostic]]:
+    """`sockets:`'s slot -> reference map (the plural shape): one entry
+    per slot of `shield.plugs`, each resolved through `binding.get`. An
+    unknown slot name is a loud error listing the shield's real slots;
+    an omitted slot carries None, left to per-slot inference.
+
+    Returns (sockets, diagnostics); sockets is a fresh dict the caller
+    owns."""
+    diags: List[Diagnostic] = []
+    raw: Dict[str, str] = {}
+    if sockets_v is not None and isinstance(sockets_v.value, dict):
+        for slot_name, slot_v in sockets_v.value.items():
+            if slot_name not in shield.plugs:
+                diags.append(error(
+                    "lang-instance-socket",
+                    f"instance '{inst_name}': sockets: names unknown "
+                    f"slot '{slot_name}' of shield '{shield.name}'\n"
+                    f"slots: {', '.join(shield.plugs)}", (slot_v.src,)))
+                continue
+            raw[slot_name] = slot_v.value
+    return ({slot: binding.get(raw[slot]) if slot in raw else None
+            for slot in shield.plugs}, diags)
+
+
 def _parse_sockets_block(item: Val, shield: Shield, binding: SocketBinding,
                          inst_name: str) -> Tuple[Dict[str, Optional[str]],
                                                   List[Diagnostic]]:
@@ -95,19 +121,10 @@ def _parse_sockets_block(item: Val, shield: Shield, binding: SocketBinding,
             "plug -- use socket:, not sockets:", (sockets_v.src,)))
 
     if plural:
-        raw: Dict[str, str] = {}
-        if sockets_v is not None and isinstance(sockets_v.value, dict):
-            for slot_name, slot_v in sockets_v.value.items():
-                if slot_name not in shield.plugs:
-                    diags.append(error(
-                        "lang-instance-socket",
-                        f"instance '{inst_name}': sockets: names unknown "
-                        f"slot '{slot_name}' of shield '{shield.name}'\n"
-                        f"slots: {', '.join(shield.plugs)}", (slot_v.src,)))
-                    continue
-                raw[slot_name] = slot_v.value
-        return ({slot: binding.get(raw[slot]) if slot in raw else None
-                for slot in shield.plugs}, diags)
+        sockets_map, plural_diags = _build_plural_sockets_map(
+            sockets_v, shield, binding, inst_name)
+        diags += plural_diags
+        return sockets_map, diags
 
     # Keyed by the plug's own name (model.py's GpioRef.plug/Shield.plugs
     # contract), never the literal "plug": a single-plug shield's one
@@ -364,6 +381,154 @@ def find_wire(wires: List[Wire], frm: Optional[str],
     return None
 
 
+def _apply_instances_key(doc: Dict[str, Val], code: str, stage: str,
+                         stage_value: str, effective: Dict[str, Instance],
+                         binding: SocketBinding, lib: ShieldLibrary,
+                         variant: Optional[str], rig_name: str, workdir: str,
+                         include_dirs: Optional[List[str]],
+                         ) -> Tuple[List[Diagnostic], Deps]:
+    """`instances:` -- matched by name against the EFFECTIVE topology; a
+    non-match is always an error (additions are never implicit, that is
+    what add-instances: is for).
+
+    Returns (diagnostics, deps); mutates `effective` in place."""
+    diags: List[Diagnostic] = []
+    deps: Deps = frozenset()
+    instances_v = doc.get("instances")
+    if instances_v is None:
+        return diags, deps
+    for item in instances_v.value:
+        name_v, d = require(item, "name", f"{stage} instances:")
+        diags += d
+        if name_v is None:
+            continue
+        name = name_v.value
+        inst = effective.get(name)
+        if inst is None:
+            diags.append(error(
+                code,
+                f"{stage} '{stage_value}': instances: names '{name}', "
+                "which the effective topology does not have",
+                (item.src,)))
+            continue
+        new_inst, d, idep = _apply_instance_patch(
+            item, inst, binding, lib, stage, stage_value, variant,
+            rig_name, workdir, include_dirs)
+        diags += d
+        deps = union(deps, idep)
+        effective[name] = new_inst
+    return diags, deps
+
+
+def _apply_add_instances_key(doc: Dict[str, Val], code: str, stage: str,
+                             stage_value: str, effective: Dict[str, Instance],
+                             order: List[str], binding: SocketBinding,
+                             lib: ShieldLibrary, rig_name: str, workdir: str,
+                             include_dirs: Optional[List[str]],
+                             ) -> Tuple[List[Diagnostic], Deps]:
+    """`add-instances:` -- full declarations; the name must NOT already
+    exist.
+
+    Returns (diagnostics, deps); mutates `effective` and `order` in
+    place."""
+    diags: List[Diagnostic] = []
+    deps: Deps = frozenset()
+    add_v = doc.get("add-instances")
+    if add_v is None:
+        return diags, deps
+    for item in add_v.value:
+        added_inst, d, idep = parse_instance(
+            item, binding, lib, rig_name, workdir, include_dirs)
+        diags += d
+        deps = union(deps, idep)
+        if added_inst is None:
+            continue
+        if added_inst.name in effective:
+            diags.append(error(
+                code,
+                f"{stage} '{stage_value}': add-instances: names "
+                f"'{added_inst.name}', which already exists",
+                (item.src,)))
+            continue
+        effective[added_inst.name] = added_inst
+        order.append(added_inst.name)
+    return diags, deps
+
+
+def _apply_remove_instances_key(doc: Dict[str, Val], code: str, stage: str,
+                                stage_value: str, effective: Dict[str, Instance],
+                                removed_by: Dict[str, str],
+                                ) -> List[Diagnostic]:
+    """`remove-instances:` -- names must exist; if a prior stage already
+    removed it, the message NAMES that stage so drift cannot hide.
+
+    Returns diagnostics; mutates `effective` and `removed_by` in place."""
+    diags: List[Diagnostic] = []
+    remove_v = doc.get("remove-instances")
+    if remove_v is None:
+        return diags
+    for name_v in remove_v.value:
+        name = name_v.value
+        if name not in effective:
+            prior = removed_by.get(name)
+            hint = f" (variant '{prior}' already removed it)" if prior else ""
+            diags.append(error(
+                code,
+                f"{stage} '{stage_value}': remove-instances: names "
+                f"'{name}', which does not exist{hint}",
+                (name_v.src,)))
+            continue
+        del effective[name]
+        removed_by[name] = stage_value
+    return diags
+
+
+def _apply_remove_wires_key(doc: Dict[str, Val], code: str, stage: str,
+                            stage_value: str, wires: List[Wire],
+                            ) -> List[Diagnostic]:
+    """`remove-wires:` -- matched by endpoint pair; a re-route is
+    remove+add, there is no wire "replace".
+
+    Returns diagnostics; mutates `wires` in place."""
+    diags: List[Diagnostic] = []
+    remove_wires_v = doc.get("remove-wires")
+    if remove_wires_v is None:
+        return diags
+    for item in remove_wires_v.value:
+        frm_v = item.value.get("from")
+        to_v = item.value.get("to")
+        frm = frm_v.value if frm_v is not None else None
+        to = to_v.value if to_v is not None else None
+        match = find_wire(wires, frm, to)
+        if match is None:
+            diags.append(error(
+                code,
+                f"{stage} '{stage_value}': remove-wires: names "
+                f"{{from: {frm}, to: {to}}}, which does not exist",
+                (item.src,)))
+            continue
+        wires.remove(match)
+    return diags
+
+
+def _apply_add_wires_key(doc: Dict[str, Val], effective: Dict[str, Instance],
+                         wires: List[Wire]) -> List[Diagnostic]:
+    """`add-wires:` -- resolved the same way a base `wires:` entry is.
+
+    Returns diagnostics; mutates `wires` in place; `effective` is
+    read-only."""
+    diags: List[Diagnostic] = []
+    add_wires_v = doc.get("add-wires")
+    if add_wires_v is None:
+        return diags
+    for item in add_wires_v.value:
+        wire, d = parse_wire(item, effective)
+        diags += d
+        if wire is not None:
+            wires.append(wire)
+    return diags
+
+
 def apply_delta(delta: Val, stage: str, stage_value: str,
                 topology: Topology, binding: SocketBinding, lib: ShieldLibrary,
                 variant: Optional[str], rig_name: str,
@@ -390,97 +555,24 @@ def apply_delta(delta: Val, stage: str, stage_value: str,
 
     doc = as_mapping(delta, f"{stage} delta {delta.src.file}")
 
-    # instances: -- matched by name against the EFFECTIVE topology; a
-    # non-match is always an error (additions are never implicit, that
-    # is what add-instances: is for).
-    instances_v = doc.get("instances")
-    if instances_v is not None:
-        for item in instances_v.value:
-            name_v, d = require(item, "name", f"{stage} instances:")
-            diags += d
-            if name_v is None:
-                continue
-            name = name_v.value
-            inst = effective.get(name)
-            if inst is None:
-                diags.append(error(
-                    code,
-                    f"{stage} '{stage_value}': instances: names '{name}', "
-                    "which the effective topology does not have",
-                    (item.src,)))
-                continue
-            new_inst, d, idep = _apply_instance_patch(
-                item, inst, binding, lib, stage, stage_value, variant,
-                rig_name, workdir, include_dirs)
-            diags += d
-            deps = union(deps, idep)
-            effective[name] = new_inst
+    d, idep = _apply_instances_key(
+        doc, code, stage, stage_value, effective, binding, lib, variant,
+        rig_name, workdir, include_dirs)
+    diags += d
+    deps = union(deps, idep)
 
-    # add-instances: -- full declarations; the name must NOT already
-    # exist.
-    add_v = doc.get("add-instances")
-    if add_v is not None:
-        for item in add_v.value:
-            added_inst, d, idep = parse_instance(
-                item, binding, lib, rig_name, workdir, include_dirs)
-            diags += d
-            deps = union(deps, idep)
-            if added_inst is None:
-                continue
-            if added_inst.name in effective:
-                diags.append(error(
-                    code,
-                    f"{stage} '{stage_value}': add-instances: names "
-                    f"'{added_inst.name}', which already exists",
-                    (item.src,)))
-                continue
-            effective[added_inst.name] = added_inst
-            order.append(added_inst.name)
+    d, idep = _apply_add_instances_key(
+        doc, code, stage, stage_value, effective, order, binding, lib,
+        rig_name, workdir, include_dirs)
+    diags += d
+    deps = union(deps, idep)
 
-    # remove-instances: -- names must exist; if a prior stage already
-    # removed it, the message NAMES that stage so drift cannot hide.
-    remove_v = doc.get("remove-instances")
-    if remove_v is not None:
-        for name_v in remove_v.value:
-            name = name_v.value
-            if name not in effective:
-                prior = removed_by.get(name)
-                hint = f" (variant '{prior}' already removed it)" if prior else ""
-                diags.append(error(
-                    code,
-                    f"{stage} '{stage_value}': remove-instances: names "
-                    f"'{name}', which does not exist{hint}",
-                    (name_v.src,)))
-                continue
-            del effective[name]
-            removed_by[name] = stage_value
+    diags += _apply_remove_instances_key(
+        doc, code, stage, stage_value, effective, removed_by)
 
-    # remove-wires:/add-wires: -- matched by endpoint pair; a re-route is
-    # remove+add, there is no wire "replace".
-    remove_wires_v = doc.get("remove-wires")
-    if remove_wires_v is not None:
-        for item in remove_wires_v.value:
-            frm_v = item.value.get("from")
-            to_v = item.value.get("to")
-            frm = frm_v.value if frm_v is not None else None
-            to = to_v.value if to_v is not None else None
-            match = find_wire(wires, frm, to)
-            if match is None:
-                diags.append(error(
-                    code,
-                    f"{stage} '{stage_value}': remove-wires: names "
-                    f"{{from: {frm}, to: {to}}}, which does not exist",
-                    (item.src,)))
-                continue
-            wires.remove(match)
+    diags += _apply_remove_wires_key(doc, code, stage, stage_value, wires)
 
-    add_wires_v = doc.get("add-wires")
-    if add_wires_v is not None:
-        for item in add_wires_v.value:
-            wire, d = parse_wire(item, effective)
-            diags += d
-            if wire is not None:
-                wires.append(wire)
+    diags += _apply_add_wires_key(doc, effective, wires)
 
     return Topology(effective=effective, order=order, wires=wires,
                     removed_by=removed_by), diags, deps
