@@ -11,8 +11,8 @@ from __future__ import annotations
 from rigc.analyzer import Solved
 from rigc.diag import SourceRef
 from rigc.emitter.sheet import render_sheet
-from rigc.model import (BoardSocket, Device, Instance, Rig, Shield, Strap,
-                        Wire, WireEnd)
+from rigc.model import (BoardSocket, ConnectorType, Device, Instance, Jumper,
+                        Rig, Shield, Strap, Wire, WireEnd)
 
 _SRC = SourceRef("f.yml", 1, "k")
 
@@ -131,6 +131,29 @@ def test_strap_line_shows_the_owning_devices_own_slot_on_a_plural_shield() -> No
 
     assert "**i1** (sockR): set **ADDR0** to state 1" in text
     assert "sockL): set **ADDR0**" not in text
+
+
+def test_jumper_line_renders_on_a_shield_whose_plug_node_is_not_named_plug() -> None:
+    """model.py's contract: a single-plug shield's one slot is the plug
+    node's own name -- here 'north'. The jumpers loop used to hardcode
+    the literal 'plug' for both `for_slot` and the socket-display cell;
+    on exactly this shield shape that crashed on `assert socket is not
+    None` (reviewer finding 1.3). Pins that it now reads the real slot
+    off `inst.shield.plugs` instead."""
+    shield = Shield(name="sh", label="sh", plugs={"north": "t"})
+    jmp = Jumper(name="j0", label="j0", domain=[(7, 0), (3, 1)], sheet_label="J0")
+    shield.jumpers[jmp.name] = jmp
+    inst = Instance(name="i1", shield=shield, sockets={"north": "sockN"})
+    rig = Rig(name="r", instances=[inst])
+    socket = BoardSocket(label="sockN", path="/n", type_name="t",
+                        gpio_map={}, buses={})
+    ctype = ConnectorType(name="t", positions={}, index2name={7: "D7"},
+                         bus_proxies=[], stackable=False, cs_pool={})
+    s = Solved(sockets={"i1": {"north": socket}}, jumpers_set=[(inst, jmp, 0, 7)])
+
+    text = render_sheet(rig, s, {"t": ctype}, workdir="/does-not-matter")
+
+    assert "**i1** (sockN): set **J0** to state 0 → routed to pin D7" in text
 
 
 def test_params_table_absent_when_no_instance_assigns_any() -> None:

@@ -229,6 +229,28 @@ def test_parse_instance_sockets_unknown_slot_is_rejected(tmp_path) -> None:
     assert "left" in diags[0].message and "right" in diags[0].message
 
 
+def test_parse_instance_single_plug_shield_named_other_than_plug_keys_by_its_own_name(
+        tmp_path) -> None:
+    """model.py's own contract (GpioRef.plug/Shield.plugs docstrings): a
+    single-plug shield's one slot is the plug node's OWN name, never the
+    literal "plug". A shield whose plug node is named 'north' must get
+    its authored socket: keyed 'north' -- keying it 'plug' instead would
+    match no slot of `shield.plugs` and silently fall back to per-slot
+    inference (reviewer finding 1.3)."""
+    shield = Shield(name="sh4", label="sh4", plugs={"north": "synthetic-type"},
+                    src=SourceRef("synthetic", 1))
+    lib = _library(shield)
+    item = _doc(tmp_path, """\
+        name: a
+        shield: sh4
+        socket: quail_sock
+        """)
+    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
+    assert diags == []
+    assert inst is not None
+    assert inst.sockets == {"north": "quail_sock"}
+
+
 def test_apply_delta_sockets_patch_replaces_wholesale_never_merges(tmp_path) -> None:
     """The params: rule: sockets: on a patch REPLACES the whole map, never
     a per-key merge -- an omitted slot on the RESTATED map still carries

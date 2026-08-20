@@ -504,6 +504,31 @@ def test_resolve_sockets_still_finds_the_socket_by_its_defining_label() -> None:
     assert resolution.sockets["i1"]["plug"].label == "nucleo_ard"
 
 
+def test_resolve_sockets_single_plug_shield_named_other_than_plug_honors_authored_socket(
+        ) -> None:
+    """model.py's contract: a single-plug shield's one slot is the plug
+    node's OWN name -- here 'north', not 'plug'. `resolve_one` reads
+    `inst.sockets[slot]`/`inst.shield.plugs[slot]` by that real name; two
+    board sockets of the matching type make per-slot INFERENCE ambiguous
+    (were it to run instead of honoring the authored reference), so a
+    clean, diagnostic-free resolve to the explicitly named socket proves
+    the authored socket: was actually read, not silently dropped for
+    inference (reviewer finding 1.3)."""
+    board = Board(name="b", sockets={
+        "ard1": BoardSocket(label="ard1", path="/ard1", type_name="arduino-r3",
+                            gpio_map={}, buses={}),
+        "ard2": BoardSocket(label="ard2", path="/ard2", type_name="arduino-r3",
+                            gpio_map={}, buses={})})
+    shield = Shield(name="sh", label="sh", plugs={"north": "arduino-r3"})
+    inst = Instance(name="i1", shield=shield, sockets={"north": "ard2"})
+    rig = Rig(name="r", instances=[inst])
+
+    resolution, diags = resolve_sockets(rig, board, {"arduino-r3": _ctype()})
+
+    assert diags == []
+    assert resolution.sockets["i1"]["north"].label == "ard2"
+
+
 def test_resolve_sockets_unknown_board_socket_is_phys_socket() -> None:
     board = Board(name="b", sockets={})
     inst = _inst("i1", "nope", _shield())

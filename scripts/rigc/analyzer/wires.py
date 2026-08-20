@@ -78,7 +78,8 @@ def check_wires(rig: Rig, sockets: Sockets,
                     (wire.src,)))
                 resolved.append(wire)
                 continue
-            socket = for_slot(sockets, frm_inst, "plug") if frm_inst is not None else None
+            socket = (for_slot(sockets, frm_inst, next(iter(frm_inst.shield.plugs)))
+                     if frm_inst is not None else None)
             ctype = types[socket.type_name] if socket is not None else None
             if ctype is not None and route in ctype.positions:
                 route = ctype.positions[route].index

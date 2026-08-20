@@ -31,6 +31,11 @@ def allocation_key(inst: Instance, dev: Device, socket: BoardSocket) -> Allocati
     """socket is `dev`'s OWN already-resolved BoardSocket (every caller
     has one in hand from the same scope member, resolved through
     `dev.plug`'s slot); read-only, used only as the None fallback below."""
+    # dev.plug is already the real slot name for every bus device (its
+    # own bus group's slot, set at parse time from the actual plug node);
+    # the "plug" fallback below is never live -- both allocators
+    # (addresses.py, cs.py) build their scope from bus-kind devices only,
+    # and a plain-group device (dev.plug is None) never reaches here.
     slot = dev.plug or "plug"
     ref = inst.sockets.get(slot)
     if ref is None:

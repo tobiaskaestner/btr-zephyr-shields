@@ -55,8 +55,9 @@ def _parse_sockets_block(item: Val, shield: Shield, binding: SocketBinding,
                                                   List[Diagnostic]]:
     """`socket:`/`sockets:` -> `Instance.sockets` (multi-plug-shield-brief.md
     Sec 2): a single-plug shield takes `socket:` (byte-identical to
-    before plurality -- one entry keyed `"plug"`); a plural shield takes
-    `sockets:`, a slot name -> reference MAPPING, each value resolved
+    before plurality -- one entry keyed by the shield's own one slot
+    name, `next(iter(shield.plugs))`, never the literal `"plug"`); a
+    plural shield takes `sockets:`, a slot name -> reference MAPPING, each value resolved
     through `binding.get` exactly like `socket:` does. The two keys are
     mutually exclusive, and each is legal only for the matching shield
     SHAPE -- enforced here, in rigc's own parser, rather than deferred to
@@ -108,8 +109,20 @@ def _parse_sockets_block(item: Val, shield: Shield, binding: SocketBinding,
         return ({slot: binding.get(raw[slot]) if slot in raw else None
                 for slot in shield.plugs}, diags)
 
+    # Keyed by the plug's own name (model.py's GpioRef.plug/Shield.plugs
+    # contract), never the literal "plug": a single-plug shield's one
+    # slot is whatever its plug node is actually named. `shield.plugs`
+    # is empty only when an earlier shields.py diagnostic already
+    # rejected this shield (no plug node, or a retired shield,plugs
+    # spelling) -- cli.py's has_errors gate stops the run before this
+    # map is ever read, so an empty dict here (one entry per slot of
+    # shield.plugs, same as every other branch) keeps the contract
+    # rather than inventing a slot that does not exist.
+    if not shield.plugs:
+        return {}, diags
     value = socket_v.value if socket_v is not None else None
-    return {"plug": binding.get(value) if value is not None else None}, diags
+    slot = next(iter(shield.plugs))
+    return {slot: binding.get(value) if value is not None else None}, diags
 
 
 def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,

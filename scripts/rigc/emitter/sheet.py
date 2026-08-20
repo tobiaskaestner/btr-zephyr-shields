@@ -46,13 +46,13 @@ def _strap_owner_slot(inst: Instance, strap: Strap) -> str:
     """The slot the device THIS strap resolves an address for sits on --
     straps are address-domain and bus-scoped, unaffected by plurality
     (multi-plug-shield-brief.md Sec 4), but still need a slot to display
-    a socket cell for. Falls back to `"plug"` (the single-plug default)
+    a socket cell for. Falls back to `inst`'s shield's own one slot name
     when no device of `inst`'s shield actually names this strap, which
     never happens for an accepted rig but keeps this total."""
     dev = next((d for d in inst.shield.devices if d.addr_from == strap.name), None)
     if dev is not None and dev.plug is not None:
         return dev.plug
-    return "plug"
+    return next(iter(inst.shield.plugs), "plug")
 
 
 def _find_instance(rig: Rig, name: str) -> Optional[Instance]:
@@ -127,13 +127,15 @@ def render_sheet(rig: Rig, s: Solved, types: Dict[str, ConnectorType], workdir: 
         for inst, jmp, jmp_state, pos in sorted(
                 s.jumpers_set, key=lambda t: (t[0].name, t[1].name)):
             # Routing jumpers are refused outright on a plural shield
-            # (Sec 6) -- "plug" is always this instance's one slot here.
+            # (Sec 6) -- inst.shield.plugs always has exactly one entry
+            # here, whatever its plug node is actually named.
             sheet = jmp.sheet_label or jmp.name
-            socket = for_slot(s.sockets, inst, "plug")
+            slot = next(iter(inst.shield.plugs), "plug")
+            socket = for_slot(s.sockets, inst, slot)
             assert socket is not None
             posname = types[socket.type_name].posname(pos)
             out.append(
-                f"- **{inst.name}** ({_socket_display(inst, s, 'plug')}): set **{sheet}** to state "
+                f"- **{inst.name}** ({_socket_display(inst, s, slot)}): set **{sheet}** to state "
                 f"{jmp_state} → routed to pin {posname}")
 
     if s.channels:
