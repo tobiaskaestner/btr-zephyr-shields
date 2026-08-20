@@ -1,11 +1,10 @@
-"""Emission feasibility of generated labels (`_check_labels`,
-`analyzer.py:654-667`, rigc-r4-brief.md Sec 5). Strong contract: the
+"""Emission feasibility of generated labels. Strong contract: the
 emitter never fails, so the deterministic label scheme
 `<instance>_<shield label>` must be collision-free HERE. Runs over every
-declared instance regardless of whether its socket resolved (the
-blueprint's own choice: a label collision is a property of two
-instance/device NAME pairs alone, needing no board/socket information at
-all, so it is not one of the passes skip-don't-abort applies to)."""
+declared instance regardless of whether its socket resolved: a label
+collision is a property of two instance/device NAME pairs alone,
+needing no board/socket information at all, so it is not one of the
+passes skip-don't-abort applies to."""
 from __future__ import annotations
 
 from typing import Dict, List

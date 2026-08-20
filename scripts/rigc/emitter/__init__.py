@@ -1,35 +1,33 @@
-"""The EMITTER (architecture.md): Solved rig -> the projection triple,
-split by visibility (ontology Sec 3):
+"""The emitter: a Solved rig plus its Rig/ConnectorType inputs projected
+into concrete artifacts, split by visibility:
 
   MCU-visible-static   -> .overlay        (joins the unchanged Zephyr build)
   human-realized       -> config sheet    (markdown)
-  runtime-discoverable -> expectations    (YAML stub, A6)
+  runtime-discoverable -> expectations    (YAML stub)
 
-Ported whole from rigexp/emitter.py (rigc-r5-brief.md Sec 1) -- pure
-rendering under the strong contract: never decides anything, never fails
-on an analyzer-accepted rig. Deterministic: all output sorted by stable
-keys, independent of rig-file declaration order (R7/R18).
+Pure rendering under a strong contract: never decides anything, never
+fails on an analyzer-accepted rig. Deterministic: all output is sorted
+by stable keys, independent of rig-file declaration order.
 
 Split into `overlay.py` (nexus synthesis, I2C/SPI scopes, collections,
 plain groups, controllers, the device-node renderer), `sheet.py`
 (config-sheet.md, including the params table's token resolution),
 `expectations.py`, and this module (composing `emit()` and the ONE
-writer). `context.py` renders context.cmake as its own value function --
-kept out of `emit()` to preserve the blueprint's own semantic boundary
-between rig artifacts and build glue (rigc-r5-brief.md Sec 2).
+writer). `context.py` renders context.cmake as its own value function,
+kept out of `emit()` so rig artifacts and build glue stay separate
+concerns; cli.py calls it alongside, never inside, `emit()`.
 
-**Artifacts are `{filename: bytes}`, explicit UTF-8** (ratified ruling
-4): `config-sheet.md` carries non-ASCII punctuation (arrows, em dashes),
-so the encoding is a real decision, not a formality. The sub-renderers
-return `str` (readable in unit tests); this module is the one place that
-encodes them into the bytes-valued mapping cli.py hands to `write()`.
+**Artifacts are `{filename: bytes}`, explicit UTF-8**: `config-sheet.md`
+carries non-ASCII punctuation (arrows, em dashes), so the encoding is a
+real decision, not a formality. The sub-renderers return `str` (readable
+in unit tests); this module is the one place that encodes them into the
+bytes-valued mapping cli.py hands to `write()`.
 
-**Read `solved.wires`, never `rig.wires`** (rigc-r5-brief.md Sec 1): the
-loader's `rig.wires` carries the RAW `via <name>` route string;
-`analyzer.wires.check_wires` returns NEW Wire values with the route
-resolved to a connector-type position INDEX, held only on `Solved.wires`.
-Every renderer below takes `solved` and never reaches back through
-`rig.wires`.
+**Reads `solved.wires`, never `rig.wires`**: the loader's `rig.wires`
+carries the RAW `via <name>` route string; the analyzer's wire check
+returns NEW Wire values with the route resolved to a connector-type
+position INDEX, held only on `Solved.wires`. Every renderer below takes
+`solved` and never reaches back through `rig.wires`.
 """
 from __future__ import annotations
 
@@ -115,8 +113,8 @@ def _needed_param_includes(rig: Rig) -> List[str]:
     #include order can matter to cpp (a later header may rely on a macro
     an earlier one defines), and `compare_includes_dtsi`'s own contract
     treats it as a list, never a set. Traversal is by SORTED instance
-    name and device label (never rig-file declaration order, R7/R18), so
-    the result is deterministic regardless of authoring order.
+    name and device label, never rig-file declaration order, so the
+    result is deterministic regardless of authoring order.
 
     rig is read-only; returns a fresh list the caller owns."""
     headers: List[str] = []
@@ -148,10 +146,10 @@ def _render_includes_dtsi(headers: List[str]) -> str:
 
 def write_artifacts(out_dir: str, artifacts: Dict[str, bytes]) -> None:
     """The ONE shell that performs every artifact write, binary mode --
-    the IO-at-the-edges boundary (mission brief Sec 6): every renderer
-    above and `context.render` computes bytes as a pure value, and this
-    is the only place any of them touch a filesystem. Creates out_dir if
-    needed (a caller passing a fresh --out-dir is the common case, not an
+    the IO-at-the-edges boundary: every renderer above and
+    `context.render` computes bytes as a pure value, and this is the
+    only place any of them touch a filesystem. Creates out_dir if needed
+    (a caller passing a fresh --out-dir is the common case, not an
     error).
 
     artifacts is read-only; writes each mapping entry as out_dir/<name>,

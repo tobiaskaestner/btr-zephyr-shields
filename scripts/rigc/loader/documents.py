@@ -1,15 +1,14 @@
 """The document model: mark-aware YAML parsing shared by rig.yml (the
 METADATA document) and every content/delta document -- the base
-<rigname>.yml and every <rigname>_<variant|rev>.yml fragment, all the
-SAME flat top-level shape (rigc-r2-brief.md Sec 2, rigexp/loader_yml.py
-`_load_delta_doc`'s own docstring: "there is no rig: wrapper in either
-case ... so the same top-level shape and the same parser serve both").
+<rigname>.yml and every <rigname>_<variant|rev>.yml fragment all use
+the SAME flat top-level shape, with no `rig:` wrapper in either case,
+so the same parser serves both.
 
-Line-accurate anchors ride on YAML composer marks (ported from the R1
-sliver unchanged): a scalar value's own start line, a nested mapping's
-FIRST ENTRY line (one below the key that introduces it), a sequence
-item's own line -- proven byte-exact against the frozen goldens already
-by R1's four flips, which this module's rewrite must keep flipping.
+Line-accurate anchors ride on YAML composer marks: a scalar value's own
+start line, a nested mapping's FIRST ENTRY line (one below the key that
+introduces it), a sequence item's own line -- proven byte-exact against
+the frozen goldens, which this module's diagnostics depend on staying
+that way.
 """
 from __future__ import annotations
 
@@ -60,13 +59,11 @@ def _walk(node: Any, path: str, fname: str) -> Val:
 def parse_marked(path: str) -> Val:
     """Parse one YAML file into a Val tree with line-accurate marks.
 
-    YAML parse errors (lang-parse) have no frozen golden (rigc-r2-brief.md
-    Sec 2) -- Unimplemented is the always-acceptable choice (Sec 6), taken
-    here rather than inventing unverified wording.
+    No frozen golden exercises a YAML parse failure, so `Unimplemented`
+    is used here rather than inventing unverified diagnostic wording.
 
     Returns the file's Val tree; raises Unimplemented on an unreadable
-    file or malformed YAML (the recorded R2 choice -- no golden covers
-    lang-parse here)."""
+    file or malformed YAML."""
     try:
         with open(path) as f:
             try:
@@ -83,7 +80,7 @@ def parse_marked(path: str) -> Val:
 def as_mapping(v: Val, what: str) -> dict[str, Val]:
     """The Val's own value as a mapping, or a loud (Unimplemented)
     refusal if it is not one -- a document shape no frozen golden
-    exercises and R2 has no reason to invent wording for."""
+    exercises, so there is no verified wording to give it instead."""
     if not isinstance(v.value, dict):
         raise Unimplemented(f"{what} that is not a mapping")
     return v.value
@@ -91,10 +88,8 @@ def as_mapping(v: Val, what: str) -> dict[str, Val]:
 
 def require(mapping: Val, key: str, ctx: str) -> tuple[Val | None, list[Diagnostic]]:
     """A required key's Val, or a lang-schema diagnostic naming what is
-    missing -- rigexp's own `_require`, ported as a return-value
-    function (diagnostics stay RETURN values, mission brief Sec 6). No
-    frozen golden covers this exact wording; hand-differentialed against
-    rigexp per rigc-r2-brief.md Sec 6 (recorded in the slice report).
+    missing. Diagnostics are always returned rather than raised, so a
+    caller can keep collecting further findings after a missing key.
 
     Returns (value, diagnostics): the key's Val, or None beside the
     single missing-key error."""

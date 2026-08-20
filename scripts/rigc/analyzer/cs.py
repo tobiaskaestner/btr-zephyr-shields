@@ -1,12 +1,8 @@
-"""CS pool allocation (R4/R16, rigc-r4-brief.md Sec 2) -- the mission's
-acid test: "where and how is the final cs-gpios property calculated?"
-(mission brief Sec 6). Ported from rigexp/analyzer.py's `_allocate_cs`
-(`analyzer.py:538-610`), split into the value-shaped contract the
-blueprint's `_allocate_cs(rig, solved, types, diags)` hides:
+"""CS pool allocation: where and how the final cs-gpios property is
+calculated, split into a value-shaped contract:
 
-  effective_cs_pool     -- the pool-MERGE fallback (one upstream source of
-                            the four the ANALYSIS brief names): a socket's
-                            own authored override wins, else the connector
+  effective_cs_pool     -- the pool-MERGE fallback: a socket's own
+                            authored override wins, else the connector
                             type's binding default.
   allocate_cs_positions -- THE algorithm, and the part this module exists
                             to make unit-testable on its own: given an
@@ -14,14 +10,14 @@ blueprint's `_allocate_cs(rig, solved, types, diags)` hides:
                             pairs -- net identity, not a bare position
                             index, because two DIFFERENT sockets in one
                             SPI scope are compared through the SAME SoC
-                            pin, R13), the net identities ALREADY taken,
-                            and the scope's members in R18 allocation
+                            pin), the net identities ALREADY taken,
+                            and the scope's members in allocation
                             order (some copper-fixed), assign each a
                             position or report the pool exhausted. No
                             Rig/Instance/Shield/Board needed to call it.
   allocate_cs           -- the PASS: walks rig.instances, groups SPI-bus
                             members into scopes (a mux channel is its own
-                            scope, R26), builds each member's CsMember from
+                            new scope), builds each member's CsMember from
                             its resolved socket + connector type, and
                             folds the placements into cs/cs_gpios plus the
                             NEW net claims (for the composer to merge into
@@ -46,9 +42,9 @@ log = logging.getLogger(__name__)
 
 def effective_cs_pool(bus_cs_pool: Optional[List[int]],
                       type_default_pool: List[int]) -> List[int]:
-    """The cs_pool None-if-absent merge (rigc-r4-brief.md Sec 2): a real
-    board socket whose connector type's binding declares a cs-pool
-    default for this bus already has it backfilled by edtlib
+    """The cs_pool None-if-absent merge: a real board socket whose
+    connector type's binding declares a cs-pool default for this bus
+    already has it backfilled by edtlib
     (board_edt.py), making this merge inert there -- but a
     shield-SYNTHESIZED socket (carrier/mux composition, analyzer/
     sockets.py's `compose_socket`) comes from a plain dtlib parse with no
@@ -58,7 +54,7 @@ def effective_cs_pool(bus_cs_pool: Optional[List[int]],
 
 @dataclass(frozen=True)
 class CsMember:
-    """One SPI-scope member's CS-allocation input, already in R18
+    """One SPI-scope member's CS-allocation input, already in
     allocation order by the time the caller builds a list of these:
     `identity` is opaque (used only for reporting which member exhausted
     its pool), `fixed` is (position, net-identity) when copper-fixed
@@ -81,16 +77,15 @@ class CsPlacement:
 
 def allocate_cs_positions(members: Sequence[CsMember], occupied: FrozenSet[object],
                           ) -> Tuple[List[CsPlacement], List[str]]:
-    """THE acid-test contract (mission brief Sec 6, rigc-r4-brief.md Sec
-    2): given an ordered pool, the already-taken net identities, and the
-    members of one SPI scope in allocation order (some copper-fixed),
-    assign each a position -- or report the pool exhausted. Copper-fixed
-    members win OUTRIGHT (never consulted against the pool, never
-    reported exhausted); everything else takes the first pool candidate
-    whose net identity is not yet taken, checked against BOTH `occupied`
-    and every identity already placed earlier IN THIS SAME CALL (matching
-    the blueprint's single sequential pass, where each registration is
-    visible to every later member of the scope, fixed or free alike).
+    """The CS-allocation algorithm: given an ordered pool, the
+    already-taken net identities, and the members of one SPI scope in
+    allocation order (some copper-fixed), assign each a position -- or
+    report the pool exhausted. Copper-fixed members win OUTRIGHT (never
+    consulted against the pool, never reported exhausted); everything
+    else takes the first pool candidate whose net identity is not yet
+    taken, checked against BOTH `occupied` and every identity already
+    placed earlier IN THIS SAME CALL, so each registration is visible to
+    every later member of the scope, fixed or free alike.
     Returns (placements in input order, identities whose pool was
     exhausted)."""
     taken = set(occupied)
@@ -118,7 +113,7 @@ def _cs_members_for_scope(members: Sequence[Tuple[Instance, Device, BoardSocket]
                                      Dict[str, Tuple[Instance, Device, BoardSocket]]]:
     """Build one scope's ordered `CsMember` list (allocate_cs's own
     per-scope wiring, lifted out) plus the identity -> (inst, dev,
-    socket) lookup every later step needs, from members already in R18
+    socket) lookup every later step needs, from members already in
     allocation order."""
     cs_members: List[CsMember] = []
     by_identity: Dict[str, Tuple[Instance, Device, BoardSocket]] = {}
@@ -148,9 +143,8 @@ def _fold_cs_placements(bus_path: str, placements: List[CsPlacement],
     """The placements/exhausted -> `CsAllocation` translation (allocate_cs's
     own folding step, lifted out): an exhausted member becomes a phys-cs
     diagnostic; a placement becomes a NEW net claim (`seen` grows so a
-    LATER scope in this same call sees it, matching the blueprint's
-    single accumulator) plus this scope's cs/cs_gpios entries, in
-    placement order."""
+    LATER scope in this same call sees it) plus this scope's cs/cs_gpios
+    entries, in placement order."""
     diags: List[Diagnostic] = []
     for identity in exhausted:
         inst, dev, socket = by_identity[identity]
@@ -224,17 +218,12 @@ def allocate_cs(rig: Rig, sockets: Sockets,
             result.bus_label[bus.path] = bus.label
             scopes.setdefault(bus.path, []).append((inst, dev, socket))
 
-    # A running view of CLAIMED NET KEYS, threaded sequentially across
-    # scopes exactly as the blueprint's single solved.nets accumulator
-    # would see them (a position claimed while processing one bus scope is
-    # visible to the next) -- LOCAL to this one function call, never a
-    # cross-module accumulator. A KEY SET, deliberately: only membership
-    # is ever consulted (`occupied` below). The earlier shape --
-    # `dict(nets_before)` -- shallow-copied the dict but SHARED the
-    # per-key claim lists with the caller's gpio_result.nets, so the
-    # append below mutated a value another pass had returned: the banned
-    # accumulator shape reintroduced by an alias, duplicating every CS
-    # claim that lands on an already-claimed net (R4 review, D1).
+    # A running view of CLAIMED NET KEYS (a position claimed while
+    # processing one bus scope is visible to the next) -- LOCAL to this
+    # one function call, never a cross-module accumulator. Built as a
+    # KEY SET, deliberately: copying only the keys out of `nets_before`,
+    # never the per-key claim lists, is what guarantees the append below
+    # can never mutate a claim list another pass returned.
     seen: set[NetKey] = set(nets_before)
 
     for bus_path, raw_members in sorted(scopes.items()):

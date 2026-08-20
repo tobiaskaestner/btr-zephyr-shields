@@ -1,20 +1,18 @@
-"""config-sheet.md -- the physical configuration sheet (R17). Ported from
-rigexp/emitter.py's sheet half (rigc-r5-brief.md Sec 1): the ONE place a
+"""config-sheet.md -- the physical configuration sheet: the ONE place a
 symbol's resolved value is shown to a human; emission itself never
 resolves anything (overlay.py emits params verbatim), so without this
 table a rig-assigned INPUT_KEY_1 would mean nothing to a reader who has
 not memorized the header.
 
-**Reads `solved.wires`, never `rig.wires`** (rigc-r5-brief.md Sec 1): the
-Wires section is the one place in this module a wire's raw `Rig` data
-would silently diverge from what got resolved -- `solved.wires` carries
-the route already resolved to a connector-type position index.
+**Reads `solved.wires`, never `rig.wires`**: the Wires section is the
+one place in this module a wire's raw `Rig` data would silently diverge
+from what got resolved -- `solved.wires` carries the route already
+resolved to a connector-type position index.
 
-**Slot qualifier rendered only for a plural shield** (multi-plug-shield-
-brief.md Sec 4, the rule load-bearing for acceptance criterion 1): a
-single-plug instance's Socket-assignment row is byte-identical to every
-row this module emitted before plurality existed; a plural instance
-gets one row per slot, its socket cell spelled `<slot>: <ref-or-label>`.
+**Slot qualifier rendered only for a plural shield**: a single-plug
+instance's Socket-assignment row is a plain socket name; a plural
+instance gets one row per slot, its socket cell spelled
+`<slot>: <ref-or-label>`.
 """
 from __future__ import annotations
 
@@ -30,11 +28,10 @@ from . import GEN
 def _socket_display(inst: Instance, s: Solved, slot: str) -> str:
     """The socket name a bench instruction shows for one slot: the
     instance's own declared reference wherever it authored one for that
-    slot, else the label inference resolved to (socket-inference-
-    brief.md Sec 7) -- `for_slot` always finds an entry here, since the
-    emitter only ever runs on an accepted rig where every slot's socket
-    already resolved. Read-only over its arguments; returns a plain str
-    the caller owns."""
+    slot, else the label inference resolved to -- `for_slot` always
+    finds an entry here, since the emitter only ever runs on an accepted
+    rig where every slot's socket already resolved. Read-only over its
+    arguments; returns a plain str the caller owns."""
     ref = inst.sockets.get(slot)
     if ref is not None:
         return ref
@@ -44,11 +41,11 @@ def _socket_display(inst: Instance, s: Solved, slot: str) -> str:
 
 def _strap_owner_slot(inst: Instance, strap: Strap) -> str:
     """The slot the device THIS strap resolves an address for sits on --
-    straps are address-domain and bus-scoped, unaffected by plurality
-    (multi-plug-shield-brief.md Sec 4), but still need a slot to display
-    a socket cell for. Falls back to `inst`'s shield's own one slot name
-    when no device of `inst`'s shield actually names this strap, which
-    never happens for an accepted rig but keeps this total."""
+    straps are address-domain and bus-scoped, unaffected by plurality,
+    but still need a slot to display a socket cell for. Falls back to
+    `inst`'s shield's own one slot name when no device of `inst`'s
+    shield actually names this strap, which never happens for an
+    accepted rig but keeps this total."""
     dev = next((d for d in inst.shield.devices if d.addr_from == strap.name), None)
     if dev is not None and dev.plug is not None:
         return dev.plug
@@ -80,9 +77,8 @@ def _device_socket(rig: Rig, s: Solved, inst_name: str, dev_name: str,
 def _ref_socket(rig: Rig, s: Solved, inst_name: str, dev_name: str, prop: str,
                 ) -> Optional[BoardSocket]:
     """The resolved socket the `prop` gpio/pwm/adc ref of `dev_name`
-    claims through -- per-reference granularity (ruling 2), so a
-    cross-plug ref's own slot is what this recovers, never the device's
-    bus slot."""
+    claims through -- per-reference granularity, so a cross-plug ref's
+    own slot is what this recovers, never the device's bus slot."""
     inst = _find_instance(rig, inst_name)
     dev = _find_device(inst, dev_name) if inst is not None else None
     if inst is None or dev is None:
@@ -127,9 +123,9 @@ def _straps_section(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> Lis
             f"{state} → device address {addr:#04x}")
     for inst, jmp, jmp_state, pos in sorted(
             s.jumpers_set, key=lambda t: (t[0].name, t[1].name)):
-        # Routing jumpers are refused outright on a plural shield
-        # (Sec 6) -- inst.shield.plugs always has exactly one entry
-        # here, whatever its plug node is actually named.
+        # Routing jumpers are refused outright on a plural shield --
+        # inst.shield.plugs always has exactly one entry here, whatever
+        # its plug node is actually named.
         sheet = jmp.sheet_label or jmp.name
         slot = next(iter(inst.shield.plugs), "plug")
         socket = for_slot(s.sockets, inst, slot)
@@ -219,17 +215,16 @@ def render_sheet(rig: Rig, s: Solved, types: Dict[str, ConnectorType], workdir: 
 
 def _params_table(rig: Rig, workdir: str,
                   include_dirs: Optional[List[str]] = None) -> List[str]:
-    """Per-instance parameter assignments (rig-variants-revisions.md): the
-    ONE place a symbol's resolved value is shown to a human -- emission
-    itself never resolves anything, so without this table a rig-assigned
-    INPUT_KEY_1 would mean nothing to a reader who has not memorized the
-    header. Empty (no section at all) for every rig that assigns none,
-    which is all but one of the corpus today.
+    """Per-instance parameter assignments: the ONE place a symbol's
+    resolved value is shown to a human -- emission itself never resolves
+    anything, so without this table a rig-assigned INPUT_KEY_1 would
+    mean nothing to a reader who has not memorized the header. Empty (no
+    section at all) for every rig that assigns none.
 
-    Each row resolves against its OWN device's declared_param_includes
-    (param-vocabulary-brief.md) -- the vocabulary is the owning shield
-    device's, never a rig-wide list, so two rows on different devices may
-    resolve against entirely different headers."""
+    Each row resolves against its OWN device's declared_param_includes --
+    the vocabulary is the owning shield device's, never a rig-wide list,
+    so two rows on different devices may resolve against entirely
+    different headers."""
     rows = []
     for inst in sorted(rig.instances, key=lambda i: i.name):
         devices_by_label = {d.label: d for d in inst.shield.devices}

@@ -1,83 +1,59 @@
-"""rigc CLI -- the frozen front door.
+"""rigc CLI -- the front door.
 
-The argv surface is fixed by the frozen suite itself (rigc-mission-brief.md
-Sec 2): `expand <rig_yml>` with --shield-dir* --board --board-dts
---build-info --bindings-dir* --include-dir* --connector-dir* --revision
---variant --out-dir (* = repeatable). Every option is PARSED here from day
-one; as of R4 (rigc-r4-brief.md) every one of them is LIVE -- --board-dts/
---build-info/--bindings-dir feed the board reader (boarddt/board_edt/
-edt_build), the same way --shield-dir/--include-dir/--connector-dir/
---revision/--variant feed the loader (R2/R3). --board
-(board-coordinate-s1-brief.md Sec 4) feeds the loader too, and is now
-the ONLY source of `rig.board` (board-coordinate-s6-brief.md Sec 11
-retired rig.yml's own `board:` grammar entirely): omitted, `rig.board`
-is simply "" -- legal through the loader, and a diagnostic only once
-this file is about to read a real board devicetree (see the board-empty
-check right before boarddt.load_board, below). As of R5
-(rigc-r5-brief.md) the accept path is complete: a clean analysis emits
-the rig artifacts (`emitter.emit`) plus the build-glue handoff
+`expand <rig_yml>` takes --shield-dir* --board --board-dts --build-info
+--bindings-dir* --include-dir* --connector-dir* --revision --variant
+--out-dir (* = repeatable). --board-dts/--build-info/--bindings-dir feed
+the board reader (boarddt/board_edt/edt_build); --shield-dir/
+--include-dir/--connector-dir/--revision/--variant feed the loader.
+--board feeds the loader too, and is the ONLY source of `rig.board`
+(rig.yml has no `board:` key of its own): omitted, `rig.board` is simply
+"" -- legal through the loader, and a diagnostic only once this file is
+about to read a real board devicetree (see the board-empty check right
+before boarddt.load_board, below). A clean analysis emits the rig
+artifacts (`emitter.emit`) plus the build-glue handoff
 (`emitter.context.render`) through the one writer (`emitter.write_
-artifacts`) and returns 0 -- `unimplemented.py`'s Unimplemented no
-longer fires on any input the frozen corpus contains.
+artifacts`) and returns 0.
 main(argv) -> int is callable in-process, so the argv contract has
 subprocess-free unit tests.
 
 The positional `rig` and `--promote <shield-name>` are mutually exclusive
-alternatives for the SAME slot (board-coordinate-s3b-brief.md Sec 5): a
-promoted shield has no rig.yml on disk, so `--promote` makes `_expand`
-synthesize `promote.promote_shield`'s own pair straight into this run's
-workdir and load THAT by path -- the loader, deps, diagnostics and
-emitter never learn the difference. `--revision` alongside `--promote`
-means the SHIELD's own revision (baked into the synthesized content
-file), never a rig-level axis -- a promoted rig declares no revisions:
-of its own, so it is never forwarded to `loader.load`.
+alternatives for the SAME slot: a promoted shield has no rig.yml on disk,
+so `--promote` makes `_expand` synthesize `promote.promote_shield`'s own
+pair straight into this run's workdir and load THAT by path -- the
+loader, deps, diagnostics and emitter never learn the difference.
+`--revision` alongside `--promote` means the SHIELD's own revision (baked
+into the synthesized content file), never a rig-level axis -- a promoted
+rig declares no revisions of its own, so it is never forwarded to
+`loader.load`.
 
-`--promote`'s value may also be a `;`-separated LIST of shield targets
-(multi-plug-list-brief.md): `promote.promote_shield_list` synthesizes
-the N-instance pair instead, and `--revision` plays no part (each
-element carries its own `@rev` inline in the list text, since one
-scalar flag cannot carry N per-element revisions).
+`--promote`'s value may also be a `;`-separated LIST of shield targets:
+`promote.promote_shield_list` synthesizes the N-instance pair instead,
+and `--revision` plays no part (each element carries its own `@rev`
+inline in the list text, since one scalar flag cannot carry N
+per-element revisions).
 
-Exit vocabulary (rigc-r1-brief.md Sec 1): 0 accept, 1 rejected input,
-2 usage error (argparse's own), 3 not implemented (see unimplemented.py).
+Exit vocabulary: 0 accept, 1 rejected input, 2 usage error (argparse's
+own), 3 not implemented (see unimplemented.py).
 
 **The workdir lives inside `--out-dir`, as `<out-dir>/rigc-generated`**,
-never in /tmp: a build directory already has an owner and a lifetime, and
-the workdir inherits both, so `west build -p`, `rm -rf build/` and
-pytest's own tmp_path retention each reap it for free. The name is
-DETERMINISTIC (no mkdtemp suffix) and the directory is wiped on entry --
-a random suffix inside a long-lived build dir would accumulate one more
-directory per configure, which is the pile this shape exists to end.
+never in /tmp, so it inherits the owning build directory's lifetime:
+`west build -p`, `rm -rf build/` and pytest's own tmp_path retention each
+reap it for free. Its name is DETERMINISTIC (no mkdtemp suffix), it is
+wiped on entry so a previous run's intermediates can never be mistaken
+for this run's, and it is KEPT on every exit -- it is the only record of
+what this run actually fed its own parsers (a promoted shield's
+synthesized rig.yml/content pair, each shield's `.dts` and its
+cpp-preprocessed `.pre`, the board's included), and an accepted run is
+exactly the run whose emitted overlay someone later questions.
 
-**The workdir NAME is NOT cosmetic**: the frozen `conftest.py`'s own
-`normalize()` strips a path ending in `rigc-generated` (`_WORKDIR_RE`,
-hardcoded -- never parameterized on `RIG_EXPAND_COMPILE`) to a stable
-placeholder before comparing rendered stderr against a golden. A
-cpp-preprocess-failure detail (e.g. `param-missing-header`) embeds this
-path verbatim inside gcc's own stderr text, and the leading part of it is
-now a per-run build directory, so the trailing component MUST stay
-literally `rigc-generated` or the comparison sees an un-normalized
-absolute path and byte-mismatches a golden that has nothing else wrong
-with it. Recorded here because it is exactly the kind of "confusing
-session" trap R0's own CMAKE_CONFIGURE_DEPENDS finding warned about.
-
-**The workdir is KEPT, on every exit** (workdir-retention-ruling.md,
-2026-08-19; supersedes cutover-decisions.md D10's accept-path deletion,
-post-cutover-backlog.md group A item 1). What it holds is the only record
-of what this run actually fed its own parsers -- a promoted shield's
-synthesized rig.yml/content pair, each shield's `.dts`, and the
-cpp-preprocessed `.pre` of each, the board's included -- and an ACCEPTED
-run is exactly the run whose emitted overlay someone later questions, so
-deleting the intermediates on success threw away the evidence for the one
-verdict that produces an artifact to doubt. D10's deletion answered an
-ACCUMULATION problem (7001 directories / 787MB in one session) that the
-move out of /tmp had already solved on its own: the name is deterministic
-and the directory is wiped on entry, so one --out-dir can hold exactly
-ONE of these (~80KB, dominated by the preprocessed board .dts), and it
-dies with the build directory that owns it. There is no knob --
-`RIGC_KEEP_WORKDIR` is RETIRED rather than left as a no-op that reads as
-if it still decided something, and `west build -p` / `rm -rf build/`
-already reap the space."""
+**The workdir NAME is NOT cosmetic**: the test harness's own
+`normalize()` (`tests/integration/conftest.py`'s `_WORKDIR_RE`) strips a
+path ending in `rigc-generated` to a stable placeholder before comparing
+rendered stderr against a golden. A cpp-preprocess-failure detail (e.g.
+`param-missing-header`) embeds this path verbatim inside gcc's own stderr
+text, so the trailing component MUST stay literally `rigc-generated` or
+the comparison sees an un-normalized absolute path and byte-mismatches a
+golden that has nothing else wrong with it."""
 
 from __future__ import annotations
 
@@ -124,10 +100,10 @@ def _configure_logging(verbosity: int = 0) -> None:
 
     Enabling this during a golden-comparing run BREAKS the comparison BY
     DESIGN: every enabled record lands on the exact same stderr stream the
-    renderer's own bytes are compared against (rigc-r45-brief.md Part B).
-    Called from `main()` after argv is parsed, so an in-process unit test
-    can pass a verbosity or monkeypatch the environment and observe the
-    effect without a subprocess."""
+    renderer's own bytes are compared against. Called from `main()` after
+    argv is parsed, so an in-process unit test can pass a verbosity or
+    monkeypatch the environment and observe the effect without a
+    subprocess."""
     root = logging.getLogger("rigc")
     for h in list(root.handlers):
         if getattr(h, _OWN_HANDLER, False):
@@ -161,8 +137,7 @@ def _resolve_recipe(
     an explicit --include-dir/--bindings-dir pair, if either was given;
     else None -- the caller (boarddt.load_board) turns a still-None recipe
     into a clear diagnostic once/if it is actually needed, rather than
-    this function guessing at "nothing usable" (ported from rigexp/
-    cli.py's own `_resolve_recipe`, rigc-r4-brief.md Sec 1)."""
+    this function guessing at "nothing usable"."""
     if build_info is not None:
         return recipe_from_build_info(os.path.abspath(build_info))
     if include_dirs or bindings_dirs:
@@ -313,12 +288,11 @@ def _materialize_promotion(
     the caller's already-absolutized --shield-dir list, read-only. The
     caller owns the returned path and diagnostics."""
     # --promote's value is the promotion TARGET, not a bare
-    # shield name: `<shield>[@rev][:<key>=<value>...]`, or (multi-
-    # plug-list-brief.md) a `;`-separated LIST of such targets.
-    # cmake forwards list_rigs' `{PROMOTED}` here opaquely and
-    # never parses it, so this is the one parser for the option
-    # grammar no matter how many options -- or elements -- it
-    # grows.
+    # shield name: `<shield>[@rev][:<key>=<value>...]`, or a
+    # `;`-separated LIST of such targets. cmake forwards list_rigs'
+    # `{PROMOTED}` here opaquely and never parses it, so this is the
+    # one parser for the option grammar no matter how many options
+    # -- or elements -- it grows.
     if ";" in args.promote:
         elements = promote.parse_promotion_list(args.promote, shield_dirs)
         if isinstance(elements, str):
@@ -327,20 +301,14 @@ def _materialize_promotion(
     else:
         shield_name, _, opt_text = args.promote.partition(":")
         # Resolved here, ahead of parse_promotion_opts's own
-        # slot-validation grammar (multi-plug-promotion-brief.md Sec
-        # 2: a bare socket= on a plural shield, a socket.<slot>= on
-        # a single-plug one, an unknown slot) -- this cmake-seam
-        # caller was missing from the brief's own predicted call-site
-        # list (verified by grep, multi-plug-promotion-brief.md Sec
-        # 3's own recorded lesson: run every caller, do not trust a
-        # brief's list). check_promotable is deliberately NOT called
-        # here: list_rigs.py/west_commands/rigs.py already validated
-        # promotability before ever forwarding a target this far
-        # (list_rigs.PromotedTarget.promotion_target, cli.py's own
-        # module docstring), and this is the one entry point every
-        # OTHER caller's --promote value already passed through --
-        # duplicating the check here would be a second authority for
-        # the same fact.
+        # slot-validation grammar (a bare socket= on a plural shield,
+        # a socket.<slot>= on a single-plug one, an unknown slot).
+        # check_promotable is deliberately NOT called here:
+        # list_rigs.py/west_commands/rigs.py already validate
+        # promotability before ever forwarding a target this far, and
+        # this is the one entry point every OTHER caller's --promote
+        # value already passes through -- duplicating the check here
+        # would be a second authority for the same fact.
         resolved = promote.resolve_for_promotion(shield_name, shield_dirs)
         opts = promote.parse_promotion_opts(
             opt_text or None, args.promote, resolved)
@@ -366,47 +334,28 @@ def _expand(args: argparse.Namespace) -> int:
     # -- and the diagnostics' message paths are spec'd absolute. A
     # --promote target has no path yet (it is materialized into the
     # workdir below, once one exists), so this stays None until then.
-    # breakpoint()
     rig_path = os.path.abspath(args.rig) if args.rig is not None else None
     shield_dirs = _abspath_dirs(args.shield_dirs)
     connector_dirs = _abspath_dirs(args.connector_dirs)
     # header_dirs is the RAW --include-dir list, threaded to every cpp
-    # invocation this run makes (the connector-type registry's <type>.h
-    # lookup, every .shield template's own translation unit, a shield
-    # device's own shield,param-includes/per-instance-parameter
-    # resolution) -- one list, one ratified plumbing shape (rigexp/cli.py's
-    # own docstring).
+    # invocation this run makes: the connector-type registry's <type>.h
+    # lookup, every .shield template's own translation unit, and a
+    # shield device's own shield,param-includes/per-instance-parameter
+    # resolution -- one list serves all three.
     header_dirs = _abspath_dirs(args.include_dirs)
     board_dts = os.path.abspath(args.board_dts) if args.board_dts else None
 
-    # Resolved ONCE here and threaded down (T0b's shape) -- replaces what
-    # would otherwise be a re-glob/re-parse per caller. types_deps rides
+    # Resolved ONCE here and threaded down, replacing what would
+    # otherwise be a re-glob/re-parse per caller. types_deps rides
     # RIG_DEPENDS below (every connector-type YAML and index header this
     # run's registry actually read).
     types, types_deps = load_types(
         connector_dirs=connector_dirs, header_dirs=header_dirs
     )
 
-    # The workdir lives INSIDE --out-dir, never in /tmp: a build directory
-    # already has an owner and a lifetime, and the workdir now inherits
-    # both. `west build -p`, `rm -rf build/` and pytest's own tmp_path
-    # retention each reap it for free, which is what /tmp never did -- and
-    # it is what makes "keep it on EVERY exit" (this module's docstring,
-    # workdir-retention-ruling.md) affordable at all: under /tmp the keeps
-    # were permanent and unowned, 292 of them counted in one session.
-    #
-    # DETERMINISTIC, not mkdtemp: a random suffix inside a long-lived
-    # build directory would just move the pile rather than end it (one
-    # more directory per configure). One name per out-dir, wiped on entry
-    # so a previous run's intermediates can never be mistaken for this
-    # run's -- which is ALSO what bounds the retention above to one
-    # directory per --out-dir rather than one per configure.
-    #
-    # The entry wipe is the one deletion this module still does, and it is
-    # a different question from the retention: keeping a PREVIOUS run's
-    # files would hand a debugging session a `.pre` that no longer
-    # corresponds to the overlay next to it, which is worse than having
-    # none.
+    # Wiped on entry so a previous run's intermediates can never be
+    # mistaken for this run's; see the module docstring for the
+    # workdir's location, naming and retention rules.
     out_dir = os.path.abspath(args.out_dir)
     log.info("out-dir: %s", out_dir)
     workdir = os.path.join(out_dir, WORKDIR_NAME)
@@ -440,27 +389,25 @@ def _expand(args: argparse.Namespace) -> int:
     if rig is None or has_errors(diags):
         return _reject(diags)
 
-    # Pass 1: board reading (rigc-r4-brief.md Sec 1). The recipe is
-    # resolved HERE, not up front alongside the other inputs: it opens
-    # a real file (--build-info) eagerly, and doing that before the
-    # loader even runs would turn a caller's typo'd --build-info path
-    # into an unhandled crash on a rig that was going to be rejected
-    # anyway (never a traceback, the reject convention) -- resolving
-    # it only once the loader has already accepted is what
-    # board.load_board's own "no usable recipe" diagnostic exists to
-    # report cleanly instead.
+    # Pass 1: board reading. The recipe is resolved HERE, not up front
+    # alongside the other inputs: it opens a real file (--build-info)
+    # eagerly, and doing that before the loader even runs would turn a
+    # caller's typo'd --build-info path into an unhandled crash on a
+    # rig that was going to be rejected anyway (never a traceback, the
+    # reject convention) -- resolving it only once the loader has
+    # already accepted is what board.load_board's own "no usable
+    # recipe" diagnostic exists to report cleanly instead.
     #
-    # rig.board is "" whenever this run injected none (board-
-    # coordinate-s6-brief.md Sec 11: the loader itself never requires
-    # one any more, since a rig's TOPOLOGY never needed a board to
-    # assemble). This is the one place that still does -- passing ""
-    # straight to boarddt.load_board would search for a board literally
-    # named "" and report the confusing "unknown board ''" rather than
-    # the honest fact that none was given, so it is caught here first,
-    # before boarddt ever runs. Unlike a `lang-*` loader finding, this
-    # has no rig.yml line to blame (there is no longer a `board:` key
-    # to point at) -- phys-board, no refs, matching every other
-    # board-reading diagnostic's own unanchored shape.
+    # rig.board is "" whenever this run injected none: the loader
+    # itself never requires one, since a rig's topology never needed a
+    # board to assemble. This is the one place that still does --
+    # passing "" straight to boarddt.load_board would search for a
+    # board literally named "" and report the confusing "unknown board
+    # ''" rather than the honest fact that none was given, so it is
+    # caught here first, before boarddt ever runs. Unlike a `lang-*`
+    # loader finding, this has no rig.yml line to blame (there is no
+    # `board:` key to point at) -- phys-board, no refs, matching every
+    # other board-reading diagnostic's own unanchored shape.
     if not rig.board:
         return _reject(diags + [diag_error(
             "phys-board",
@@ -470,10 +417,9 @@ def _expand(args: argparse.Namespace) -> int:
     #
     # board.load_board's own diagnostics carry no `rig`-side src ref
     # (a "phys-board" finding is never anchored to a rig.yml line), so
-    # they simply extend the diags list gathered so far, matching the
-    # blueprint's continuation shape (rigc-r2-brief.md Sec 6): a
-    # rejection here is never a reason to drop the loader's own
-    # (empty, since has_errors already returned above) findings.
+    # they simply extend the diags list gathered so far: a rejection
+    # here is never a reason to drop the loader's own (empty, since
+    # has_errors already returned above) findings.
     recipe = _resolve_recipe(args.include_dirs, args.bindings_dirs, args.build_info)
     board, board_diags, board_deps = boarddt.load_board(
         rig.board, workdir, board_dts=board_dts, recipe=recipe
@@ -482,8 +428,8 @@ def _expand(args: argparse.Namespace) -> int:
     if board is None:
         return _reject(diags)
 
-    # Pass 2: the analyzer (rigc-r4-brief.md Sec 2) -- mating/socket
-    # resolution, nets, addresses, CS, wires, labels.
+    # Pass 2: the analyzer -- mating/socket resolution, nets,
+    # addresses, CS, wires, labels.
     solved, analyzer_diags = analyzer.analyze(rig, board, types)
     diags += analyzer_diags
     if has_errors(diags):
@@ -491,9 +437,9 @@ def _expand(args: argparse.Namespace) -> int:
 
     # Accept: emit the rig artifacts (emitter.emit -- strong contract,
     # cannot fail here) plus the build-glue handoff (context.render,
-    # rigc-r5-brief.md Sec 2 -- kept a SEPARATE value function so
-    # cli.py never builds context.cmake's text itself), then ONE
-    # writer for everything. RIG_DEPENDS is every real source-tree
+    # kept a SEPARATE value function so cli.py never builds
+    # context.cmake's text itself), then ONE writer for everything.
+    # RIG_DEPENDS is every real source-tree
     # file this run actually touched: the connector-type registry,
     # the loader's own closure (rig.yml, its content file, qualifier
     # delta fragments, every shield resolution across all three

@@ -1,7 +1,6 @@
-"""Board DT reader -- analyzer-side input (Conv. 4: the analyzer reads the
-board DT to find socket nodes by compatible). Ported from rigexp/boarddt.py
-(rigc-r4-brief.md Sec 1): delegates entirely to board_edt/edt_build's
-edtlib.EDT reader over the board's own devicetree.
+"""Board DT reader -- analyzer-side input: the analyzer reads the board
+DT to find socket nodes by compatible. Delegates entirely to
+board_edt/edt_build's edtlib.EDT reader over the board's own devicetree.
 
 This module keeps two responsibilities of its own, both about board
 RESOLUTION rather than DT mechanics (those live in board_edt/edt_build):
@@ -14,15 +13,13 @@ RESOLUTION rather than DT mechanics (those live in board_edt/edt_build):
   * the two board-level diagnostics that keep "phys-board" physically
     meaningful: a board that does not exist at all (discovery finds no such
     directory) vs. a board that exists but never opted in (its devicetree
-    declares no socket,* node -- Conv. 4's opt-in mechanism).
+    declares no socket,* node).
 
-**Diagnostics and dependency data are RETURN values** (mission brief Sec 6,
-ratified ruling 3): unlike rigexp's `load_board(..., diags, ..., deps)`,
-which writes into two accumulators handed in from outside, this
-`load_board` returns `(Board | None, diagnostics, Deps)` -- the board's
-own .dts joins the R3 returned-value deps shape the same way every other
-reader in this package already does.
-"""
+**Diagnostics and dependency data are RETURN values**: `load_board`
+returns `(Board | None, diagnostics, Deps)` rather than writing into
+accumulators handed in from outside -- the board's own .dts joins the
+same returned-value deps shape every other reader in this package
+already uses."""
 from __future__ import annotations
 
 import argparse
@@ -88,10 +85,10 @@ def load_board(name: str, workdir: str,
     try:
         board = board_edt.load_board(name, board_dts, recipe, workdir)
     except LoadError as e:
-        # A malformed socket,* nexus (carrier-analog-passthrough-brief.md
-        # Sec 4 ruling 3: a PWM/ADC controller whose own declared cell
-        # count this expander does not support) raises LoadError rather
-        # than crashing with an unhandled ValueError -- this is the catch
+        # A malformed socket,* nexus (a PWM/ADC controller whose own
+        # declared cell count this expander does not support) raises
+        # LoadError rather than crashing with an unhandled ValueError --
+        # this is the catch
         # boundary that turns it into the ordinary (None, diagnostics,
         # deps) shape every other board-resolution failure in this
         # function already returns, exactly as dtsio.py's own LoadError
@@ -126,8 +123,7 @@ def _discover_board_dts(name: str) -> Tuple[Optional[str], List[Diagnostic]]:
     two candidates dts.cmake's own dts_configuration_files() tries), never
     a bespoke naming rule.
 
-    Known gap (reproduced honestly, blueprint wart carried over -- mission
-    brief Sec 2): every board this tooling can build today is an hwmv2
+    Known gap: every board this tooling can build today is an hwmv2
     extension whose base lives outside MODULE_ROOT (a real upstream board
     in $ZEPHYR_BASE, or another Zephyr module) -- list_boards.find_v2_boards()
     only attaches a board.yml extend: entry to a base it can already see, so

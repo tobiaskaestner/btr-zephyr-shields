@@ -1,20 +1,18 @@
 """The ONE seam every pass and emitter module resolves "the socket a
-reference/device targets" through, now that a resolution is keyed per
-SLOT rather than per instance (multi-plug-shield-brief.md Sec 3):
-`SocketResolution.sockets`/`Solved.sockets` moved from `Dict[str,
-BoardSocket]` (instance name -> socket) to `Sockets` below (instance name
--> slot name -> socket).
+reference/device targets" through: a resolution is keyed per SLOT
+rather than per instance, so `SocketResolution.sockets`/`Solved.sockets`
+is `Sockets` below (instance name -> slot name -> socket), never a bare
+`Dict[str, BoardSocket]`.
 
-Three functions, matching the two granularities Sec 2's ruling
-distinguishes -- PER-REFERENCE (a gpio/pwm/adc claim names its own plug by
+Three functions, matching the two granularities a claim can name a
+socket at -- PER-REFERENCE (a gpio/pwm/adc claim names its own plug by
 phandle) and PER-BUS-GROUP (a device's bus binds to exactly one plug) --
 plus the slot-enumeration helper the per-slot renderers (sheet.py) need.
-This is the `buskind.py` precedent one level up: one shared implementation
-so a caller gating behavior on "which slot does this belong to" cannot
-drift into three copies of the same lookup, which is also what makes the
-acceptance grep (`grep -rn "sockets\\.get(inst\\.name)\\|sockets\\[inst"
-scripts/rigc/analyzer scripts/rigc/emitter` finding only this module and
-sockets.py's own resolution pass) hold.
+This is the `buskind.py` precedent one level up: one shared
+implementation so a caller gating behavior on "which slot does this
+belong to" cannot drift into three copies of the same lookup, instead of
+a bare per-instance dict lookup of this map's own two levels appearing
+anywhere else in analyzer or emitter code.
 
 Every function here is read-only over its arguments and returns a
 reference into the resolution map it was handed, never a copy -- the
@@ -50,8 +48,8 @@ def for_ref(sockets: Sockets, inst: Instance, ref: GpioRef) -> Optional[BoardSoc
     """The resolved `BoardSocket` `ref` claims through -- keyed by
     `ref.plug`, the slot the reference's own phandle named
     (`shields.py`'s `_parse_pos_ref`), NEVER the device's own bus slot: a
-    cross-plug reference (multi-plug-shield-brief.md Sec 2 ruling 2) can
-    name a plug other than the one its device's bus binds to. Returns
+    cross-plug reference can name a plug other than the one its
+    device's bus binds to. Returns
     None when that slot of this instance never resolved (the analyzer
     already reported why -- the caller's own skip-don't-abort guard, not
     an error here). `sockets`/`inst`/`ref` are read-only."""
@@ -78,7 +76,7 @@ def for_slot(sockets: Sockets, inst: Instance, slot: str) -> Optional[BoardSocke
     a caller reaches for when neither a `GpioRef` nor a `Device` is in
     hand (analyzer/wires.py's pad-based routes, which resolve through a
     single-plug instance's own one slot after checking plurality itself --
-    a plural FROM instance is refused before this is ever called, S6).
+    a plural FROM instance is refused before this is ever called).
     Returns None when that slot never resolved. `sockets`/`inst` are
     read-only."""
     return sockets.get(inst.name, {}).get(slot)

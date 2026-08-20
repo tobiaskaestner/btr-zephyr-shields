@@ -5,14 +5,11 @@ stderr and exit status 3 -- never exit 1 (the reject convention: "we
 cannot do this yet" must never be mistakable for "your input is wrong"),
 never a traceback, and never a silent accept. Exit 2 stays argparse's own
 usage-error code, so the full exit vocabulary is 0 accept / 1 rejected
-input / 2 usage error / 3 not implemented (rigc-r1-brief.md Sec 1).
+input / 2 usage error / 3 not implemented.
 
-It was introduced for the differential period (rigc-mission-brief.md Sec
-4), when most of the frozen suite reached paths rigc had not built yet.
-That period is over -- nothing in the frozen corpus reaches it any more.
-What still does: an unreadable, empty or non-mapping YAML document
-(loader/documents.py), and cli.py's unreachable unknown-subcommand
-branch.
+Nothing in the frozen corpus reaches it any more. What still does: an
+unreadable, empty or non-mapping YAML document (loader/documents.py),
+and cli.py's unreachable unknown-subcommand branch.
 
 Raised anywhere inside the pipeline, caught ONCE in cli.main().
 """

@@ -1,22 +1,16 @@
-"""Rule 10: a selected NON-DEFAULT axis value that contributes NOTHING --
-the constructed-fragment-file contribution check. Ported value-shaped
-from rigexp/loader_yml.py's `_check_fragment_presence` (rigc-r2-brief.md
-Sec 5); its sibling `_variant_metadata_differs` -- the VARIANT-only
-second avenue of contribution a per-variant board/socket map differing
-from the default's used to open -- retired with that grammar
-(board-coordinate-s6-brief.md Sec 11): `AxisDecl.boards`/`.sockets` are
-never populated any more, so a variant's only way to contribute is the
-same fragment-file avenue a revision has.
+"""The contributes-nothing check: a selected NON-DEFAULT axis value that
+contributes NOTHING -- the constructed-fragment-file contribution
+check. `AxisDecl.boards`/`.sockets` are never populated, so a variant's
+only way to contribute is the same fragment-file avenue a revision has.
 
-PURE, deliberately (joint review 2026-07-29: IO at the edges, compute on
-values): which files exist is probed by the CALLER -- the loader's IO
-phase, `_gather_content` -- and arrives here as a `FragmentPresence`
-value, so the rule itself decides over values and its tests construct
-values instead of a tmp directory. The name CONSTRUCTION stays here, in
-the two `*_contribution_names` helpers, single-sourced for both the
-caller's probes and this module's own message text (the R2-review lesson:
-duplicated stem construction is where variant/revision normalization
-drift hides).
+PURE, deliberately: which files exist is probed by the CALLER -- the
+loader's IO phase, `_gather_content` -- and arrives here as a
+`FragmentPresence` value, so the rule itself decides over values and
+its tests construct values instead of a tmp directory. The name
+CONSTRUCTION stays here, in the two `*_contribution_names` helpers,
+single-sourced for both the caller's probes and this module's own
+message text, since duplicated stem construction is where
+variant/revision normalization drift hides.
 """
 from __future__ import annotations
 

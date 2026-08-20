@@ -1,31 +1,29 @@
-"""Address allocation (R9/R17/R18, rigc-r4-brief.md Sec 2). Ported from
-rigexp/analyzer.py's `_allocate_addresses`/`_allocate_scope`
-(`analyzer.py:444-533`), value-shaped: per I2C-bus SCOPE (a mux channel is
-a NEW scope, R26), fixed (copper `reg`) wins outright, pinned (R18
-`config:` strap) resolves through the strap's own domain, and
-everything else is allocated free from that same domain -- each in
-R18's stable `_key` order
-(analyzer/ordering.py), never rig-file declaration order.
+"""Address allocation. Per I2C-bus SCOPE (a mux channel is its own NEW
+scope), a fixed (copper `reg`) member wins outright, a pinned
+(`config:` strap) member resolves through the strap's own domain, and
+everything else allocates freely from that same domain -- each group
+sorted through the one stable allocation order
+(analyzer/ordering.py's `allocation_key`), never rig-file declaration
+order.
 
-**The value-shaped core** (rigc-r45-brief.md Part C, the CS treatment
-applied here): `allocate_scope_addresses` is the pure contract this
-module exists to make unit-testable on its own -- given one scope's
-members in R18 order (some copper-fixed, some rig-pinned, some free),
-each already carrying its OWN address domain where one applies, assign
-each an address (+ strap state), or report a same-address conflict or a
-free member's domain exhaustion. No Rig/Instance/Shield/BoardSocket
-needed to call it, mirroring `analyzer/cs.py`'s `allocate_cs_positions`/
-`CsMember` exactly. `_allocate_scope` is the WIRING: it builds one
-scope's `AddressMember` list from the rig model (in the three groups'
-allocation order), calls the core, and translates its placements/
-problems back into this pass's own `AddressAllocation` fields and
-diagnostics -- the only place strap names, device labels, and bus labels
-ever enter the picture.
+**The value-shaped core**: `allocate_scope_addresses` is the pure
+contract this module exists to make unit-testable on its own -- given
+one scope's members in allocation order (some copper-fixed, some
+rig-pinned, some free), each already carrying its OWN address domain
+where one applies, assign each an address (+ strap state), or report a
+same-address conflict or a free member's domain exhaustion. No
+Rig/Instance/Shield/BoardSocket needed to call it, mirroring
+`analyzer/cs.py`'s `allocate_cs_positions`/`CsMember` exactly.
+`_allocate_scope` is the WIRING: it builds one scope's `AddressMember`
+list from the rig model (in the three groups' allocation order), calls
+the core, and translates its placements/problems back into this pass's
+own `AddressAllocation` fields and diagnostics -- the only place strap
+names, device labels, and bus labels ever enter the picture.
 
 A rig-pinned member's domain membership (`phys-pin`) is checked INSIDE
 the core, in the same single ordered pass as everything else, rather
 than by the wrapper up front -- it must interleave with same-address
-conflicts and free-domain exhaustion in EXACTLY the blueprint's own
+conflicts and free-domain exhaustion in exactly the members' own
 discovery order, which only a single shared pass can guarantee."""
 from __future__ import annotations
 
@@ -48,7 +46,7 @@ log = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class AddressMember:
-    """One I2C-scope member's address-allocation input, already in R18
+    """One I2C-scope member's address-allocation input, already in
     allocation order BY GROUP (fixed, then pinned, then free -- the
     caller's own grouping and sort; this function trusts the given order
     and never re-sorts). `fixed` is a copper `reg` address -- wins
@@ -56,7 +54,7 @@ class AddressMember:
     address, the owning strap's own domain) when this member is pinned --
     checked against the domain HERE, in this same pass, not by the
     caller, so an out-of-domain pin interleaves with a same-address
-    conflict in the same relative order the blueprint's own single loop
+    conflict in the same relative order the single shared loop
     produces. `free` is the strap's own ordered domain when this member
     allocates freely; empty when the member is not free."""
 
@@ -94,13 +92,13 @@ class AddressProblem:
 
 def allocate_scope_addresses(members: Sequence[AddressMember],
                              ) -> Tuple[List[AddressPlacement], List[AddressProblem]]:
-    """THE address-allocation contract (rigc-r45-brief.md Part C): given a
-    scope's members in R18 order, each already carrying its own
-    address(es), assign every member an address -- or report why not.
-    Members are processed IN THE GIVEN ORDER, one shared `taken` map
-    growing as each is placed, so a conflict or an exhaustion always sees
-    exactly what every EARLIER member (of any kind) in this same call
-    already claimed -- matching the blueprint's single sequential pass."""
+    """The address-allocation contract: given a scope's members in
+    allocation order, each already carrying its own address(es), assign
+    every member an address -- or report why not. Members are processed
+    IN THE GIVEN ORDER, one shared `taken` map growing as each is
+    placed, so a conflict or an exhaustion always sees exactly what
+    every EARLIER member (of any kind) in this same call already
+    claimed."""
     taken: Dict[int, str] = {}
     placements: List[AddressPlacement] = []
     problems: List[AddressProblem] = []
@@ -252,10 +250,11 @@ def _address_problem_diagnostics(bus_label: str, problems: List[AddressProblem],
 
 def _allocate_scope(bus_path: str, members: List[_ScopeMember],
                     result: AddressAllocation) -> List[Diagnostic]:
-    """Build this scope's `AddressMember` list in R18 order (fixed, then
-    pinned, then free -- three separately-sorted groups, concatenated),
-    call the value-shaped core, and translate its placements/problems
-    into diagnostics plus this pass's own `AddressAllocation` fields."""
+    """Build this scope's `AddressMember` list in allocation order
+    (fixed, then pinned, then free -- three separately-sorted groups,
+    concatenated), call the value-shaped core, and translate its
+    placements/problems into diagnostics plus this pass's own
+    `AddressAllocation` fields."""
     bus_label = result.bus_label[bus_path]
     by_identity: Dict[str, _ScopeMember] = {}
     kind_of: Dict[str, str] = {}

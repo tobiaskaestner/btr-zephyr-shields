@@ -1,22 +1,20 @@
-"""Params, config elements, per-instance-parameter vocabulary -- closing
-R2's ShieldRef deferrals (rigc-r3-brief.md Sec 5). Ported value-shaped
-from rigexp/loader_yml.py's `_apply_params_block`/
-`_check_param_invariant`/`_check_restate`/`_apply_pin_block`/
-`_check_param_token` (renamed `apply_config_block` here, item 29: the
-rig-side key is `config:`, resolving by DTS label, not the ported
-`pin:`/node-name original).
+"""Params, config elements, per-instance-parameter vocabulary: `shield:`
+references resolve against a real `ShieldLibrary`, and this is where
+`params:`/`config:` apply fully against the resolved shield. The
+rig-side key is `config:`, resolving by DTS label, never by node name.
 
-Every function here takes the NARROW values it needs (a shield, a params:
-Val, a rig NAME) rather than a whole `Rig` or `Instance` (mission brief
-Sec 6, rule 2 -- "whole-model inputs where a value would do"): the caller
-(loader/delta.py) already holds these pieces and assigns the result onto
-a freshly constructed Instance, matching its own no-mutation discipline.
+Every function here takes the NARROW values it needs (a shield, a
+params: Val, a rig NAME) rather than a whole `Rig` or `Instance` --
+"whole-model inputs where a value would do": the caller
+(loader/delta.py) already holds these pieces and assigns the result
+onto a freshly constructed Instance, matching its own no-mutation
+discipline.
 
 **The vocabulary a param token resolves against is the OWNING DEVICE's
-own `declared_param_includes` (param-vocabulary-brief.md), never a
-rig-level declaration** -- the shield that declares a parameter declares
-the vocabulary that parameter is drawn from, so `check_param_token` takes
-the device's own header list, not something threaded down from rig.yml.
+own `declared_param_includes`, never a rig-level declaration** -- the
+shield that declares a parameter declares the vocabulary that
+parameter is drawn from, so `check_param_token` takes the device's own
+header list, not something threaded down from rig.yml.
 """
 from __future__ import annotations
 
@@ -35,8 +33,7 @@ def device_required_params(dev: Device) -> List[str]:
     authored default -- i.e. no matching entry in `dev.extra_props` -- the
     exact per-device rule `check_param_invariant` applies to every
     instance's effective shield. Factored out so a caller holding only a
-    SHIELD (no instance, no assignment in play -- the S4 singleton-law
-    census, board-coordinate-s4-brief.md Sec 2.3/promote.py's
+    SHIELD (no instance, no assignment in play -- promote.py's
     `shield_declares_required_params`) can ask the identical question
     without re-deriving "declared, no default" a second time. Pure; dev
     is read-only, returns a fresh list the caller owns."""
@@ -45,8 +42,8 @@ def device_required_params(dev: Device) -> List[str]:
 
 
 def check_param_invariant(instances) -> List[Diagnostic]:
-    """The per-stage invariant (rule 2, re-checked fresh after EVERY delta
-    stage): every instance's EFFECTIVE shield/params must have every
+    """The per-stage invariant, re-checked fresh after EVERY delta
+    stage: every instance's EFFECTIVE shield/params must have every
     declared, no-default-authored parameter ASSIGNED. Covers all three
     sources of a parameter-set change (a base assignment, a shield swap,
     a shield REVISION introducing a new requirement) with no special
@@ -81,19 +78,20 @@ def check_param_token(raw: str, param_includes: List[str], workdir: str,
                       shield_name: str, prop_name: str, ref: SourceRef,
                       include_dirs: Optional[List[str]] = None,
                       ) -> Tuple[List[Diagnostic], Deps]:
-    """Rules 4/5/6, collapsed into one shape now that the vocabulary is
-    the owning device's own, not a rig-level list: every header in
+    """The per-instance-parameter header and token-resolution checks,
+    collapsed into one shape now that the vocabulary is the owning
+    device's own, not a rig-level list: every header in
     `param_includes` (`dev.declared_param_includes`, the caller's own
-    copy) must exist and preprocess cleanly on its own (rule 6), and an
-    assigned token that is not a bare integer literal must resolve
-    against that same list (rules 4/5). Rule 6 is checked here, per
-    device, rather than once per shield at parse time, because this is
-    the only call site that already has a reason to preprocess each
-    header at all (a device whose parameters are never assigned a
-    non-literal token never pays for it); see `emitter._needed_param_
-    includes`, which independently re-derives the same "which headers
-    does this rig need" answer from the SOLVED side -- a change here
-    that stops walking every declared header must be mirrored there.
+    copy) must exist and preprocess cleanly on its own, and an assigned
+    token that is not a bare integer literal must resolve against that
+    same list. The header check runs here, per device, rather than once
+    per shield at parse time, because this is the only call site that
+    already has a reason to preprocess each header at all (a device
+    whose parameters are never assigned a non-literal token never pays
+    for it); `emitter._needed_param_includes` independently re-derives
+    the same "which headers does this rig need" answer from the SOLVED
+    side -- a change here that stops walking every declared header must
+    be mirrored there.
 
     Returns (diagnostics, deps): one diagnostic per header that is
     missing or fails to preprocess, plus one more if the token itself
@@ -145,18 +143,19 @@ def apply_params_block(params_v: Optional[Val], inst_name: str, shield: Shield,
     wholesale replacement -- into (params, param_refs, diagnostics, deps),
     a PURE function of its inputs: never mutates the Instance it
     describes, the caller assigns the result onto a freshly constructed
-    one. Rules 1/3 (undeclared property / unknown device) fire
-    immediately against the CURRENT shield; rules 4/5 (token resolution,
-    against the owning device's own declared_param_includes) too. Rule 2
-    (every required parameter assigned) is deliberately NOT checked here
-    -- it is the per-stage invariant, run once per stage over every
+    one. The undeclared-property and unknown-device checks fire
+    immediately against the CURRENT shield; token resolution (against
+    the owning device's own declared_param_includes) too. Whether every
+    required parameter is assigned is deliberately NOT checked here --
+    that is the per-stage invariant, run once per stage over every
     instance, since a LATER stage may still supply what an EARLIER one
     left required-but-unassigned.
 
-    `unknown_device_context`, if given, is folded into rule 3's message
-    when it fires (rule 12): a family-wide revision's params naming a
-    device the POST-VARIANT shield does not have is unavoidable by
-    construction whenever a variant already substituted the shield.
+    `unknown_device_context`, if given, is folded into the
+    unknown-device message when it fires: a family-wide revision's
+    params naming a device the POST-VARIANT shield does not have is
+    unavoidable by construction whenever a variant already substituted
+    the shield.
 
     Returns (params, refs, diagnostics, deps): fresh values the caller
     owns; deps is the union of every real file a non-literal token's
@@ -259,8 +258,8 @@ def apply_config_block(config_v: Optional[Val], inst_name: str, shield: Shield,
 
 def check_restate(params_v: Val, prior_params: Dict[str, Dict[str, str]],
                   inst_name: str) -> List[Diagnostic]:
-    """Rule 11: if a delta supplies params for an instance whose shield it
-    does NOT change, it must RESTATE every property the effective
+    """The restate rule: if a delta supplies params for an instance whose
+    shield it does NOT change, it must RESTATE every property the effective
     topology had already assigned; omitting one is an error naming it --
     otherwise wholesale replace means a silent revert to the shield
     default. Called with the PRIOR params (before the wholesale replace

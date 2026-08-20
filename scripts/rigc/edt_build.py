@@ -1,16 +1,15 @@
 # SPDX-License-Identifier: BSD-3-Clause
 """Standalone edtlib.EDT construction over a single real devicetree file.
 
-Ported from rigexp/edt_build.py (rigc-r4-brief.md Sec 1) unchanged in
-shape and behavior: this is a generic reader layer, carrying the SAME
-BSD-3-Clause license as its blueprint, deliberately decoupled from the
-Apache-2.0 product layer -- it knows nothing about rigs, sockets, or any
-other rigc product concept, only devicetree/edtlib mechanics plus the one
-piece of Zephyr CMake convention (a build_info.yml's cmake.devicetree
-section) needed to recover the include/bindings directories a real west
-build used. It is the candidate for upstreaming into python-devicetree
-itself, so it must never import a rigc product module (model / analyzer /
-diag / loader) -- only the standard library, PyYAML, and devicetree.edtlib.
+This is a generic reader layer, under a BSD-3-Clause license (see SPDX
+header above), deliberately decoupled from the Apache-2.0 product layer
+-- it knows nothing about rigs, sockets, or any other rigc product
+concept, only devicetree/edtlib mechanics plus the one piece of Zephyr
+CMake convention (a build_info.yml's cmake.devicetree section) needed to
+recover the include/bindings directories a real west build used. It is
+the candidate for upstreaming into python-devicetree itself, so it must
+never import a rigc product module (model / analyzer / diag / loader) --
+only the standard library, PyYAML, and devicetree.edtlib.
 
 Recipe (mirrors cmake/modules/dts.cmake + scripts/dts/gen_defines.py): cpp
 the board .dts with -nostdinc plus one -isystem per include dir and
@@ -22,12 +21,9 @@ edtlib.EDT.
 $ZEPHYR_BASE is needed only to locate the devicetree package itself
 (scripts/dts/python-devicetree/src) -- this module carries no other tie to
 a Zephyr checkout. That lookup is deferred to ensure_devicetree_on_path(),
-called from build_edt() rather than at import time (rigc-mission-brief.md
-Sec 7's module-scope-lookup trap, designed out here exactly as in
-rigexp), so a caller that only needs BuildRecipe / recipe_from_build_info
-/ preprocess (none of which touch devicetree.edtlib) can use this module
-with $ZEPHYR_BASE unset.
-"""
+called from build_edt() rather than at import time, so a caller that only
+needs BuildRecipe / recipe_from_build_info / preprocess (none of which
+touch devicetree.edtlib) can use this module with $ZEPHYR_BASE unset."""
 from __future__ import annotations
 
 import logging
@@ -43,8 +39,8 @@ import yaml
 if TYPE_CHECKING:
     from devicetree import edtlib
 
-#: stdlib logging only (no product import, SPDX header above) --
-#: rigc-r45-brief.md Part B's BSD-3 reader-module rule.
+#: stdlib logging only (no product import, SPDX header above): keeps
+#: this reader-module's license boundary clean.
 log = logging.getLogger(__name__)
 
 

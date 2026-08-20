@@ -1,58 +1,52 @@
 """The loader proper: rig.yml metadata (qualifier axes), the shield
-library, the required content file, fragment discovery, and the V1b
-delta engine with params/config fully wired -- assembled here from the
+library, the required content file, fragment discovery, and the delta
+engine with params/config fully wired -- assembled here from the
 loader's own submodules::
 
   documents.py  -- mark-aware YAML, content-filename construction
   axes.py       -- revisions:/variants: declaration + resolution (the
                    hwmv2 seam) -- reused unchanged for shield.yml's own
-                   revisions: axis (V1c)
+                   revisions: axis
   binding.py    -- the invocation's board -> rig.board, and the
-                   SocketBinding seam (board-coordinate-s6-brief.md
-                   Sec 11 retired rig.yml's own board:/sockets: grammar,
-                   the S2 seam this used to be)
-  fragments.py  -- rule 10, the fragment-presence check
+                   SocketBinding seam
+  fragments.py  -- the contributes-nothing check for a selected
+                   non-default axis value
   library.py    -- the shield library: scan, axes, lazy revision
-                   resolution (rigc-r3-brief.md Sec 4)
-  params.py     -- params:/config: machinery (Sec 5); the per-instance-
+                   resolution
+  params.py     -- params:/config: machinery; the per-instance-
                    parameter vocabulary is the owning DEVICE's own
-                   declared_param_includes (param-vocabulary-brief.md),
-                   never a rig.yml declaration
-  delta.py      -- base topology + the V1b delta engine, now resolving
-                   `shield:` against the REAL library (R2's ShieldRef
-                   seam, closed)
+                   declared_param_includes, never a rig.yml declaration
+  delta.py      -- base topology + the delta engine, resolving
+                   `shield:` against the REAL library
 
-**Ordering** (rigc-r3-brief.md Sec 4): the shield library is scanned
-BEFORE rig.yml even opens, mirroring the blueprint's own `load():1186` --
+The shield library is scanned BEFORE rig.yml even opens, so
 `shield-node-name-mismatch` and every other scan-time diagnostic
-therefore precedes every rig-side one.
+precedes every rig-side one.
 
 `load()` returns (Rig | None, diagnostics) rather than raising on a
 reject: a load that finds nothing wrong hands its Rig to cli.py, which
-carries on into the board reader, the analyzer and the emitter (the
-accept path has been complete since R5; this used to fall through to an
-Unimplemented refusal instead).
+carries on into the board reader, the analyzer and the emitter.
 
-**Three phases (rigc-r45-brief.md Part A)**: `load()` itself is now just
-the library scan, three phase calls, and the final Rig assembly --
-`_resolve_metadata` (rig.yml's shell: name, qualifier axes, the
-invocation's board -- entirely cpp-free), `_gather_content` (the required
-content file, the two delta fragments, rule 10), `_build_topology` (stage
-0 plus the two delta stages, the per-stage invariant). Each phase returns
-its OWN small value -- never a
-shared mutable "context" written into across phases (rigc-mission-brief.md
-Sec 6; a bespoke accumulator by another name is still the banned shape).
-`load()` concatenates each phase's diagnostics onto its own running list,
-in the phases' own call order -- reproducing today's traversal order
-byte for byte, since that order is the frozen stderr contract. The D1
-LoadError boundary (R3 review: rigexp's shared accumulator survives a
-raise by ownership; a return-value shape needs the exception itself to
-carry every prior finding, or a raise silently drops them) stays at the
-TOP of `load()`, wrapping the library scan and all three phases --
-`_build_topology` carries its OWN inner instance of the same guard,
-because a shield revision resolved LAZILY, mid-topology (`ShieldLibrary.
-resolve`), can still raise LoadError from inside that one phase call,
-same as the library scan already does in library.py."""
+**Three phases**: `load()` itself is just the library scan, three
+phase calls, and the final Rig assembly -- `_resolve_metadata` (rig.yml's
+shell: name, qualifier axes, the invocation's board -- entirely
+cpp-free), `_gather_content` (the required content file, the two delta
+fragments, the contributes-nothing check), `_build_topology` (stage 0
+plus the two delta stages, the per-stage invariant). Each phase returns
+its OWN small value -- never a shared mutable "context" written into
+across phases. `load()` concatenates each phase's diagnostics onto its
+own running list, in the phases' own call order -- reproducing today's
+traversal order byte for byte, since that order is the frozen stderr
+contract. A LoadError raised partway through must still carry every
+diagnostic gathered before the raise, or a later caller renders only
+the fatal finding and silently drops the rest; the boundary that
+catches LoadError therefore sits at the TOP of `load()`, wrapping the
+library scan and all three phases, and re-raises with its own
+diagnostics-so-far prepended. `_build_topology` carries its OWN inner
+instance of the same guard, because a shield revision resolved LAZILY,
+mid-topology (`ShieldLibrary.resolve`), can still raise LoadError from
+inside that one phase call, same as the library scan already does in
+library.py."""
 from __future__ import annotations
 
 import logging
@@ -100,7 +94,7 @@ class MetadataResult:
     enough that nothing further can be attempted (no `rig:` block, or no
     `name:` inside it); every OTHER defect found here (an axis collision,
     an unresolved axis) still produces a Rig plus diagnostics naming
-    what is wrong -- exactly as before the split."""
+    what is wrong."""
 
     rig: Optional[Rig]
     binding: SocketBinding = field(default_factory=SocketBinding)
@@ -109,20 +103,18 @@ class MetadataResult:
 def _resolve_metadata(doc: Val, revision: Optional[str], variant: Optional[str],
                       board: Optional[str] = None,
                       ) -> Tuple[MetadataResult, List[Diagnostic]]:
-    """Steps 2-5 of the blueprint's load(): the rig shell and its
-    qualifier axes (declaration, collision, resolution). Entirely
-    cpp-free -- reads `doc`'s own parsed YAML tree alone, so a synthetic
-    Val tree exercises every branch here with no shield library, no
-    ZEPHYR_BASE, no file on disk (this is the side benefit the brief
-    calls out: the future hwmv2 revision-semantics seam lands entirely
-    inside this one function).
+    """The rig shell and its qualifier axes (declaration, collision,
+    resolution). Entirely cpp-free -- reads `doc`'s own parsed YAML tree
+    alone, so a synthetic Val tree exercises every branch here with no
+    shield library, no ZEPHYR_BASE, no file on disk; this is also where
+    a future hwmv2 revision-semantics seam would land, entirely inside
+    this one function.
 
-    `board`, when given, is the invocation's injected board
-    (board-coordinate-s1-brief.md Sec 4) -- the only source of one since
-    board-coordinate-s6-brief.md Sec 11 retired rig.yml's own `board:`/
-    `sockets:` grammar; `rig.board` is "" when omitted, which is legal
-    here (see binding.resolve_board) and becomes a diagnostic only where
-    a real board devicetree is actually needed, downstream in cli.py."""
+    `board`, when given, is the invocation's injected board -- the only
+    source of one, since rig.yml has no `board:`/`sockets:` grammar of
+    its own; `rig.board` is "" when omitted, which is legal here (see
+    binding.resolve_board) and becomes a diagnostic only where a real
+    board devicetree is actually needed, downstream in cli.py."""
     diags: List[Diagnostic] = []
     rig_v, d = require(doc, "rig", "top level")
     diags += d
@@ -168,8 +160,8 @@ def _resolve_metadata(doc: Val, revision: Optional[str], variant: Optional[str],
 
 @dataclass(frozen=True)
 class Deltas:
-    """The rig's two (parsed, not yet APPLIED) qualifier delta fragments
-    -- V1b's fixed variant-then-revision stage order, carried to phase 3
+    """The rig's two (parsed, not yet APPLIED) qualifier delta fragments,
+    in their fixed variant-then-revision stage order, carried to phase 3
     as a value rather than two loose fields on `ContentResult`, since
     phase 3 applies them as a PAIR in that one fixed order."""
 
@@ -188,24 +180,24 @@ class ContentResult:
 
 def _gather_content(rig: Rig, rig_dir: str,
                     ) -> Tuple[Optional[ContentResult], List[Diagnostic], Deps]:
-    """Steps 6-9: the rig's REQUIRED content file, its two qualifier delta
+    """The rig's REQUIRED content file, its two qualifier delta
     fragments (looked up by the constructed stems `loader.axes` builds,
-    never `${RIG}` literally), and rule 10 (a selected non-default axis
-    value that contributes nothing). Returns None only when the content
-    file itself is missing -- every other finding here still returns a
-    value, matching phase 1's own only-truly-fatal-stops-here shape.
+    never `${RIG}` literally), and the contributes-nothing check (a
+    selected non-default axis value that contributes nothing). Returns
+    None only when the content file itself is missing -- every other
+    finding here still returns a value, matching phase 1's own
+    only-truly-fatal-stops-here shape.
 
     Entirely cpp-free (unlike phase 3, see `_build_topology`): a delta
     fragment is parsed the same mark-aware-YAML way the base content is,
-    never cpp, and the per-instance-parameter vocabulary is now the
-    owning shield DEVICE's own concern (`loader.params`), not something
-    this phase probes -- so it never raises LoadError and needs no
-    D1-style inner boundary of its own.
+    never cpp, and the per-instance-parameter vocabulary is the owning
+    shield DEVICE's own concern (`loader.params`), not something this
+    phase probes -- so it never raises LoadError and needs no matching
+    inner try/except boundary of its own.
 
     Returns (result, diagnostics, deps): deps names the content file
     itself and whichever of the two qualifier delta fragments actually
-    exist -- the closure this phase owns of rigc-r5-brief.md Sec 2's
-    RIG_DEPENDS handoff."""
+    exist -- the RIG_DEPENDS handoff's own closure over this phase."""
     assert rig.src is not None   # phase 1 always sets it before returning a Rig
     diags: List[Diagnostic] = []
     deps: Deps = frozenset()
@@ -231,7 +223,8 @@ def _gather_content(rig: Rig, rig_dir: str,
             revision_delta_v = parse_marked(p)
 
     if rig.revision is not None or rig.variant is not None:
-        # Rule 10 is a PURE decision (fragments.py); this IO phase probes
+        # The contributes-nothing check is a PURE decision (fragments.py);
+        # this IO phase probes
         # which contribution artifacts exist and hands the facts in as a
         # value. Names come from fragments' own constructors -- the one
         # source both the probes and the message text share.
@@ -266,27 +259,27 @@ def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
                     content: ContentResult, workdir: str,
                     include_dirs: Optional[List[str]],
                     ) -> Tuple[Topology, List[Diagnostic], Deps]:
-    """Steps 10-11: stage 0 (the base content's instances:/wires:, order
-    preserved, the per-stage invariant checked per instance as it is
-    parsed), then the variant delta stage, then the revision delta stage
-    -- each re-checking the invariant over the whole topology afterward.
+    """Stage 0 (the base content's instances:/wires:, order preserved,
+    the per-stage invariant checked per instance as it is parsed), then
+    the variant delta stage, then the revision delta stage -- each
+    re-checking the invariant over the whole topology afterward.
 
     A shield revision resolved LAZILY here (`ShieldLibrary.resolve`,
     reached through `parse_instance`/`apply_delta`) can raise LoadError
     mid-loop -- this phase's OWN try/except carries this call's
-    diagnostics-so-far into the exception (the same D1 shape
-    `load_shield_library` already applies to its own scan loop), so the
+    diagnostics-so-far into the exception, the same shape
+    `load_shield_library` already applies to its own scan loop, so the
     outer boundary in `load()` renders every finding gathered before the
     raise, never just the fatal one.
 
     Returns (topology, diagnostics, deps): deps is the UNION of every
     shield resolution this phase made -- stage 0's own `parse_instance`
     calls AND both delta stages' `apply_delta` -- never derived from the
-    final topology alone (rigc-r5-brief.md Sec 2, fact 2): a variant
-    stage that SUBSTITUTES one instance's shield for another still
-    leaves the base stage's own resolution (of the shield the variant
-    replaced) in this union, because that resolution genuinely happened
-    -- RIG_DEPENDS records resolution HISTORY, not final topology."""
+    final topology alone: a variant stage that SUBSTITUTES one
+    instance's shield for another still leaves the base stage's own
+    resolution (of the shield the variant replaced) in this union,
+    because that resolution genuinely happened -- RIG_DEPENDS records
+    resolution HISTORY, not final topology."""
     diags: List[Diagnostic] = []
     deps: Deps = frozenset()
     try:
@@ -354,9 +347,9 @@ def load(rig_path: str, workdir: str,
         ) -> Tuple[Optional[Rig], List[Diagnostic], Deps]:
     """Load rig_path (absolute) as far as rigc's loader reaches, returning
     the built Rig (best-effort; None only when nothing further could be
-    attempted at all) alongside every diagnostic found. rigexp CONTINUES
-    after most errors -- this reproduces that shape rather than stopping
-    at the first diagnostic, so a later one is never dropped.
+    attempted at all) alongside every diagnostic found. Loading CONTINUES
+    after most errors rather than stopping at the first diagnostic, so a
+    later one is never dropped.
 
     `workdir` is where every `.shield` translation unit and per-instance-
     parameter resolution probe gets synthesized (cli.py's responsibility
@@ -365,29 +358,28 @@ def load(rig_path: str, workdir: str,
     `board`, when given, is the invocation's injected board (the cmake
     seam always supplies one) -- threaded straight to
     `_resolve_metadata`/`binding.resolve_board`, the ONLY source of
-    `rig.board` since board-coordinate-s6-brief.md Sec 11 retired
-    rig.yml's own `board:` grammar. Omitted (the standalone CLI's
-    default, and `west rigs --boards-for`'s own census call), `rig.board`
-    is simply "" -- legal here; nothing in this loader needs a real
-    board to assemble a topology.
+    `rig.board`, since rig.yml has no `board:` grammar of its own.
+    Omitted (the standalone CLI's default, and `west rigs
+    --boards-for`'s own census call), `rig.board` is simply "" -- legal
+    here; nothing in this loader needs a real board to assemble a
+    topology.
 
     Returns (rig, diagnostics, deps): deps is the UNION of every real
     source-tree file this load touched -- rig_path itself, the shield
     library scan (library.py's own eager-breadth deps, unchanged whether
-    a rig ends up naming the shield or not: rigc-r5-brief.md Sec 2, fact
-    1), the content file plus whichever qualifier delta fragments exist
-    (`_gather_content`), and every shield resolution the topology stages
-    made (`_build_topology`, unioned rather than derived from the final
-    instance list -- fact 2). This is the RIG_DEPENDS handoff's own
-    value; cli.py composes it with the connector-registry and board
-    deps and hands the result to `context.render`. The caller owns the
-    Rig and the Deps alike."""
+    a rig ends up naming the shield or not), the content file plus
+    whichever qualifier delta fragments exist (`_gather_content`), and
+    every shield resolution the topology stages made (`_build_topology`,
+    unioned rather than derived from the final instance list). This is
+    the RIG_DEPENDS handoff's own value; cli.py composes it with the
+    connector-registry and board deps and hands the result to
+    `context.render`. The caller owns the Rig and the Deps alike."""
     # LoadError (a fatal parse/cpp failure, dtsio.py) can surface from
-    # the library scan below or a lazy shield resolve mid-topology.
-    # rigexp's shared accumulator survives that raise by OWNERSHIP; with
-    # diagnostics as return values, THIS boundary catches instead and
-    # returns everything gathered so far plus what the exception carries
-    # -- one shape, no finding lost (R3 review, D1).
+    # the library scan below or a lazy shield resolve mid-topology. With
+    # diagnostics as return values rather than a shared accumulator, a
+    # raise would otherwise drop every diagnostic gathered before it;
+    # THIS boundary catches instead and returns everything gathered so
+    # far plus what the exception carries, so no finding is lost.
     diags: List[Diagnostic] = []
     deps: Deps = frozenset()
     try:

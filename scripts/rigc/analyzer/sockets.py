@@ -1,13 +1,10 @@
-"""Mating and socket resolution, with carrier/mux composition (rigc-r4-brief.md
-Sec 3). Ported from rigexp/analyzer.py's `_check_matings`/`_resolve_socket`/
-`_compose_socket` (`analyzer.py:105-236`), value-shaped: `resolve_sockets`
-returns the instance->BoardSocket map plus every mux-channel scope entry
-composition creates, alongside its diagnostics -- no `Solved` accumulator,
-no `diags` side channel.
+"""Mating and socket resolution, with carrier/mux composition,
+value-shaped throughout: `resolve_sockets` returns the instance->slot->
+BoardSocket map plus every mux-channel scope entry composition creates,
+alongside its diagnostics -- no mutable accumulator, no `diags` side
+channel.
 
-Two pieces are pulled out as PURE value functions on their own (Sec 6's
-"Mating/subset decision as a value function", "Socket composition ...
-stack-guarded"):
+Two pieces are pulled out as PURE value functions on their own:
 
   mating_ok / subset_gaps  -- plug-type-vs-socket-type and needed-vs-offered
                               bus decisions, each a one-line predicate over
@@ -19,11 +16,10 @@ stack-guarded"):
 
 `resolve_sockets` is the pass: it walks `rig.instances`, recursing through
 carrier chains (stack-guarded against cycles, memoizing into the returned
-map exactly as the blueprint's `solved.sockets` memoizes), and folds in the
-stackability check once every instance's socket is known. Skip-don't-abort
-is structural here: an instance whose socket never resolves is simply
-absent from the returned map, and every later pass (rigc-r4-brief.md's
-observable contract) already skips a missing entry rather than aborting.
+map as it goes), and folds in the stackability check once every instance's
+socket is known. Skip-don't-abort is structural here: an instance whose
+socket never resolves is simply absent from the returned map, and every
+later pass already skips a missing entry rather than aborting.
 """
 from __future__ import annotations
 
@@ -40,31 +36,30 @@ log = logging.getLogger(__name__)
 
 #: One mux-channel scope this rig's composition created: scope PATH (the
 #: composing instance's own socket reference string) -> (mux root label,
-#: channel index) -- R26/R27.
+#: channel index).
 ScopeEntry = Tuple[str, Tuple[str, object]]
 
 
 @dataclass
 class SocketResolution:
-    # instance name -> slot name -> resolved socket (multi-plug-shield-
-    # brief.md Sec 3): a slot absent from the inner map never resolved.
-    # A shield with one plug has one entry, keyed by that plug's name.
-    # Consumed ONLY through analyzer/socketmap.py's accessor family
-    # (acceptance criterion 6) -- this pass, and this module's own
-    # `resolve_sockets`, are the sole exception (they BUILD the map).
+    # instance name -> slot name -> resolved socket: a slot absent from
+    # the inner map never resolved. A shield with one plug has one
+    # entry, keyed by that plug's name. Consumed ONLY through
+    # analyzer/socketmap.py's accessor family -- this pass, and this
+    # module's own `resolve_sockets`, are the sole exception (they
+    # BUILD the map).
     sockets: Dict[str, Dict[str, BoardSocket]] = field(default_factory=dict)
     scopes: Dict[str, Tuple[str, object]] = field(default_factory=dict)
 
 
 def mating_ok(plug_type: str, socket_type: str) -> bool:
-    """R19/R20: a shield's plug type must equal the socket's own connector
-    type -- the mating decision as a pure value function (rigc-r4-brief.md
-    Sec 6)."""
+    """A shield's plug type must equal the socket's own connector
+    type -- the mating decision as a pure value function."""
     return plug_type == socket_type
 
 
 def subset_gaps(needed: Set[str], offered: Iterable[str]) -> List[str]:
-    """R20/S6: which of the buses a shield's devices actually use are NOT
+    """Which of the buses a shield's devices actually use are NOT
     among the buses the socket exposes -- subset exposure is declared by
     ABSENCE (a socket offering no socket,uart rejects a uart-needing plug).
     Sorted so a caller renders a stable, deterministic list."""
@@ -76,9 +71,9 @@ def _compose_buses(socket_label: str, carrier_name: str, exposed: ExposedSocket,
                    is_plural: bool,
                    ) -> Tuple[Dict[str, BusRef], List[Diagnostic], List[ScopeEntry]]:
     """The bus half of `compose_socket`'s composition, lifted out: a
-    pass-through bus (S6) resolves through the named parent's controller
-    of the same KIND, never an exact-name match; a scope-creating bus
-    (S8) synthesizes a new `BusRef` rooted at this carrier instance and
+    pass-through bus resolves through the named parent's controller of
+    the same KIND, never an exact-name match; a scope-creating bus
+    synthesizes a new `BusRef` rooted at this carrier instance and
     records the scope entry the caller must fold into the pass's own
     scope map. Pure over its arguments, exactly like `compose_socket`
     itself."""
@@ -87,7 +82,7 @@ def _compose_buses(socket_label: str, carrier_name: str, exposed: ExposedSocket,
     buses: Dict[str, BusRef] = {}
     for kind, marker in exposed.buses.items():
         assert isinstance(marker, tuple)
-        if marker[0] == "plug":                          # pass-through (S6)
+        if marker[0] == "plug":                          # pass-through
             slot = marker[1]
             parent = parents[slot]
             kind_query = bus_kind_of(kind) or kind
@@ -115,7 +110,7 @@ def _compose_buses(socket_label: str, carrier_name: str, exposed: ExposedSocket,
                     f"'{exposed.name}', but its parent socket '{parent.label}'{slot_note} "
                     f"offers no socket,{kind} (R19 pass-through needs the parent to provide it)",
                     refs))
-        else:                                           # new scope (S8): ("scope", dev-label)
+        else:                                           # new scope: ("scope", dev-label)
             root = f"{carrier_name}_{marker[1]}"
             scope_path = socket_label                    # per (carrier, channel); shared by co-plugged modules
             buses[kind] = BusRef(label=f"{root}_ch{exposed.channel}", path=scope_path)
@@ -126,24 +121,23 @@ def _compose_buses(socket_label: str, carrier_name: str, exposed: ExposedSocket,
 def compose_socket(socket_label: str, carrier_name: str, exposed: ExposedSocket,
                    parents: Dict[str, BoardSocket], inst_src: Optional[SourceRef],
                    ) -> Tuple[BoardSocket, List[Diagnostic], List[ScopeEntry]]:
-    """Pass-through composition, now over SEVERAL named parents (multi-
-    plug-carrier-brief.md Sec 3): exposed positions resolve to the NAMED
-    parent's SoC pins, exposed buses to the named parent's controllers
-    (ontology Sec 1) -- each gpio-map row and each pass-through bus
-    carries its OWN slot, so a mixed-parent exposed socket routes
-    different rows/buses through different parents. Pure over its
-    arguments -- no Instance/Rig/Shield needed, only the exposure and the
-    ALREADY-resolved parents (every one of the carrier's slots; the
-    caller -- `resolve_one` -- guarantees this before ever calling in) --
-    so this is directly unit-testable against synthetic ExposedSocket/
-    BoardSocket values. `parents` has exactly one entry (slot "plug") for
-    a single-plug carrier, which is what keeps that composition's output
-    byte-identical to before plurality existed.
+    """Pass-through composition over one or more named parents: exposed
+    positions resolve to the NAMED parent's SoC pins, exposed buses to
+    the named parent's controllers -- each gpio-map row and each
+    pass-through bus carries its OWN slot, so a mixed-parent exposed
+    socket routes different rows/buses through different parents. Pure
+    over its arguments -- no Instance/Rig/Shield needed, only the
+    exposure and the ALREADY-resolved parents (every one of the
+    carrier's slots; the caller -- `resolve_one` -- guarantees this
+    before ever calling in) -- so this is directly unit-testable
+    against synthetic ExposedSocket/BoardSocket values. `parents` has
+    exactly one entry, keyed by that slot's own name, for a single-plug
+    carrier.
 
     A pass-through selects the named parent's bus of the same KIND, never
     an exact-name match -- the child-side qualified name (validated at
     parse time against the exposed type's own vocabulary) is independent
-    of whatever the parent happens to call its own bus (Sec 2). A parent
+    of whatever the parent happens to call its own bus. A parent
     offering MORE than one bus of that kind is a loud, not-yet-supported
     ambiguity (phys-ambiguous-bus) rather than a guess.
 
@@ -177,10 +171,10 @@ def compose_socket(socket_label: str, carrier_name: str, exposed: ExposedSocket,
     diags += d
     scope_entries += bus_scope_entries
 
-    # Single-parent path is BYTE-IDENTICAL to before plurality existed
-    # (golden safety): the composed path is the parent's own path plus
-    # the exposed node's name, exactly as today. A multi-parent
-    # composition has no single parent path to anchor to, so it uses the
+    # Single-parent composition anchors the composed path to that one
+    # parent's own path plus the exposed node's name -- golden-frozen
+    # for every existing single-plug shield. A multi-parent composition
+    # has no single parent path to anchor to, so it uses the
     # socket_label instead -- the <carrier>.<exposed> reference string,
     # unique per carrier instance and deterministic.
     if len(parents) == 1:
@@ -207,13 +201,13 @@ def _require_matching_cells(fn: str, prop: str, exposed_map: Dict[int, Tuple[str
                             inst_src: Optional[SourceRef], is_plural: bool,
                             parent_cells_of: Callable[[BoardSocket], Optional[int]],
                             ) -> Tuple[Set[str], List[Diagnostic]]:
-    """RULED require-and-check (`_compose_channel_map`'s own docstring),
-    lifted out: each distinct slot a row draws from must declare the
-    same #<prop>-cells as the carrier itself, checked ONCE per slot (not
-    once per row, so a plural carrier passing several positions through
-    one mismatched slot gets one finding, not N duplicates). Returns the
-    refused ("bad") slots plus the diagnostics naming both counts and
-    both sides."""
+    """The require-and-check rule (see `_compose_channel_map`'s own
+    docstring), lifted out: each distinct slot a row draws from must
+    declare the same #<prop>-cells as the carrier itself, checked ONCE
+    per slot (not once per row, so a plural carrier passing several
+    positions through one mismatched slot gets one finding, not N
+    duplicates). Returns the refused ("bad") slots plus the diagnostics
+    naming both counts and both sides."""
     diags: List[Diagnostic] = []
     bad_slots: Set[str] = set()
     for slot in sorted({slot for slot, _pp, _f in exposed_map.values()}):
@@ -243,20 +237,20 @@ def _compose_channel_map(fn: str, exposed_map: Dict[int, Tuple[str, int, int]],
                                     List[Tuple[int, str, int]], Optional[int],
                                     List[Diagnostic]]:
     """The pwm/adc twin of `compose_socket`'s own gpio_map loop above,
-    factored out because PWM and ADC need the IDENTICAL treatment (Sec 2:
-    a branch for one function and a silent hole for the other is the
-    exact shape of the b16c314 bug) at BOTH of the places gpio and
-    pwm/adc genuinely differ:
+    factored out because PWM and ADC need IDENTICAL treatment -- a
+    branch handling one function while leaving a silent hole for the
+    other is exactly the divergence this factoring rules out -- at BOTH
+    of the places gpio and pwm/adc genuinely differ:
 
-      Ruling 2 -- a row whose parent does not route it is an ERROR here,
-      never gpio_map's own "stays socket-local" silent drop: an unrouted
+      A row whose parent does not route it is an ERROR here, never
+      gpio_map's own "stays socket-local" silent drop: an unrouted
       analog position is not a meaningful net, it is a mistake.
 
-      RULED require-and-check -- the carrier's own declared cell count
-      (`declared_cells`, ExposedSocket.pwm_cells/.adc_cells) must equal
-      the resolved parent's (BoardSocket.pwm_cells/.adc_cells) or the
-      whole slot is refused up front, naming BOTH counts and BOTH sides
-      (the carrier's shield name and the parent socket's own label) --
+      The carrier's own declared cell count (`declared_cells`,
+      ExposedSocket.pwm_cells/.adc_cells) must equal the resolved
+      parent's (BoardSocket.pwm_cells/.adc_cells) or the whole slot is
+      refused up front, naming BOTH counts and BOTH sides (the
+      carrier's shield name and the parent socket's own label) --
       checked ONCE per distinct slot a row actually draws from, not once
       per row, so a plural carrier passing several positions through one
       mismatched slot gets one finding, not N duplicates.
@@ -266,8 +260,7 @@ def _compose_channel_map(fn: str, exposed_map: Dict[int, Tuple[str, int, int]],
     rows, this socket's OWN carried cell count, diagnostics) -- the cell
     count is None whenever nothing actually composed (mirrors nexus_rows
     being empty in the same case: a socket with no resolved rows for a
-    function has no nexus to synthesize for it either, L3's own
-    concern)."""
+    function has no nexus to synthesize for it either)."""
     diags: List[Diagnostic] = []
     if not exposed_map:
         return {}, [], None, diags
@@ -308,10 +301,10 @@ def _compose_channel_map(fn: str, exposed_map: Dict[int, Tuple[str, int, int]],
 
 def _subject(inst: Instance, slot: str) -> str:
     """The diagnostic subject phrase for one (instance, slot): bare
-    `instance '<name>'` for a single-slot shield (byte-identical to
-    every diagnostic this module emitted before plurality existed --
-    acceptance criterion 1), slot-qualified for a plural one (Sec 4's
-    rendering rule). Pure: builds a string from its two arguments alone."""
+    `instance '<name>'` for a single-slot shield, golden-frozen
+    byte-for-byte since a single-slot shield has nothing to
+    disambiguate; slot-qualified for a plural one. Pure: builds a
+    string from its two arguments alone."""
     if len(inst.shield.plugs) > 1:
         return f"instance '{inst.name}': slot '{slot}'"
     return f"instance '{inst.name}'"
@@ -322,11 +315,11 @@ class _ResolveState:
     """The mutable working state one `resolve_sockets` call threads
     through its recursion: the board and instance-by-name lookup every
     call needs, the diagnostics collected so far, and the socket/scope
-    maps being built (memoized exactly as the blueprint's own
-    `solved.sockets` memoizes). NOT this pass's own returned value --
-    `resolve_sockets` assembles a fresh `SocketResolution` from
-    `sockets`/`scopes` once resolution is complete, so no caller ever
-    sees this state directly."""
+    maps being built (memoized as resolution proceeds, so a socket
+    resolved once is never resolved twice). NOT this pass's own
+    returned value -- `resolve_sockets` assembles a fresh
+    `SocketResolution` from `sockets`/`scopes` once resolution is
+    complete, so no caller ever sees this state directly."""
 
     board: Board
     by_name: Dict[str, Instance]
@@ -337,16 +330,15 @@ class _ResolveState:
 
 def _infer_socket(state: _ResolveState, inst: Instance, slot: str,
                   plug_type: str) -> Optional[BoardSocket]:
-    """socket-inference-brief.md Sec 1/2, now per slot: `mating_ok`
-    run in REVERSE across every board socket for THIS slot's own
-    connector type, keeping the candidates instead of a boolean --
-    board sockets only, never a carrier's own exported ones (Sec 4:
-    those come from instances, so the candidate set would change as
-    instances are parsed, making inference order-dependent). Exactly
-    one candidate resolves silently; zero or two-or-more is always an
-    error, never a guess (Sec 1's strictness IS the design -- an
-    implementation that picks between several reasonable candidates
-    is wrong however sensible its tie-break looks). No bipartite
+    """Socket inference, per slot: `mating_ok` run in REVERSE across
+    every board socket for THIS slot's own connector type, keeping the
+    candidates instead of a boolean -- board sockets only, never a
+    carrier's own exported ones (those come from instances, so the
+    candidate set would change as instances are parsed, making
+    inference order-dependent). Exactly one candidate resolves
+    silently; zero or two-or-more is always an error, never a guess --
+    an implementation that picks between several reasonable candidates
+    is wrong however sensible its tie-break looks. No bipartite
     matching between slots either: two same-type slots on a
     two-candidate board both refuse independently -- the explicit
     `sockets:` map is the answer, not a tie-break of this function's
@@ -386,11 +378,10 @@ def _resolve_carrier_socket(state: _ResolveState, inst: Instance, subject: str,
                             ) -> Optional[BoardSocket]:
     """The carrier-exported-socket branch of `_resolve_one`
     ("<carrier instance>.<exposed socket>"): a carrier's exposed socket
-    may draw from ANY of its own plugs (multi-plug-carrier-brief.md Sec
-    3) -- resolve EVERY slot the carrier declares before composing,
-    regardless of which ones the NAMED exposed socket actually uses; any
-    slot failing to resolve fails the whole composition (skip-don't-
-    abort, as today)."""
+    may draw from ANY of its own plugs -- resolve EVERY slot the
+    carrier declares before composing, regardless of which ones the
+    NAMED exposed socket actually uses; any slot failing to resolve
+    fails the whole composition (skip-don't-abort)."""
     carrier_name, _, exp_name = ref.partition(".")
     if inst.name in stack or carrier_name in stack:
         state.diags.append(error(
@@ -413,9 +404,9 @@ def _resolve_carrier_socket(state: _ResolveState, inst: Instance, subject: str,
         if parent is None:
             return None
         parents[carrier_slot] = parent
-    # resolved by the exposed node's DTS LABEL (item 30) -- the same
-    # naming authority config:/params:/wires: already share (item 29);
-    # a node name that differs from its own label no longer resolves.
+    # resolved by the exposed node's DTS LABEL -- the same naming
+    # authority config:/params:/wires: already share; a node name that
+    # differs from its own label does not resolve.
     exposed = carrier.shield.exposed_socket(exp_name)
     if exposed is None:
         state.diags.append(error(
@@ -466,7 +457,7 @@ def _resolve_one(state: _ResolveState, inst: Instance, slot: str,
 
 def _mating_diagnostic(inst: Instance, slot: str, plug_type: str,
                        socket: BoardSocket) -> Optional[Diagnostic]:
-    """R19/R20 per slot: the socket this slot resolved to must actually
+    """Per slot: the socket this slot resolved to must actually
     mate the shield's own plug type. Returns the phys-mating finding, or
     None when it mates."""
     if mating_ok(plug_type, socket.type_name):
@@ -481,10 +472,10 @@ def _mating_diagnostic(inst: Instance, slot: str, plug_type: str,
 
 def _subset_exposure_diagnostics(inst: Instance, slot: str,
                                  socket: BoardSocket) -> List[Diagnostic]:
-    """R20/S6 per slot: which of the buses this slot's devices actually
+    """Per slot: which of the buses this slot's devices actually
     use are not among the ones its resolved socket exposes -- a bus
     needed only by ANOTHER slot must never be demanded of this one's
-    socket (Sec 4)."""
+    socket."""
     used = {d.bus for d in inst.shield.devices if d.bus and d.plug == slot}
     diags: List[Diagnostic] = []
     for bus in subset_gaps(used, socket.buses):
@@ -501,7 +492,7 @@ def _distinct_slot_diagnostics(inst: Instance,
                                resolved_slots: Dict[str, BoardSocket],
                                ) -> List[Diagnostic]:
     """Distinct slots of ONE instance must resolve to DISTINCT physical
-    sockets (Sec 4) -- one physical connector cannot take two plugs at
+    sockets -- one physical connector cannot take two plugs at
     once, checked regardless of the per-slot mating outcome (the
     impossibility is physical, not a function of whether the connector
     TYPES happen to agree). The stackability census below would only
@@ -549,27 +540,26 @@ def _stackability_diagnostics(per_socket: Dict[str, List[Tuple[Instance, BoardSo
 
 def resolve_sockets(rig: Rig, board: Board, types: Dict[str, ConnectorType],
                     ) -> Tuple[SocketResolution, List[Diagnostic]]:
-    """The pass: `_check_matings`/`_resolve_socket` reproduced value-shaped,
-    now PER SLOT (multi-plug-shield-brief.md Sec 4) -- inference, mating,
-    and subset exposure each run once per (instance, slot), independently
-    (no bipartite matching between two slots of one instance). Returns
-    the resolution (sockets + scopes) alongside every diagnostic, in the
-    SAME order the blueprint's single accumulator would have emitted them
-    for a single-slot shield (per-instance, per-slot-in-authoring-order
+    """The pass, PER SLOT: inference, mating, and subset exposure each
+    run once per (instance, slot), independently (no bipartite matching
+    between two slots of one instance). Returns the resolution (sockets
+    + scopes) alongside every diagnostic, in a fixed discovery order
+    that is golden-frozen: per-instance, per-slot-in-authoring-order
     mating/subset checks in rig.instances order, recursing into
     not-yet-resolved carriers depth-first; the stackability sweep last,
-    over sorted RESOLVED socket labels) -- criterion 1 holds by
-    construction, since a single-slot shield's one slot is always named
-    "plug" and iterates exactly once."""
+    over sorted RESOLVED socket labels. A single-plug shield has
+    exactly one slot -- its name is read from `shield.plugs`, never
+    assumed to be "plug" -- so it iterates exactly once and this order
+    is trivially stable for it."""
     state = _ResolveState(board=board, by_name={i.name: i for i in rig.instances})
     diags = state.diags
     sockets = state.sockets
     # keyed by the RESOLVED socket's own label, never the reference string
     # that named it -- a board socket can be named by either its defining
-    # label or a conventional alias (board-as-invocation-coordinate-brief.md
-    # Sec 2.1), so two instances (or two slots of ONE instance) naming the
-    # SAME physical socket by DIFFERENT strings must still land in the
-    # same bucket for the exclusivity check below to see them.
+    # label or a conventional alias, so two instances (or two slots of
+    # ONE instance) naming the SAME physical socket by DIFFERENT strings
+    # must still land in the same bucket for the exclusivity check below
+    # to see them.
     per_socket: Dict[str, List[Tuple[Instance, BoardSocket]]] = {}
 
     for inst in rig.instances:

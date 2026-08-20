@@ -1,9 +1,7 @@
-"""V1a qualifier axes: declaration parsing, selection resolution, the
-constructed-fragment-stem collision check, and revision normalization --
-ported value-shaped from rigexp/loader_yml.py's `_parse_axis_decl`/
-`_resolve_axis`/`_check_axis_collision`/`_normalize_revision`
-(rigc-r2-brief.md Sec 3), then re-shaped onto hwmv2's own revision
-semantics (hwmv2-revision-semantics-brief.md).
+"""Qualifier axes: declaration parsing, selection resolution, the
+constructed-fragment-stem collision check, and revision normalization,
+matching hwmv2's own revision semantics (the format/exact/nearest-lower
+machinery `extensions.cmake` implements).
 
 **The hwmv2 seam**: this module is the ONLY place a `revision:`/
 `revisions:`/`variants:` declaration's raw YAML is read
@@ -16,15 +14,11 @@ not-a-member / no-default) with their own wording. `normalize_revision`
 applies ONLY at filename construction, and only to a RESOLVED value,
 never a requested one.
 
-`variants:` keeps its own `{default:, list: []}` shape (bare names, or a
-rig-only mapping entry {name:}) -- V1's one-schema-for-both-axes
-property was spent here to let a variant entry carry board:/sockets:
-per value (rig-variants-revisions.md V1 Sec 2, the ratified trade);
-board-coordinate-s6-brief.md Sec 11 retired that grammar (a mapping
-entry's only remaining key is name:), but the asymmetry it motivated
-survives -- a variant entry may still be a bare scalar, a revision
-entry never may (`parse_revision_decl` below requires a mapping)  -- so
-the trade stays recorded rather than treated as undone.
+`variants:` keeps its own `{default:, list: []}` shape: each entry is
+either a bare name or a mapping `{name:}` (only `name:` is read; any
+other key is ignored). A revision entry (`parse_revision_decl` below)
+must always be a mapping -- the two axes' entry shapes differ, and
+that difference is deliberate, not an oversight to fix.
 
 A rig.yml revision axis (singular key `revision:`) takes upstream's own
 board.yml block: `format:` (required, one of letter/number/major.minor.
@@ -94,10 +88,10 @@ def normalize_revision(rev: str) -> str:
 def variant_fragment_name(rig_name: str, variant: str) -> str:
     """<rigname>_<variant>.yml -- the variant delta-fragment stem, from
     the RAW selected value: normalization is a REVISION concept (hwmv2
-    dots-in-ids), never applied to variants (blueprint loader_yml.py:1244
-    vs :1250 -- the two axes construct differently). Lives beside
-    normalize_revision because stem construction IS the hwmv2 seam: the
-    collision enumerator below builds the same stems."""
+    dots-in-ids) only, never applied to variants -- the two axes
+    construct their stems differently. Lives beside normalize_revision
+    because stem construction IS the hwmv2 seam: the collision
+    enumerator below builds the same stems."""
     return f"{rig_name}_{variant}.yml"
 
 
@@ -169,14 +163,12 @@ def parse_variant_decl(container_v: Val, key: str = "variants",
     both lang-schema, since they are defects of the declaring FILE, not of
     a particular selection.
 
-    Each list entry is either a bare name, or a mapping {name:} -- board:/
-    sockets: are no longer read from a variant entry at all
-    (board-coordinate-s6-brief.md Sec 11 retired the per-variant-board
-    shape they used to spell; `AxisDecl.boards`/`.sockets` accordingly
-    stay at their empty default for every variants: axis now). A stray
-    board:/sockets: key on an entry is silently ignored, the same as an
-    unrecognized key anywhere else in this grammar -- ONLY name: is read
-    off a mapping entry.
+    Each list entry is either a bare name, or a mapping {name:} -- ONLY
+    name: is read off a mapping entry; `AxisDecl.boards`/`.sockets` stay
+    at their empty default for every variants: axis, since no entry key
+    populates them any more. A stray board:/sockets: key on an entry is
+    silently ignored, the same as an unrecognized key anywhere else in
+    this grammar.
 
     Returns (decl, diagnostics): the parsed declaration, or None when the
     key is absent or its shape was rejected -- the diagnostics distinguish
@@ -411,13 +403,12 @@ def parse_legacy_revision_decl(container_v: Val, key: str = "revisions",
 def check_axis_collision(rig_name: str, variants: Optional[AxisDecl],
                          revisions: Optional[AxisDecl],
                          src: SourceRef) -> list[Diagnostic]:
-    """Rule 4, WIDENED for combined fragments: no two distinct (variant,
+    """The fragment-stem collision check: no two distinct (variant,
     revision) SELECTIONS may construct the same fragment stem.
     Enumerates every stem the declared axes could ever construct -- each
     axis alone, plus every combined (variant, revision) pair -- and
-    reports every collision. Subsumes the original (narrower) rule: a
-    variant name equal to a revision id is the case where two
-    SINGLE-axis stems collide.
+    reports every collision; a variant name equal to a revision id is
+    the single-axis case of this same collision.
 
     Returns the collision findings, possibly empty; the declarations
     are read-only."""

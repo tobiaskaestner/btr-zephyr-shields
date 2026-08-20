@@ -1,11 +1,10 @@
-"""expectations.yml (A6): a runtime-harness stub naming what must be
-observed on real hardware. Ported from rigexp/emitter.py's expectations
-half (rigc-r5-brief.md Sec 1) -- emitted for every accepted rig, gated by
-no golden (test_emitted_corpus.py's own docstring: "expectations.yml is
+"""expectations.yml: a runtime-harness stub naming what must be observed
+on real hardware. Emitted for every accepted rig, but gated by no golden
+(test_emitted_corpus.py's own docstring: "expectations.yml is
 deliberately excluded -- it is emitted but never gated").
 
-**Reads `solved.wires`, never `rig.wires`** (rigc-r5-brief.md Sec 1) --
-same reasoning as sheet.py's Wires section.
+**Reads `solved.wires`, never `rig.wires`** -- same reasoning as
+sheet.py's Wires section.
 """
 from __future__ import annotations
 

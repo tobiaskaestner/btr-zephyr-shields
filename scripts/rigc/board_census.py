@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: Apache-2.0
 """A text-only census of board rig-extensions, and the query it answers:
-`west rigs --boards-for <target>` (board-coordinate-s2-brief.md).
+`west rigs --boards-for <target>`.
 
 This module is namespace-agnostic and stays that way: `boards_for` takes a
 loaded `Rig`, so whether the caller got that Rig from a persisted rig.yml
@@ -8,7 +8,7 @@ or from a promoted shield's synthesized pair is settled entirely in
 rigs.py before anything here runs. Nothing below needs to learn the
 difference.
 
-**The claim, bounded** (brief Sec 3): reading a board's REAL devicetree
+**The claim, bounded**: reading a board's REAL devicetree
 needs cpp + edtlib + a BuildRecipe, and every board this tooling can build
 is an hwmv2 extension a standalone catalog scan never sees -- a real
 per-board read costs a real cmake configure per candidate. That is not a
@@ -21,7 +21,7 @@ the rig builds there: GPIO position routing, CS-pool allocation, address
 domains and net analysis all need the board's real devicetree, which a
 text scan cannot see.
 
-**The dash trap** (brief Sec 4.1): `compatible = "socket,<type>"` names the
+**The dash trap**: `compatible = "socket,<type>"` names the
 type with dashes (e.g. "arduino-r3") -- board_edt.py's own
 `_project_socket` keeps them, since the value feeds `mating_ok` against
 `shield.plugs`, which is the identical dashed spelling. This module's
@@ -31,7 +31,7 @@ its type, "<type>" or "<type>_<silkscreen>") underscores it there, once,
 for that one comparison only -- never here, and never by mutating a
 CensusBoard's type_name in place.
 
-**The partial Board** this census can build (brief Sec 4.1): only label,
+**The partial Board** this census can build: only label,
 type_name, buses (membership, not target -- see `census_board`), src and
 path are real; gpio_map/pwm_map/adc_map/cs_pool stay empty/None, since a
 text scan cannot resolve a ``*-map``'s phandle target or a binding's default.
@@ -45,14 +45,13 @@ part that matters. `resolve_sockets`'s stackability sweep indexes
 socket (so its type is known-valid) -- no `KeyError` is reachable here,
 and this module does not "defend" against one with a silent `.get`.
 
-**`--rigs-for` is deliberately NOT implemented** (brief Sec 5.2): the
+**`--rigs-for` is deliberately NOT implemented**: the
 inverse query -- which rigs a given board satisfies -- is the same census
 read backwards, but needs every rig loaded, and it is not on the critical
-path this slice serves (board-as-coordinate-brief.md Sec 9.5's revised
-sequence). Noted here as the considered non-implementation, not an
-oversight.
+path this slice serves. Noted here as the considered non-implementation,
+not an oversight.
 
-**Known limitation, not a bug** (brief Sec 9): a rig that declares its
+**Known limitation, not a bug**: a rig that declares its
 board PER VARIANT with a `sockets:` map (`ard_datalogger`) loads its
 instances with that variant's board-specific socket labels baked in
 (`nucleo_ard` for the default `nucleo` variant) -- so `--boards-for
@@ -60,8 +59,7 @@ ard_datalogger` answers nucleo alone, and `--boards-for ard_datalogger/
 frdm` answers frdm alone. That is CORRECT under today's coordinate (the
 rig's content already commits to one board's labels); it is exactly the
 portability gap that content migration to conventional labels and strict
-board/rig symmetry (Sec 9.5's S5/S6) exist to open up.
-"""
+board/rig symmetry exist to open up."""
 from __future__ import annotations
 
 import glob
@@ -147,7 +145,7 @@ def scan_socket_nodes(filename: str, text: str) -> Iterator[SocketNode]:
 class CensusBoard:
     """One board rig-extension target and the PARTIAL Board census_board
     could build for it. `target` is the invocation coordinate
-    `<extend>/<qualifier>/<variant name>` (brief Sec 4.2), constructed --
+    `<extend>/<qualifier>/<variant name>`, constructed --
     never parsed off a directory name. `dir` is the board-extension
     directory this was scanned from; `census_board` (pure over text, no
     filesystem context) always leaves it None, and `census_boards` (the
@@ -164,7 +162,7 @@ def board_targets(board_yml_text: str) -> Tuple[Optional[str], List[str]]:
     """The invocation coordinates one board.yml's raw YAML declares, as
     (extended board name, targets). Pure over its one string argument.
 
-    Target construction (brief Sec 4.2): `<extend>/<qualifier>/<variant
+    Target construction: `<extend>/<qualifier>/<variant
     name>`, JOINED from the declared parts -- never parsed off a directory
     name. A board.yml this rule cannot turn into a target -- no
     `board.extend`, no `board.variants`, or a variant entry missing
@@ -199,7 +197,7 @@ def board_targets(board_yml_text: str) -> Tuple[Optional[str], List[str]]:
 
 def census_board(board_yml_text: str, fragments: List[Tuple[str, str]],
                  ) -> List[CensusBoard]:
-    """Pure over text values (brief Sec 5.1): `board_yml_text` is one
+    """Pure over text values: `board_yml_text` is one
     board.yml's raw YAML; `fragments` is [(filename, text), ...] for every
     *.dts/*.dtsi the caller found directly beside it (census_boards' own
     job -- this function never touches a filesystem).
@@ -247,10 +245,10 @@ def census_board(board_yml_text: str, fragments: List[Tuple[str, str]],
 
 
 def census_boards(board_roots: Optional[List[str]] = None) -> List[CensusBoard]:
-    """The edge (brief Sec 4.4): globs `<root>/boards/**/board.yml` for
+    """The edge: globs `<root>/boards/**/board.yml` for
     every root in `board_roots` (default: [MODULE_ROOT], btr-shields' own
     tree), reads each board.yml plus every *.dts/*.dtsi directly beside it
-    -- NOT recursive, Sec 4.3's rule: a board rig-extension keeps its
+    -- NOT recursive: a board rig-extension keeps its
     socket fragment(s) beside its own board.yml, never in a subdirectory
     -- and delegates all parsing to `census_board`, the only pure logic
     in this module.
@@ -290,10 +288,10 @@ class BoardVerdict:
     """One census board's conformance verdict against a rig. `conforms`
     is `not has_errors(diags)` over `analyzer.sockets.resolve_sockets`'s
     own run against this board -- mating, bus-subset, alias-aware
-    resolution and stackability, all through that ONE rule (brief Sec 4),
-    never restated here. `diags` is kept, not discarded, at no cost now:
-    a later "why not this board" affordance (--explain, brief Sec 8) and
-    any --boards-for diagnostic surface both want it."""
+    resolution and stackability, all through that ONE rule, never
+    restated here. `diags` is kept, not discarded, at no cost now: a
+    later "why not this board" affordance (--explain) and any
+    --boards-for diagnostic surface both want it."""
 
     target: str
     conforms: bool

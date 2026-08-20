@@ -12,22 +12,21 @@ reader of a `socket,*` binding/node needs -- shields.py (exposed-socket
 parsing), board_edt.py (board-side projection) and registry.py
 (connector-type binding facts) each read the identical two patterns off
 a different input (a dtlib node, an edtlib.EDT, a raw binding dict), so
-the patterns themselves belong here rather than as three (now: four,
-before this move) verbatim copies drifting apart one edit at a time."""
+the patterns themselves belong here rather than as separate verbatim
+copies drifting apart one edit at a time."""
 from __future__ import annotations
 
 import re
 from typing import Optional
 
-#: Every socket bus kind the schema recognizes (multi-bus-socket-brief.md
-#: Sec 2) -- the vocabulary `bus_kind_of` matches a qualified name
-#: against, in order.
+#: Every socket bus kind the schema recognizes -- the vocabulary
+#: `bus_kind_of` matches a qualified name against, in order.
 BUS_KINDS = ("i2c", "spi", "uart")
 
 #: socket,<kind> or socket,<kind>-<role> -- a connector type names an
-#: additional bus of a kind by suffixing the kind with a role (multi-bus-
-#: socket schema Sec 2). Anchored full-match so a "-cs-pool" property
-#: (matched separately below) never also reads as a bus.
+#: additional bus of a kind by suffixing the kind with a role. Anchored
+#: full-match so a "-cs-pool" property (matched separately below) never
+#: also reads as a bus.
 BUS_PROP_RE = re.compile(r"^socket,(i2c|spi|uart)(?:-\w+)?$")
 
 #: socket,<kind>-<role>-cs-pool -- a named bus's own CS pool (default or

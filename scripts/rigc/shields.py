@@ -1,9 +1,8 @@
-"""Shield parsing: a `.shield` translation unit -> model.Shield. Ported
-from rigexp/shields.py (rigc-r3-brief.md Sec 3). Loader-side validation
-done here:
+"""Shield parsing: a `.shield` translation unit -> model.Shield.
+Loader-side validation done here:
 
   - shield,plugs names a known connector type
-  - bus proxy nodes are allowed by the plug binding (Conv. 1)
+  - bus proxy nodes are allowed by the plug binding
   - position references target one of THIS shield's plugs and exist in
     that plug's connector type
   - exactly one of reg / shield,addr-from on addressable-bus devices
@@ -11,13 +10,13 @@ done here:
   - authored reg matches the unit-address; symbolic unit-addresses are
     linted against the addr-from target
 
-**ONE authored form** (plug-unification-brief.md): N plug nodes, N >= 1,
-each a child of the template with `compatible = "shield,plug"` and its
-own `shield,plugs` naming that plug's connector type. The child's NODE
-NAME is the slot name (shield-owned); `plug` is the conventional name for
-a shield with one, and carries no special meaning. Plurality is a COUNT,
-never an authored form -- which is what every consumer below this module
-always tested (`len(shield.plugs) > 1`).
+**ONE authored form**: N plug nodes, N >= 1, each a child of the
+template with `compatible = "shield,plug"` and its own `shield,plugs`
+naming that plug's connector type. The child's NODE NAME is the slot
+name (shield-owned); `plug` is the conventional name for a shield with
+one, and carries no special meaning. Plurality is a COUNT, never an
+authored form -- which is what every consumer below this module always
+tested (`len(shield.plugs) > 1`).
 
 Placement, the same rule at either count:
 
@@ -25,39 +24,36 @@ Placement, the same rule at either count:
     dissolves the sibling-name collision two same-kind buses would
     otherwise have; a bus-shaped group at template level is rejected.
   plain (non-bus) device groups stay at TEMPLATE level, plug-agnostic --
-    their devices' refs each carry their own plug by phandle (Conv. 2/3,
-    "one of this shield's plugs", ruling 2); a plain group nested under a
-    plug is rejected. With exactly one plug, such a device is attributed
-    to it; with more, to none.
+    their devices' refs each carry their own plug by phandle ("one of
+    this shield's plugs"); a plain group nested under a plug is
+    rejected. With exactly one plug, such a device is attributed to it;
+    with more, to none.
 
   `pads` and `config` are template-level too, whatever the plug count:
     they are shield-level facts. Promotion and routing jumpers are
-    refused above one plug (multi-plug-shield-brief.md Sec 6) -- straps
-    are unaffected (bus-scoped, not plug-scoped). A carrier of any plug
-    count may declare an exposed socket (multi-plug-carrier-brief.md):
-    its gpio-map rows and socket,<bus> properties each resolve through
-    one of the carrier's plugs, exactly like a device's own cross-plug
-    refs.
+    refused above one plug -- straps are unaffected (bus-scoped, not
+    plug-scoped). A carrier of any plug count may declare an exposed
+    socket: its gpio-map rows and socket,<bus> properties each resolve
+    through one of the carrier's plugs, exactly like a device's own
+    cross-plug refs.
 
 **A plug node declares no cell counts.** `#gpio-cells`/`#pwm-cells`/
-`#io-channel-cells` are refused there (plug-unification-brief.md Sec 5):
-every value the corpus ever gave one was `_FUNCTION_DEFAULT_CELLS`
-restated, the node is never emitted so nothing validates it, and a wrong
-value silently changed a reference's arity. The `_ncells` mechanism stays
-for the nodes that genuinely differ -- a routing jumper's own `<1>`.
+`#io-channel-cells` are refused there: every value the corpus ever gave
+one was `_FUNCTION_DEFAULT_CELLS` restated, the node is never emitted so
+nothing validates it, and a wrong value silently changed a reference's
+arity. The `_ncells` mechanism stays for the nodes that genuinely
+differ -- a routing jumper's own `<1>`.
 
-**Diagnostics are RETURN values** (mission brief Sec 6): every parse
-function below returns (value, diagnostics) rather than writing into a
-diags parameter handed in from outside -- the local list a function
-builds and returns is not the banned accumulator shape (nothing outside
-this module ever mutates one), it is composition-by-return exactly like
-every other rigc module.
+**Diagnostics are RETURN values**: every parse function below returns
+(value, diagnostics) rather than writing into a diags parameter handed
+in from outside -- the local list a function builds and returns is not
+the banned accumulator shape (nothing outside this module ever mutates
+one), it is composition-by-return exactly like every other rigc module.
 
-**The cpp/unit-test seam** (rigc-r3-brief.md Sec 2): everything here
-operates on a `dtlib.DT` that ALREADY EXISTS -- it never calls cpp itself
--- so it is unit-testable directly against a synthetic, cpp-free `.dts`
-text parsed with `dtsio.get_dtlib().DT(path)`.
-"""
+**The cpp/unit-test seam**: everything here operates on a `dtlib.DT`
+that ALREADY EXISTS -- it never calls cpp itself -- so it is
+unit-testable directly against a synthetic, cpp-free `.dts` text parsed
+with `dtsio.get_dtlib().DT(path)`."""
 from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
@@ -71,11 +67,10 @@ from .model import (ConnectorType, Device, ExposedSocket, GpioRef, Jumper,
                     Pad, Shield, Strap)
 
 #: socket,<kind> or socket,<kind>-<role> -- an exposed socket's own bus
-#: vocabulary is the qualified multi-bus pattern (multi-plug-carrier-
-#: brief.md Sec 2), the same shared pattern board_edt.py/registry.py read
-#: off their own inputs (a connector type's bus names mean the same thing
-#: on either side of a pass-through) -- see buskind.py for the regex
-#: itself and why it lives there.
+#: vocabulary is the qualified multi-bus pattern, the same shared pattern
+#: board_edt.py/registry.py read off their own inputs (a connector type's
+#: bus names mean the same thing on either side of a pass-through) --
+#: see buskind.py for the regex itself and why it lives there.
 #:
 #: socket,<kind>-<role>-cs-pool -- a named bus's own authored cs-pool
 #: override on an exposed socket node, keyed the same qualified way. The
@@ -84,14 +79,11 @@ from .model import (ConnectorType, Device, ExposedSocket, GpioRef, Jumper,
 #: name, so it is not this pattern's concern.
 
 #: template-level group names that are NOT device groups. `plug` is
-#: deliberately absent, and its removal is a CLEANUP, not the fix: a plug
-#: node is recognized structurally by its `compatible` (`_is_plug_node`)
-#: and skipped by identity, so reserving the name buys nothing now. What
-#: unswallowed the groups an author nests under a plug is the per-plug
-#: walk over `nodes_by_slot` below -- the retired single form had no such
-#: walk, so a reserved NAME was the only thing standing between those
-#: groups and the parser (plug-unification-brief.md Sec 1). Verified by
-#: mutation: restoring `"plug"` here changes no behavior at all.
+#: deliberately absent: a plug node is recognized structurally by its
+#: `compatible` (`_is_plug_node`) and skipped by identity, so reserving
+#: the name buys nothing. What keeps groups an author nests under a plug
+#: from leaking into the template-level walk is the per-plug walk over
+#: `nodes_by_slot` below, not this set.
 _RESERVED = {"pads", "config"}
 _MODEL_PROPS = {"reg", "compatible", "shield,addr-from", "shield,cs-position",
                "shield,collect", "shield,params", "shield,param-includes"}
@@ -99,8 +91,8 @@ _MODEL_PROPS = {"reg", "compatible", "shield,addr-from", "shield,cs-position",
 #: path -> (slot name, connector type) for every plug this shield declares
 #: -- one entry per plug node, at any count -- the map
 #: `_parse_pos_ref` resolves a phandle against to decide which slot a
-#: reference names and to validate its position, replacing "the shield's
-#: one plug" with "one of the shield's plugs" (ruling 2).
+#: reference names and to validate its position, so a reference may name
+#: "one of the shield's plugs" rather than assuming there is only one.
 PlugsByPath = Dict[str, Tuple[str, Optional[ConnectorType]]]
 
 
@@ -134,11 +126,9 @@ def _require_label(node, kind: str, shield_name: str) -> Tuple[str, List[Diagnos
     """The DTS label a rig->shield reference (`config:`/`wires:`/
     `socket:`) resolves against, for a device, pad, strap, jumper or
     exposed socket. A node with none is refused rather than silently
-    addressed by its own node name -- the fallback this replaces
-    reopened exactly the two-spellings ambiguity a label exists to
-    remove, for the one kind of node (config elements) that used to have
-    a rig-facing reference at all, now widened to every kind `wires:`
-    and `socket:` can name too.
+    addressed by its own node name: falling back to the node name would
+    reopen exactly the two-spellings ambiguity (label vs. name) a label
+    exists to remove.
 
     Returns (label, diagnostics): label is `node.labels[0]` when
     present; otherwise it is the node's own name, a placeholder that
@@ -200,20 +190,18 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
     # (shield,addr-from) regardless of group order in the file. Both stay
     # TEMPLATE-LEVEL regardless of plurality (shield-level facts) -- a
     # routing jumper is the one exception: its position domain has no
-    # plug axis, so a plural shield declaring one is refused (Sec 4/6)
-    # rather than silently mishandled; straps are address-domain and
-    # bus-scoped, unaffected either way.
+    # plug axis, so a plural shield declaring one is refused rather than
+    # silently mishandled; straps are address-domain and bus-scoped,
+    # unaffected either way.
     diags += _parse_pads_and_config(node, shield)
 
     # device groups FIRST -- an exposed socket may reference a device as
-    # its scope root (S8 mux channel), so the device must be in by_path
+    # its scope root (a mux channel), so the device must be in by_path
     # already.
     # template-level groups: plug-agnostic (plain groups) only -- a group
     # whose name is bus-shaped is rejected, since bus groups nest under
     # their owning plug (the placement rule), never sit at template level.
-    # This holds at ONE plug exactly as at many: it is the rule the single
-    # form inverted, and inverting it is what silently dropped every group
-    # an author nested under `plug` (plug-unification-brief.md Sec 1).
+    # This holds at ONE plug exactly as at many.
     diags += _parse_template_groups(
         node, shield, plug_children, ctypes_by_slot, plugs_by_path, only_slot)
 
@@ -228,11 +216,10 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
     # lang-shield-proxy branch).
     diags += _parse_plug_groups(shield, nodes_by_slot, ctypes_by_slot, plugs_by_path)
 
-    # then re-exported sockets (R19 pass-through, or S8 scope creation) --
-    # a plural shield may declare one too (multi-plug-carrier-brief.md):
-    # each gpio-map row and each socket,<bus> resolves through ONE of the
-    # carrier's plugs, per plugs_by_path, exactly as a device's own
-    # cross-plug refs do (ruling 2, applied one level up).
+    # then re-exported sockets, pass-through or scope creation -- a
+    # plural shield may declare one too: each gpio-map row and each
+    # socket,<bus> resolves through ONE of the carrier's plugs, per
+    # plugs_by_path, exactly as a device's own cross-plug refs do.
     diags += _parse_exposed_sockets(node, shield, plug_children, plugs_by_path, types)
     return shield, diags
 
@@ -445,7 +432,7 @@ def _parse_device_addressing(node, shield: Shield, bus, unit: str,
                 f"carries {which} of reg / shield,addr-from — exactly one "
                 "is required (address authority rule)", (src_of(node),)))
 
-    # authored reg == unit-address (validated, Conv. 2); symbolic
+    # authored reg == unit-address (validated); symbolic
     # unit-address is a documentation marker linted against the addr-from
     # target
     if unit and reg is not None:
@@ -492,8 +479,8 @@ def _parse_device(node, shield: Shield, plugs_by_path: PlugsByPath, bus, group,
     if "shield,params" in node.props:
         declared_params = list(node.props["shield,params"].to_strings())
 
-    # The vocabulary declared_params' own tokens resolve against (Sec 3):
-    # a device-node property, sibling to shield,params, since the header
+    # The vocabulary declared_params' own tokens resolve against: a
+    # device-node property, sibling to shield,params, since the header
     # is a contract of the parameter, not an accident of what the
     # template happened to #include.
     declared_param_includes: List[str] = []
@@ -558,8 +545,8 @@ def _parse_pos_ref(prop, function: str, shield: Shield, plugs_by_path: PlugsByPa
                    ) -> Tuple[List[GpioRef], List[Diagnostic]]:
     """Nexus-aware position reference, per function. A plug is a
     multi-function nexus: a claim reads the plug's #<fn>-cells cells.
-    Granularity is PER-REFERENCE (ruling 2): the phandle names WHICH of
-    the shield's plugs this claim resolves through, independent of which
+    Granularity is PER-REFERENCE: the phandle names WHICH of the
+    shield's plugs this claim resolves through, independent of which
     plug the surrounding device's own bus binds to -- a cross-plug
     reference is zero new syntax, just a wider set of valid targets."""
     refs: List[GpioRef] = []
@@ -598,7 +585,7 @@ def _parse_pos_ref(prop, function: str, shield: Shield, plugs_by_path: PlugsByPa
             else:  # adc
                 refs.append(GpioRef(prop=prop.name, position=pos, flags=0,
                                     function="adc", src=src_of(prop), plug=slot))
-        elif function == "gpio" and isinstance(elem, Jumper):  # deferred position (R6)
+        elif function == "gpio" and isinstance(elem, Jumper):  # deferred position
             flags = args[0] if args else 0
             refs.append(GpioRef(prop=prop.name, position=None, flags=flags,
                                 jumper=elem.name, function="gpio", src=src_of(prop)))
@@ -644,7 +631,7 @@ def _parse_gpio_map(node, plugs_by_path: PlugsByPath, is_plural: bool,
                     ) -> Tuple[Dict[int, Tuple[str, int, int]], List[Diagnostic]]:
     """gpio-map's own 5-cell rows: child pos, child flags, phandle, parent
     pos, parent flags. Each phandle must land on one of the carrier's own
-    plugs (pass-through, R19); RECORDS which slot it named, per row."""
+    plugs (pass-through); RECORDS which slot it named, per row."""
     diags: List[Diagnostic] = []
     gpio_map: Dict[int, Tuple[str, int, int]] = {}
     if "gpio-map" in node.props:
@@ -672,8 +659,7 @@ def _parse_exposed_buses(node, shield: Shield, plugs_by_path: PlugsByPath,
                          is_plural: bool) -> Tuple[Dict[str, object], List[Diagnostic]]:
     """The socket,<bus> (and role-qualified) properties, in sorted
     property-name order: each is either a pass-through of one of the
-    carrier's plugs (S6) or a new scope rooted at a device of the shield
-    (S8)."""
+    carrier's plugs or a new scope rooted at a device of the shield."""
     diags: List[Diagnostic] = []
     buses: Dict[str, object] = {}
     qualified_props = sorted(name for name in node.props if _BUS_PROP_RE.match(name))
@@ -693,9 +679,9 @@ def _parse_exposed_buses(node, shield: Shield, plugs_by_path: PlugsByPath,
         plug_entry = plugs_by_path.get(target.path)
         if plug_entry is not None:
             slot, _pctype = plug_entry
-            buses[kind] = ("plug", slot)                # pass-through (S6)
+            buses[kind] = ("plug", slot)                # pass-through
         elif isinstance(by_path, Device):
-            buses[kind] = ("scope", by_path.label)       # new scope (S8)
+            buses[kind] = ("scope", by_path.label)       # new scope
         else:
             what = "one of the carrier's plugs" if is_plural else "<&plug>"
             diags.append(error(
@@ -709,20 +695,19 @@ def _parse_exposed_buses(node, shield: Shield, plugs_by_path: PlugsByPath,
 def _parse_exposed(node, plugs_by_path: PlugsByPath, shield: Shield,
                    types: Dict[str, ConnectorType],
                    ) -> Tuple[ExposedSocket, List[Diagnostic]]:
-    """A re-exported socket, now potentially composed from SEVERAL named
-    parents (multi-plug-carrier-brief.md Sec 1 ruling 1). gpio-map binds
-    exposed positions to ONE of the carrier's own plug positions
-    (pass-through, R19) -- RECORDING which slot the phandle named, per
-    row, exactly as `_parse_pos_ref` widens "must be THIS shield's plug"
-    to "one of this shield's plugs" (ruling 2, applied one level up).
-    socket,<bus> (bare, or role-qualified per the multi-bus vocabulary)
-    is either <&some-plug> (pass through THAT plug's own bus, S6) or
-    <&device> (a NEW scope rooted in that device of the shield, S8). The
-    CHILD-side qualified name is the EXPOSED connector type's OWN
-    vocabulary -- validated exact-match against its declared bus_proxies,
-    no fallback, independent of whichever parent-side bus a pass-through
-    eventually selects (that selection is compose_socket's own job, by
-    KIND, once the parent is a real resolved socket)."""
+    """A re-exported socket, potentially composed from SEVERAL named
+    parents. gpio-map binds exposed positions to ONE of the carrier's own
+    plug positions (pass-through) -- RECORDING which slot the phandle
+    named, per row, exactly as `_parse_pos_ref` widens "must be THIS
+    shield's plug" to "one of this shield's plugs". socket,<bus> (bare,
+    or role-qualified per the multi-bus vocabulary) is either <&some-plug>
+    (pass through THAT plug's own bus) or <&device> (a NEW scope rooted
+    in that device of the shield). The CHILD-side qualified name is the
+    EXPOSED connector type's OWN vocabulary -- validated exact-match
+    against its declared bus_proxies, no fallback, independent of
+    whichever parent-side bus a pass-through eventually selects (that
+    selection is compose_socket's own job, by KIND, once the parent is a
+    real resolved socket)."""
     diags: List[Diagnostic] = []
     type_name = node.props["compatible"].to_string().split(",", 1)[1]
     ctype = types.get(type_name)
@@ -767,15 +752,14 @@ def _parse_channel_map(node, prop_name: str, cells_prop: str, function: str,
                        plugs_by_path: PlugsByPath, is_plural: bool,
                        ) -> Tuple[Dict[int, Tuple[str, int, int]], Optional[int],
                                   List[Diagnostic]]:
-    """The pwm-map / io-channel-map twin of gpio-map's own loop above
-    (carrier-analog-passthrough-brief.md Sec 5), factored out because PWM
-    and ADC share this one function's shape end to end (Sec 2) and because
-    their STRIDE, unlike gpio-map's, is not a tree-wide constant: with
-    `#pwm-cells = <2>` a row is 5 words (2 child + phandle + 2 parent);
-    with `#io-channel-cells = <1>` it is 3 -- derived below from the
-    declared cell counts, never hardcoded.
+    """The pwm-map / io-channel-map twin of gpio-map's own loop above,
+    factored out because PWM and ADC share this one function's shape end
+    to end and because their STRIDE, unlike gpio-map's, is not a
+    tree-wide constant: with `#pwm-cells = <2>` a row is 5 words (2 child
+    + phandle + 2 parent); with `#io-channel-cells = <1>` it is 3 --
+    derived below from the declared cell counts, never hardcoded.
 
-    RULED (require-and-check): `prop_name` without `cells_prop` alongside
+    require-and-check: `prop_name` without `cells_prop` alongside
     it, or the reverse pairing, is a parse-time lang-exposed error -- the
     carrier author's declared count is what compose_socket later checks
     against the resolved parent's, so a map with no declared count (or a

@@ -1,10 +1,10 @@
 # SPDX-License-Identifier: Apache-2.0
 """Board DT reader, edtlib-based -- the production reader boarddt.load_board
-delegates to. Ported from rigexp/board_edt.py (rigc-r4-brief.md Sec 1): it
-projects a real board's own devicetree, read via a standalone edtlib.EDT
-(see edt_build.py), onto model.Board / model.BoardSocket (Conv. 4: the
-analyzer reads the board DT to find socket nodes by compatible). model.py's
-dataclasses are populated here, never redefined.
+delegates to. It projects a real board's own devicetree, read via a
+standalone edtlib.EDT (see edt_build.py), onto model.Board /
+model.BoardSocket: the analyzer reads the board DT to find socket nodes
+by compatible. model.py's dataclasses are populated here, never
+redefined.
 
 pwm_map / adc_map project the socket node's standard pwm-map /
 io-channel-map nexuses -- read the same way gpio-map already is, via
@@ -66,8 +66,8 @@ def project_edt(edt: "edtlib.EDT", name: str) -> Board:
     Returns a fresh Board holding one BoardSocket per socket,*-compatible
     node, keyed by its defining label (node.labels[0]); every OTHER label
     the node declares projects into Board.aliases instead of a second
-    sockets entry (board-as-invocation-coordinate-brief.md Sec 2.1) -- DT
-    allows several labels per node, and a board rig-extension may add its
+    sockets entry -- DT allows several labels per node, and a board
+    rig-extension may add its
     connector type's conventional label (e.g. "arduino_r3") alongside the
     board-prefixed one it already had ("nucleo_ard") without renaming
     anything. The EDT is read-only."""
@@ -174,12 +174,10 @@ def _project_socket(node: "edtlib.Node", compat: str) -> BoardSocket:
         src=SourceRef(node.filename, node.lineno, label))
 
 
-#: pwm/adc's shared checked-read table (three-cell-pwm-brief.md Sec 3a,
-#: superseding carrier-analog-passthrough-brief.md Sec 4 ruling 3's
-#: single-count form): the SET of parent (controller) cell counts this
-#: expander supports per function today, plus the wording an
-#: unsupported-count diagnostic needs. NOT a guess at what MIGHT show up
-#: -- a survey of upstream Zephyr's own PWM bindings found 55 of 75
+#: pwm/adc's shared checked-read table: the SET of parent (controller)
+#: cell counts this expander supports per function today, plus the
+#: wording an unsupported-count diagnostic needs. NOT a guess at what
+#: MIGHT show up -- a survey of upstream Zephyr's own PWM bindings found 55 of 75
 #: declare THREE cells (channel, period, flags) and only 7 declare two
 #: (lotus's own atmel,sam0-tcc-pwm among them), so BOTH shapes are real
 #: and neither is a rare guard; io-channel is close to uniform (107 of
@@ -210,20 +208,19 @@ _CHANNEL_FN: Dict[str, Dict[str, object]] = {
 
 def _project_channel_map(node: "edtlib.Node", label: str, specifier_space: str,
                          fn: str) -> Tuple[Dict[int, Tuple[str, int]], Optional[int]]:
-    """pwm_map / adc_map's shared checked read (three-cell-pwm-brief.md
-    Sec 3a): replaces a bare `pos, _pos_period = entry.child_specifiers` /
+    """pwm_map / adc_map's shared checked read: replaces a bare
+    `pos, _pos_period = entry.child_specifiers` /
     `channel, _channel_period = entry.parent_specifiers` destructuring --
     which raises an unhandled ValueError the instant a real controller's
     own declared cell count differs from what this expander hardcodes (a
-    traceback, not a diagnostic; the exact M8-family defect
-    post-cutover-backlog.md item 3 already names) -- with a checked
+    traceback, not a diagnostic) -- with a checked
     length read that raises LoadError (phys-board), naming the socket,
     the controller, and BOTH cell counts, whenever EITHER side's own
     declared count falls outside `_CHANNEL_FN`'s supported SET, or the
     two sides disagree with EACH OTHER even though both are
-    individually supported (RULED: a nexus's mask/pass-thru idiom
-    requires the child and parent specifier widths equal -- rigc does
-    not translate between specifier widths). `boarddt.load_board` is the
+    individually supported: a nexus's mask/pass-thru idiom requires the
+    child and parent specifier widths equal, and rigc does not translate
+    between specifier widths. `boarddt.load_board` is the
     catch boundary that turns this into the caller's normal
     (board, diagnostics, deps) return shape, exactly as dtsio.py's own
     LoadError raises already do for a fatal cpp/parse failure.

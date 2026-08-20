@@ -1,13 +1,10 @@
-"""The shield library: scan, axes, lazy revision resolution
-(rigc-r3-brief.md Sec 4; shield-plurality-brief.md Sec 3). Ported from
-rigexp/loader_yml.py's `ShieldLibrary` + `load_shield_library` +
-`_pick_shield` -- this is what replaces R2's ShieldRef seam: `resolve()`
-returns a REAL `Shield`, or diagnostics explaining why not.
+"""The shield library: scan, axes, lazy revision resolution.
+`resolve()` returns a REAL `Shield`, or diagnostics explaining why not.
 
 **Discovery**, per folder under a shield-library root:
-  - no shield.yml -> the name is this folder's own basename (as before
-    plurality); it is a rig template iff `<dir>/<name>.shield` exists,
-    silently skipped otherwise (a legacy shield, or not a shield at all).
+  - no shield.yml -> the name is this folder's own basename; it is a
+    rig template iff `<dir>/<name>.shield` exists, silently skipped
+    otherwise (a legacy shield, or not a shield at all).
   - shield.yml present -> one name per `shield:` (a single mapping) or
     `shields:` (a list, the mutually exclusive plural form upstream
     `b836fcdd709` added) entry -- NAME comes from the entry's own `name:`
@@ -21,8 +18,8 @@ returns a REAL `Shield`, or diagnostics explaining why not.
     (`Kconfig.shield` ends in the literal substring and would be
     mis-globbed).
 
-**shield.yml** supplies the declared NAME (plurality's own identity
-ruling: the folder no longer is one) and, per template entry, its own
+**shield.yml** supplies the declared NAME -- the folder name no longer
+is one -- and, per template entry, its own
 `revisions:` axis, parsed by `loader.axes.parse_legacy_revision_decl` --
 its OWN pre-hwmv2 shape (`{default:, list: []}`), NOT the hwmv2 block
 rig.yml's own `revision:` axis takes. This is a hard external
@@ -48,18 +45,15 @@ stays deferred to each revision's own first selection too.
 
 A base parse that fails (its template defines no node matching the
 folder name) is memoized in `ShieldLibrary.failed` so a second reference
-reports nothing new -- the scan-time echo this replaces fired exactly
-once by construction (one folder, one scan pass); a lazy re-parse per
-reference would otherwise re-run cpp and re-report the same defect once
-per referencing instance.
+reports nothing new; a lazy re-parse per reference would otherwise
+re-run cpp and re-report the same defect once per referencing instance.
 
-**Diagnostics and dependency data are RETURN values** (mission brief Sec
-6, ratified ruling 3): `resolve()` never writes into an accumulator
-handed in from outside. `ShieldLibrary.shields` IS mutated in place by
-`resolve()` -- that is the lazy-parse MEMOIZATION cache the whole design
-requires (exactly the shape rigexp's own `self.shields[key] = shield`
-already is), a self-contained value the library keeps about itself, not a
-side channel written into by many unrelated callers.
+**Diagnostics and dependency data are RETURN values**: `resolve()`
+never writes into an accumulator handed in from outside.
+`ShieldLibrary.shields` IS mutated in place by `resolve()` -- that is
+the lazy-parse MEMOIZATION cache the whole design requires, a
+self-contained value the library keeps about itself, not a side
+channel written into by many unrelated callers.
 """
 from __future__ import annotations
 
@@ -113,11 +107,11 @@ class ShieldLibrary:
     only what has actually been PARSED so far, filled in by `resolve()`
     as references arrive rather than by the scan.
 
-    `shields` is keyed for V1c revision resolution: by the CONSTRUCTED
-    stems rule 13 resolves against -- "<name>" (a revision-less shield,
-    or a revisioned one's DEFAULT) and "<name>@<rev>" (any declared
-    revision, once resolved) -- never by the `.shield` DT node name
-    alone, which is IDENTICAL across a shield's own revisions."""
+    `shields` is keyed by the CONSTRUCTED stems `resolve()` builds and
+    reads against -- "<name>" (a revision-less shield, or a revisioned
+    one's DEFAULT) and "<name>@<rev>" (any declared revision, once
+    resolved) -- never by the `.shield` DT node name alone, which is
+    IDENTICAL across a shield's own revisions."""
 
     shields: Dict[str, Shield]
     axes: Dict[str, Optional[AxisDecl]]
@@ -156,8 +150,8 @@ class ShieldLibrary:
 
     def resolve(self, ref: str, ctx: str, src: SourceRef,
                ) -> Tuple[Optional[Shield], List[Diagnostic], Deps]:
-        """`<name>` or `<name>@<rev>` (rule 13's identical @rev grammar)
-        -> the Shield, parsing a not-yet-parsed template on first use --
+        """`<name>` or `<name>@<rev>` -> the Shield, parsing a
+        not-yet-parsed template on first use --
         the base template of an axis-less shield exactly like a
         revisioned shield's own selected revision. The three failure
         shapes (not declared at all / not a member / no default) are
@@ -231,9 +225,8 @@ class ShieldLibrary:
                           ) -> Tuple[Optional[Shield], List[Diagnostic], Deps]:
         """A single revision's own lazy parse -- deliberately UNMEMOIZED
         on failure (unlike the axis-less base parse `resolve()` handles
-        directly): a bad revision is pre-existing behaviour that
-        re-reports on every reference, no golden distinguishes it, and
-        changing that is out of scope here.
+        directly): a bad revision re-reports on every reference. This is
+        a decision, not an oversight; revisiting it is out of scope here.
 
         `rev` is the RESOLVED value (nearest-lower match already applied
         by `resolve_axis_selection`) -- every stem this method constructs,
@@ -250,10 +243,10 @@ class ShieldLibrary:
         rev_conf = os.path.join(pending.shield_dir, f"{name}_{rev_norm}.conf")
         has_rev_file = os.path.isfile(rev_file)
         is_default = rev == decl.default
-        # Shield-side analogue of rule 10's default exemption: a
-        # NON-DEFAULT revision that contributes NOTHING is an authoring
-        # error; the default is exempt (the base template IS its
-        # content).
+        # Shield-side analogue of the contributes-nothing check
+        # (loader/fragments.py): a NON-DEFAULT revision that
+        # contributes NOTHING is an authoring error; the default is
+        # exempt (the base template IS its content).
         if not is_default and not (has_rev_file or os.path.isfile(rev_conf)):
             return None, [error(
                 "lang-rev",
@@ -306,7 +299,7 @@ def _parse_shield_template(name: str, template: str, includes: List[str],
     parse touched, recovered from cpp linemarkers (`source_files`) --
     never `includes` themselves, since only the caller knows whether
     those are a base template or a revision fragment and which of the
-    two dependency rules (Sec 2.3) applies."""
+    two dependency rules applies."""
     log.debug("shield library: parsing %s (%s)", name, os.path.basename(template))
     dt = parse_tu(includes, workdir, dts_name, include_dirs)
     deps = frozenset(source_files(dt, workdir))
@@ -320,14 +313,11 @@ def _pick_shield(parsed: Dict[str, Shield], name: str, template: str,
                  ) -> Tuple[Optional[Shield], List[Diagnostic]]:
     """The shield a template's translation unit defines, looked up by
     `name` -- the shield's DECLARED name, never whatever node name
-    `parse_shields` happened to return (byte-identical to the blueprint,
-    rigc-r2-brief.md's recorded decision: rigexp/loader_yml.py:1426-1440's
-    sibling check for the resolution key). `yml_path`, when given, says
-    the declared name came from that shield.yml (plurality's own identity
-    ruling, shield-plurality-brief.md ruling 1) rather than the folder's
-    own basename -- the mismatch diagnostic below names whichever is
-    true, since "must match the folder" is only ever correct for the
-    yml-less legacy case now."""
+    `parse_shields` happened to return. `yml_path`, when given, says
+    the declared name came from that shield.yml rather than the
+    folder's own basename -- the mismatch diagnostic below names
+    whichever is true, since "must match the folder" is only ever
+    correct for the yml-less legacy case now."""
     shield = parsed.get(name)
     if shield is not None:
         return shield, []
@@ -374,8 +364,8 @@ def _shield_yml_entries(shield_dir: str,
     if not os.path.isfile(yml_path):
         return None, [], []
     doc = parse_marked(yml_path)      # Unimplemented on a YAML parse
-                                       # failure -- no frozen golden (R2's
-                                       # own choice, unchanged here)
+                                       # failure -- no frozen golden
+                                       # covers this shape
     diags: List[Diagnostic] = []
     out: List[Tuple[str, Val, bool]] = []
     shield_v = doc.value.get("shield")
@@ -426,9 +416,8 @@ def load_shield_library(workdir: str, shield_dirs: Optional[List[str]] = None,
                         include_dirs: Optional[List[str]] = None,
                         ) -> Tuple[ShieldLibrary, List[Diagnostic], Deps]:
     """Load every shield template. Each `.shield` file (base + any
-    resolved revision fragment) is its OWN translation unit (Ground rule
-    3) -- labels are shield-scoped, no cross-shield prefix discipline
-    needed.
+    resolved revision fragment) is its OWN translation unit -- labels
+    are shield-scoped, no cross-shield prefix discipline needed.
 
     `shield_dirs` is a LIST of shield-library roots, unioned into one
     library; None falls back to the vendored default (direct API / test
@@ -456,12 +445,11 @@ def load_shield_library(workdir: str, shield_dirs: Optional[List[str]] = None,
     ymls: Dict[str, str] = {}
     promotable: Dict[str, bool] = {}
     directories = shield_dirs if shield_dirs is not None else [SHIELDS_DIR]
-    # A malformed member hard-errors the whole scan (blueprint wart,
-    # reproduce-first) -- but the members already scanned may have
-    # reported findings of their own, and rigexp renders those TOO (its
-    # shared accumulator survives the raise by ownership). Re-raise with
-    # this scan's priors prepended so the boundary that catches renders
-    # the same bytes (R3 review finding D1).
+    # A malformed member hard-errors the whole scan, but the members
+    # already scanned may have reported findings of their own.
+    # Re-raising with this scan's priors prepended ensures the boundary
+    # that catches this exception renders every finding gathered so
+    # far, not just the fatal one.
     try:
         for directory in directories:
             for shield_dir in sorted(glob.glob(os.path.join(directory, "*"))):
@@ -470,9 +458,9 @@ def load_shield_library(workdir: str, shield_dirs: Optional[List[str]] = None,
                 yml_path, entries, entry_diags = _shield_yml_entries(shield_dir)
                 diags += entry_diags
                 if yml_path is None:
-                    # Legacy, yml-less folder (module docstring Sec
-                    # "Discovery", first bullet): name is the folder's own
-                    # basename, unchanged from before plurality.
+                    # Legacy, yml-less folder (module docstring
+                    # "Discovery", first bullet): the name is this
+                    # folder's own basename.
                     name = os.path.basename(shield_dir)
                     base_file = os.path.join(shield_dir, name + ".shield")
                     if os.path.isfile(base_file):
@@ -480,9 +468,9 @@ def load_shield_library(workdir: str, shield_dirs: Optional[List[str]] = None,
                         pending[name] = _Pending(shield_dir, base_file, None)
                     continue
                 for name, entry_v, entry_promotable in entries:
-                    # The template itself is NOT touched here (Sec 2.3): a
-                    # rig depends on a discovered shield's translation
-                    # unit only once something actually references it,
+                    # The template itself is NOT touched here: a rig
+                    # depends on a discovered shield's translation unit
+                    # only once something actually references it,
                     # recorded by resolve()/_resolve_revision at that
                     # point instead.
                     ymls[name] = yml_path

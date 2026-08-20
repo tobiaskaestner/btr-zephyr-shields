@@ -1,24 +1,20 @@
 """Net identity, GPIO/PWM/ADC claims, jumper resolution, and the final net
-conflict report (rigc-r4-brief.md Sec 4). Ported from rigexp/analyzer.py's
-`_collect_gpio_nets`/`_collect_gpio`/`_collect_channel`/`_resolve_jumper`/
-`_check_nets`/`_exclusive_conflict` (`analyzer.py:263-440`), value-shaped.
+conflict report, value-shaped throughout.
 
-Net IDENTITY is sharing (ontology Sec 2): `soc_net` resolves a socket
-position through the board's own gpio-map down to the actual SoC pin, so
-two DIFFERENT sockets whose positions map to the same pin are the SAME net
-(R13) -- a pure function of (socket, position), directly unit-testable.
-`role_of` is the other already-value-shaped contract this module keeps
-(mission brief Sec 6 lists both by name).
+Net IDENTITY is sharing: `soc_net` resolves a socket position through
+the board's own gpio-map down to the actual SoC pin, so two DIFFERENT
+sockets whose positions map to the same pin are the SAME net -- a pure
+function of (socket, position), directly unit-testable. `role_of` is
+the other already-value-shaped contract this module keeps.
 
 `collect_gpio_nets` is the pass: it walks every resolved instance's
 device gpio/pwm/adc refs, building the net-claim map plus jumper-resolved
 positions and pwm/adc channel resolutions, entirely as a RETURNED value
-(`GpioNets`) -- `check_nets` is a SEPARATE, later function (the blueprint's
-own pass ordering: net collection happens before CS allocation, but net
-CONFLICT checking happens after, since CS allocation contributes further
-claims into the same net-claim map -- see analyzer/cs.py and
-analyzer/__init__.py's composer, which merges the two claim sets before
-calling check_nets)."""
+(`GpioNets`) -- `check_nets` is a SEPARATE, later function: net
+collection happens before CS allocation, but net CONFLICT checking
+happens after, since CS allocation contributes further claims into the
+same net-claim map -- see analyzer/cs.py and analyzer/__init__.py's
+composer, which merges the two claim sets before calling check_nets."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -32,15 +28,16 @@ from .socketmap import Sockets, for_ref
 _DRIVER_HINTS = ("int", "irq")
 
 #: fn -> the REAL DTS property a socket would need to author for this
-#: function's channel map to resolve (carrier-analog-passthrough-brief.md
-#: Sec 5's wart): "socket,{fn}-map" is not a thing either property is ever
-#: spelled -- pwm-map / io-channel-map are the standard nexus names
-#: edtlib.Node.maps() resolves ("pwm"/"io-channel" being the specifier
-#: space, stripped of "-map"), matching what board_edt.py itself reads.
+#: function's channel map to resolve, for use in diagnostic text only:
+#: "socket,{fn}-map" is NOT a real property name either function is
+#: ever spelled with -- pwm-map / io-channel-map are the standard nexus
+#: names edtlib.Node.maps() resolves ("pwm"/"io-channel" being the
+#: specifier space, stripped of "-map"), matching what board_edt.py
+#: itself reads.
 _MAP_PROP = {"pwm": "pwm-map", "adc": "io-channel-map"}
 
 #: A net's identity: ("soc", controller label, pin) for a position the
-#: board's gpio-map actually routes to a real SoC pin (R13 -- shared
+#: board's gpio-map actually routes to a real SoC pin (shared
 #: across sockets); ("pos", socket path, position) for a per-socket
 #: dedicated line the board fragment doesn't route; ("chan", controller
 #: label, channel) for a PWM/ADC controller CHANNEL (exclusive use of one
@@ -71,8 +68,8 @@ def merge_nets(*nets: Nets) -> Nets:
     of `deps.union`/list-concatenating diagnostics.
 
     Returns a FRESH map with fresh lists: neither the input maps nor
-    their claim lists are shared with the result (R4's D1 is the
-    cautionary tale for anyone tempted to alias here)."""
+    their claim lists are shared with the result -- a caller extending
+    the result must never alias into one of the inputs instead."""
     result: Nets = {}
     for n in nets:
         for key, claims in n.items():
@@ -81,10 +78,10 @@ def merge_nets(*nets: Nets) -> Nets:
 
 
 def role_of(prop_name: str) -> str:
-    """Endpoint role, inferred from the property name (prototype stopgap,
-    carried from the blueprint: int*/irq* = device drives; everything
-    else = device listens; pads/CS claims are always 'dedicated', never
-    routed through this function)."""
+    """Endpoint role, inferred from the property name (a prototype
+    stopgap: int*/irq* = device drives; everything else = device
+    listens; pads/CS claims are always 'dedicated', never routed
+    through this function)."""
     stem = prop_name[:-6] if prop_name.endswith("-gpios") else prop_name
     if any(h in stem for h in _DRIVER_HINTS):
         return "driver"       # device output (interrupt line etc.)
@@ -92,12 +89,11 @@ def role_of(prop_name: str) -> str:
 
 
 def soc_net(socket: BoardSocket, position: int) -> NetKey:
-    """Net IDENTITY (ontology Sec 2, derived): resolve the socket position
-    through the gpio-map down to the actual SoC pin. Two DIFFERENT sockets
-    whose positions map to the same SoC pin are the SAME net (Grove 5/6 ->
-    gpio0 26, R13). Positions not in the gpio-map (per-socket dedicated
-    lines the trial fragment doesn't route, e.g. mikroBUS INT) stay
-    socket-local."""
+    """Net IDENTITY: resolve the socket position through the gpio-map
+    down to the actual SoC pin. Two DIFFERENT sockets whose positions
+    map to the same SoC pin are the SAME net (e.g. Grove 5/6 -> gpio0
+    26). Positions not in the gpio-map (per-socket dedicated lines the
+    board fragment doesn't route, e.g. mikroBUS INT) stay socket-local."""
     mapping = socket.gpio_map.get(position)
     if mapping is not None:
         ctrl, pin, _flags = mapping
@@ -119,15 +115,13 @@ class GpioNets:
 def collect_gpio_nets(rig: Rig, sockets: Sockets,
                       types: Dict[str, ConnectorType],
                       ) -> Tuple[GpioNets, List[Diagnostic]]:
-    """The gpio/pwm/adc claim-collection pass (R22/R23): every device
-    ref resolves through ITS OWN plug's socket (`ref.plug`, PER-REFERENCE
-    granularity, multi-plug-shield-brief.md Sec 2 ruling 2) into net
-    claims -- a device sitting on one plug's bus may still carry a
-    cross-plug reference to another.
+    """The gpio/pwm/adc claim-collection pass: every device ref resolves
+    through ITS OWN plug's socket (`ref.plug`, PER-REFERENCE granularity)
+    into net claims -- a device sitting on one plug's bus may still
+    carry a cross-plug reference to another.
 
     Returns (nets, diagnostics): a fresh claim map the caller owns --
-    later passes read it but must never append into its lists (R4
-    review, D1)."""
+    later passes read it but must never append into its lists."""
     diags: List[Diagnostic] = []
     result = GpioNets()
 
@@ -176,7 +170,7 @@ def _collect_channel(inst: Instance, dev: Device, ref: GpioRef, socket: BoardSoc
     two consumers can't share one timer/adc channel)."""
     fn = ref.function
     # pwm/adc refs always carry a fixed position at parse time (shields.py):
-    # jumper deferral is a gpio-only shape (Sec 4/R6).
+    # jumper deferral is a gpio-only shape.
     assert ref.position is not None
     pos = ref.position
     fmap = socket.pwm_map if fn == "pwm" else socket.adc_map
@@ -190,13 +184,10 @@ def _collect_channel(inst: Instance, dev: Device, ref: GpioRef, socket: BoardSoc
             tuple(x for x in (ref.src, socket.src) if x)))
         return
     if fn == "pwm" and ref.flags and socket.pwm_cells == 2:
-        # CONDITIONAL on the SOCKET's own cell count (three-cell-pwm-
-        # brief.md Sec 3c), not an unconditional refusal any more: a
-        # 2-cell socket (lotus's atmel,sam0-tcc-pwm shape) has genuinely
-        # nowhere to put a flags value, but a 3-cell one (the common
-        # upstream shape) has a real cell for it -- the sentence below is
-        # about THIS SOCKET, never a blanket statement about "the
-        # expander's PWM emission".
+        # CONDITIONAL on the SOCKET's own cell count, never a blanket
+        # refusal: a 2-cell socket (lotus's atmel,sam0-tcc-pwm shape)
+        # has genuinely nowhere to put a flags value, but a 3-cell one
+        # (the common upstream shape) has a real cell for it.
         diags.append(error(
             "phys-function",
             f"'{inst.name}/{dev.name}: {ref.prop}' authors PWM flags "
@@ -251,7 +242,7 @@ def _resolve_jumper(inst: Instance, dev: Device, ref: GpioRef, ctype: ConnectorT
 def _net_descr(key: NetKey, claims: List[NetClaim], types: Dict[str, ConnectorType]) -> str:
     """Describe where a net lives, from its identity key: a controller
     channel (pwm/adc), a single socket position, or a SoC pin shared
-    across sockets (R13)."""
+    across sockets."""
     if key[0] == "chan":
         return f"{key[1]} channel {key[2]}"
     where = {(c.socket.label, c.position) for c in claims}
@@ -295,7 +286,7 @@ def _driver_verdict(descr: str, claims: List[NetClaim],
     """The shared-net half of one net's verdict, reached only once the
     exclusive-resource check above found nothing: more than one DRIVER
     on a shared net is a conflict; 1 driver + N listeners, or MCU-driven
-    + N listeners, is a net and legal (R22)."""
+    + N listeners, is a net and legal."""
     drivers = [c for c in claims if c.role == "driver"]
     if len(drivers) > 1:
         return [error(

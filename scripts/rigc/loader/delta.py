@@ -1,16 +1,13 @@
-"""Base topology parsing and the V1b delta engine: instances, wires, and
+"""Base topology parsing and the delta engine: instances, wires, and
 the four delta operations (`instances:`, `add-instances:`,
 `remove-instances:`, `add-wires:`/`remove-wires:`), all matched against
 an in-memory EFFECTIVE topology. Diagnostic code is lang-variant or
-lang-rev by STAGE, mirroring rigexp/loader_yml.py's own `_apply_delta`
-dispatch.
+lang-rev by STAGE.
 
-**R2's ShieldRef seam is CLOSED** (rigc-r3-brief.md Sec 0): `shield:`
-references resolve against a REAL `ShieldLibrary` (`loader/library.py`)
-here, and `params:`/`config:` are fully applied (`loader/params.py`)
-rather than raising Unimplemented. Wire endpoints get their
-label-existence/ambiguity check back too (`resolve_dotted`, via
-`Shield.by_name`).
+`shield:` references resolve against a REAL `ShieldLibrary`
+(`loader/library.py`), and `params:`/`config:` are fully applied
+(`loader/params.py`). Wire endpoints are checked for label existence
+and ambiguity (`resolve_dotted`, via `Shield.by_name`).
 """
 from __future__ import annotations
 
@@ -34,7 +31,9 @@ class Topology:
     """The rig's EFFECTIVE topology as the delta engine sees it: instances
     keyed by NAME, ORDER preserved separately, the wire list, and which
     STAGE VALUE last removed each now-absent instance name (removed_by --
-    rule 8's drift-cannot-hide hint).
+    the drift-cannot-hide hint: a later stage naming an already-removed
+    instance gets told which stage removed it, instead of a bare
+    "does not exist").
 
     `apply_delta` returns a NEW Topology rather than mutating this one in
     place: diagnostics stay the only thing composed as a side value,
@@ -79,17 +78,15 @@ def _build_plural_sockets_map(sockets_v: Optional[Val], shield: Shield,
 def _parse_sockets_block(item: Val, shield: Shield, binding: SocketBinding,
                          inst_name: str) -> Tuple[Dict[str, Optional[str]],
                                                   List[Diagnostic]]:
-    """`socket:`/`sockets:` -> `Instance.sockets` (multi-plug-shield-brief.md
-    Sec 2): a single-plug shield takes `socket:` (byte-identical to
-    before plurality -- one entry keyed by the shield's own one slot
-    name, `next(iter(shield.plugs))`, never the literal `"plug"`); a
-    plural shield takes `sockets:`, a slot name -> reference MAPPING, each value resolved
-    through `binding.get` exactly like `socket:` does. The two keys are
-    mutually exclusive, and each is legal only for the matching shield
-    SHAPE -- enforced here, in rigc's own parser, rather than deferred to
-    a schema (the ruling this repeats on purpose: the `shields:`/
-    `shield:` mutual-exclusion debt shape is not repeated here). An
-    unknown slot name is a loud error listing the shield's real slots.
+    """`socket:`/`sockets:` -> `Instance.sockets`: a single-plug shield
+    takes `socket:` (one entry keyed by the shield's own one slot name,
+    `next(iter(shield.plugs))`, never the literal `"plug"`); a plural
+    shield takes `sockets:`, a slot name -> reference MAPPING, each value
+    resolved through `binding.get` exactly like `socket:` does. The two
+    keys are mutually exclusive, and each is legal only for the matching
+    shield SHAPE -- enforced here in rigc's own parser rather than
+    deferred to a schema. An unknown slot name is a loud error listing
+    the shield's real slots.
     Omitted slots (plural) or an omitted `socket:` (single) carry None --
     unresolved, left to per-slot inference.
 
@@ -147,14 +144,14 @@ def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
                    include_dirs: Optional[List[str]] = None,
                    ) -> Tuple[Optional[Instance], List[Diagnostic], Deps]:
     """One `instances:` entry (base content, or an `add-instances:` item
-    -- the identical shape): name/shield required, socket OPTIONAL
-    (socket-inference-brief.md Sec 2) -- omitting it carries `None`
-    through to `Instance.socket` unresolved, since this loader never sees
-    the board and cannot be the one to infer a physical socket; the
-    analyzer resolves it later, alongside the existing mating check.
-    `shield:` resolves against the REAL library (`lib.resolve`) -- the R2
-    seam this slice closes. A DECLARED `socket:` still applies through the
-    binding; `config:`/`params:` apply fully against the resolved shield.
+    -- the identical shape): name/shield required, socket OPTIONAL --
+    omitting it carries `None` through to `Instance.socket` unresolved,
+    since this loader never sees the board and cannot be the one to
+    infer a physical socket; the analyzer resolves it later, alongside
+    the existing mating check. `shield:` resolves against the REAL
+    library (`lib.resolve`). A DECLARED `socket:` still applies through
+    the binding; `config:`/`params:` apply fully against the resolved
+    shield.
 
     Returns (instance, diagnostics, deps); instance is None when a
     required key is missing or the shield reference did not resolve.
@@ -209,9 +206,7 @@ def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
 
     Returns a NEW Instance (never mutates the one it was handed), always
     preserving the ORIGINAL `src` -- so a diagnostic raised many delta
-    stages later still anchors at the base instance's own declaration,
-    exactly as rigexp's in-place mutation does by never touching
-    `inst.src`."""
+    stages later still anchors at the base instance's own declaration."""
     diags: List[Diagnostic] = []
     deps: Deps = frozenset()
     shield = inst.shield
@@ -226,12 +221,12 @@ def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
         shield = new_shield
         shield_changed = True
 
-    # `socket:`/`sockets:` REPLACES WHOLESALE, the `params:` rule -- never
-    # a per-key merge (multi-plug-shield-brief.md Sec 2). Absent from
-    # this patch item, the OLD sockets carry forward untouched, even
-    # across a shield change -- the same "unspecified key inherits"
-    # shape pins/jumpers already use (reproduced as-is above), rather
-    # than an implicit reset. EXCEPT: when the shield changed to one
+    # `socket:`/`sockets:` REPLACES WHOLESALE, same as `params:` -- never
+    # a per-key merge. Absent from this patch item, the OLD sockets
+    # carry forward untouched, even across a shield change -- the same
+    # "unspecified key inherits" shape pins/jumpers already use
+    # (reproduced as-is above), rather than an implicit reset. EXCEPT:
+    # when the shield changed to one
     # whose slot names differ from the carried-forward map's keys, the
     # old map is meaningless against the new shield (same reasoning as
     # the params reset below) -- reset it to unresolved-per-slot rather
@@ -248,13 +243,11 @@ def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
     if "invert" in item.value:
         invert = bool(item.value["invert"].value)
 
-    # NOTE: reproduced from the blueprint AS-IS (rigc-mission-brief.md
-    # Sec 2's "reproduce first" discipline): a shield swap with no
-    # `config:` key alongside it leaves pins/jumpers referencing the OLD
-    # shield's config elements untouched -- only params: is
-    # unconditionally reset on a shield change. Revisiting this is a
-    # deliberate, post-green, golden-changing decision, never something
-    # that happens en route.
+    # A shield swap with no `config:` key alongside it leaves
+    # pins/jumpers referencing the OLD shield's config elements
+    # untouched -- only params: is unconditionally reset on a shield
+    # change. This asymmetry is deliberate; changing it is a
+    # golden-changing decision, not something to fix in passing.
     pins, pin_refs, jumpers, jumper_refs = (
         inst.pins, inst.pin_refs, inst.jumpers, inst.jumper_refs)
     if "config" in item.value:
@@ -269,8 +262,10 @@ def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
         params_v = item.value["params"]
         if not shield_changed:
             diags += check_restate(params_v, inst.params, inst.name)
-        # rule 12: a family-wide revision's params landing on a device
-        # the POST-VARIANT shield lacks needs the variant named.
+        # A family-wide revision's params landing on a device the
+        # POST-VARIANT shield lacks needs the variant named, since the
+        # revision stage alone can't otherwise explain why that device
+        # is gone.
         context = None
         if stage == "revision" and variant is not None:
             context = (f"this instance's shield is '{shield.name}' "
@@ -293,9 +288,8 @@ def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
 
 def resolve_dotted(ref_v: Optional[Val], by_name: Dict[str, Instance],
                    key: str) -> Tuple[Optional[WireEnd], List[Diagnostic]]:
-    """`<instance>.<node>` -- now fully validated (rigc-r3-brief.md Sec
-    5): dotted FORM, instance EXISTENCE in the effective topology, and
-    (closing the R2 deferral) node existence/ambiguity WITHIN that
+    """`<instance>.<node>` -- validates dotted FORM, instance EXISTENCE
+    in the effective topology, and node existence/ambiguity WITHIN that
     instance's own resolved shield, via `Shield.by_name`.
 
     Returns (end, diagnostics); end is None on every rejection shape."""
@@ -537,9 +531,10 @@ def apply_delta(delta: Val, stage: str, stage_value: str,
     """Apply ONE delta stage ("variant" or "revision") onto the topology,
     returning a NEW Topology plus every diagnostic raised plus every real
     file this stage's shield resolutions touched. `stage_value` is the
-    selected axis value itself, folded into the rule-8 drift-hint
-    wording. `variant` is the RIG's selected variant (rule 12's context,
-    only meaningful when stage == "revision").
+    selected axis value itself, folded into the drift-cannot-hide hint's
+    wording. `variant` is the RIG's selected variant (the family-wide-
+    revision context note's variant, only meaningful when stage ==
+    "revision").
 
     Returns (topology, diagnostics, deps): a NEW Topology -- the input
     one is never mutated -- plus this stage's findings in document

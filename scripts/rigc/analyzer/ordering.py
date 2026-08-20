@@ -1,14 +1,11 @@
-"""Allocation ordering: R18's `_key` (rigc-r4-brief.md Sec 2 -- "Allocation
-order is R18's `_key` ... a named unit contract, never rig-file declaration
-order"). Every allocator (addresses, CS) sorts its scope members through
-this ONE function before assigning anything, so a rig author reordering
-`instances:` never changes what gets allocated where -- deterministic,
-order-independent, pinnable (R18).
+"""Allocation ordering. Every allocator (addresses, CS) sorts its scope
+members through this ONE function before assigning anything, so a rig
+author reordering `instances:` never changes what gets allocated where
+-- deterministic, order-independent, pinnable.
 
-Ported from rigexp/analyzer.py's `_key(inst, dev)` (`analyzer.py:68-70`),
-unchanged in shape: `(socket, instance name, device name)`, read straight
-off the Instance/Device values already in hand plus the resolved socket
-the caller already has -- no Rig needed, which is what makes it a value
+`(socket, instance name, device name)`, read straight off the
+Instance/Device values already in hand plus the resolved socket the
+caller already has -- no Rig needed, which is what makes it a value
 function on its own."""
 from __future__ import annotations
 
@@ -20,10 +17,10 @@ from ..model import BoardSocket, Device, Instance
 #: instance name, then device name). The socket component is the
 #: AUTHORED reference string of `dev`'s OWN slot (`dev.plug` -- never
 #: the resolved BoardSocket's label) wherever the instance declared one;
-#: only a slot left to inference (`Instance.sockets[slot] is None`,
-#: socket-inference-brief.md) falls back to the resolved label, since it
-#: has no authored string to sort by (the same declared-else-resolved
-#: shape config-sheet.md's socket column uses).
+#: only a slot left to inference (`Instance.sockets[slot] is None`)
+#: falls back to the resolved label, since it has no authored string to
+#: sort by (the same declared-else-resolved shape config-sheet.md's
+#: socket column uses).
 AllocationKey = Tuple[str, str, str]
 
 
@@ -31,11 +28,11 @@ def allocation_key(inst: Instance, dev: Device, socket: BoardSocket) -> Allocati
     """socket is `dev`'s OWN already-resolved BoardSocket (every caller
     has one in hand from the same scope member, resolved through
     `dev.plug`'s slot); read-only, used only as the None fallback below."""
-    # dev.plug is already the real slot name for every bus device (its
-    # own bus group's slot, set at parse time from the actual plug node);
-    # the "plug" fallback below is never live -- both allocators
-    # (addresses.py, cs.py) build their scope from bus-kind devices only,
-    # and a plain-group device (dev.plug is None) never reaches here.
+    # dev.plug is already the real slot name for every bus device (set
+    # at parse time from its own bus group's actual plug node); the
+    # "plug" fallback below is never live, since both allocators build
+    # their scope from bus-kind devices only, and a plain-group device
+    # (dev.plug is None) never reaches here.
     slot = dev.plug or "plug"
     ref = inst.sockets.get(slot)
     if ref is None:

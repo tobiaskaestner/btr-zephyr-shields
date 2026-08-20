@@ -1,11 +1,10 @@
-"""Connector-type registry. A type IS two artifacts (Conv. 1): the unified
+"""Connector-type registry. A type IS two artifacts: the unified
 socket+plug binding (board side, edtlib's job in the real build; shield
 side, consumed HERE by the loader) and the index header (position single
-source of truth). Ported from rigexp/ctypes_registry.py (rigc-r3-brief.md
-Sec 1): the registry is a PREREQUISITE, not a nicety -- shields.py checks
-every shield's plug against it (lang-shield-type), so an empty or stubbed
-registry would emit errors on perfectly valid fixture/corpus shields and
-corrupt every golden's bytes.
+source of truth). The registry is a PREREQUISITE, not a nicety --
+shields.py checks every shield's plug against it (lang-shield-type), so
+an empty or stubbed registry would emit errors on perfectly valid
+fixture/corpus shields and corrupt every golden's bytes.
 
 Data source: ONE file per type, dts/bindings/connectors/<type>.yaml -- the
 real socket binding plus the shield-side plug contract folded in as
@@ -16,10 +15,8 @@ a plain `yaml.safe_load` rather than edtlib.Binding: the plug,* keys are
 declared inline in every unified binding, so the raw YAML dict already has
 them.
 
-Resolved ONCE at CLI entry and threaded down as a value (T0b's shape,
-rigc-r3-brief.md Sec 1) -- the hardcoded BINDINGS default below is for
-direct API / test use only.
-"""
+Resolved ONCE at CLI entry and threaded down as a value -- the
+hardcoded BINDINGS default below is for direct API / test use only."""
 from __future__ import annotations
 
 import glob
@@ -73,8 +70,8 @@ def load_types(connector_dirs: Optional[List[str]] = None,
     caller threads as --include-dir for cpp).
 
     Returns (types, deps) -- deps is every real file this call opened
-    (ratified ruling 3: dependency data is a returned value, never a
-    mutable accumulator passed in and written to)."""
+    (dependency data is a returned value, never a mutable accumulator
+    passed in and written to)."""
     dirs = connector_dirs if connector_dirs is not None else [BINDINGS]
     types: Dict[str, ConnectorType] = {}
     deps: Deps = frozenset()

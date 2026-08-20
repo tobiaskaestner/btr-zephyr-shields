@@ -1,18 +1,16 @@
 """rig-gen.overlay and rig-gen-includes.dtsi's payload: the device-tree
-projection of a Solved rig. Ported from rigexp/emitter.py's overlay half
-(rigc-r5-brief.md Sec 1) -- nexus synthesis, I2C scopes + mux nesting,
+projection of a Solved rig -- nexus synthesis, I2C scopes + mux nesting,
 SPI/cs-gpios, collections, plain groups, controllers, the device-node
 renderer.
 
-Label policy (R10 is parked; this is the prototype's deterministic
-scheme): generated label = <instance>_<shield-local label>, e.g.
+Label policy: generated label = <instance>_<shield-local label>, e.g.
 logger_a_dl_rtc.
 
-Per-instance parameters (rig-variants-revisions.md): a rig-assigned
-params: value is emitted VERBATIM -- the raw token text, never resolved
-here -- so rig-gen.overlay stays readable (zephyr,code = <INPUT_KEY_1>;,
-not a bare number). Resolving those tokens is sheet.py's concern (the
-config sheet's human-facing display value), not this module's.
+Per-instance parameters: a rig-assigned params: value is emitted
+VERBATIM -- the raw token text, never resolved here -- so
+rig-gen.overlay stays readable (zephyr,code = <INPUT_KEY_1>;, not a bare
+number). Resolving those tokens is sheet.py's concern (the config
+sheet's human-facing display value), not this module's.
 """
 from __future__ import annotations
 
@@ -28,7 +26,7 @@ from . import GEN
 def _nexus(socket: BoardSocket) -> str:
     """The DT label a socket is referenced through. Board sockets are real
     nodes (their own label); carrier-exported sockets are referenced through
-    the nexus the emitter synthesizes for them (Option C)."""
+    the nexus the emitter synthesizes for them."""
     return socket.nexus_label or socket.label
 
 
@@ -58,7 +56,7 @@ def _i2c_scopes(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[st
     after another in `s.bus_label` order."""
     out: List[str] = []
     # I2C scopes -- expander is the sole author of reg + unit-address, always
-    # as a matching pair (address authority rule). Mux channels (S8) are NEW
+    # as a matching pair (address authority rule). A mux's channels are NEW
     # scopes emitted nested inside their mux device, not at the top level.
     mux_channels: Dict[str, List[Tuple[object, str]]] = {}
     for path, (root, channel) in s.scopes.items():
@@ -73,7 +71,7 @@ def _i2c_scopes(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[st
         for inst, dev, _socket in sorted(devs, key=lambda m: s.addr[(m[0].name, m[1].name)]):
             addr = s.addr[(inst.name, dev.name)]
             label = f"{inst.name}_{dev.label}"
-            if label in mux_channels:                # scope-creating interposer (R26)
+            if label in mux_channels:                # scope-creating interposer
                 out += _mux_node(rig, s, types, inst, dev, addr,
                                  mux_channels[label])
             else:
@@ -91,7 +89,7 @@ def _spi_scopes(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[st
     owns, one bus scope's lines appended after another in `s.cs_gpios`
     order."""
     out: List[str] = []
-    # SPI scopes -- cs-gpios array and child reg written together (R16)
+    # SPI scopes -- cs-gpios array and child reg written together
     for bus_path, entries in sorted(s.cs_gpios.items()):
         devs = list(_bus_devices(rig, s, "spi", bus_path))
         if not devs:
@@ -114,13 +112,6 @@ def _plain_groups(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[
     container per instance that has neither a bus nor a collected device.
     rig/s/types are read-only; returns fresh lines the caller owns, empty
     when no instance has a plain device."""
-    # plain non-bus device groups (not collected): per-instance container.
-    # Own variable names (plain_socket/plain_devs/plain_dev) rather than
-    # socket/devs/dev: those names are already bound above, to the
-    # non-Optional BoardSocket/List[Tuple[...]]/Device shapes the bus loops
-    # unpack -- Python has no block scoping, so reusing them here with a
-    # DIFFERENT shape (an Optional socket, a bare List[Device]) is a type
-    # clash mypy (rightly) flags, not just a style choice.
     root_nodes: List[str] = []
     for inst in sorted(rig.instances, key=lambda i: i.name):
         plain_devs = [d for d in inst.shield.devices
@@ -159,7 +150,7 @@ def render_overlay(rig: Rig, s: Solved, types: Dict[str, ConnectorType],
     out += _spi_scopes(rig, s, types)
 
     # collection bindings (gpio-keys/gpio-leds, ...): entries from every
-    # instance aggregate under ONE node per compatible (gap #4 / R10 sibling)
+    # instance aggregate under ONE node per compatible
     out += _collections(rig, s, types)
 
     out += _plain_groups(rig, s, types)
@@ -219,8 +210,8 @@ def _collection_entry(s: Solved, types: Dict[str, ConnectorType], inst: Instance
     """One child of a collection node: the module's function ref(s) (gpio,
     pwm, or adc). Node name and label are the composed <instance>_<shield
     label> -- unique per (instance, device), so an instance may contribute
-    several entries (a shield with two LEDs). The entry keeps its identity
-    -- aggregation, not S3 collapse."""
+    several entries (a shield with two LEDs), each keeping its own
+    identity rather than collapsing into one."""
     lbl = f"{inst.name}_{dev.label}"
     lines = [f"\t{lbl}: {lbl} {{", f'\t\tlabel = "{lbl}";']
     # Carry through the device's passthrough properties -- a collected child
@@ -264,13 +255,12 @@ def _bus_devices(rig: Rig, s: Solved, kind: str, bus_path: str,
 
 
 def _ref_socket(s: Solved, inst: Instance, ref: GpioRef) -> BoardSocket:
-    """`ref`'s own resolved socket (per-reference granularity, ruling 2) --
-    a cross-plug reference's slot may differ from its device's own bus
-    slot, so every gpio/pwm/adc ref renderer resolves through THIS, never
-    the device's bus socket. An accepted rig has every ref's slot
-    resolved by construction; a None here would mean that guarantee
-    broke, the same invariant `_device_node`'s own position asserts
-    already document."""
+    """`ref`'s own resolved socket -- a cross-plug reference's slot may
+    differ from its device's own bus slot, so every gpio/pwm/adc ref
+    renderer resolves through THIS, never the device's bus socket. An
+    accepted rig has every ref's slot resolved by construction; a None
+    here would mean that guarantee broke, the same invariant
+    `_device_node`'s own position assert already documents."""
     socket = for_ref(s.sockets, inst, ref)
     assert socket is not None
     return socket
@@ -280,17 +270,10 @@ def _render_ref(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
                 dev: Device, ref: GpioRef) -> str:
     """One rendered property line for a single device reference (gpio, pwm,
     or adc) -- the per-ref half of a device node's body, shared by every
-    caller that renders a device node's refs (`_device_node`, and through
-    it `_mux_node`'s nested devices, plus `_collection_entry`), so the
-    branch on `ref.function` is written exactly once. This is where a
-    prior duplication of this branch (the collect path once ran every ref
-    through the gpio-shaped render regardless of function) drifted into a
-    real bug: a pwm-leds entry emitted <pos, ref.flags> -- the claim's
-    POLARITY bit, always 0 past the analyzer's phys-function gate -- in
-    the cell the nexus expects to carry the resolved PERIOD, and dropped
-    the real period from `s.channels` entirely. A syntactically valid,
-    silently wrong zero-period PWM claim. One renderer removes the
-    opportunity to drift again.
+    caller that renders a device node's refs (`_device_node`, `_mux_node`'s
+    nested devices, and `_collection_entry`) so the branch on `ref.function`
+    is written exactly once: a collected entry and a plain device node can
+    never render the same ref differently.
 
     `s`/`types`/`inst`/`dev`/`ref` are all read-only to this call; returns
     a single line, already prefixed at two tabs ("\\t\\t") to match a
@@ -304,19 +287,17 @@ def _render_ref(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
     # type for posname() below rather than silently rendering "None".
     assert pos is not None
     if ref.function == "gpio":
-        # Conv. 3: rewrite &plug (or the routing jumper, R6) to the socket's
-        # nexus -- a real board node, or a synthesized carrier nexus (R19,
-        # Option C). dtc chases the (multi-level) gpio-map to the pin.
-        # invert (bridle's _inv axis) is a GPIO-only concept, BY DELIBERATE
-        # CHOICE (three-cell-pwm-brief.md Sec 4, recommended, not merely
-        # "no cell existed yet"): it flips the active-level flag bit a gpio
-        # ref alone carries; PWM_POLARITY is a different property, authored
-        # by the shield in its own pwms= ref (now that a flags cell can
-        # actually be carried, on a 3-cell socket) -- coupling the two would
-        # make one rig key mean two unrelated things depending on the
-        # device's function. invert is never consulted for a pwm/adc ref
-        # (or, adc, does not exist at all), even on a collected entry whose
-        # instance sets invert: true.
+        # Rewrite &plug (or the routing jumper) to the socket's nexus --
+        # a real board node, or a synthesized carrier nexus. dtc chases
+        # the (multi-level) gpio-map to the pin.
+        # invert is a GPIO-only concept: it flips the active-level flag
+        # bit a gpio ref alone carries. PWM_POLARITY is a different
+        # property, authored by the shield in its own pwms= ref (a
+        # 3-cell socket carries a real flags cell) -- coupling the two
+        # would make one rig key mean two unrelated things depending on
+        # the device's function. invert is never consulted for a pwm/adc
+        # ref (adc has no flags cell at all), even on a collected entry
+        # whose instance sets invert: true.
         flags = ref.flags ^ 0x1 if inst.invert else ref.flags
         return (f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {flags:#x}>;"
                 f"\t/* {ctype.posname(pos)}{' inverted' if inst.invert else ''} */")
@@ -327,10 +308,8 @@ def _render_ref(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
     _fn, _ctrl, _ch, period, flags, _pos = s.channels[(inst.name, dev.name, ref.prop)]
     if ref.function == "pwm":
         # PWM cells: the SOCKET's own #pwm-cells decides the word count --
-        # a real board socket's checked-read count (board_edt.py's
-        # _project_channel_map) or a carrier's inherited one
-        # (compose_socket's require-and-check), never a hardcoded
-        # constant (three-cell-pwm-brief.md Sec 3b). A 2-cell socket
+        # a real board socket's checked-read count or a carrier's
+        # inherited one, never a hardcoded constant. A 2-cell socket
         # matches upstream atmel,sam0-tcc-pwm's flags-less convention
         # (channel, period); its pwm-map-pass-thru <0x0 0xffffffff>
         # carries exactly ONE cell through, so a 3rd cell here would not
@@ -377,9 +356,10 @@ def _render_ref(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
 def _mux_node(rig: Rig, s: Solved, types: Dict[str, ConnectorType], inst: Instance,
              dev: Device, addr: int,
              channels: List[Tuple[object, str]]) -> List[str]:
-    """A scope-creating interposer device (S8 I2C mux): the device node on the
-    parent bus, with one child channel bus per scope, each hosting that scope's
-    modules. Per-scope address uniqueness means 0x48 can recur across channels."""
+    """A scope-creating interposer device (an I2C mux): the device node on
+    the parent bus, with one child channel bus per scope, each hosting that
+    scope's modules. Per-scope address uniqueness means 0x48 can recur
+    across channels."""
     label = f"{inst.name}_{dev.label}"
     lines = [f"\t{label}: {dev.name}@{addr:x} {{"]
     for _pname, rendered in _instance_extra_props(inst, dev):   # compatible, ...
@@ -388,9 +368,8 @@ def _mux_node(rig: Rig, s: Solved, types: Dict[str, ConnectorType], inst: Instan
               "\t\t#size-cells = <0>;"]
     # channel is an int at runtime (shield,channel, model.ExposedSocket's
     # own comment) behind the model's loose `object` annotation -- sort
-    # key casts rather than widening the annotation, so this stays the
-    # SAME (channel, scope_path) ordering the blueprint's bare sorted()
-    # produces for the only shape channel ever takes.
+    # key casts rather than widening the annotation, preserving the plain
+    # (channel, scope_path) ordering for the only shape channel ever takes.
     for channel, scope_path in sorted(
             channels, key=lambda cp: (cast(int, cp[0]), cp[1])):
         lines += [f"\t\tchannel@{channel} {{", f"\t\t\treg = <{channel}>;",
@@ -417,13 +396,12 @@ def _device_node(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
     if reg is not None:
         lines.append(f"\t\treg = {reg};")
     for ref in dev.gpio_refs:
-        # PER-REFERENCE resolution (ruling 2): a cross-plug ref's own
-        # slot may differ from this device's own bus slot, so each ref
-        # looks up ITS OWN socket rather than sharing one across the
-        # whole device -- handled inside _render_ref, shared verbatim
-        # with _collection_entry so the gpio/pwm/adc branch is written
-        # exactly once (see that function's own docstring for why this
-        # was extracted).
+        # PER-REFERENCE resolution: a cross-plug ref's own slot may
+        # differ from this device's own bus slot, so each ref looks up
+        # ITS OWN socket rather than sharing one across the whole device
+        # -- handled inside _render_ref, shared verbatim with
+        # _collection_entry so the gpio/pwm/adc branch is written exactly
+        # once.
         lines.append(_render_ref(s, types, inst, dev, ref))
     # Every device the analyzer accepted is, by definition, installed
     # hardware -- match the legacy shield convention of an explicit
@@ -448,20 +426,19 @@ def _device_node(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
 
 
 def _synth_nexus_nodes(s: Solved) -> List[str]:
-    """Emit a gpio-nexus node for each carrier-exported socket in use (R19,
-    Option C), chaining to its parent's nexus. Matches hand-written nested
-    overlays: a click's <&carrier_nexus pos> resolves through the carrier to
-    the host board pin, keeping the routing visible in the artifact."""
+    """Emit a gpio-nexus node for each carrier-exported socket in use,
+    chaining to its parent's nexus. Matches hand-written nested overlays:
+    a click's <&carrier_nexus pos> resolves through the carrier to the
+    host board pin, keeping the routing visible in the artifact."""
     synth: Dict[str, BoardSocket] = {}
 
     def visit(sock: Optional[BoardSocket]) -> None:
         # skip board sockets (no rows of ANY kind -- nexus_label is None)
         # and sockets with nothing to route at all. An analog-only exposed
         # socket (adc/pwm rows, no gpio -- e.g. a carrier's grove_a* with
-        # no digital pass-through) must NOT be skipped here (carrier-
-        # analog-passthrough-brief.md Sec 5): checking nexus_rows alone
-        # would drop it, since gpio's own rows are the only ones that used
-        # to exist.
+        # no digital pass-through) must NOT be skipped here: checking
+        # nexus_rows alone would drop it, since gpio is not the only kind
+        # of row a nexus can carry.
         if (sock is None
                 or not (sock.nexus_rows or sock.pwm_nexus_rows or sock.adc_nexus_rows)
                 or sock.nexus_label in synth):
@@ -492,8 +469,7 @@ def _synth_nexus_nodes(s: Solved) -> List[str]:
                     # the same nexus idiom the board's own typed socket uses.
                     # Without this edtlib demands an exact specifier match, so
                     # a consumer's <&nexus pos GPIO_ACTIVE_LOW> would fail
-                    # against the stored <pos 0> row (the bug that blocked
-                    # nested-carrier rigs).
+                    # against the stored <pos 0> row.
                     "\t\tgpio-map-mask = <0xffffffff 0xffffffc0>;",
                     "\t\tgpio-map-pass-thru = <0 0x3f>;",
                     f"\t\tgpio-map = {rows};"]
@@ -512,22 +488,18 @@ def _synth_nexus_nodes(s: Solved) -> List[str]:
 
 def _channel_nexus_block(cells_prop_base: str, map_prop: str, cells: int,
                          rows: List[Tuple[int, str, int]]) -> List[str]:
-    """The pwm-map / io-channel-map lines of a synthesized nexus node
-    (carrier-analog-passthrough-brief.md Sec 3b/5): the SAME mask/pass-
-    thru idiom `boards/extend/seeed/seeeduino_lotus/grove_sockets.dtsi`
-    authors by hand on a REAL board socket, generated here for a
-    SYNTHESIZED carrier one. Cell 0 (position) is always matched in
-    full; every cell after it (pwm's own period cell; none for adc's
-    single-cell form) is passed through UNTOUCHED to the parent, exactly
-    mirroring `_render_ref`'s own comment on why a flags/period cell
-    must never be resolved here -- it belongs to whatever the consuming
-    shield's own ref supplies, chased through by dtc, not decided by
-    this expander. `cells` is the PARENT's own declared count (carried
-    onto this BoardSocket by compose_socket's require-and-check, Sec 3c
-    -- a carrier inherits it, never chooses its own), so the node this
-    function renders always presents the SAME cell count its own parent
-    does, chaining correctly however many carriers deep the composition
-    goes."""
+    """The pwm-map / io-channel-map lines of a synthesized nexus node: the
+    same mask/pass-thru idiom `boards/extend/seeed/seeeduino_lotus/
+    grove_sockets.dtsi` authors by hand on a real board socket, generated
+    here for a synthesized carrier one. Cell 0 (position) is always
+    matched in full; every cell after it (pwm's own period cell; none
+    for adc's single-cell form) is passed through UNTOUCHED to the
+    parent -- it belongs to whatever the consuming shield's own ref
+    supplies, chased through by dtc, not decided by this expander.
+    `cells` is the PARENT's own declared count (a carrier inherits it,
+    never chooses its own), so the node this function renders always
+    presents the SAME cell count its own parent does, chaining correctly
+    however many carriers deep the composition goes."""
     mask = " ".join(["0xffffffff"] + ["0x00000000"] * (cells - 1))
     pass_thru = " ".join(["0x00000000"] + ["0xffffffff"] * (cells - 1))
     row_words = " ".join(["0"] * (cells - 1))

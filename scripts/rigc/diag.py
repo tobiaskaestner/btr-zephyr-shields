@@ -1,11 +1,9 @@
 """Diagnostics core: diagnostics are DATA, returned upward.
 
-The three unit-test-hostile shapes are banned here by construction
-(rigc-mission-brief.md Sec 6): no mutable accumulator threaded in and
-written to, no whole-model parameters where a value would do, no side
-channel. A function that finds something wrong RETURNS Diagnostic values
-(alone or beside its result); composition is list concatenation at the
-caller.
+No mutable accumulator threaded in and written to, no whole-model
+parameters where a value would do, no side channel: a function that
+finds something wrong RETURNS Diagnostic values (alone or beside its
+result); composition is list concatenation at the caller.
 
 ONE renderer produces the frozen stderr format the goldens specify:
 
@@ -13,28 +11,21 @@ ONE renderer produces the frozen stderr format the goldens specify:
         <message continuation lines, four-space indented>
         at <path>:<line> (<key>)
 
-Anchor-path rule (rigc-r1-brief.md Sec 3, RATIFIED): module-agnostic --
-if the path lies under a `scripts/<module>/` component, it renders
-relative to that component; otherwise it renders absolute. On the frozen
-corpus this was byte-identical to the retired tool's own-package-dir
-rule (its reject fixtures lived under scripts/rigexp/), which is why the
-fixture move to scripts/rigc/ at cutover left every anchor line
-unchanged. anchor_path() is a
-pure function of the path value alone -- deliberately no module-scope
-dirname(__file__) constant -- so unit tests exercise it with synthetic
-roots.
-"""
+Anchor-path rule, module-agnostic: if the path lies under a
+`scripts/<module>/` component, it renders relative to that component;
+otherwise it renders absolute. anchor_path() is a pure function of the
+path value alone -- deliberately no module-scope dirname(__file__)
+constant -- so unit tests exercise it with synthetic roots."""
 from __future__ import annotations
 
 import os
 from dataclasses import dataclass
 from typing import Iterable, Literal, Optional, Sequence
 
-#: Severity vocabulary, closed at the TYPE level (joint review
-#: 2026-07-29): this is the module where a severity typo becomes wrong
-#: frozen bytes, so mypy gets to veto one. The taxonomy carries over
-#: from the goldens: "lang-*" codes come from the loader, "phys-*"
-#: codes from the analyzer.
+#: Severity vocabulary, closed at the TYPE level: this is the module
+#: where a severity typo becomes wrong frozen bytes, so mypy gets to
+#: veto one. The taxonomy carries over from the goldens: "lang-*" codes
+#: come from the loader, "phys-*" codes from the analyzer.
 Severity = Literal["error", "warning"]
 ERROR: Severity = "error"
 WARNING: Severity = "warning"
@@ -58,9 +49,9 @@ class Diagnostic:
     severity: Severity
     code: str                           # "lang-*" | "phys-*"
     message: str
-    # None entries are LEGAL and skipped at render time (the blueprint's
-    # own guard): callers pass (dev.src, inst.src)-shaped tuples whose
-    # members may be absent without filtering at every site.
+    # None entries are LEGAL and skipped at render time: callers pass
+    # (dev.src, inst.src)-shaped tuples whose members may be absent
+    # without filtering at every site.
     refs: tuple[Optional[SourceRef], ...] = ()
 
 
@@ -83,7 +74,7 @@ def has_errors(diags: Iterable[Diagnostic]) -> bool:
 
 
 def anchor_path(path: str) -> str:
-    """The RATIFIED anchor-path rule, module-agnostic: render a path under
+    """The anchor-path rule, module-agnostic: render a path under
     a `scripts/<module>/` component relative to that component (the
     DEEPEST such component wins, the most specific reading), otherwise
     render it unchanged. A file directly under a `scripts/` component has
@@ -124,17 +115,12 @@ class LoadError(Exception):
     """A fatal loader failure (a YAML/DTS parse error, cpp preprocessing
     that failed outright) -- loading cannot continue past this point at
     all, unlike an ordinary Diagnostic finding, which composes upward as
-    data and lets the caller keep going (rigc-r2-brief.md Sec 6's
-    continuation shape). Carries the DIAGNOSTICS to render: the fatal
-    finding itself, plus -- prepended at each accumulation boundary that
-    the raise unwinds through (library scan, loader orchestration) --
-    everything that boundary had already gathered. rigexp's shared
-    accumulator survives the raise by OWNERSHIP; with diagnostics as
-    return values, carrying them in the exception is what keeps a raise
-    invisible in the rendered output (R3 review finding D1: the earlier
-    single-diag shape silently dropped every prior finding on the fatal
-    path -- a loss no frozen golden can catch, since none carries
-    lang-parse/lang-cpp)."""
+    data and lets the caller keep going. Carries the DIAGNOSTICS to
+    render: the fatal finding itself, plus -- prepended at each
+    accumulation boundary that the raise unwinds through (library scan,
+    loader orchestration) -- everything that boundary had already
+    gathered, so a raise never silently drops a prior finding from the
+    rendered output."""
 
     def __init__(self, *diags: Diagnostic) -> None:
         # A LoadError with nothing to render would exit 1 with EMPTY

@@ -1,27 +1,23 @@
 """DTS plumbing for the SHIELD-template side, and for shield-declared
-per-instance-parameter token vocabularies (shield,param-includes:).
-Ported from rigexp/dtsio.py (rigc-r3-brief.md Sec 2): this module never
-touches the board DT (that is an analyzer-slice concern); what's here is
-cpp + stock dtlib parsing of `.shield` translation units (Ground rule 3
--- shield templates are pre-instantiation text with no binding/schema of
+per-instance-parameter token vocabularies (shield,param-includes:). This
+module never touches the board DT (that is an analyzer-slice concern);
+what's here is cpp + stock dtlib parsing of `.shield` translation units
+(shield templates are pre-instantiation text with no binding/schema of
 their own, so there is nothing for edtlib to attach type info to),
 ``dt-bindings/connector/*.h`` position-index header parsing, and
 resolve_token/check_include, the per-instance-parameter mechanism's own
 synthetic-TU resolution.
 
-**The cpp/unit-test seam** (rigc-mission-brief.md Sec 5, rigc-r3-brief.md
-Sec 2): cpp is a subprocess, so nothing that invokes it is unit-testable.
-`run_cpp`/`parse_dts`/`parse_tu`/`check_include`/`resolve_token` are
-integration-only by construction; `is_int_literal`, `words`, `render_prop`,
-`src_of` are pure and get unit tests directly.
+**The cpp/unit-test seam**: cpp is a subprocess, so nothing that invokes
+it is unit-testable. `run_cpp`/`parse_dts`/`parse_tu`/`check_include`/
+`resolve_token` are integration-only by construction; `is_int_literal`,
+`words`, `render_prop`, `src_of` are pure and get unit tests directly.
 
-**No module-scope $ZEPHYR_BASE lookup** (mission brief Sec 7, the
-dtsio.py:27 trap rigexp has and rigc designs out): `devicetree.dtlib` is
-located via `get_dtlib()`, called only from inside a function -- pytest
-imports every module in a directory before a marker expression (e.g.
-`-m "not build"`) deselects any one item, so a module-scope lookup would
-break collection for selections that never run it.
-"""
+**No module-scope $ZEPHYR_BASE lookup**: `devicetree.dtlib` is located
+via `get_dtlib()`, called only from inside a function -- pytest imports
+every module in a directory before a marker expression (e.g. `-m "not
+build"`) deselects any one item, so a module-scope lookup would break
+collection for selections that never run it."""
 from __future__ import annotations
 
 import logging
@@ -38,9 +34,8 @@ from .diag import LoadError, SourceRef, error
 log = logging.getLogger(__name__)
 
 #: This module's own file, two levels up from scripts/rigc/dtsio.py ->
-#: the repo root -- the same self-location rigexp's MODULE_ROOT uses,
-#: computed from __file__ alone (no environment lookup, so this constant
-#: is safe at module scope).
+#: the repo root, computed from __file__ alone (no environment lookup,
+#: so this constant is safe at module scope).
 MODULE_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 MODULE_INC = os.path.join(MODULE_ROOT, "include")
 
@@ -146,8 +141,8 @@ def parse_tu(includes: List[str], workdir: str, name: str,
             include_dirs: Optional[List[str]] = None):
     """Build + parse a one-off translation unit that includes the given
     files -- the shield-TU entry point (one base `.shield` plus an
-    optional resolved revision fragment, cpp-included into ONE unit,
-    V1c's no-YAML-merge design).
+    optional resolved revision fragment, cpp-included into ONE unit
+    rather than merged as YAML).
 
     Returns the parsed dtlib.DT of the synthesized unit (parse_dts's
     failure shapes apply)."""
@@ -256,9 +251,9 @@ def render_prop(prop) -> Optional[str]:
     interpret (compatible, spi-max-frequency, jedec-id, ...). Returns a
     complete "name = value;" string, or None if the type can't
     passthrough. Renders via dtlib's typed accessors with its OWN stable
-    formatting, never str(prop) (see rigexp/dtsio.py's own docstring for
-    why: authored numeric radix and phandle-label leakage are both
-    load-bearing reasons)."""
+    formatting, never str(prop): str(prop) can leak an authored numeric
+    radix or a phandle's label rather than the value dtlib resolved,
+    which this passthrough must not do."""
     dtlib = get_dtlib()
     T = dtlib.Type
     t = prop.type
@@ -292,7 +287,7 @@ def check_include(header: str, workdir: str, tag: str,
                   ) -> Tuple[Optional[str], List[str]]:
     """Confirm one declared header (a shield device's own
     shield,param-includes entry) is real and preprocesses cleanly on its
-    own (rule 6, "lang-dt-include").
+    own (the "lang-dt-include" diagnostic).
 
     Returns (detail, files): detail is an error detail string on failure,
     else None; files is every real file this preprocess opened

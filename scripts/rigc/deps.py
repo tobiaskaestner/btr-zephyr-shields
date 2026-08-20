@@ -5,13 +5,11 @@ RIG_DEPENDS handoff. `emitter.context.render` serializes a value of this
 type into the sorted, escaped RIG_DEPENDS list cmake/dts.cmake appends to
 CMAKE_CONFIGURE_DEPENDS.
 
-Ratified ruling 3: dependency data is a RETURNED/threaded VALUE, never a
-mutable accumulator (rigexp's own `Depends` is a mutable `set` passed down
-and written into by `.see()` -- exactly the banned shape, mission brief
-Sec 6). Every function that opens a real file returns the paths it
-touched as part of its own result; callers compose them upward with
-`union`, the same way diagnostics compose upward as list concatenation.
-"""
+Dependency data is a RETURNED/threaded VALUE, never a mutable
+accumulator passed down and written into. Every function that opens a
+real file returns the paths it touched as part of its own result;
+callers compose them upward with `union`, the same way diagnostics
+compose upward as list concatenation."""
 from __future__ import annotations
 
 import os

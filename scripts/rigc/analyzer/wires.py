@@ -1,15 +1,12 @@
-"""Wires and emission feasibility of routes (`_check_wires`,
-`analyzer.py:615-650`, rigc-r4-brief.md Sec 5). No frozen golden covers
-this family (phys-wire) -- every diagnostic here falls under the
-hand-differential rule (rigc-mission-brief.md Sec 2's standing
-discipline, rigc-r2-brief.md Sec 6).
+"""Wires and emission feasibility of routes. No frozen golden covers
+this family (phys-wire) -- every diagnostic here is checked by hand
+differential rather than a golden byte comparison.
 
-Value-shaped and non-mutating: the blueprint resolves a `route: via
-<name>` string to its connector-type position INDEX by mutating
-`wire.route` in place; this module instead returns a NEW list of Wire
-values with the route already resolved, so the pass composes like every
-other one here (`(its piece, diagnostics)`), never writing into a Rig it
-was handed."""
+Value-shaped and non-mutating: a `route: via <name>` string resolves to
+its connector-type position INDEX without mutating `wire.route` in
+place -- this module returns a NEW list of Wire values with the route
+already resolved, so the pass composes like every other one here
+(`(its piece, diagnostics)`), never writing into a Rig it was handed."""
 from __future__ import annotations
 
 from typing import Dict, List, Tuple, Union
@@ -26,10 +23,9 @@ def _resolve_via_route(wire: Wire, route: str, by_name: Dict[str, Instance],
     out: resolved to the connector type's own position INDEX, through
     the FROM end's socket. Ambiguous for a plural FROM instance (which
     of its several plugs would the position even be relative to?) --
-    refused loudly rather than guessed at (multi-plug-shield-brief.md
-    Sec 4/6). Returns the route UNCHANGED (still the raw name) whenever
-    it does not resolve, so the caller always builds the same Wire
-    either way, refusal or not."""
+    refused loudly rather than guessed at. Returns the route UNCHANGED
+    (still the raw name) whenever it does not resolve, so the caller
+    always builds the same Wire either way, refusal or not."""
     diags: List[Diagnostic] = []
     frm_inst = by_name.get(wire.frm.instance_name)
     if frm_inst is not None and len(frm_inst.shield.plugs) > 1:
@@ -55,7 +51,7 @@ def _resolve_via_route(wire: Wire, route: str, by_name: Dict[str, Instance],
 def check_wires(rig: Rig, sockets: Sockets,
                 types: Dict[str, ConnectorType],
                 ) -> Tuple[List[Wire], List[Diagnostic]]:
-    """The wire pass (R22): endpoints against resolved sockets, route
+    """The wire pass: endpoints checked against resolved sockets, route
     names resolved to positions.
 
     Returns (wires, diagnostics): a NEW list of resolved Wire values --

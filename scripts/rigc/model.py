@@ -1,18 +1,11 @@
-"""The rig model: syntax-free semantic representation of a rig, plus (R3)
-the shield-template model every instance's `shield:` reference resolves
+"""The rig model: syntax-free semantic representation of a rig, plus the
+shield-template model every instance's `shield:` reference resolves
 against.
 
-Mirrors rigexp/model.py's shape for the same entities (Rig, Instance, Wire,
-WireEnd, AxisDecl, and now the shield-side ConnectorType/Shield/Device/
-Pad/Strap/Jumper/ExposedSocket family) closely enough that a reviewer
-comparing the two trees recognizes the same ontology.
-
-R2's ShieldRef seam is GONE (rigc-r3-brief.md Sec 0): Instance.shield is
-now a real, resolved Shield -- rigc's loader/library.py builds the
-library and resolves every reference against it before an Instance ever
-exists, exactly as rigexp's loader_yml.load_shield_library +
-ShieldLibrary.resolve do.
-"""
+`Instance.shield` is a real, resolved `Shield`: `loader/library.py`
+builds the shield library and resolves every reference against it
+before an `Instance` ever exists, so nothing downstream carries an
+unresolved reference."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -37,8 +30,7 @@ class Position:
 
 @dataclass
 class ConnectorType:
-    """A connector type IS its binding pair + index header (Conv. 1,
-    registry.py's own docstring)."""
+    """A connector type IS its binding pair + index header."""
 
     name: str                          # "arduino-r3"
     positions: Dict[str, Position]     # claimable positions, by name
@@ -60,21 +52,19 @@ class ConnectorType:
 
 @dataclass
 class GpioRef:
-    """A gpio-spec property on a shield device. Two shapes (Conv. 2)::
+    """A gpio-spec property on a shield device. Two shapes::
 
-      fixed position  -- <&plug POSITION flags>: position is position.
-      deferred (R6)   -- <&jumper flags>: position selected by a routing
-                        jumper, jumper names it and position is None
-                        until the analyzer resolves the rig's selection.
+      fixed position -- <&plug POSITION flags>: position is position.
+      deferred        -- <&jumper flags>: position selected by a routing
+                          jumper, jumper names it and position is None
+                          until the analyzer resolves the rig's selection.
 
     `plug` is the SLOT this reference resolves through -- the shield's own
-    plug node the phandle actually named (`shields.py`'s `_parse_pos_ref`
-    already validates the phandle against a plug; this records WHICH one),
-    granularity PER-REFERENCE rather than per-device: a device sitting on
-    one plug's bus may still carry a gpio ref that names a DIFFERENT plug
-    (a cross-plug reference, multi-plug-shield-brief.md Sec 2). For a
-    shield with one plug this is that plug's own node name -- `"plug"` by
-    convention, but its NAME, not a default."""
+    plug node the phandle actually named, recorded PER-REFERENCE rather
+    than per-device: a device sitting on one plug's bus may still carry a
+    gpio ref that names a DIFFERENT plug. For a shield with one plug this
+    is that plug's own node name -- `"plug"` by convention, but its NAME,
+    not a default."""
 
     prop: str
     position: Optional[int]
@@ -97,19 +87,17 @@ class Device:
     addr_from: Optional[str]        # strap name -- deferred address, explicit not absent
     cs_position: Optional[int]      # copper-fixed CS (shield,cs-position)
     # the slot THIS device's own BUS group nests under -- None for a
-    # plain (non-bus) group device, which is plug-AGNOSTIC (its own gpio
-    # refs each carry their own plug instead, multi-plug-shield-brief.md
-    # Sec 2's placement rule); "plug" for any bus device of a single-plug
-    # shield. Never consulted for a plain-group device (nothing reads it
-    # without first checking `bus` is not None).
+    # plain (non-bus) group device, which is plug-agnostic (its own gpio
+    # refs each carry their own plug instead); "plug" for any bus device
+    # of a single-plug shield. Never consulted for a plain-group device
+    # (nothing reads it without first checking `bus` is not None).
     plug: Optional[str] = "plug"
     collect: Optional[str] = None   # collection compatible (gpio-keys/leds): this is an ENTRY
     declared_params: List[str] = field(default_factory=list)  # shield,params: names
-    # shield,param-includes: headers -- the vocabulary declared_params' own
-    # tokens resolve against (param-vocabulary-brief.md Sec 3): a
-    # macro-only header contributes no node/property of its own, so it
-    # cannot be recovered from this device's other DTS content and must be
-    # declared explicitly, on the SAME node as the parameter it backs.
+    # shield,param-includes: headers -- a macro-only header contributes no
+    # node/property of its own, so it cannot be recovered from this
+    # device's other DTS content and must be declared explicitly, on the
+    # SAME node as the parameter it backs.
     declared_param_includes: List[str] = field(default_factory=list)
     gpio_refs: List[GpioRef] = field(default_factory=list)
     extra_props: List[Tuple[str, str]] = field(default_factory=list)  # rendered passthrough
@@ -118,18 +106,18 @@ class Device:
 
 @dataclass
 class Pad:
-    """Arity-1 connector (ontology refinement 2)."""
+    """Arity-1 connector."""
 
     name: str
     label: str
-    role: str                       # driver | listener | bidir (R23)
+    role: str                       # driver | listener | bidir
     of: Optional[str]               # device name it belongs to
     src: Optional[SourceRef] = None
 
 
 @dataclass
 class Strap:
-    """Configuration element selecting from an ADDRESS domain (R17)."""
+    """Configuration element selecting from an ADDRESS domain."""
 
     name: str
     label: str
@@ -140,7 +128,7 @@ class Strap:
 
 @dataclass
 class Jumper:
-    """Configuration element selecting from a POSITION domain (R6) -- the
+    """Configuration element selecting from a POSITION domain -- the
     position-side twin of Strap."""
 
     name: str
@@ -158,59 +146,44 @@ class Jumper:
 
 @dataclass
 class ExposedSocket:
-    """A socket a carrier/interposer shield re-exports (R19), now
-    potentially composed from SEVERAL named parents (multi-plug-carrier-
-    brief.md Sec 1 ruling 1): a plural carrier's exposed socket may pass
-    through or scope-create buses sourced from different plugs, and each
-    gpio-map row may resolve through a different plug too."""
+    """A socket a carrier/interposer shield re-exports, potentially
+    composed from SEVERAL named parents: a plural carrier's exposed
+    socket may pass through or scope-create buses sourced from different
+    plugs, and each gpio-map row may resolve through a different plug
+    too."""
 
     name: str                       # node name -- what the rig references after the dot
     label: str
     type_name: str                  # from compatible "socket,<type>"
     # exposed position -> (parent SLOT, parent plug position, flags) --
-    # the phandle a gpio-map row already carries names WHICH of the
-    # carrier's plugs the row resolves through (widened exactly as
-    # GpioRef.plug widens "must be THIS shield's plug" to "one of this
-    # shield's plugs"); "plug" for every row of a single-plug carrier
-    # (byte-identical to the pre-slice shape once the slot is dropped).
+    # the phandle a gpio-map row carries names WHICH of the carrier's
+    # plugs the row resolves through; "plug" for every row of a
+    # single-plug carrier.
     gpio_map: Dict[int, Tuple[str, int, int]]
     # kind (bare, or role-suffixed per the multi-bus vocabulary) ->
-    # ("plug", parent SLOT) pass-through (S6, widened one level up) |
-    # ("scope", dev-label) new scope (S8, UNCHANGED shape -- the scope
-    # root is a device, which already carries its own slot via
-    # Device.plug, so no third marker dimension is needed there).
+    # ("plug", parent SLOT) pass-through | ("scope", dev-label) new
+    # scope -- the scope root is a device, which already carries its
+    # own slot via Device.plug.
     buses: Dict[str, object]
-    # PWM/ADC pass-through (carrier-analog-passthrough-brief.md Sec 5):
-    # SAME shape as gpio_map, deliberately -- position -> (parent SLOT,
-    # parent plug position, trailing filler cell). The filler is always 0
-    # for both: pwm's row carries a period placeholder cell at this exact
-    # word position (mirroring gpio's own flags cell, never read past
-    # parse time -- the REAL period only exists once a consuming shield's
-    # own ref supplies one, downstream of this composition entirely), and
-    # adc's row has no such cell in the DTS source at all, so 0 is a pure
-    # placeholder there -- one convention for all three maps rather than
-    # inventing a third, narrower one for the two that don't need gpio's
-    # own flags semantics.
+    # PWM/ADC pass-through: SAME shape as gpio_map -- position -> (parent
+    # SLOT, parent plug position, trailing filler cell). The filler is
+    # always 0 (pwm's row carries an unused period placeholder here; adc's
+    # row has no such cell in the DTS source at all).
     pwm_map: Dict[int, Tuple[str, int, int]] = field(default_factory=dict)
     adc_map: Dict[int, Tuple[str, int, int]] = field(default_factory=dict)
-    # The carrier's OWN declared #pwm-cells / #io-channel-cells (RULED,
-    # require-and-check): mandatory alongside the corresponding map
-    # (shields.py's own parse-time check), read here so compose_socket can
+    # The carrier's OWN declared #pwm-cells / #io-channel-cells: mandatory
+    # alongside the corresponding map, read here so compose_socket can
     # refuse a disagreement against the resolved parent's own count
-    # (BoardSocket.pwm_cells/.adc_cells) without re-deriving it. None
-    # whenever the socket carries no map for that function (declared by
-    # absence, same convention as gpio_map/buses/cs_pool above).
+    # without re-deriving it. None when the socket carries no map for
+    # that function.
     pwm_cells: Optional[int] = None
     adc_cells: Optional[int] = None
     # per-qualified-bus authored cs-pool override, keyed the same way
     # BoardSocket.buses/ConnectorType.cs_pool are (kind, or kind-role) --
-    # a bare "socket,cs-pool" property (every carrier's own spelling
-    # today) parses into the "spi" entry, since CS only ever applies to
-    # SPI: byte-identical to the old flat-list meaning for any carrier
-    # that authors it (none in the corpus do today). Absent from the
-    # dict = no override, same as the old None.
+    # a bare "socket,cs-pool" property parses into the "spi" entry, since
+    # CS only ever applies to SPI. Absent from the dict = no override.
     cs_pool: Dict[str, List[int]] = field(default_factory=dict)
-    channel: object = None          # mux channel index (scope-creating interposer, S8)
+    channel: object = None          # mux channel index (scope-creating interposer)
     src: Optional[SourceRef] = None
 
 
@@ -218,14 +191,11 @@ class ExposedSocket:
 class Shield:
     name: str                       # node name: "adafruit-data-logger"
     label: str                      # DTS label: data_logger
-    # slot name -> consumed connector type, in AUTHORING order
-    # (multi-plug-shield-brief.md Sec 3). One entry per plug NODE, keyed by
-    # that node's own name -- conventionally `"plug"` for a shield with one
-    # (plug-unification-brief.md: there is one authored form, so a single
-    # plug is not a normalized special case). Every consumer keys through
-    # this rather than assuming a bare string, and `len(plugs) > 1` IS the
-    # plurality discriminator every rendering/refusal rule gates on --
-    # never the authored shape, which no longer varies.
+    # slot name -> consumed connector type, in AUTHORING order. One entry
+    # per plug NODE, keyed by that node's own name (conventionally
+    # `"plug"` for a shield with one). Every consumer keys through this
+    # rather than assuming a bare string, and `len(plugs) > 1` IS the
+    # plurality discriminator every rendering/refusal rule gates on.
     plugs: Dict[str, str]
     devices: List[Device] = field(default_factory=list)
     pads: Dict[str, Pad] = field(default_factory=dict)
@@ -233,14 +203,13 @@ class Shield:
     jumpers: Dict[str, Jumper] = field(default_factory=dict)
     exposes: Dict[str, ExposedSocket] = field(default_factory=dict)
     by_path: Dict[str, object] = field(default_factory=dict)   # dtlib path -> element
-    # shield.yml's declared revision: axis (V1c) and which one THIS Shield
+    # shield.yml's declared revision axis, and which one THIS Shield
     # represents -- both None for a shield with no revision: block.
     # `revision` is the RESOLVED value (what constructed this Shield's own
-    # stems, hwmv2-revision-semantics-brief.md Sec 3); `revision_requested`
-    # is the raw `<name>@<rev>` value a reference actually named, kept
-    # ONLY for provenance -- nearest-lower match means the two can differ,
-    # and every filename/RIG_SHIELD_REVISIONS entry is built from
-    # `revision`, never `revision_requested`.
+    # stems); `revision_requested` is the raw `<name>@<rev>` a reference
+    # actually named, kept only for provenance -- nearest-lower match
+    # means the two can differ, and every filename/RIG_SHIELD_REVISIONS
+    # entry is built from `revision`, never `revision_requested`.
     revisions: Optional["AxisDecl"] = None
     revision: Optional[str] = None
     revision_requested: Optional[str] = None
@@ -320,15 +289,12 @@ class Instance:
     name: str
     shield: Shield
     # slot name -> authored reference, each already resolved through a
-    # SocketBinding (multi-plug-shield-brief.md Sec 2). A slot mapped to
-    # None means the author declared no reference for THAT slot, so it is
-    # not yet resolved to a physical socket -- the analyzer infers it iff
-    # exactly one board socket mates the slot's own connector type
-    # (socket-inference-brief.md), now per slot. The loader carries the
-    # absence through unresolved rather than picking one itself: it never
-    # sees the board, which is precisely what lets it stay ignorant of
-    # board identity everywhere else. A shield with one plug has one entry,
-    # keyed by that plug's own name exactly as `Shield.plugs` is.
+    # SocketBinding. A slot mapped to None means the author declared no
+    # reference for that slot: the analyzer infers it iff exactly one
+    # board socket mates the slot's own connector type. The loader
+    # carries the absence through unresolved rather than picking one
+    # itself, since it never sees the board. Keyed exactly as
+    # `Shield.plugs` is.
     sockets: Dict[str, Optional[str]]
     invert: bool = False            # flip the active level of the module's gpio signals
     pins: Dict[str, int] = field(default_factory=dict)          # strap name -> pinned address
@@ -345,9 +311,9 @@ class Instance:
 
 
 # ---------------------------------------------------------------- board side
-# The board DT is analyzer input (Conv. 4: the analyzer reads the board DT
-# to find socket nodes by compatible); these are READ, never authored,
-# facts -- populated by board_edt.py, never redefined there.
+# The board DT is analyzer input: the analyzer reads the board DT to find
+# socket nodes by compatible. These are READ, never authored, facts --
+# populated by board_edt.py, never redefined there.
 
 
 @dataclass
@@ -371,41 +337,33 @@ class BoardSocket:
     buses: Dict[str, BusRef]                     # qualified bus name (kind, or kind-role) present = offered subset
     pwm_map: Dict[int, Tuple[str, int]] = field(default_factory=dict)  # position -> (ctrl label, channel)
     adc_map: Dict[int, Tuple[str, int]] = field(default_factory=dict)  # position -> (ctrl label, channel)
-    # This socket's OWN declared #pwm-cells / #io-channel-cells (carrier-
-    # analog-passthrough-brief.md Sec 3c) -- for a REAL board socket,
-    # board_edt.py's own checked read (never the discarded period cell);
-    # for a carrier's SYNTHESIZED socket, compose_socket carries the
-    # carrier's own declared count forward once it has been checked equal
-    # to the parent's. None whenever the socket has no map for that
-    # function (mirrors pwm_map/adc_map's own declared-by-absence
-    # convention). A carrier does NOT get to choose its own count -- it
-    # inherits whatever the board it lands on declares; this field is what
-    # lets that inheritance be CHECKED and EMITTED (L3's #pwm-cells /
-    # #io-channel-cells on the synthesized nexus) rather than assumed.
+    # This socket's OWN declared #pwm-cells / #io-channel-cells: for a
+    # real board socket, board_edt.py's checked read (never the discarded
+    # period cell); for a synthesized carrier socket, compose_socket
+    # carries the parent's declared count forward once checked equal to
+    # it. A carrier never chooses its own count -- it inherits whatever
+    # the board it lands on declares.
     pwm_cells: Optional[int] = None
     adc_cells: Optional[int] = None
-    # emission (R19): every socket is referenced through a nexus. Board
-    # sockets are real DT nodes (nexus_label=None -> use label, nothing to
-    # synthesize); a carrier's re-exported socket has no DT node of its own,
-    # so the analyzer/emitter SYNTHESIZE one that chains to its parent's.
+    # Every socket is referenced through a nexus. Board sockets are real
+    # DT nodes (nexus_label=None -> use label, nothing to synthesize); a
+    # carrier's re-exported socket has no DT node of its own, so the
+    # analyzer/emitter SYNTHESIZE one that chains to its parent's.
     nexus_label: Optional[str] = None
     nexus_rows: Optional[List[Tuple[int, str, int]]] = None  # [(child_pos, parent_nexus_label, parent_pos)]
-    # PWM/ADC twins of nexus_rows above (§3/§5 L3): kept SEPARATE from
-    # nexus_rows (rather than widening its own shape with a function tag)
-    # because a gpio-less, analog-only exposed socket must still synthesize
-    # a nexus node -- emitter/overlay.py's _synth_nexus_nodes.visit() skip
-    # guard checks all three, never nexus_rows alone.
+    # PWM/ADC twins of nexus_rows above, kept SEPARATE (rather than
+    # widening nexus_rows with a function tag) because a gpio-less,
+    # analog-only exposed socket must still synthesize a nexus node --
+    # emitter/overlay.py's skip guard checks all three, never nexus_rows
+    # alone.
     pwm_nexus_rows: Optional[List[Tuple[int, str, int]]] = None
     adc_nexus_rows: Optional[List[Tuple[int, str, int]]] = None
     # parent BoardSocket per SLOT of the carrier that synthesized this
-    # socket (multi-plug-carrier-brief.md Sec 3) -- empty for a real
-    # board socket. A single-plug carrier's composition still produces
-    # exactly one entry (slot "plug" for the single-plug authored form);
-    # a plural carrier's composition carries one entry per slot the
-    # carrier declares, regardless of how many of them any one exposed
-    # row/bus actually draws from. Exactly ONE consumer: emitter/
-    # overlay.py's transitive `visit`, which walks every parent for the
-    # nexus-chain synthesis (a carrier stacked on a carrier).
+    # socket -- empty for a real board socket. A single-plug carrier's
+    # composition still produces exactly one entry; a plural carrier's
+    # composition carries one entry per slot it declares. Walked by
+    # emitter/overlay.py's transitive `visit` for nexus-chain synthesis
+    # (a carrier stacked on a carrier).
     parents: Dict[str, "BoardSocket"] = field(default_factory=dict)
     src: Optional[SourceRef] = None
 
@@ -418,8 +376,7 @@ class Board:
     inside the phys-socket diagnostic (wording frozen by the
     unmapped-socket golden), so a second key per socket would list every
     aliased socket twice and churn it. aliases carries every ADDITIONAL
-    label a socket node declares (board-as-invocation-coordinate-brief.md
-    Sec 2.1's per-connector-type convention, e.g. "arduino_r3" alongside a
+    label a socket node declares (e.g. "arduino_r3" alongside a
     board-prefixed "nucleo_ard"), mapped to that socket's defining label --
     resolve() is the only thing that should widen with it; iteration over
     sockets itself must not."""
@@ -442,9 +399,8 @@ class Board:
 @dataclass
 class AxisDecl:
     """One declared qualifier axis: a rig's `variants:` (unchanged
-    shape), a rig's `revision:` (hwmv2's own shape --
-    hwmv2-revision-semantics-brief.md), or a shield's `revisions:` (its
-    OWN pre-hwmv2 shape, permanently -- `loader.axes.
+    shape), a rig's `revision:` (hwmv2's own shape), or a shield's
+    `revisions:` (its OWN pre-hwmv2 shape, permanently -- `loader.axes.
     parse_legacy_revision_decl`'s own docstring has the external reason).
     `values`/`default` are the values a selection may take and the one a
     bare (unqualified) target takes by default, shared by all three;
@@ -484,10 +440,9 @@ class Rig:
     # `revision` is the RESOLVED value (nearest-lower match already
     # applied) -- what every fragment filename, context.cmake entry and
     # RIG_REVISION is built from. `revision_requested` is the raw
-    # --revision string a target actually asked for, kept ONLY for
-    # provenance (hwmv2-revision-semantics-brief.md Sec 3): None whenever
-    # no --revision was given, equal to `revision` whenever the request
-    # matched a declared value exactly.
+    # --revision string a target actually asked for, kept only for
+    # provenance: None whenever no --revision was given, equal to
+    # `revision` whenever the request matched a declared value exactly.
     revision: Optional[str] = None
     revision_requested: Optional[str] = None
     variant: Optional[str] = None

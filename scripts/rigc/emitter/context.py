@@ -1,12 +1,8 @@
 """context.cmake -- the build-glue handoff, not a rig artifact: a cmake
 fragment the rig build module (dts.cmake) include()s to learn what the
-rig instantiated. Kept out of `emit()` (rigc-r5-brief.md Sec 2, driver's
-structural ruling Sec 8.3): the blueprint (rigexp/cli.py:174-230) builds
-this in-CLI with string concatenation specifically to keep it out of
-`emitter.emit()`, which stays rig-artifacts-only -- that semantic
-boundary survives here as a MODULE boundary instead: this is a pure value
-function over `(rig, deps)`, called by cli.py alongside (never inside)
-`emitter.emit()`.
+rig instantiated. Kept out of `emit()` so rig artifacts and build glue
+stay separate concerns: this is a pure value function over `(rig,
+deps)`; cli.py calls it alongside, never inside, `emitter.emit()`.
 
 rigc is the sole authority on what pass 1 actually read: `deps` is the
 UNION of every real source-tree file this run's loader/registry/board
@@ -46,41 +42,33 @@ def render(rig: Rig, deps: Deps) -> bytes:
     fresh bytes value the caller owns.
 
     RIG_NAME/RIG_BOARD/RIG_SHIELDS always appear. RIG_BOARD is `rig.board`
-    verbatim -- the board this build actually used, which since
-    board-coordinate-s6-brief.md Sec 11 can only ever be the CLI's own
-    `--board` (no rig file declares one any more, so there is no other
-    source to prefer); this function has no injection logic of its own, it
-    only ever echoes what the loader already resolved.
+    verbatim -- the board this build actually used, which can only ever
+    be the CLI's own `--board` (no rig file declares one); this function
+    has no injection logic of its own, it only ever echoes what the
+    loader already resolved.
 
     RIG_SHIELD_REVISIONS/RIG_REVISION/RIG_VARIANT appear only when the rig
     actually declares the corresponding axis/shield-revision -- the "no
     declaration, no artifact" rule that keeps an axis-less rig's
-    context.cmake byte-identical to one from before the axis existed.
-    RIG_REVISION is always the RESOLVED value (hwmv2's nearest-lower match
-    already applied, hwmv2-revision-semantics-brief.md Sec 3);
+    context.cmake free of the field entirely. RIG_REVISION is always the
+    RESOLVED value (hwmv2's nearest-lower match already applied);
     RIG_REVISION_REQUESTED appears alongside it only when a request was
     made AND it differs from what it resolved to -- dts.cmake's own
-    configure-log line reads this to print "requested -> resolved" only in
-    that case, never
-    when a rig simply took its declared default. RIG_DEPENDS is always
-    present, sorted, each element escaped for a CMake list literal
-    (`_cmake_list_escape`)."""
+    configure-log line reads this to print "requested -> resolved" only
+    in that case, never when a rig simply took its declared default.
+    RIG_DEPENDS is always present, sorted, each element escaped for a
+    CMake list literal (`_cmake_list_escape`)."""
     log.info("context.render(): rig '%s'", rig.name)
     shields: List[str] = []
     shield_revisions: List[str] = []
     for inst in rig.instances:
         if inst.shield.name not in shields:
             shields.append(inst.shield.name)
-        # The RESOLVED revision of every shield that DECLARES a
+        # The RESOLVED revision of every shield that declares a
         # revisions: axis, default selections included -- symmetric with
-        # RIG_REVISION/RIG_VARIANT below, which likewise appear whenever
-        # the rig declares the axis rather than only when a non-default
-        # value was chosen. Suppressing a defaulted revision would leave
-        # provenance unable to answer which revision of a shield a given
-        # build actually used (silence would mean both "revision 1" and
-        # "this shield has no revisions"), which is the question build
-        # provenance exists for; a value with a raw and a resolved form
-        # is always recorded in its RESOLVED form.
+        # RIG_REVISION/RIG_VARIANT below. Silence would mean both
+        # "revision 1" and "no revisions at all"; a value with a raw and
+        # a resolved form is always recorded in its RESOLVED form.
         shield = inst.shield
         if shield.revision is not None and shield.revisions is not None:
             pair = f"{shield.name}@{shield.revision}"
