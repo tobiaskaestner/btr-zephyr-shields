@@ -14,9 +14,9 @@ sheet's human-facing display value), not this module's.
 """
 from __future__ import annotations
 
-from typing import Dict, Iterator, List, Optional, Tuple, cast
+from typing import Dict, Iterator, List, Optional, Tuple
 
-from ..analyzer import Solved
+from ..analyzer import ChannelResolution, Solved
 from ..analyzer.socketmap import for_bus_device, for_ref, slots_of
 from ..buskind import is_bus_kind
 from ..model import BoardSocket, ConnectorType, Device, GpioRef, Instance, Rig
@@ -58,7 +58,7 @@ def _i2c_scopes(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[st
     # I2C scopes -- expander is the sole author of reg + unit-address, always
     # as a matching pair (address authority rule). A mux's channels are NEW
     # scopes emitted nested inside their mux device, not at the top level.
-    mux_channels: Dict[str, List[Tuple[object, str]]] = {}
+    mux_channels: Dict[str, List[Tuple[int, str]]] = {}
     for path, (root, channel) in s.scopes.items():
         mux_channels.setdefault(root, []).append((channel, path))
     for bus_path in sorted(s.bus_label):
@@ -305,7 +305,7 @@ def _render_ref(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
     # chases the socket's real pwm-map/io-channel-map nexus to the
     # controller and channel; the expander does not resolve the channel
     # itself.
-    _fn, _ctrl, _ch, period, flags, _pos = s.channels[(inst.name, dev.name, ref.prop)]
+    res: ChannelResolution = s.channels[(inst.name, dev.name, ref.prop)]
     if ref.function == "pwm":
         # PWM cells: the SOCKET's own #pwm-cells decides the word count --
         # a real board socket's checked-read count or a carrier's
@@ -321,7 +321,7 @@ def _render_ref(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
         # its own pass-thru carries it exactly like period.
         assert socket.pwm_cells is not None
         if socket.pwm_cells == 2:
-            if flags:   # not assert -- must survive python -O
+            if res.flags:   # not assert -- must survive python -O
                 # Nonzero PWM flags on a 2-cell socket are rejected
                 # upstream, by the analyzer (analyzer/gpio.py, category
                 # phys-function, conditional on socket.pwm_cells == 2) --
@@ -335,18 +335,18 @@ def _render_ref(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
                 # something wrong.
                 raise AssertionError(
                     f"{inst.name}/{dev.name}: {ref.prop} reached the "
-                    f"emitter with nonzero PWM flags {flags:#x} on a "
+                    f"emitter with nonzero PWM flags {res.flags:#x} on a "
                     "2-cell socket — the analyzer should have rejected "
                     "this (phys-function) before emission")
-            return (f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {period}>;"
+            return (f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {res.period}>;"
                     f"\t/* {ctype.posname(pos)} */")
         # socket.pwm_cells == 3 (the only other supported count,
         # board_edt.py's _CHANNEL_FN) -- the shield's own plug always
         # declares #pwm-cells = <3> today (grove_servo, grove_pwm_led,
         # every corpus consumer), so ref.flags is always a real value
         # here, never a placeholder.
-        return (f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {period} "
-                f"{flags:#x}>;\t/* {ctype.posname(pos)} */")
+        return (f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {res.period} "
+                f"{res.flags:#x}>;\t/* {ctype.posname(pos)} */")
     # adc: #io-channel-cells is 1 (channel only) -- one cell, no flags, no
     # period; emitting the gpio-shaped two cells here would be a hard
     # EDTError against a 1-cell map, not merely a wrong value.
@@ -355,7 +355,7 @@ def _render_ref(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
 
 def _mux_node(rig: Rig, s: Solved, types: Dict[str, ConnectorType], inst: Instance,
              dev: Device, addr: int,
-             channels: List[Tuple[object, str]]) -> List[str]:
+             channels: List[Tuple[int, str]]) -> List[str]:
     """A scope-creating interposer device (an I2C mux): the device node on
     the parent bus, with one child channel bus per scope, each hosting that
     scope's modules. Per-scope address uniqueness means 0x48 can recur
@@ -366,12 +366,7 @@ def _mux_node(rig: Rig, s: Solved, types: Dict[str, ConnectorType], inst: Instan
         lines.append(f"\t\t{rendered}")
     lines += [f"\t\treg = <{addr:#04x}>;", "\t\t#address-cells = <1>;",
               "\t\t#size-cells = <0>;"]
-    # channel is an int at runtime (shield,channel, model.ExposedSocket's
-    # own comment) behind the model's loose `object` annotation -- sort
-    # key casts rather than widening the annotation, preserving the plain
-    # (channel, scope_path) ordering for the only shape channel ever takes.
-    for channel, scope_path in sorted(
-            channels, key=lambda cp: (cast(int, cp[0]), cp[1])):
+    for channel, scope_path in sorted(channels):
         lines += [f"\t\tchannel@{channel} {{", f"\t\t\treg = <{channel}>;",
                   "\t\t\t#address-cells = <1>;", "\t\t\t#size-cells = <0>;"]
         members = sorted(_bus_devices(rig, s, "i2c", scope_path),

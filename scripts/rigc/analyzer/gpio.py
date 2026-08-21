@@ -18,7 +18,7 @@ composer, which merges the two claim sets before calling check_nets."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from ..diag import Diagnostic, SourceRef, error
 from ..model import (BoardSocket, ConnectorType, Device, GpioRef, Instance,
@@ -101,14 +101,26 @@ def soc_net(socket: BoardSocket, position: int) -> NetKey:
     return ("pos", socket.path, position)
 
 
+class ChannelResolution(NamedTuple):
+    """One resolved PWM/ADC channel claim, the value type of
+    `GpioNets.channels`/`Solved.channels` (keyed by (instance, device,
+    prop)). `fn` is "pwm" or "adc"; `period` is populated only for pwm
+    (an ADC io-channel-map row carries no period cell)."""
+    fn: str
+    ctrl: str
+    channel: int
+    period: Optional[int]
+    flags: int
+    position: int
+
+
 @dataclass
 class GpioNets:
     nets: Nets = field(default_factory=dict)
     positions: Dict[Tuple[str, str, str], int] = field(default_factory=dict)
     jumpers_set: List[Tuple[Instance, Jumper, Optional[int], int]] = field(
         default_factory=list)
-    channels: Dict[Tuple[str, str, str], Tuple[str, str, int, Optional[int], int, int]] = \
-        field(default_factory=dict)
+    channels: Dict[Tuple[str, str, str], ChannelResolution] = field(default_factory=dict)
     controllers: Dict[str, str] = field(default_factory=dict)
 
 
@@ -197,8 +209,9 @@ def _collect_channel(inst: Instance, dev: Device, ref: GpioRef, socket: BoardSoc
             tuple(x for x in (ref.src, socket.src) if x)))
         return
     ctrl, channel = resolved
-    result.channels[(inst.name, dev.name, ref.prop)] = (
-        fn, ctrl, channel, ref.period, ref.flags, pos)
+    result.channels[(inst.name, dev.name, ref.prop)] = ChannelResolution(
+        fn=fn, ctrl=ctrl, channel=channel, period=ref.period,
+        flags=ref.flags, position=pos)
     result.controllers[ctrl] = fn
     label = "PWM" if fn == "pwm" else "ADC"
     # PIN net -- exclusive use of the physical pin

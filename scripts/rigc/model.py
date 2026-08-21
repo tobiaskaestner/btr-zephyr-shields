@@ -164,7 +164,7 @@ class ExposedSocket:
     # ("plug", parent SLOT) pass-through | ("scope", dev-label) new
     # scope -- the scope root is a device, which already carries its
     # own slot via Device.plug.
-    buses: Dict[str, object]
+    buses: Dict[str, Tuple[str, str]]
     # PWM/ADC pass-through: SAME shape as gpio_map -- position -> (parent
     # SLOT, parent plug position, trailing filler cell). The filler is
     # always 0 (pwm's row carries an unused period placeholder here; adc's
@@ -183,7 +183,7 @@ class ExposedSocket:
     # a bare "socket,cs-pool" property parses into the "spi" entry, since
     # CS only ever applies to SPI. Absent from the dict = no override.
     cs_pool: Dict[str, List[int]] = field(default_factory=dict)
-    channel: object = None          # mux channel index (scope-creating interposer)
+    channel: Optional[int] = None   # mux channel index (scope-creating interposer)
     src: Optional[SourceRef] = None
 
 

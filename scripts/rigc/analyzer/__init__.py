@@ -34,12 +34,12 @@ from ..model import (Board, BoardSocket, ConnectorType, Instance, Jumper,
                      Rig, Strap, Wire)
 from .addresses import allocate_addresses
 from .cs import allocate_cs
-from .gpio import Nets, check_nets, collect_gpio_nets, merge_nets
+from .gpio import ChannelResolution, Nets, check_nets, collect_gpio_nets, merge_nets
 from .labels import check_labels
 from .sockets import resolve_sockets
 from .wires import check_wires
 
-__all__ = ["Solved", "analyze"]
+__all__ = ["ChannelResolution", "Solved", "analyze"]
 
 log = logging.getLogger(__name__)
 
@@ -68,10 +68,10 @@ class Solved:
     nets: Nets = field(default_factory=dict)                               # net key -> [NetClaim]
     positions: Dict[Tuple[str, str, str], int] = field(default_factory=dict)       # (inst, dev, prop) -> resolved position
     jumpers_set: List[Tuple[Instance, Jumper, Optional[int], int]] = field(default_factory=list)
-    channels: Dict[Tuple[str, str, str], Tuple[str, str, int, Optional[int], int, int]] = \
-        field(default_factory=dict)                                        # (inst, dev, prop) -> (fn, ctrl, channel, period, flags, position)
+    channels: Dict[Tuple[str, str, str], ChannelResolution] = \
+        field(default_factory=dict)                                        # (inst, dev, prop) -> resolved channel claim
     controllers: Dict[str, str] = field(default_factory=dict)              # ctrl label -> function (timer/adc to enable)
-    scopes: Dict[str, Tuple[str, object]] = field(default_factory=dict)    # scope bus path -> (mux output label, channel)
+    scopes: Dict[str, Tuple[str, int]] = field(default_factory=dict)       # scope bus path -> (mux output label, channel)
     wires: List[Wire] = field(default_factory=list)                        # route-resolved (see module docstring)
 
 

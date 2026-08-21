@@ -12,7 +12,7 @@ from typing import Dict, Optional, Tuple
 
 import pytest
 
-from rigc.analyzer import Solved
+from rigc.analyzer import ChannelResolution, Solved
 from rigc.diag import SourceRef
 from rigc.emitter.overlay import render_overlay
 from rigc.model import (BoardSocket, BusRef, ConnectorType, Device, GpioRef,
@@ -76,7 +76,8 @@ def test_pwm_ref_omits_flags_and_renders_position_and_period() -> None:
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
     s = Solved(sockets={"i1": {"plug": _socket(pwm_cells=2)}},
-              channels={("i1", "dev", "pwms"): ("pwm", "pwm0", 0, 1000, 0, 2)})
+              channels={("i1", "dev", "pwms"):
+                       ChannelResolution("pwm", "pwm0", 0, 1000, 0, 2)})
 
     text = render_overlay(rig, s, {"t": _ctype()})
 
@@ -94,7 +95,8 @@ def test_pwm_ref_on_a_3cell_socket_renders_the_flags_word_too() -> None:
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
     s = Solved(sockets={"i1": {"plug": _socket(pwm_cells=3)}},
-              channels={("i1", "dev", "pwms"): ("pwm", "pwm0", 0, 1000, 0x1, 2)})
+              channels={("i1", "dev", "pwms"):
+                       ChannelResolution("pwm", "pwm0", 0, 1000, 0x1, 2)})
 
     text = render_overlay(rig, s, {"t": _ctype()})
 
@@ -116,7 +118,8 @@ def test_nonzero_pwm_flags_raise_assertionerror_never_silently_emitted() -> None
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
     s = Solved(sockets={"i1": {"plug": _socket(pwm_cells=2)}},
-              channels={("i1", "dev", "pwms"): ("pwm", "pwm0", 0, 1000, 0x1, 2)})
+              channels={("i1", "dev", "pwms"):
+                       ChannelResolution("pwm", "pwm0", 0, 1000, 0x1, 2)})
 
     with pytest.raises(AssertionError, match="nonzero PWM flags"):
         render_overlay(rig, s, {"t": _ctype()})
@@ -129,7 +132,8 @@ def test_adc_ref_renders_position_only_no_flags_no_period() -> None:
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
     s = Solved(sockets={"i1": {"plug": _socket()}},
-              channels={("i1", "dev", "io-channels"): ("adc", "adc0", 0, None, 0, 3)})
+              channels={("i1", "dev", "io-channels"):
+                       ChannelResolution("adc", "adc0", 0, None, 0, 3)})
 
     text = render_overlay(rig, s, {"t": _ctype()})
 
@@ -153,7 +157,8 @@ def test_pwm_collection_entry_renders_the_resolved_period_not_the_flags_cell() -
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
     s = Solved(sockets={"i1": {"plug": _socket(pwm_cells=2)}},
-              channels={("i1", "led", "pwms"): ("pwm", "pwm0", 0, 1234, 0, 5)})
+              channels={("i1", "led", "pwms"):
+                       ChannelResolution("pwm", "pwm0", 0, 1234, 0, 5)})
 
     text = render_overlay(rig, s, {"t": _ctype()})
 
@@ -173,7 +178,8 @@ def test_invert_does_not_touch_a_pwm_collection_entry() -> None:
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"}, invert=True)
     rig = Rig(name="r", instances=[inst])
     s = Solved(sockets={"i1": {"plug": _socket(pwm_cells=2)}},
-              channels={("i1", "led", "pwms"): ("pwm", "pwm0", 0, 1234, 0, 5)})
+              channels={("i1", "led", "pwms"):
+                       ChannelResolution("pwm", "pwm0", 0, 1234, 0, 5)})
 
     text = render_overlay(rig, s, {"t": _ctype()})
 
@@ -194,7 +200,8 @@ def test_adc_collection_entry_renders_one_cell_no_flags_no_period() -> None:
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
     s = Solved(sockets={"i1": {"plug": _socket()}},
-              channels={("i1", "sensor", "io-channels"): ("adc", "adc0", 0, None, 0, 3)})
+              channels={("i1", "sensor", "io-channels"):
+                       ChannelResolution("adc", "adc0", 0, None, 0, 3)})
 
     text = render_overlay(rig, s, {"t": _ctype()})
 
@@ -276,7 +283,7 @@ def _mux_rig_and_solved(channel_order: list[int]) -> Tuple[Rig, Solved]:
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     socket = BoardSocket(label="sock", path="/s", type_name="t", gpio_map={},
                          buses={"i2c": BusRef(label="i2c1", path="/i2c1")})
-    scopes: Dict[str, Tuple[str, object]] = {
+    scopes: Dict[str, Tuple[str, int]] = {
         f"/i2c1/ch{channel}": ("i1_mux", channel) for channel in channel_order}
     return (Rig(name="r", instances=[inst]),
             Solved(sockets={"i1": {"plug": socket}}, addr={("i1", "mux"): 0x70},

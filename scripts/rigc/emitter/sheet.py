@@ -150,13 +150,12 @@ def _channels_section(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> L
     # Instance/Strap/Jumper OBJECTS the straps/jumpers loops above bind
     # -- named distinctly (inst_name/dev_name) so the two shapes never
     # share a variable name of two different types.
-    for (inst_name, dev_name, prop), (fn, ctrl, ch, _p, _f, pos) in sorted(
-            s.channels.items()):
+    for (inst_name, dev_name, prop), res in sorted(s.channels.items()):
         socket = _ref_socket(rig, s, inst_name, dev_name, prop)
         assert socket is not None
-        posname = types[socket.type_name].posname(pos)
+        posname = types[socket.type_name].posname(res.position)
         out.append(f"- {inst_name}/{dev_name} ({socket.label} {posname}) → "
-                   f"{fn.upper()} {ctrl} ch{ch}: mux the pin to the controller")
+                   f"{res.fn.upper()} {res.ctrl} ch{res.channel}: mux the pin to the controller")
     return out
 
 

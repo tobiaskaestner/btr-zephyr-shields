@@ -654,12 +654,13 @@ def _parse_gpio_map(node, plugs_by_path: PlugsByPath, is_plural: bool,
 
 def _parse_exposed_buses(node, shield: Shield, plugs_by_path: PlugsByPath,
                          ctype: Optional[ConnectorType], type_name: str,
-                         is_plural: bool) -> Tuple[Dict[str, object], List[Diagnostic]]:
+                         is_plural: bool,
+                         ) -> Tuple[Dict[str, Tuple[str, str]], List[Diagnostic]]:
     """The socket,<bus> (and role-qualified) properties, in sorted
     property-name order: each is either a pass-through of one of the
     carrier's plugs or a new scope rooted at a device of the shield."""
     diags: List[Diagnostic] = []
-    buses: Dict[str, object] = {}
+    buses: Dict[str, Tuple[str, str]] = {}
     qualified_props = sorted(name for name in node.props if _BUS_PROP_RE.match(name))
     for prop_name in qualified_props:
         kind = prop_name[len("socket,"):]

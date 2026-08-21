@@ -287,7 +287,7 @@ def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
             content.content_v, f"content document {content.content_v.src.file}")
 
         topology = Topology()
-        insts_v, d = require(content.content_v, "instances", "rig")
+        insts_v, d = require(content.content_v, "instances", "content")
         diags += d
         for item in (insts_v.value if insts_v is not None else []):
             inst, d, idep = parse_instance(item, sock_binding, lib, rig.name,

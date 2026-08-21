@@ -37,7 +37,7 @@ log = logging.getLogger(__name__)
 #: One mux-channel scope this rig's composition created: scope PATH (the
 #: composing instance's own socket reference string) -> (mux root label,
 #: channel index).
-ScopeEntry = Tuple[str, Tuple[str, object]]
+ScopeEntry = Tuple[str, Tuple[str, int]]
 
 
 @dataclass
@@ -49,7 +49,7 @@ class SocketResolution:
     # module's own `resolve_sockets`, are the sole exception (they
     # BUILD the map).
     sockets: Dict[str, Dict[str, BoardSocket]] = field(default_factory=dict)
-    scopes: Dict[str, Tuple[str, object]] = field(default_factory=dict)
+    scopes: Dict[str, Tuple[str, int]] = field(default_factory=dict)
 
 
 def mating_ok(plug_type: str, socket_type: str) -> bool:
@@ -81,7 +81,6 @@ def _compose_buses(socket_label: str, carrier_name: str, exposed: ExposedSocket,
     scope_entries: List[ScopeEntry] = []
     buses: Dict[str, BusRef] = {}
     for kind, marker in exposed.buses.items():
-        assert isinstance(marker, tuple)
         if marker[0] == "plug":                          # pass-through
             slot = marker[1]
             parent = parents[slot]
@@ -111,6 +110,10 @@ def _compose_buses(socket_label: str, carrier_name: str, exposed: ExposedSocket,
                     f"offers no socket,{kind} (pass-through needs the parent to provide it)",
                     refs))
         else:                                           # new scope: ("scope", dev-label)
+            # A scope-creating exposed socket carries a shield,channel --
+            # it is what selects which downstream bus this composition
+            # creates -- so it is never None once this branch is reached.
+            assert exposed.channel is not None
             root = f"{carrier_name}_{marker[1]}"
             scope_path = socket_label                    # per (carrier, channel); shared by co-plugged modules
             buses[kind] = BusRef(label=f"{root}_ch{exposed.channel}", path=scope_path)
@@ -325,7 +328,7 @@ class _ResolveState:
     by_name: Dict[str, Instance]
     diags: List[Diagnostic] = field(default_factory=list)
     sockets: Dict[str, Dict[str, BoardSocket]] = field(default_factory=dict)
-    scopes: Dict[str, Tuple[str, object]] = field(default_factory=dict)
+    scopes: Dict[str, Tuple[str, int]] = field(default_factory=dict)
 
 
 def _infer_socket(state: _ResolveState, inst: Instance, slot: str,
