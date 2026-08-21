@@ -2,7 +2,7 @@
 Sec 1): board.load_board's early-exit shapes (a --board-dts naming no
 real file; no usable recipe) need no real devicetree or edtlib call at
 all to reach, so they are asserted directly. The success / not-rig-
-enabled outcomes DO need board_edt.load_board's own result -- stubbed via
+enabled outcomes DO need project.load_board's own result -- stubbed via
 monkeypatch here rather than a real board .dts + cpp, exactly like
 cli.py's own `test_accept_path_refuses_rather_than_accepting` does: board
 reading invokes cpp, so it is integration-only by construction
@@ -26,24 +26,24 @@ from pathlib import Path
 
 import pytest
 
-from rigc import boarddt
+from rigc.board import resolve
 from rigc.diag import LoadError, error
-from rigc.edt_build import BuildRecipe
+from rigc.board.edt_build import BuildRecipe
 from rigc.model import Board, BoardSocket
 
 
 def test_missing_board_dts_file_is_phys_board_with_no_edtlib_call(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """A --board-dts naming a file that does not exist is caught before
-    ANY devicetree machinery runs -- board_edt.load_board is never even
+    ANY devicetree machinery runs -- project.load_board is never even
     imported down to a call, proven by monkeypatching it to explode if
     reached."""
     def _boom(*a: object, **kw: object) -> Board:
-        raise AssertionError("board_edt.load_board must not be called")
+        raise AssertionError("project.load_board must not be called")
 
-    monkeypatch.setattr("rigc.board_edt.load_board", _boom)
+    monkeypatch.setattr("rigc.board.project.load_board", _boom)
 
-    board, diags, deps = boarddt.load_board(
+    board, diags, deps = resolve.load_board(
         "some_board", str(tmp_path),
         board_dts=str(tmp_path / "no-such-file.dts"),
         recipe=BuildRecipe(include_dirs=[], bindings_dirs=[]))
@@ -60,9 +60,9 @@ def test_no_recipe_is_phys_board_with_no_edtlib_call(
     --include-dir/--bindings-dir was usable) is its own phys-board
     diagnostic, reached before any devicetree read is attempted."""
     def _boom(*a: object, **kw: object) -> Board:
-        raise AssertionError("board_edt.load_board must not be called")
+        raise AssertionError("project.load_board must not be called")
 
-    monkeypatch.setattr("rigc.board_edt.load_board", _boom)
+    monkeypatch.setattr("rigc.board.project.load_board", _boom)
 
     real_dts = tmp_path / "board.dts"
     real_dts.write_text(dedent("""\
@@ -70,7 +70,7 @@ def test_no_recipe_is_phys_board_with_no_edtlib_call(
         / {};
         """))
 
-    board, diags, deps = boarddt.load_board(
+    board, diags, deps = resolve.load_board(
         "some_board", str(tmp_path), board_dts=str(real_dts), recipe=None)
 
     assert board is None
@@ -90,10 +90,10 @@ def test_a_board_with_no_socket_nodes_is_not_rig_enabled(
         / {};
         """))
     monkeypatch.setattr(
-        "rigc.board_edt.load_board",
+        "rigc.board.project.load_board",
         lambda name, dts_path, recipe, workdir: Board(name=name, sockets={}))
 
-    board, diags, deps = boarddt.load_board(
+    board, diags, deps = resolve.load_board(
         "socketless_board", str(tmp_path), board_dts=str(real_dts),
         recipe=BuildRecipe(include_dirs=[], bindings_dirs=[]))
 
@@ -117,10 +117,10 @@ def test_a_board_with_sockets_loads_clean(
         "ard": BoardSocket(label="ard", path="/ard", type_name="t",
                           gpio_map={}, buses={})})
     monkeypatch.setattr(
-        "rigc.board_edt.load_board",
+        "rigc.board.project.load_board",
         lambda name, dts_path, recipe, workdir: fake_board)
 
-    board, diags, deps = boarddt.load_board(
+    board, diags, deps = resolve.load_board(
         "some_board", str(tmp_path), board_dts=str(real_dts),
         recipe=BuildRecipe(include_dirs=[], bindings_dirs=[]))
 
@@ -131,8 +131,8 @@ def test_a_board_with_sockets_loads_clean(
 
 def test_a_malformed_socket_load_error_becomes_the_normal_reject_shape(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """carrier-analog-passthrough-brief.md Sec 4 ruling 3: board_edt.
-    load_board raising LoadError (a 3-cell PWM parent it does not support,
+    """A malformed socket makes project.load_board
+    raise LoadError (a 3-cell PWM parent it does not support,
     or any other malformed-socket case a checked read there catches) must
     become the ORDINARY (None, diagnostics, deps) shape here -- never an
     unhandled exception escaping load_board -- exactly like every other
@@ -152,9 +152,9 @@ def test_a_malformed_socket_load_error_becomes_the_normal_reject_shape(
             "socket 'ard': PWM controller 'pwm0' declares #pwm-cells = <3>, "
             "but rigc supports only a 2-cell PWM parent today"))
 
-    monkeypatch.setattr("rigc.board_edt.load_board", _boom)
+    monkeypatch.setattr("rigc.board.project.load_board", _boom)
 
-    board, diags, deps = boarddt.load_board(
+    board, diags, deps = resolve.load_board(
         "some_board", str(tmp_path), board_dts=str(real_dts),
         recipe=BuildRecipe(include_dirs=[], bindings_dirs=[]))
 
@@ -179,9 +179,9 @@ def test_unknown_board_message_is_cwd_independent(
     cwd_b.mkdir(parents=True)
 
     monkeypatch.chdir(cwd_a)
-    _, diags_a = boarddt._discover_board_dts("nonexistent_board_xyz")
+    _, diags_a = resolve._discover_board_dts("nonexistent_board_xyz")
     monkeypatch.chdir(cwd_b)
-    _, diags_b = boarddt._discover_board_dts("nonexistent_board_xyz")
+    _, diags_b = resolve._discover_board_dts("nonexistent_board_xyz")
 
     assert len(diags_a) == 1 and len(diags_b) == 1
     assert diags_a[0].message == diags_b[0].message

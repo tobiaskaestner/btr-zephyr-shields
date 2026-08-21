@@ -5,7 +5,7 @@ lookup over hand-built values; no Rig/Board/dtlib needed."""
 from __future__ import annotations
 
 from rigc.analyzer.socketmap import for_bus_device, for_ref, for_slot, slots_of
-from rigc.model import BoardSocket, Device, GpioRef, Instance, Shield
+from rigc.model import BoardSocket, Device, FunctionRef, Instance, Shield
 
 
 def _socket(label: str) -> BoardSocket:
@@ -66,7 +66,7 @@ def test_for_ref_resolves_through_the_refs_own_plug() -> None:
     left, right = _socket("l"), _socket("r")
     resolved = {"i1": {"left": left, "right": right}}
     inst = _inst({"left": "x", "right": "y"}, {"left": "t1", "right": "t2"})
-    ref = GpioRef(prop="int-gpios", position=0, flags=0, src=None,  # type: ignore[arg-type]
+    ref = FunctionRef(prop="int-gpios", position=0, flags=0, src=None,  # type: ignore[arg-type]
                  plug="right")
 
     assert for_ref(resolved, inst, ref) is right
@@ -79,7 +79,7 @@ def test_for_ref_a_cross_plug_reference_ignores_the_devices_own_bus_slot() -> No
     resolved = {"i1": {"left": left, "right": right}}
     inst = _inst({"left": "x", "right": "y"}, {"left": "t1", "right": "t2"})
     # A device "sitting" on the left plug's bus, but its own ref names right.
-    ref = GpioRef(prop="int-gpios", position=0, flags=0, src=None,  # type: ignore[arg-type]
+    ref = FunctionRef(prop="int-gpios", position=0, flags=0, src=None,  # type: ignore[arg-type]
                  plug="right")
 
     assert for_ref(resolved, inst, ref) is right
@@ -88,7 +88,7 @@ def test_for_ref_a_cross_plug_reference_ignores_the_devices_own_bus_slot() -> No
 
 def test_for_ref_returns_none_when_that_slot_never_resolved() -> None:
     inst = _inst({"plug": None}, {"plug": "t"})
-    ref = GpioRef(prop="int-gpios", position=0, flags=0, src=None,  # type: ignore[arg-type]
+    ref = FunctionRef(prop="int-gpios", position=0, flags=0, src=None,  # type: ignore[arg-type]
                  plug="plug")
     assert for_ref({}, inst, ref) is None
 
@@ -97,7 +97,7 @@ def test_for_ref_single_form_default_plug_resolves() -> None:
     sock = _socket("s1")
     resolved = {"i1": {"plug": sock}}
     inst = _inst({"plug": "s1"}, {"plug": "t"})
-    ref = GpioRef(prop="int-gpios", position=0, flags=0, src=None)  # type: ignore[arg-type]
+    ref = FunctionRef(prop="int-gpios", position=0, flags=0, src=None)  # type: ignore[arg-type]
     assert ref.plug == "plug"           # the dataclass default
     assert for_ref(resolved, inst, ref) is sock
 

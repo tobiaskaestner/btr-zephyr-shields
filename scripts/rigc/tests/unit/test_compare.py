@@ -653,19 +653,19 @@ def _generated_overlay() -> str:
     from rigc.analyzer import Solved
     from rigc.diag import SourceRef
     from rigc.emitter.overlay import render_overlay
-    from rigc.model import (BoardSocket, ConnectorType, Device, GpioRef,
+    from rigc.model import (BoardSocket, ConnectorType, Device, FunctionRef,
                             Instance, Rig, Shield)
 
     src = SourceRef("f.yml", 1, "k")
     # TWO gpio refs, so a test can swap their trailing comments and prove
     # each annotation is tied to the position it describes rather than
     # merely present somewhere in the file.
-    ref = GpioRef(prop="int-gpios", position=5, flags=0x1, src=src, function="gpio")
-    ref2 = GpioRef(prop="extra-gpios", position=6, flags=0x1, src=src,
+    ref = FunctionRef(prop="int-gpios", position=5, flags=0x1, src=src, function="gpio")
+    ref2 = FunctionRef(prop="extra-gpios", position=6, flags=0x1, src=src,
                   function="gpio")
     dev = Device(name="d", label="d", compatible=None, bus=None, group=None,
                 reg=None, addr_from=None, cs_position=None,
-                gpio_refs=[ref, ref2],
+                function_refs=[ref, ref2],
                 extra_props=[("zephyr,code", "zephyr,code = <INPUT_KEY_0>;")])
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"}, invert=True,

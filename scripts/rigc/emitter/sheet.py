@@ -83,7 +83,7 @@ def _ref_socket(rig: Rig, s: Solved, inst_name: str, dev_name: str, prop: str,
     dev = _find_device(inst, dev_name) if inst is not None else None
     if inst is None or dev is None:
         return None
-    ref = next((r for r in dev.gpio_refs if r.prop == prop), None)
+    ref = next((r for r in dev.function_refs if r.prop == prop), None)
     if ref is None:
         return None
     return for_ref(s.sockets, inst, ref)

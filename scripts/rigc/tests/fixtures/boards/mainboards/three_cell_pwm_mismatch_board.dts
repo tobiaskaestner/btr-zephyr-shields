@@ -5,12 +5,12 @@
  * witness (three-cell-pwm-brief.md Sec 3a RULED, acceptance criterion
  * 4): tc_socket_mismatch declares #pwm-cells = <3> (a supported count on
  * its own) but its pwm-map's target controller declares #pwm-cells =
- * <2> (also individually supported) -- board_edt.py's own checked read
+ * <2> (also individually supported) -- board/project.py's own checked read
  * must refuse this disagreement, naming BOTH counts, rather than
  * silently trusting either side or crashing. Kept on its OWN board,
  * separate from three_cell_pwm_board.dts's accept sockets: board
  * projection walks EVERY socket,* node unconditionally
- * (board_edt.py's project_edt), so a bad socket anywhere on a board
+ * (board/project.py's project_edt), so a bad socket anywhere on a board
  * fails the WHOLE board's load, even for a rig that never references
  * it.
  */

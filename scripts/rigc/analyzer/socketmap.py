@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Optional
 
-from ..model import BoardSocket, Device, GpioRef, Instance
+from ..model import BoardSocket, Device, FunctionRef, Instance
 
 #: instance name -> slot name -> resolved board socket. A slot absent
 #: from the inner map never resolved (skip-don't-abort, exactly as a
@@ -44,10 +44,10 @@ def slots_of(sockets: Sockets, inst: Instance) -> List[str]:
     return [slot for slot in inst.shield.plugs if slot in resolved]
 
 
-def for_ref(sockets: Sockets, inst: Instance, ref: GpioRef) -> Optional[BoardSocket]:
+def for_ref(sockets: Sockets, inst: Instance, ref: FunctionRef) -> Optional[BoardSocket]:
     """The resolved `BoardSocket` `ref` claims through -- keyed by
     `ref.plug`, the slot the reference's own phandle named
-    (`shields.py`'s `_parse_pos_ref`), NEVER the device's own bus slot: a
+    (`loader/shields.py`'s `_parse_pos_ref`), NEVER the device's own bus slot: a
     cross-plug reference can name a plug other than the one its
     device's bus binds to. Returns
     None when that slot of this instance never resolved (the analyzer
@@ -73,7 +73,7 @@ def for_bus_device(sockets: Sockets, inst: Instance, dev: Device) -> Optional[Bo
 def for_slot(sockets: Sockets, inst: Instance, slot: str) -> Optional[BoardSocket]:
     """The resolved `BoardSocket` of `inst`'s own named `slot`, directly --
     the primitive `for_ref`/`for_bus_device` both delegate to, and the one
-    a caller reaches for when neither a `GpioRef` nor a `Device` is in
+    a caller reaches for when neither a `FunctionRef` nor a `Device` is in
     hand (analyzer/wires.py's pad-based routes, which resolve through a
     single-plug instance's own one slot after checking plurality itself --
     a plural FROM instance is refused before this is ever called).

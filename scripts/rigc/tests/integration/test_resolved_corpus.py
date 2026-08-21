@@ -60,7 +60,7 @@ from conftest import (
 )
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-from rigc.edt_build import ensure_devicetree_on_path  # noqa: E402
+from rigc.board.edt_build import ensure_devicetree_on_path  # noqa: E402
 
 # pickle.load below unpickles a real build's edt.pickle, which needs
 # devicetree.edtlib importable. Done here rather than relying on another

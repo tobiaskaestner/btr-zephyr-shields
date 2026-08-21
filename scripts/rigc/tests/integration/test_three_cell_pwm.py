@@ -153,7 +153,7 @@ def test_reject_child_parent_cell_count_mismatch_names_both_counts(
     """Acceptance criterion 4 (§3a RULED): a socket declaring #pwm-cells
     = <3> whose own pwm-map's target controller declares <2> is refused
     at board-load time, naming both counts. No shield/instance is
-    needed: board_edt.py's project_edt walks every socket,* node
+    needed: board/project.py's project_edt walks every socket,* node
     unconditionally."""
     out_dir = tmp_path / "out"
     result = _run("three-cell-pwm-mismatch", _MISMATCH_BOARD,

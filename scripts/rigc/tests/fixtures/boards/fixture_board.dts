@@ -1,6 +1,6 @@
 /*
  * Purpose-built, cpp-free synthetic board devicetree for rigc's own
- * board_edt/boarddt unit tests (rigc-r4-brief.md Sec 6: "Board projection
+ * board/project.py and board/resolve.py unit tests (rigc-r4-brief.md Sec 6: "Board projection
  * over a SYNTHETIC, cpp-free board DT ... purpose-built fixture data in
  * rigc's own tree, NEVER read from the frozen suite's fixtures"). No
  * #include, no macros -- plain DTS syntax parsed directly by dtlib/edtlib,
@@ -12,7 +12,7 @@
  * target controller carries a SECOND, later-attached label --
  * legacy_alias, targeted by BOTH a pwm-map and a gpio-map entry -- to
  * pin the controller-label determinism invariant on both paths:
- * board_edt._controller_label must always report the DEFINING label,
+ * project._controller_label must always report the DEFINING label,
  * defining_ctrl, never legacy_alias), an io-channel-map, an i2c bus
  * phandle, an spi bus phandle, and an authored cs-pool -- the cs-pool
  * value attaches to the spi bus alone (BusRef.cs_pool), leaving the same

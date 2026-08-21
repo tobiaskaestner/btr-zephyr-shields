@@ -231,7 +231,7 @@ def test_parse_instance_sockets_unknown_slot_is_rejected(tmp_path) -> None:
 
 def test_parse_instance_single_plug_shield_named_other_than_plug_keys_by_its_own_name(
         tmp_path) -> None:
-    """model.py's own contract (GpioRef.plug/Shield.plugs docstrings): a
+    """model.py's own contract (FunctionRef.plug/Shield.plugs docstrings): a
     single-plug shield's one slot is the plug node's OWN name, never the
     literal "plug". A shield whose plug node is named 'north' must get
     its authored socket: keyed 'north' -- keying it 'plug' instead would
@@ -454,7 +454,7 @@ def test_instances_patch_config_replaces_pins(tmp_path) -> None:
     topology = _topology_with("a", shield=shield)
     new_topology, diags, deps = _apply(delta, "variant", "b", topology)
     assert diags == []
-    assert new_topology.effective["a"].pins == {"addr-strap": 73}
+    assert new_topology.effective["a"].straps == {"addr-strap": 73}
 
 
 def test_instances_patch_config_rejects_node_name(tmp_path) -> None:

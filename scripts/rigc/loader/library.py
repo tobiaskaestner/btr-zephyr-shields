@@ -68,7 +68,7 @@ from ..diag import Diagnostic, LoadError, SourceRef, error
 from ..dtsio import MODULE_ROOT, parse_tu, source_files
 from ..model import AxisDecl, ConnectorType, Shield
 from ..registry import load_types
-from ..shields import parse_shields
+from .shields import parse_shields
 from .axes import normalize_revision, parse_legacy_revision_decl, resolve_axis_selection
 from .documents import Val, parse_marked, require
 

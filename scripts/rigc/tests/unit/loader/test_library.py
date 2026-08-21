@@ -21,7 +21,7 @@ directly (never scanning a filesystem) and arranging for `resolve()` to
 return before ever reaching the helper (a cache hit, or one of the
 three failure shapes), or by monkeypatching `_parse_shield_template`
 itself to a canned stub -- the same seam-substitution idiom
-`test_boarddt.py` uses for `board_edt.load_board`. `load_shield_library`'s
+`test_board_resolve.py` uses for `project.load_board`. `load_shield_library`'s
 DISCOVERY is exercised directly against real folders (garbage `.shield`
 content included, deliberately, since discovery never reads it), which
 is honestly stronger than before this slice: neither axis-less nor
@@ -391,7 +391,7 @@ def test_resolve_no_dependency_when_the_shield_has_no_yml() -> None:
 # every test below monkeypatches it to a canned stub so resolve()'s CONTROL
 # FLOW around it -- when it is called, how its result is memoized, what deps
 # compose around it -- stays verifiable without a subprocess, the same
-# seam-substitution idiom test_boarddt.py uses for board_edt.load_board.
+# seam-substitution idiom test_board_resolve.py uses for project.load_board.
 
 def _fake_parse_template(shield: Optional[Shield], diags: List[Diagnostic],
                          deps: Deps, calls: List[str],

@@ -32,7 +32,7 @@ Two directions, both checked:
 Qualified families (`socket,<kind>-<role>`, `socket,<kind>-<role>-cs-pool`)
 are never enumerated instance-by-instance -- scripts/rigc/'s own
 `BUS_KINDS`/`BUS_PROP_RE`/`CS_POOL_PROP_RE` are imported and matched
-against, exactly as board_edt.py/shields.py/registry.py themselves do,
+against, exactly as board/project.py/shields.py/registry.py themselves do,
 plus one placeholder-notation substring check per family (the docs must
 spell the family's own shape at least once, in the same
 `socket,<kind>-<role>[-cs-pool]` notation buskind.py's own comments use)

@@ -3,13 +3,12 @@ reads the board's real devicetree, decides whether the assembly is
 physically possible, and emits the devicetree overlay plus build glue.
 
 Five stages, in order: the CLI front door (cli.py) sequences the run;
-the loader (loader/, shields.py, registry.py) reads the rig files and
-the shield library into the rig model (model.py); the board reader
-(boarddt.py, board_edt.py, edt_build.py) reads the board's real
-devicetree; the analyzer (analyzer/) decides whether the assembly is
-physically possible; the emitter (emitter/) renders the overlay, the
-config sheet, the expectations and the build glue. diag.py is the
-diagnostics core all five report through.
+the loader (loader/, registry.py) reads the rig files and the shield
+library into the rig model (model.py); the board reader (board/) reads
+the board's real devicetree; the analyzer (analyzer/) decides whether
+the assembly is physically possible; the emitter (emitter/) renders the
+overlay, the config sheet, the expectations and the build glue. diag.py
+is the diagnostics core all five report through.
 
 `unimplemented.py`'s loud refusal (`rigc: not implemented: <what>`, exit
 3) is the channel for a path this tool does not handle -- see that

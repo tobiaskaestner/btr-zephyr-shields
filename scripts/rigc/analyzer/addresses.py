@@ -173,7 +173,7 @@ def _address_member(kind: str, inst: Instance, dev: Device,
     if kind == "pinned":
         assert dev.addr_from is not None
         strap = inst.shield.straps[dev.addr_from]
-        want = inst.pins[dev.addr_from]
+        want = inst.straps[dev.addr_from]
         return AddressMember(identity=identity,
                              pin=(want, tuple(strap.domain))), strap
     free_strap = inst.shield.straps.get(dev.addr_from) if dev.addr_from else None
@@ -209,14 +209,14 @@ def _address_problem_diagnostics(bus_label: str, problems: List[AddressProblem],
         if problem.kind == "out-of-domain":
             assert dev.addr_from is not None   # only a pinned member reaches here
             strap = strap_of[problem.identity]
-            want = inst.pins[dev.addr_from]
+            want = inst.straps[dev.addr_from]
             diags.append(error(
                 "phys-pin",
                 f"instance '{inst.name}': pinned address {want:#04x} is not in the "
                 f"domain of strap '{strap.name}' "
                 f"({{{', '.join(f'{a:#04x}' for a, _ in strap.domain)}}}) — "
                 "the copper cannot select it",
-                tuple(x for x in (inst.pin_refs.get(dev.addr_from), strap.src) if x)))
+                tuple(x for x in (inst.strap_refs.get(dev.addr_from), strap.src) if x)))
         elif problem.kind == "conflict":
             assert problem.first is not None   # the core always sets it for a conflict
             o_inst, o_dev, o_socket = by_identity[problem.first]
@@ -266,7 +266,7 @@ def _allocate_scope(bus_path: str, members: List[_ScopeMember],
     for inst, dev, socket in members:
         if dev.reg is not None:
             fixed_scope.append((inst, dev, socket))
-        elif dev.addr_from and dev.addr_from in inst.pins:
+        elif dev.addr_from and dev.addr_from in inst.straps:
             pinned_scope.append((inst, dev, socket))
         else:
             free_scope.append((inst, dev, socket))

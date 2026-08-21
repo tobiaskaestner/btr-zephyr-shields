@@ -58,17 +58,17 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from .buskind import BUS_PROP_RE as _BUS_PROP_RE
-from .buskind import CS_POOL_PROP_RE as _CS_POOL_PROP_RE
-from .buskind import bus_kind_of, is_bus_kind
-from .diag import Diagnostic, SourceRef, error, warning
-from .dtsio import get_dtlib, render_prop, src_of, words
-from .model import (ConnectorType, Device, ExposedSocket, GpioRef, Jumper,
-                    Pad, Shield, Strap)
+from ..buskind import BUS_PROP_RE as _BUS_PROP_RE
+from ..buskind import CS_POOL_PROP_RE as _CS_POOL_PROP_RE
+from ..buskind import bus_kind_of, is_bus_kind
+from ..diag import Diagnostic, SourceRef, error, warning
+from ..dtsio import get_dtlib, render_prop, src_of, words
+from ..model import (ConnectorType, Device, ExposedSocket, FunctionRef, Jumper,
+                     Pad, Shield, Strap)
 
 #: socket,<kind> or socket,<kind>-<role> -- an exposed socket's own bus
 #: vocabulary is the qualified multi-bus pattern, the same shared pattern
-#: board_edt.py/registry.py read off their own inputs (a connector type's
+#: board/project.py/registry.py read off their own inputs (a connector type's
 #: bus names mean the same thing on either side of a pass-through) --
 #: see buskind.py for the regex itself and why it lives there.
 #:
@@ -500,7 +500,7 @@ def _parse_device(node, shield: Shield, plugs_by_path: PlugsByPath, bus, group,
         fn = _function_of(prop.name)
         if fn is not None:
             refs, d = _parse_pos_ref(prop, fn, shield, plugs_by_path)
-            dev.gpio_refs.extend(refs)
+            dev.function_refs.extend(refs)
             diags += d
             continue
         dtlib = get_dtlib()
@@ -541,14 +541,14 @@ def _function_of(prop_name: str) -> Optional[str]:
 
 
 def _parse_pos_ref(prop, function: str, shield: Shield, plugs_by_path: PlugsByPath,
-                   ) -> Tuple[List[GpioRef], List[Diagnostic]]:
+                   ) -> Tuple[List[FunctionRef], List[Diagnostic]]:
     """Nexus-aware position reference, per function. A plug is a
     multi-function nexus: a claim reads the plug's #<fn>-cells cells.
     Granularity is PER-REFERENCE: the phandle names WHICH of the
     shield's plugs this claim resolves through, independent of which
     plug the surrounding device's own bus binds to -- a cross-plug
     reference is zero new syntax, just a wider set of valid targets."""
-    refs: List[GpioRef] = []
+    refs: List[FunctionRef] = []
     diags: List[Diagnostic] = []
     cells = words(prop)
     dt = prop.node.dt
@@ -575,18 +575,18 @@ def _parse_pos_ref(prop, function: str, shield: Shield, plugs_by_path: PlugsByPa
             if not ok:
                 continue
             if function == "gpio":
-                refs.append(GpioRef(prop=prop.name, position=pos, flags=args[1],
+                refs.append(FunctionRef(prop=prop.name, position=pos, flags=args[1],
                                     function="gpio", src=src_of(prop), plug=slot))
             elif function == "pwm":
-                refs.append(GpioRef(prop=prop.name, position=pos, period=args[1],
+                refs.append(FunctionRef(prop=prop.name, position=pos, period=args[1],
                                     flags=args[2], function="pwm", src=src_of(prop),
                                     plug=slot))
             else:  # adc
-                refs.append(GpioRef(prop=prop.name, position=pos, flags=0,
+                refs.append(FunctionRef(prop=prop.name, position=pos, flags=0,
                                     function="adc", src=src_of(prop), plug=slot))
         elif function == "gpio" and isinstance(elem, Jumper):  # deferred position
             flags = args[0] if args else 0
-            refs.append(GpioRef(prop=prop.name, position=None, flags=flags,
+            refs.append(FunctionRef(prop=prop.name, position=None, flags=flags,
                                 jumper=elem.name, function="gpio", src=src_of(prop)))
         else:
             where = target.path if target else "?"

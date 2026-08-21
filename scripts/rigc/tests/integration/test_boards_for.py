@@ -1,7 +1,7 @@
 """`west rigs --boards-for` driven as a subprocess (board-coordinate-
 s2-brief.md). NOT build-marked: `west rigs` itself runs in 0.3s, and
 nothing this command reaches configures cmake -- it censuses board
-rig-extension SOURCES (board_census.py), never a real board devicetree.
+rig-extension SOURCES (board/census.py), never a real board devicetree.
 """
 from __future__ import annotations
 
@@ -55,7 +55,7 @@ def test_boards_for_nucleo_datalogger_now_conforms_to_both_arduino_r3_boards() -
     mating and stackability adafruit_data_logger needs -- the "helpful"
     board-agnostic reuse board-as-coordinate exists to unlock. Migrating
     nucleo_datalogger.yml to the conventional `arduino_r3` alias is the
-    whole fix: no code in board_census.py or analyzer/sockets.py changed,
+    whole fix: no code in board/census.py or analyzer/sockets.py changed,
     only what the content itself is willing to reference against."""
     result = _run("--boards-for", "nucleo_datalogger")
     assert result.returncode == 0, (

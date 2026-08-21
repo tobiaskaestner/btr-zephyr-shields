@@ -4,7 +4,7 @@
 # expander must reject it with a "phys-board" diagnostic. No corpus rig
 # exercises this path (every corpus rig names a real board). Minimal on
 # purpose: no instances are needed, since the board lookup
-# (boarddt.load_board) is the very first thing the analyzer needs and fails
+# (load_board) is the very first thing the analyzer needs and fails
 # before anything else is examined.
 rig:
   name: unknown-board

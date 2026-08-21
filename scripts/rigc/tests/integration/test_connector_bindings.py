@@ -21,7 +21,7 @@ from conftest import FIXTURES_DIR, REPO_ROOT, zephyr_base
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigc.registry import BINDINGS, load_types  # noqa: E402
-from rigc.edt_build import ensure_devicetree_on_path  # noqa: E402
+from rigc.board.edt_build import ensure_devicetree_on_path  # noqa: E402
 
 ensure_devicetree_on_path()
 from devicetree import edtlib  # noqa: E402

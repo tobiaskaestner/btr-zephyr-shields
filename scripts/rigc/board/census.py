@@ -22,7 +22,7 @@ domains and net analysis all need the board's real devicetree, which a
 text scan cannot see.
 
 **The dash trap**: `compatible = "socket,<type>"` names the
-type with dashes (e.g. "arduino-r3") -- board_edt.py's own
+type with dashes (e.g. "arduino-r3") -- project.py's own
 `_project_socket` keeps them, since the value feeds `mating_ok` against
 `shield.plugs`, which is the identical dashed spelling. This module's
 census keeps the SAME dashed form for exactly that reason. A caller
@@ -71,15 +71,15 @@ from typing import Dict, Iterator, List, Optional, Tuple
 
 import yaml
 
-from .analyzer.sockets import resolve_sockets
-from .diag import Diagnostic, SourceRef, has_errors
-from .dtsio import MODULE_ROOT
-from .model import Board, BoardSocket, BusRef, ConnectorType, Rig
+from ..analyzer.sockets import resolve_sockets
+from ..diag import Diagnostic, SourceRef, has_errors
+from ..dtsio import MODULE_ROOT
+from ..model import Board, BoardSocket, BusRef, ConnectorType, Rig
 
 #: compatible = "socket,<bus>[-<role>]" property name pattern -> the
 #: QUALIFIED bus name (kind, or kind-role) resolve_sockets keys
-#: BoardSocket.buses by. Mirrors board_edt.py's own `_BUS_PROP_RE` (kept
-#: as a separate copy: this module reads raw text, board_edt.py reads an
+#: BoardSocket.buses by. Mirrors project.py's own `_BUS_PROP_RE` (kept
+#: as a separate copy: this module reads raw text, project.py reads an
 #: already-built edtlib.EDT -- two different inputs to the same fact, not
 #: one shared value to import). Anchored on `\s*=` immediately after the
 #: qualified name so a "-cs-pool" property (e.g. "socket,spi-sensors-
@@ -103,7 +103,7 @@ class SocketNode:
     """One socket,*-compatible node, scanned from board-extension .dts/
     .dtsi TEXT. `labels` is every label the node declares, in declaration
     order (labels[0] is the DEFINING one, the rest are aliases -- the same
-    split board_edt.project_edt makes off a real edtlib.Node). `name` is
+    split project.project_edt makes off a real edtlib.Node). `name` is
     the node's own name (not a label): the DT path this node projects to
     is "/" + name. `type_name` is the DASHED form straight off
     `compatible = "socket,<type>"` (the dash trap above). `buses` is which
@@ -124,7 +124,7 @@ def scan_socket_nodes(filename: str, text: str) -> Iterator[SocketNode]:
     full contents, `filename` its path for source anchors only) declares.
     Pure over its two string arguments. Shared by `census_board` (the
     production census this module exists to provide) and
-    `tests/unit/test_board_edt.py`'s conventional-label lint (which
+    `tests/unit/test_board_project.py`'s conventional-label lint (which
     underscores `type_name` itself, for that one label-comparison, never
     here) -- ONE scanner for the node shape, never a second regex
     restating it."""
@@ -151,7 +151,7 @@ class CensusBoard:
     filesystem context) always leaves it None, and `census_boards` (the
     edge) fills it in. `board` is read-only to every consumer; its only
     valid use is `analyzer.sockets.resolve_sockets` (via `boards_for`
-    below), never a stand-in for a real board_edt.Board."""
+    below), never a stand-in for a real project.Board."""
 
     target: str
     dir: Optional[Path]
@@ -210,7 +210,7 @@ def census_board(board_yml_text: str, fragments: List[Tuple[str, str]],
     builds ONE shared socket set (a board-extension's sockets don't vary
     per declared variant): Board.sockets keyed by each node's defining
     label (labels[0]), Board.aliases carrying every additional label --
-    the identical split board_edt.project_edt makes off a real EDT.
+    the identical split project.project_edt makes off a real EDT.
 
     Returns one CensusBoard per constructible variant target, ALL sharing
     that one socket set, each with `dir=None` (this function has no

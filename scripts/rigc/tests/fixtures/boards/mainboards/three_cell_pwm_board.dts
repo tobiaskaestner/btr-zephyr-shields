@@ -19,7 +19,7 @@
  * parent cell count), so board projection succeeds for this whole
  * board -- the mismatch and unsupported-count witnesses each need their
  * OWN, separate board (three_cell_pwm_mismatch_board.dts /
- * three_cell_pwm_unsupported_board.dts), since board_edt.py's
+ * three_cell_pwm_unsupported_board.dts), since board/project.py's
  * project_edt walks every socket,* node unconditionally: a single bad
  * socket anywhere would fail this board's load for every rig, not just
  * the one that would exercise it.

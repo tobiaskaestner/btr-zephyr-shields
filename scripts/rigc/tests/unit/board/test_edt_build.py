@@ -15,7 +15,7 @@ from textwrap import dedent
 
 from pathlib import Path
 
-from rigc import edt_build
+from rigc.board import edt_build
 
 
 def test_recipe_from_build_info(tmp_path: Path) -> None:

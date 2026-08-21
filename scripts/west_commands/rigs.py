@@ -360,10 +360,10 @@ class Rigs(WestCommand):
         longer requires a board to assemble a topology, so this call
         needs no placeholder to satisfy it). This command's own claim is
         bounded to socket conformance against EVERY censused board
-        (board_census.boards_for iterates cb.board for each CensusBoard,
+        (board.boards_for iterates cb.board for each CensusBoard,
         never rig.board) -- it is never rendered (no emitter call on
-        this path at all) and never reaches boarddt (no --board-dts
-        either, so pass-1 board reading never runs here)."""
+        this path at all) and never reaches board.load_board (no
+        --board-dts either, so pass-1 board reading never runs here)."""
         # rigc reads $ZEPHYR_BASE at call time (its own header/index
         # parsing needs zephyr's include dir); pin it to west's OWN
         # resolution rather than trust the ambient shell, exactly as
@@ -372,7 +372,7 @@ class Rigs(WestCommand):
 
         # rigc lives beside list_rigs under _SCRIPTS, already on sys.path
         # (module top, above) for that import -- nothing further to add.
-        from rigc import board_census, loader, promote
+        from rigc import board, loader, promote
         from rigc.diag import has_errors, render
         from rigc.registry import load_types
 
@@ -432,9 +432,9 @@ class Rigs(WestCommand):
             print(render(diags), file=sys.stderr)
             sys.exit(1)
 
-        boards = board_census.census_boards(
+        boards = board.census_boards(
             [str(root) for root in args.board_roots])
-        for verdict in sorted(board_census.boards_for(rig, types, boards),
+        for verdict in sorted(board.boards_for(rig, types, boards),
                               key=lambda v: v.target):
             if verdict.conforms:
                 self.inf(verdict.target)

@@ -166,7 +166,7 @@ def test_board_reading_options_are_now_live(tmp_path: Path) -> None:
     no board-resolution problem of its own (loader accepts cleanly) but
     naming a --board-dts that does not exist on disk must now be rejected
     (exit 1, phys-board) -- proving the option actually reaches
-    boarddt.load_board rather than being parsed and discarded. (A rig the
+    load_board rather than being parsed and discarded. (A rig the
     LOADER itself rejects first -- e.g. unreadable -- still exits 3
     regardless of these options: see test_recipe_resolved_lazily below,
     which is the case that used to make this look inert.) --board is
@@ -189,12 +189,12 @@ def test_board_reading_options_are_now_live(tmp_path: Path) -> None:
     assert ret == 1
 
 
-def test_board_option_reaches_boarddt_with_the_given_name(
+def test_board_option_reaches_load_board_with_the_given_name(
         tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """--board (S1) threads straight to `rig.board` -- proven the same
     way as the option above (a --board-dts that does not exist forces a
     phys-board rejection), but checking that the GIVEN name is what
-    boarddt.load_board's own diagnostic embeds. rig.yml declares no
+    load_board's own diagnostic embeds. rig.yml declares no
     board of its own (board-coordinate-s6-brief.md Sec 11: there is
     nothing left to declare it with) -- --board is the only source."""
     (tmp_path / "rig.yml").write_text(
@@ -219,7 +219,7 @@ def test_board_option_absent_is_a_clean_phys_board_reject(
     """The negative control: omitting --board, with no declaration left
     in rig.yml to fall back to (board-coordinate-s6-brief.md Sec 11),
     must still be a clean phys-board rejection -- never a crash, and
-    never boarddt's own confusing "unknown board ''" (this fixture's
+    never load_board's own confusing "unknown board ''" (this fixture's
     --board-dts, which would otherwise force exactly that, proves
     cli.py's own board-empty check fires FIRST: --board-dts is never
     even reached)."""
@@ -314,13 +314,13 @@ def _stub_board_reading(monkeypatch: pytest.MonkeyPatch) -> None:
     Sec 2's cpp/unit-test seam applies here just the same as it does to
     the shield side) -- stubbed rather than exercised via a real board
     .dts + cpp."""
-    import rigc.boarddt
+    import rigc.cli
     from rigc.model import Board
 
     def fake_load_board(name: str, workdir: str, board_dts=None, recipe=None):
         return Board(name=name, sockets={}), [], frozenset()
 
-    monkeypatch.setattr(rigc.boarddt, "load_board", fake_load_board)
+    monkeypatch.setattr(rigc.cli, "load_board", fake_load_board)
 
 
 def test_accept_path_now_accepts_and_writes_artifacts(

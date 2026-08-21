@@ -79,7 +79,7 @@ def analyze(rig: Rig, board: Board, types: Dict[str, ConnectorType],
            ) -> Tuple[Solved, List[Diagnostic]]:
     """Run every pass over `rig` against the already-loaded `board`,
     composing their pieces into one Solved value. Board resolution itself
-    (boarddt.load_board) happens BEFORE this is ever called -- its own
+    (board.load_board) happens BEFORE this is ever called -- its own
     failure is a `phys-board` diagnostic reported upstream (cli.py), never
     a None return from here: once a board is in hand, this composer
     always produces a Solved, even when passes along the way append

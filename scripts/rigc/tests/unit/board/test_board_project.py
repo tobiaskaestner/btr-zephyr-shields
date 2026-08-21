@@ -1,12 +1,12 @@
 """Board projection over a SYNTHETIC, cpp-free board DT (rigc-r4-brief.md
-Sec 6): board_edt.project_edt is called directly against an edtlib.EDT
+Sec 6): project.project_edt is called directly against an edtlib.EDT
 built from `tests/fixtures/boards/fixture_board.dts` -- purpose-built
 fixture data in rigc's own tree, never a copy of the frozen suite's own
 `fixtures/boards/fixture_board.dts` (the blueprint's own
 test_controller_label.py/test_edt_build.py are the PRECEDENT for the
 approach, not the data). No cpp at all: the fixture .dts has no
 `#include`/macros, so `edtlib.EDT()` is built straight off it here --
-`board_edt.load_board`/`edt_build.build_edt` (which DO invoke cpp) are
+`project.load_board`/`edt_build.build_edt` (which DO invoke cpp) are
 integration-only by construction (rigc-r3-brief.md Sec 2's cpp/unit-test
 seam applies to the board side exactly as it does to the shield side),
 so this module never calls them.
@@ -21,7 +21,7 @@ of the same socket carries none, pinning that a cs-pool value attaches
 to the ONE bus that authors it, never every bus of the socket).
 
 A named, multi-bus connector type (socket,spi-sensors/socket,spi-motors,
-board_edt.py's own widened pattern match) is a SEPARATE, hermetic
+project.py's own widened pattern match) is a SEPARATE, hermetic
 edtlib.EDT this file builds inline rather than through fixture_board.dts
 -- it needs its own binding (the shared socket-fixture-nexus.yaml schema
 declares no such properties), and keeping it out of the shared fixture
@@ -53,11 +53,11 @@ import textwrap
 
 import pytest
 
-from rigc import board_edt
-from rigc.board_census import scan_socket_nodes
+from rigc.board import project
+from rigc.board.census import scan_socket_nodes
 from rigc.diag import LoadError
 from rigc.dtsio import MODULE_ROOT
-from rigc.edt_build import ensure_devicetree_on_path
+from rigc.board.edt_build import ensure_devicetree_on_path
 from rigc.tests.conftest import FIXTURES_DIR, assert_fixture_local
 
 _BOARD_DTS = FIXTURES_DIR / "boards" / "fixture_board.dts"
@@ -76,12 +76,12 @@ def _edt():
 
 
 def _socket():
-    board = board_edt.project_edt(_edt(), "fixture-board")
+    board = project.project_edt(_edt(), "fixture-board")
     return board.sockets["fixture_socket"]
 
 
 def _bare_socket():
-    board = board_edt.project_edt(_edt(), "fixture-board")
+    board = project.project_edt(_edt(), "fixture-board")
     return board.sockets["fixture_socket_bare"]
 
 
@@ -89,7 +89,7 @@ def _bare_socket():
 
 
 def test_project_edt_finds_every_socket_by_label() -> None:
-    board = board_edt.project_edt(_edt(), "fixture-board")
+    board = project.project_edt(_edt(), "fixture-board")
     assert board.name == "fixture-board"
     assert set(board.sockets) == {"fixture_socket", "fixture_socket_bare"}
 
@@ -98,7 +98,7 @@ def test_project_edt_ignores_non_socket_compatibles() -> None:
     """Only compatible = "socket,*" nodes project -- the gpio/pwm/adc/i2c
     controller nodes in the fixture must never appear as sockets of their
     own (only the two socket,fixture-nexus nodes do)."""
-    board = board_edt.project_edt(_edt(), "fixture-board")
+    board = project.project_edt(_edt(), "fixture-board")
     assert len(board.sockets) == 2
 
 
@@ -111,24 +111,24 @@ def test_project_edt_ignores_non_socket_compatibles() -> None:
 
 
 def test_project_edt_indexes_every_additional_label_as_an_alias() -> None:
-    board = board_edt.project_edt(_edt(), "fixture-board")
+    board = project.project_edt(_edt(), "fixture-board")
     assert board.aliases == {"fixture_bare_alias": "fixture_socket_bare"}
 
 
 def test_resolve_finds_a_socket_by_its_defining_label() -> None:
-    board = board_edt.project_edt(_edt(), "fixture-board")
+    board = project.project_edt(_edt(), "fixture-board")
     assert board.resolve("fixture_socket_bare") is board.sockets["fixture_socket_bare"]
 
 
 def test_resolve_finds_the_same_socket_by_its_alias() -> None:
     """The additive-conformance claim itself: BOTH labels of one node
     resolve to the identical BoardSocket."""
-    board = board_edt.project_edt(_edt(), "fixture-board")
+    board = project.project_edt(_edt(), "fixture-board")
     assert board.resolve("fixture_bare_alias") is board.resolve("fixture_socket_bare")
 
 
 def test_resolve_of_an_unknown_ref_is_none() -> None:
-    board = board_edt.project_edt(_edt(), "fixture-board")
+    board = project.project_edt(_edt(), "fixture-board")
     assert board.resolve("no_such_socket") is None
 
 
@@ -138,7 +138,7 @@ def test_an_alias_does_not_double_key_the_sockets_census() -> None:
     iterates board.sockets.values() to render "sockets of <board>: ..."
     (wording frozen by the unmapped-socket golden) -- a second key per
     socket would list it twice and churn that census."""
-    board = board_edt.project_edt(_edt(), "fixture-board")
+    board = project.project_edt(_edt(), "fixture-board")
     assert len(board.sockets) == 2
     assert "fixture_bare_alias" not in board.sockets
 
@@ -149,7 +149,7 @@ def test_a_bare_dict_get_does_not_find_the_alias() -> None:
     Sec 2.1) does with an alias -- nothing, since the second label is
     inert without going through resolve(). Proves resolve() is doing
     real work, not just tolerating an already-working lookup."""
-    board = board_edt.project_edt(_edt(), "fixture-board")
+    board = project.project_edt(_edt(), "fixture-board")
     assert board.sockets.get("fixture_bare_alias") is None
 
 
@@ -199,7 +199,7 @@ def test_bare_socket_has_no_bus_pwm_or_adc_entries() -> None:
 # ------------------------------------------------- multi-bus socket widening
 #
 # A connector type naming more than one bus of a kind suffixes it with a
-# role ("spi-sensors"/"spi-motors") -- board_edt.py's pattern match against
+# role ("spi-sensors"/"spi-motors") -- project.py's pattern match against
 # EVERY socket,* property name, not the fixed 3-entry table the rest of
 # this file's fixture predates. A dedicated, hermetic edtlib.EDT (its own
 # binding, its own DTS text) rather than fixture_board.dts/socket-fixture-
@@ -276,7 +276,7 @@ def _multibus_edt(tmp_path: Path):
 
 def test_project_edt_widens_named_bus_properties_to_qualified_keys(
         tmp_path: Path) -> None:
-    board = board_edt.project_edt(_multibus_edt(tmp_path), "multibus-board")
+    board = project.project_edt(_multibus_edt(tmp_path), "multibus-board")
     socket = board.sockets["multibus_socket"]
     assert set(socket.buses) == {"spi-sensors", "spi-motors"}
     assert socket.buses["spi-sensors"].label == "spi_a"
@@ -284,7 +284,7 @@ def test_project_edt_widens_named_bus_properties_to_qualified_keys(
 
 
 def test_project_edt_widens_cs_pool_per_named_bus(tmp_path: Path) -> None:
-    board = board_edt.project_edt(_multibus_edt(tmp_path), "multibus-board")
+    board = project.project_edt(_multibus_edt(tmp_path), "multibus-board")
     socket = board.sockets["multibus_socket"]
     assert socket.buses["spi-sensors"].cs_pool == [10]
     assert socket.buses["spi-motors"].cs_pool == [11]
@@ -304,7 +304,7 @@ def test_adc_map_resolves_position_to_controller_and_channel() -> None:
 # io-channel-map splits across &adc0/&adc1, but nothing else in the tree
 # exercised a socket whose io-channel-map ENTRIES name two DIFFERENT ADC
 # controllers before this slice -- confirmed here directly against
-# `_project_channel_map` (board_edt.py's shared checked read), which reads
+# `_project_channel_map` (project.py's shared checked read), which reads
 # `entry.parent` PER ROW, never once for the whole map. A dedicated,
 # hermetic edtlib.EDT (own binding, own DTS text), same reasoning as
 # `_multibus_edt` above: no other test in this file needs a second ADC
@@ -371,7 +371,7 @@ def test_adc_map_resolves_each_position_against_its_own_row_parent(
     Sec 3): positions 0/1 resolve through adc_a, positions 2/3 through
     adc_b -- ALL FOUR from the ONE socket's ONE io-channel-map, never one
     controller silently winning."""
-    board = board_edt.project_edt(_multi_adc_edt(tmp_path), "multiadc-board")
+    board = project.project_edt(_multi_adc_edt(tmp_path), "multiadc-board")
     socket = board.sockets["multiadc_socket"]
     assert socket.adc_map[0] == ("adc_a", 12)
     assert socket.adc_map[1] == ("adc_a", 13)
@@ -385,7 +385,7 @@ def test_adc_map_multi_parent_channel_count_is_the_single_row_read(
     DISTINCT controllers the map's rows name -- _project_channel_map reads
     cells per row but this socket's rows all agree, so the returned count
     is unambiguous."""
-    board = board_edt.project_edt(_multi_adc_edt(tmp_path), "multiadc-board")
+    board = project.project_edt(_multi_adc_edt(tmp_path), "multiadc-board")
     socket = board.sockets["multiadc_socket"]
     assert socket.adc_cells == 1
     assert len(socket.adc_map) == 4
@@ -464,7 +464,7 @@ def test_pwm_map_resolves_each_position_against_its_own_row_parent(
     1-cell one: positions 0/1 resolve through tim_a, positions 2/3
     through tim_b -- ALL FOUR from the ONE socket's ONE pwm-map, never
     one controller silently winning."""
-    board = board_edt.project_edt(_multi_pwm_edt(tmp_path), "multipwm-board")
+    board = project.project_edt(_multi_pwm_edt(tmp_path), "multipwm-board")
     socket = board.sockets["multipwm_socket"]
     assert socket.pwm_map[0] == ("tim_a", 1)
     assert socket.pwm_map[1] == ("tim_a", 2)
@@ -476,7 +476,7 @@ def test_pwm_map_multi_parent_channel_count_is_the_single_row_read(
         tmp_path: Path) -> None:
     """pwm_cells stays the ONE declared count (3) regardless of how many
     DISTINCT controllers the map's rows name."""
-    board = board_edt.project_edt(_multi_pwm_edt(tmp_path), "multipwm-board")
+    board = project.project_edt(_multi_pwm_edt(tmp_path), "multipwm-board")
     socket = board.sockets["multipwm_socket"]
     assert socket.pwm_cells == 3
     assert len(socket.pwm_map) == 4
@@ -512,14 +512,14 @@ def test_bare_socket_has_no_pwm_or_adc_cells() -> None:
 # Zephyr's generic PWM consumer form is THREE cells (channel, period,
 # flags) -- the norm upstream (55 of 75 surveyed bindings), not the rare
 # case; lotus's own atmel,sam0-tcc-pwm 2-cell override is the outlier.
-# board_edt.py's old bare `channel, _channel_period =
+# project.py's old bare `channel, _channel_period =
 # entry.parent_specifiers` destructuring raised an unhandled ValueError
 # the instant a real board's PWM controller used the standard 3-cell
 # form -- a traceback, not a diagnostic (the M8 defect family,
 # post-cutover-backlog.md item 3). That slice did NOT add 3-cell support
 # (ruled out of scope then): it only replaced the crash with a named
-# LoadError (phys-board), caught at boarddt.load_board's own boundary
-# (test_boarddt.py owns THAT half; this file owns board_edt.py's own
+# LoadError (phys-board), caught at resolve.load_board's own boundary
+# (test_board_resolve.py owns THAT half; this file owns project.py's own
 # raise).
 #
 # three-cell-pwm-brief.md (backlog item 34) widens the SUPPORTED set to
@@ -603,7 +603,7 @@ def test_three_cell_pwm_parent_raises_loaderror_not_valueerror(tmp_path: Path) -
     LoadError (phys-board), not a ValueError, naming the socket, the
     controller's defining label, and BOTH counts."""
     with pytest.raises(LoadError) as excinfo:
-        board_edt.project_edt(_three_cell_pwm_edt(tmp_path), "three-cell-board")
+        project.project_edt(_three_cell_pwm_edt(tmp_path), "three-cell-board")
     (diag,) = excinfo.value.diags
     assert diag.code == "phys-board"
     assert "three_cell_socket" in diag.message
@@ -620,7 +620,7 @@ def test_three_cell_pwm_parent_names_both_cell_counts_and_the_controller(
     not a rare-guard afterthought -- it must name the controller by its
     own defining label, not just the socket."""
     with pytest.raises(LoadError) as excinfo:
-        board_edt.project_edt(_three_cell_pwm_edt(tmp_path), "three-cell-board")
+        project.project_edt(_three_cell_pwm_edt(tmp_path), "three-cell-board")
     (diag,) = excinfo.value.diags
     assert "#pwm-cells" in diag.message
     assert "PWM" in diag.message.upper() or "pwm" in diag.message
@@ -690,7 +690,7 @@ def test_three_cell_pwm_self_consistent_is_accepted(tmp_path: Path) -> None:
     """The accept half (acceptance criterion 1's unit-level twin): a
     socket and its parent BOTH declaring #pwm-cells = <3> resolves
     cleanly -- no LoadError, pwm_cells carries the real count 3."""
-    board = board_edt.project_edt(
+    board = project.project_edt(
         _self_consistent_pwm_edt(tmp_path, 3), "ncell-board")
     socket = board.sockets["ncell_socket"]
     assert socket.pwm_cells == 3
@@ -706,7 +706,7 @@ def test_four_cell_pwm_parent_is_still_unsupported(tmp_path: Path) -> None:
     mismatch tests above, which disagree with EACH OTHER while both
     individually stay inside the supported set."""
     with pytest.raises(LoadError) as excinfo:
-        board_edt.project_edt(_self_consistent_pwm_edt(tmp_path, 4), "ncell-board")
+        project.project_edt(_self_consistent_pwm_edt(tmp_path, 4), "ncell-board")
     (diag,) = excinfo.value.diags
     assert diag.code == "phys-board"
     assert "ncell_socket" in diag.message
@@ -778,7 +778,7 @@ def _self_consistent_adc_edt(tmp_path: Path, cells: int):
 def test_adc_one_cell_self_consistent_is_still_accepted(tmp_path: Path) -> None:
     """ADC's own accept case, unchanged by this slice: a 1-cell socket
     and parent resolve cleanly."""
-    board = board_edt.project_edt(
+    board = project.project_edt(
         _self_consistent_adc_edt(tmp_path, 1), "ncell-adc-board")
     socket = board.sockets["ncell_adc_socket"]
     assert socket.adc_cells == 1
@@ -792,7 +792,7 @@ def test_adc_two_cell_self_consistent_is_still_refused(tmp_path: Path) -> None:
     brief names explicitly: widening ADC's own supported set (e.g. to
     accept 2 cells) must make THIS test fail."""
     with pytest.raises(LoadError) as excinfo:
-        board_edt.project_edt(_self_consistent_adc_edt(tmp_path, 2), "ncell-adc-board")
+        project.project_edt(_self_consistent_adc_edt(tmp_path, 2), "ncell-adc-board")
     (diag,) = excinfo.value.diags
     assert diag.code == "phys-board"
     assert "ncell_adc_socket" in diag.message
@@ -819,7 +819,7 @@ def test_controller_label_ignores_a_later_attached_alias() -> None:
 
 
 def test_gpio_map_controller_label_is_the_defining_label() -> None:
-    """The gpio side of the same invariant. board_edt resolves the
+    """The gpio side of the same invariant. project resolves the
     controller label INLINE for gpio-map and through _controller_label for
     pwm/adc -- two separate implementations, so pinning only the pwm side
     leaves a label regression on the gpio path undetectable. Position 2
@@ -836,9 +836,9 @@ def test_gpio_map_controller_label_is_the_defining_label() -> None:
 # conventional label -- "<type>" for a singleton, "<type>_<silkscreen>"
 # for a family -- ALONGSIDE whatever board-prefixed label it already had.
 # That is the fact Board.resolve() depends on: an alias only resolves if
-# board_edt actually saw it declared in the board's own devicetree.
+# project actually saw it declared in the board's own devicetree.
 #
-# The node scan itself is board_census.scan_socket_nodes -- production
+# The node scan itself is board/census.py's scan_socket_nodes -- production
 # code (board-coordinate-s2-brief.md Sec 5.3), shared rather than
 # restated here. It reports type_name DASHED, exactly as compatible =
 # "socket,<type>" spells it (the census's own mating-facing value); the

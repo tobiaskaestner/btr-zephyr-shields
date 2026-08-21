@@ -186,9 +186,9 @@ def test_apply_config_block_assigns_a_strap_by_label(tmp_path) -> None:
     shield.straps["addr-strap"] = Strap(name="addr-strap", label="addr_strap",
                                        domain=[(0x48, 0), (0x49, 1)], sheet_label="")
     config_v = _val(tmp_path, "v: {addr_strap: 73}\n")
-    pins, pin_refs, jumpers, jumper_refs, diags = apply_config_block(config_v, "a", shield)
+    straps, strap_refs, jumpers, jumper_refs, diags = apply_config_block(config_v, "a", shield)
     assert diags == []
-    assert pins == {"addr-strap": 73}
+    assert straps == {"addr-strap": 73}
     assert jumpers == {}
 
 
@@ -197,10 +197,10 @@ def test_apply_config_block_assigns_a_jumper_by_label(tmp_path) -> None:
     shield.jumpers["irq-jmp"] = Jumper(name="irq-jmp", label="irq_jmp",
                                        domain=[(0, 0), (1, 1)], sheet_label="")
     config_v = _val(tmp_path, "v: {irq_jmp: 1}\n")
-    pins, pin_refs, jumpers, jumper_refs, diags = apply_config_block(config_v, "a", shield)
+    straps, strap_refs, jumpers, jumper_refs, diags = apply_config_block(config_v, "a", shield)
     assert diags == []
     assert jumpers == {"irq-jmp": 1}
-    assert pins == {}
+    assert straps == {}
 
 
 def test_apply_config_block_node_name_no_longer_resolves(tmp_path) -> None:
@@ -213,8 +213,8 @@ def test_apply_config_block_node_name_no_longer_resolves(tmp_path) -> None:
     shield.straps["addr-strap"] = Strap(name="addr-strap", label="addr_strap",
                                        domain=[(0x48, 0)], sheet_label="")
     config_v = _val(tmp_path, "v: {addr-strap: 72}\n")
-    pins, _, _, _, diags = apply_config_block(config_v, "a", shield)
-    assert pins == {}
+    straps, _, _, _, diags = apply_config_block(config_v, "a", shield)
+    assert straps == {}
     assert len(diags) == 1
     assert diags[0].code == "lang-config"
     assert "names no config element 'addr-strap'" in diags[0].message

@@ -3,13 +3,13 @@
 `expand <rig_yml>` takes --shield-dir* --board --board-dts --build-info
 --bindings-dir* --include-dir* --connector-dir* --revision --variant
 --out-dir (* = repeatable). --board-dts/--build-info/--bindings-dir feed
-the board reader (boarddt/board_edt/edt_build); --shield-dir/
+the board reader (board/); --shield-dir/
 --include-dir/--connector-dir/--revision/--variant feed the loader.
 --board feeds the loader too, and is the ONLY source of `rig.board`
 (rig.yml has no `board:` key of its own): omitted, `rig.board` is simply
 "" -- legal through the loader, and a diagnostic only once this file is
 about to read a real board devicetree (see the board-empty check right
-before boarddt.load_board, below). A clean analysis emits the rig
+before load_board, below). A clean analysis emits the rig
 artifacts (`emitter.emit`) plus the build-glue handoff
 (`emitter.context.render`) through the one writer (`emitter.write_
 artifacts`) and returns 0.
@@ -64,10 +64,10 @@ import shutil
 import sys
 from typing import List, Optional, Tuple, Union
 
-from . import analyzer, boarddt, loader, promote
+from . import analyzer, loader, promote
+from .board import BuildRecipe, load_board, recipe_from_build_info
 from .deps import union as deps_union
 from .diag import Diagnostic, LoadError, error as diag_error, has_errors, render
-from .edt_build import BuildRecipe, recipe_from_build_info
 from .emitter import context, emit, write_artifacts
 from .registry import load_types
 from .unimplemented import Unimplemented
@@ -135,7 +135,7 @@ def _resolve_recipe(
 ) -> Optional[BuildRecipe]:
     """--build-info wins if given (one path, no per-dir bookkeeping); else
     an explicit --include-dir/--bindings-dir pair, if either was given;
-    else None -- the caller (boarddt.load_board) turns a still-None recipe
+    else None -- the caller (load_board) turns a still-None recipe
     into a clear diagnostic once/if it is actually needed, rather than
     this function guessing at "nothing usable"."""
     if build_info is not None:
@@ -395,16 +395,16 @@ def _expand(args: argparse.Namespace) -> int:
     # caller's typo'd --build-info path into an unhandled crash on a
     # rig that was going to be rejected anyway (never a traceback, the
     # reject convention) -- resolving it only once the loader has
-    # already accepted is what board.load_board's own "no usable
+    # already accepted is what load_board's own "no usable
     # recipe" diagnostic exists to report cleanly instead.
     #
     # rig.board is "" whenever this run injected none: the loader
     # itself never requires one, since a rig's topology never needed a
     # board to assemble. This is the one place that still does --
-    # passing "" straight to boarddt.load_board would search for a
+    # passing "" straight to load_board would search for a
     # board literally named "" and report the confusing "unknown board
     # ''" rather than the honest fact that none was given, so it is
-    # caught here first, before boarddt ever runs. Unlike a `lang-*`
+    # caught here first, before load_board ever runs. Unlike a `lang-*`
     # loader finding, this has no rig.yml line to blame (there is no
     # `board:` key to point at) -- phys-board, no refs, matching every
     # other board-reading diagnostic's own unanchored shape.
@@ -415,13 +415,13 @@ def _expand(args: argparse.Namespace) -> int:
             "of its own any more (board: left rig.yml's grammar "
             "entirely); pass --board <name>")])
     #
-    # board.load_board's own diagnostics carry no `rig`-side src ref
+    # load_board's own diagnostics carry no `rig`-side src ref
     # (a "phys-board" finding is never anchored to a rig.yml line), so
     # they simply extend the diags list gathered so far: a rejection
     # here is never a reason to drop the loader's own (empty, since
     # has_errors already returned above) findings.
     recipe = _resolve_recipe(args.include_dirs, args.bindings_dirs, args.build_info)
-    board, board_diags, board_deps = boarddt.load_board(
+    board, board_diags, board_deps = load_board(
         rig.board, workdir, board_dts=board_dts, recipe=recipe
     )
     diags += board_diags

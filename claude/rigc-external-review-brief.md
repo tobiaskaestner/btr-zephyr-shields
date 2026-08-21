@@ -360,3 +360,43 @@ Acceptance: docs build green; page reads standalone.
 Execution note: A and B touch the same files (comments vs code), so run
 A *after* B within each package, or accept rebase pain. Suggested order:
 C → B (parallel per package) → A (parallel per package) → E → F → D.
+
+---
+
+## Addendum (2026-08-20): size policy, and D's final scope
+
+Size limits adopted with the maintainer: **a Python module stays under
+1,000–1,200 lines; a package stays under 15–20 modules.** Applies to
+tests as well as source. One conscious exemption: `tests/integration/`
+(23 one-file-per-feature suites) — grouping them would fight the
+conftest/goldens layout for no gain.
+
+Survey at adoption time (post A–C/E–G): every source module ≤875 lines
+(`shields.py` the closest to the ceiling — its future split seam is
+device-parsing vs exposed-socket parsing, already visible as helper
+boundaries); top-level package at 16 modules, which Task D's moves
+reduce to 11. The only file over the ceiling anywhere is
+`tests/unit/test_shields.py` at 1,599 lines — hence:
+
+### Task D5 — split test_shields.py  [1 agent, after D1–D4]
+
+Split `scripts/rigc/tests/unit/test_shields.py` along the same seams
+the source's parse helpers use: plugs, devices+addressing, exposed
+sockets, pads/straps/jumpers. Pure moves of test functions plus the
+shared fixtures they need; target every resulting module ≤600 lines;
+suite passes unchanged (same test count).
+
+### Task H — test-code comment sweep  [3 agents, after D5]
+
+The Task A hygiene rules applied to `scripts/rigc/tests/` (measured
+2026-08-20: 217 brief citations, 7 rigexp mentions, ~98 codeword lines
+across 55 of 70 test files). Scopes: (H1) `tests/unit/*.py` top level;
+(H2) `tests/unit/{loader,analyzer,emitter}/`; (H3) `tests/integration/`
+plus `tests/compare.py` and the conftests. Additions specific to tests:
+a docstring saying WHAT a test pins keeps that contract restated in
+plain words (never a bare "rule 10"/"criterion 2.2" pointer); test
+NAMES carrying meaningless codeword suffixes (`_r26`, `_rule_10_`) are
+renamed descriptively — nothing selects tests by name; assertion
+strings and golden files stay untouched (they carry the post-G wording
+and gate it). Gate: full check.sh; test COUNT must not change except
+where a rename is reported.

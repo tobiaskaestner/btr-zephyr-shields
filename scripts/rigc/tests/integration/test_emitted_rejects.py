@@ -2,7 +2,7 @@
 
 Every test here freezes python -m rigc expand's verdict + rendered
 diagnostics against a SYNTHETIC fixture under tests/fixtures/, never a real
-corpus rig, and none reaches analyzer.analyze (boarddt/board_edt/edt_build,
+corpus rig, and none reaches analyzer.analyze (board/,
 which needs a real board recipe) -- each one is rejected by loader_yml.load
 alone, on YAML/schema shape, before any board devicetree would even be
 read.
@@ -45,7 +45,7 @@ devicetree package without that counting as a DATA dependency.
 
 test_unknown_board_golden is the sibling case that reads the opposite way:
 its own fixture rig.yml is just as synthetic, but its diagnostic is reached
-by NAME DISCOVERY scanning the real board tree (boarddt/list_boards.py,
+by NAME DISCOVERY scanning the real board tree (board/resolve.py/list_boards.py,
 "no such board directory under ./boards") -- a genuine dependency on
 production board-tree content, which is why it lives in
 test_emitted_corpus.py instead, marked integration despite never running a
@@ -975,7 +975,7 @@ def test_no_board_declared_golden(tmp_path: Path) -> None:
     more to fall back to) is rejected: a rig has no board of its own to
     build against. The diagnostic itself moved (binding.resolve_board
     never rejects any more; the loader assembles a boardless topology
-    just fine) to cli.py, right before it would otherwise ask boarddt to
+    just fine) to cli.py, right before it would otherwise ask load_board to
     read a board literally named "" -- so this fixture's rig.yml carries
     no `board:` key at all (there is nothing left to declare), and the
     golden's shape changed with the mechanism: phys-board, unanchored,

@@ -210,7 +210,7 @@ def apply_config_block(config_v: Optional[Val], inst_name: str, shield: Shield,
                                  Dict[str, object], Dict[str, SourceRef],
                                  List[Diagnostic]]:
     """config: {config-element-LABEL: value} -- shared by the base parse
-    and a delta's instances: patch (which resets pins/jumpers first, so
+    and a delta's instances: patch (which resets straps/jumpers first, so
     this always starts from empty when called from a patch). PURE:
     returns fresh dicts, never mutates an Instance.
 
@@ -220,18 +220,18 @@ def apply_config_block(config_v: Optional[Val], inst_name: str, shield: Shield,
     could only mis-resolve. The returned dicts stay keyed by the
     element's own NODE NAME regardless (`elem.name`): that is the
     internal identity `apply_delta`/the analyzer already key
-    `Instance.pins`/`.jumpers` by, unaffected by which string a rig
+    `Instance.straps`/`.jumpers` by, unaffected by which string a rig
     author used to name the element.
 
-    Returns (pins, pin_refs, jumpers, jumper_refs, diagnostics), all
+    Returns (straps, strap_refs, jumpers, jumper_refs, diagnostics), all
     fresh values the caller owns."""
-    pins: Dict[str, int] = {}
-    pin_refs: Dict[str, SourceRef] = {}
+    straps: Dict[str, int] = {}
+    strap_refs: Dict[str, SourceRef] = {}
     jumpers: Dict[str, object] = {}
     jumper_refs: Dict[str, SourceRef] = {}
     diags: List[Diagnostic] = []
     if config_v is None:
-        return pins, pin_refs, jumpers, jumper_refs, diags
+        return straps, strap_refs, jumpers, jumper_refs, diags
     for cfg_label, val_v in config_v.value.items():
         # resolution rule: config keys name a config element (strap OR
         # routing jumper) of the named shield, BY LABEL
@@ -248,12 +248,12 @@ def apply_config_block(config_v: Optional[Val], inst_name: str, shield: Shield,
                 (val_v.src,)))
             continue
         if isinstance(elem, Strap):
-            pins[elem.name] = val_v.value
-            pin_refs[elem.name] = val_v.src
+            straps[elem.name] = val_v.value
+            strap_refs[elem.name] = val_v.src
         else:                                   # Jumper: position value
             jumpers[elem.name] = val_v.value
             jumper_refs[elem.name] = val_v.src
-    return pins, pin_refs, jumpers, jumper_refs, diags
+    return straps, strap_refs, jumpers, jumper_refs, diags
 
 
 def check_restate(params_v: Val, prior_params: Dict[str, Dict[str, str]],

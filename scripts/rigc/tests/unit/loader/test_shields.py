@@ -12,7 +12,7 @@ from textwrap import dedent
 
 from rigc.dtsio import get_dtlib
 from rigc.model import ConnectorType, Jumper, Pad, Position, Strap
-from rigc.shields import parse_shields
+from rigc.loader.shields import parse_shields
 
 _PLUG_TYPE = ConnectorType(
     name="fixture-type",
@@ -681,7 +681,7 @@ def test_gpio_position_ref_on_the_plug(tmp_path) -> None:
 """)
     assert diags == []
     dev = shields["fx"].devices[0]
-    ref = dev.gpio_refs[0]
+    ref = dev.function_refs[0]
     assert ref.position == 0
     assert ref.flags == 3
     assert ref.function == "gpio"
@@ -707,7 +707,7 @@ def test_gpio_position_ref_deferred_to_a_jumper(tmp_path) -> None:
 \t\t};
 """)
     assert diags == []
-    ref = shields["fx"].devices[0].gpio_refs[0]
+    ref = shields["fx"].devices[0].function_refs[0]
     assert ref.position is None
     assert ref.jumper == "irq-jmp"
     assert ref.flags == 1
@@ -799,7 +799,7 @@ def test_exposed_socket_cs_pool_qualified_and_bare_both_parse(tmp_path) -> None:
     """Sec 2: a bare socket,cs-pool override lands in the "spi" entry
     (byte-identical meaning to the old flat-list shape); a qualified
     socket,<kind>-<role>-cs-pool lands under its OWN qualified key --
-    mirrors board_edt.py's/registry.py's own _CS_POOL_PROP_RE."""
+    mirrors board/project.py's/registry.py's own _CS_POOL_PROP_RE."""
     shields, diags = _one_shield(tmp_path, """
 \t\tfx: fx {
 \t\t\tplug: plug {
@@ -1089,7 +1089,7 @@ def test_single_form_device_plug_defaults_to_the_default_slot(tmp_path) -> None:
     plain_dev = next(d for d in shield.devices if d.name == "button")
     assert bus_dev.plug == "plug"
     assert plain_dev.plug == "plug"
-    assert plain_dev.gpio_refs[0].plug == "plug"
+    assert plain_dev.function_refs[0].plug == "plug"
 
 
 def test_plural_shield_two_plugs_and_bus_membership(tmp_path) -> None:
@@ -1128,7 +1128,7 @@ def test_plural_shield_cross_plug_gpio_ref_records_the_named_plug(tmp_path) -> N
     """Ruling 2 (per-reference granularity): a device on the LEFT plug's
     bus may still carry a gpio ref naming the RIGHT plug -- the phandle
     widens from "must be THIS shield's plug" to "one of this shield's
-    plugs", and GpioRef.plug records which one, independent of the
+    plugs", and FunctionRef.plug records which one, independent of the
     device's own bus slot."""
     dt = _dt(tmp_path, """
 \t\tfx: fx {
@@ -1151,7 +1151,7 @@ def test_plural_shield_cross_plug_gpio_ref_records_the_named_plug(tmp_path) -> N
     assert diags == []
     dev = shields["fx"].devices[0]
     assert dev.plug == "left"          # the device's OWN bus slot
-    ref = dev.gpio_refs[0]
+    ref = dev.function_refs[0]
     assert ref.plug == "right"         # the CROSS-PLUG reference's own slot
     assert ref.position == 0
 
@@ -1220,7 +1220,7 @@ def test_plain_group_device_is_plug_agnostic_in_the_plural_form(tmp_path) -> Non
     assert dev.bus is None
     assert dev.plug is None
     assert dev.group == "gpio"
-    assert dev.gpio_refs[0].plug == "left"
+    assert dev.function_refs[0].plug == "left"
 
 
 def test_one_plug_is_the_same_form_as_many(tmp_path) -> None:
@@ -1398,7 +1398,7 @@ def test_one_plug_nested_bus_group_parses_its_devices(tmp_path) -> None:
     assert set(devs) == {"dev", "button"}
     assert devs["dev"].bus == "i2c"
     assert devs["dev"].plug == "plug"
-    assert [(r.prop, r.position) for r in devs["dev"].gpio_refs] == [
+    assert [(r.prop, r.position) for r in devs["dev"].function_refs] == [
         ("int-gpios", 0)]
     # the plain-group device is attributed to the ONLY plug, not to the
     # literal name "plug" -- the retired single form hardcoded the latter
@@ -1448,7 +1448,7 @@ def test_a_reference_through_a_plug_uses_the_generic_cell_count(tmp_path) -> Non
 \t\t};
 """)
     assert diags == []
-    refs = shields["fx"].devices[0].gpio_refs
+    refs = shields["fx"].devices[0].function_refs
     assert [(r.position, r.flags) for r in refs] == [(0, 1), (1, 0)]
 
 

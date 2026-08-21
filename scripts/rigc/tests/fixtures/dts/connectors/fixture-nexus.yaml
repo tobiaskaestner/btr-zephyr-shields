@@ -5,7 +5,7 @@ description: |
   shield ever references this compatible; two independent fixture consumers
   read it for two independent reasons:
 
-    - fixtures/controller-label: board_edt.py projects the socket,* node's
+    - fixtures/controller-label: board/project.py projects the socket,* node's
       gpio-map/pwm-map nexus directly, never going through
       ctypes_registry.py's registry at all.
     - fixtures/reference-shields: this file's own connector_dirs/header_dirs

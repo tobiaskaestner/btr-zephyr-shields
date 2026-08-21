@@ -45,7 +45,7 @@ def effective_cs_pool(bus_cs_pool: Optional[List[int]],
     """The cs_pool None-if-absent merge: a real board socket whose
     connector type's binding declares a cs-pool default for this bus
     already has it backfilled by edtlib
-    (board_edt.py), making this merge inert there -- but a
+    (board/project.py), making this merge inert there -- but a
     shield-SYNTHESIZED socket (carrier/mux composition, analyzer/
     sockets.py's `compose_socket`) comes from a plain dtlib parse with no
     binding-default backfill, so this is very much alive for that path."""

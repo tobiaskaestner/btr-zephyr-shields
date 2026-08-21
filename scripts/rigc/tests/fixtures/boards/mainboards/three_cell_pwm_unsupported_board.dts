@@ -5,7 +5,7 @@
  * (three-cell-pwm-brief.md Sec 3a, acceptance criterion 5): tc_socket4
  * and its parent controller BOTH declare #pwm-cells = <4> --
  * self-consistent with each other, but 4 is outside the supported set
- * {2, 3} -- board_edt.py's own checked read must still refuse this with
+ * {2, 3} -- board/project.py's own checked read must still refuse this with
  * the OLD-style "not supported yet" phys-board wording ("An unsupported
  * count keeps today's LoadError/phys-board shape and wording ... only
  * the accepted set widens"). Distinct from the mismatch board: here

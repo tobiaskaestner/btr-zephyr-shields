@@ -147,7 +147,7 @@ def test_effective_cs_pool_prefers_the_socket_override() -> None:
 def test_effective_cs_pool_falls_back_to_the_type_default() -> None:
     """A real board socket whose connector type's binding declares a
     socket,cs-pool default already has it backfilled by edtlib
-    (board_edt.py) -- but a socket authoring NEITHER (None) falls back to
+    (board/project.py) -- but a socket authoring NEITHER (None) falls back to
     the connector type's own default pool."""
     assert effective_cs_pool(None, type_default_pool=[0, 1, 2]) == [0, 1, 2]
 

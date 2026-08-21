@@ -46,7 +46,7 @@ log = logging.getLogger(__name__)
 
 def ensure_devicetree_on_path() -> None:
     """Put zephyr's python-devicetree source on sys.path, locating it via
-    $ZEPHYR_BASE. Idempotent; safe to call from a caller (board_edt.py)
+    $ZEPHYR_BASE. Idempotent; safe to call from a caller (project.py)
     that needs devicetree.edtlib importable before build_edt() itself
     ever runs."""
     zephyr_base = os.environ.get("ZEPHYR_BASE")

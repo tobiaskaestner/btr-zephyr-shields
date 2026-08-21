@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from rigc.analyzer.gpio import (NetClaim, Nets, check_nets, collect_gpio_nets,
                                merge_nets, role_of, soc_net)
-from rigc.model import (BoardSocket, ConnectorType, Device, GpioRef,
+from rigc.model import (BoardSocket, ConnectorType, Device, FunctionRef,
                         Instance, Jumper, Position, Rig, Shield)
 
 # ---------------------------------------------------------------- role_of
@@ -149,7 +149,7 @@ def _ctype() -> ConnectorType:
 def test_collect_gpio_nets_registers_a_fixed_position_claim() -> None:
     socket = _socket(gpio_map={7: ("gpioa", 5, 0)}, label="nucleo_ard")
     dev = _dev("rtc")
-    dev.gpio_refs.append(GpioRef(prop="int1-gpios", position=7, flags=0,
+    dev.function_refs.append(FunctionRef(prop="int1-gpios", position=7, flags=0,
                                  src=None))  # type: ignore[arg-type]
     inst = _inst("logger_1")
     inst.shield.devices.append(dev)
@@ -167,7 +167,7 @@ def test_collect_gpio_nets_skips_instances_without_a_resolved_socket() -> None:
     """Skip-don't-abort: an instance absent from `sockets` (its mating
     failed) contributes NOTHING here -- never an exception, never a net."""
     dev = _dev("rtc")
-    dev.gpio_refs.append(GpioRef(prop="int1-gpios", position=7, flags=0,
+    dev.function_refs.append(FunctionRef(prop="int1-gpios", position=7, flags=0,
                                  src=None))  # type: ignore[arg-type]
     inst = _inst("orphan")
     inst.shield.devices.append(dev)
@@ -186,7 +186,7 @@ def test_collect_gpio_nets_jumper_deferred_position_needs_a_pin_selection() -> N
     jmp = Jumper(name="irq_jmp", label="irq_jmp", domain=[(0, 0), (1, 1)],
                 sheet_label="")
     dev = _dev("wifi")
-    dev.gpio_refs.append(GpioRef(prop="irq-gpios", position=None, flags=0,
+    dev.function_refs.append(FunctionRef(prop="irq-gpios", position=None, flags=0,
                                  jumper="irq_jmp",
                                  src=None))  # type: ignore[arg-type]
     inst = _inst("wifi_1")
@@ -205,7 +205,7 @@ def test_collect_gpio_nets_channel_ref_registers_pin_and_channel_claims() -> Non
     socket = _socket(gpio_map={0: ("gpioa", 3, 0)})
     socket.pwm_map[0] = ("tcc0", 1)
     dev = _dev("servo")
-    dev.gpio_refs.append(GpioRef(prop="pwms", position=0, flags=0,
+    dev.function_refs.append(FunctionRef(prop="pwms", position=0, flags=0,
                                  function="pwm", period=1000,
                                  src=None))  # type: ignore[arg-type]
     inst = _inst("servo_1")
@@ -224,7 +224,7 @@ def test_collect_gpio_nets_channel_ref_registers_pin_and_channel_claims() -> Non
 def test_collect_gpio_nets_channel_ref_missing_map_entry_is_phys_function() -> None:
     socket = _socket()   # no pwm_map at all
     dev = _dev("servo")
-    dev.gpio_refs.append(GpioRef(prop="pwms", position=0, flags=0,
+    dev.function_refs.append(FunctionRef(prop="pwms", position=0, flags=0,
                                  function="pwm", period=0,
                                  src=None))  # type: ignore[arg-type]
     inst = _inst("servo_1")
@@ -248,7 +248,7 @@ def test_collect_gpio_nets_channel_ref_missing_map_entry_names_the_real_adc_prop
     nonexistent "socket,adc-map"."""
     socket = _socket()   # no adc_map at all
     dev = _dev("sensor")
-    dev.gpio_refs.append(GpioRef(prop="io-channels", position=0, flags=0,
+    dev.function_refs.append(FunctionRef(prop="io-channels", position=0, flags=0,
                                  function="adc", src=None))  # type: ignore[arg-type]
     inst = _inst("sensor_1")
     inst.shield.devices.append(dev)
@@ -274,7 +274,7 @@ def test_collect_gpio_nets_nonzero_pwm_flags_is_phys_function_on_a_2cell_socket(
     socket.pwm_map[0] = ("tcc0", 0)
     socket.pwm_cells = 2
     dev = _dev("servo")
-    dev.gpio_refs.append(GpioRef(prop="pwms", position=0, flags=1,
+    dev.function_refs.append(FunctionRef(prop="pwms", position=0, flags=1,
                                  function="pwm", period=0,
                                  src=None))  # type: ignore[arg-type]
     inst = _inst("servo_1")
@@ -299,7 +299,7 @@ def test_collect_gpio_nets_nonzero_pwm_flags_is_carried_on_a_3cell_socket() -> N
     socket.pwm_map[0] = ("tcc0", 0)
     socket.pwm_cells = 3
     dev = _dev("servo")
-    dev.gpio_refs.append(GpioRef(prop="pwms", position=0, flags=1,
+    dev.function_refs.append(FunctionRef(prop="pwms", position=0, flags=1,
                                  function="pwm", period=20000000,
                                  src=None))  # type: ignore[arg-type]
     inst = _inst("servo_1")

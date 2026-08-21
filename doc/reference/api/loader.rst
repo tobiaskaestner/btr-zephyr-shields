@@ -46,10 +46,10 @@ never reads a board.
 
 .. automodule:: rigc.loader.params
 
-``rigc.shields``
-------------------
+``rigc.loader.shields``
+-------------------------
 
-.. automodule:: rigc.shields
+.. automodule:: rigc.loader.shields
 
 ``rigc.registry``
 -------------------

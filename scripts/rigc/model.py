@@ -51,8 +51,8 @@ class ConnectorType:
 
 
 @dataclass
-class GpioRef:
-    """A gpio-spec property on a shield device. Two shapes::
+class FunctionRef:
+    """A gpio/pwm/adc-spec property on a shield device. Two shapes::
 
       fixed position -- <&plug POSITION flags>: position is position.
       deferred        -- <&jumper flags>: position selected by a routing
@@ -99,7 +99,7 @@ class Device:
     # device's other DTS content and must be declared explicitly, on the
     # SAME node as the parameter it backs.
     declared_param_includes: List[str] = field(default_factory=list)
-    gpio_refs: List[GpioRef] = field(default_factory=list)
+    function_refs: List[FunctionRef] = field(default_factory=list)
     extra_props: List[Tuple[str, str]] = field(default_factory=list)  # rendered passthrough
     src: Optional[SourceRef] = None
 
@@ -297,8 +297,8 @@ class Instance:
     # `Shield.plugs` is.
     sockets: Dict[str, Optional[str]]
     invert: bool = False            # flip the active level of the module's gpio signals
-    pins: Dict[str, int] = field(default_factory=dict)          # strap name -> pinned address
-    pin_refs: Dict[str, SourceRef] = field(default_factory=dict)
+    straps: Dict[str, int] = field(default_factory=dict)        # strap name -> pinned address
+    strap_refs: Dict[str, SourceRef] = field(default_factory=dict)
     jumpers: Dict[str, object] = field(default_factory=dict)    # jumper name -> raw position
     jumper_refs: Dict[str, SourceRef] = field(default_factory=dict)
     # rig params: -- per-instance property assignments, keyed by
@@ -313,7 +313,7 @@ class Instance:
 # ---------------------------------------------------------------- board side
 # The board DT is analyzer input: the analyzer reads the board DT to find
 # socket nodes by compatible. These are READ, never authored, facts --
-# populated by board_edt.py, never redefined there.
+# populated by board/project.py, never redefined there.
 
 
 @dataclass
@@ -338,7 +338,7 @@ class BoardSocket:
     pwm_map: Dict[int, Tuple[str, int]] = field(default_factory=dict)  # position -> (ctrl label, channel)
     adc_map: Dict[int, Tuple[str, int]] = field(default_factory=dict)  # position -> (ctrl label, channel)
     # This socket's OWN declared #pwm-cells / #io-channel-cells: for a
-    # real board socket, board_edt.py's checked read (never the discarded
+    # real board socket, board/project.py's checked read (never the discarded
     # period cell); for a synthesized carrier socket, compose_socket
     # carries the parent's declared count forward once checked equal to
     # it. A carrier never chooses its own count -- it inherits whatever

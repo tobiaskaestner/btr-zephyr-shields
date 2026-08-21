@@ -4,7 +4,7 @@ Shield template properties
 Every ``shield,*`` and ``plug,*`` property a ``.shield`` file may declare —
 what it means, whether it may be absent, and what refuses it if it is
 misused. The authority is the loader itself,
-``scripts/rigc/shields.py``; every example below is copied verbatim (only
+``scripts/rigc/loader/shields.py``; every example below is copied verbatim (only
 re-indented for this page) from a real ``.shield`` file in this tree.
 
 This page is reference, not narrative — :doc:`../tutorials/write-a-shield-template`
@@ -87,7 +87,7 @@ The plug node
    ``#gpio-cells`` / ``#pwm-cells`` / ``#io-channel-cells``. A position
    reference through a plug carries the generic count for its function (2
    for gpio, 3 for pwm, 1 for adc,
-   ``scripts/rigc/shields.py::_FUNCTION_DEFAULT_CELLS``), and so does the
+   ``scripts/rigc/loader/shields.py::_FUNCTION_DEFAULT_CELLS``), and so does the
    parent side of an exposed socket's ``gpio-map``/``pwm-map``/
    ``io-channel-map`` row. Only a node whose arity genuinely differs says
    so — a :term:`routing jumper`, which supplies the position itself and
@@ -381,7 +381,7 @@ strap-selectable I2C address, referenced by ``shield,addr-from`` above):
 .. note::
 
    A real defect found while re-deriving this page, reported rather than
-   fixed (this is a docs slice): ``scripts/rigc/shields.py::_parse_strap``
+   fixed (this is a docs slice): ``scripts/rigc/loader/shields.py::_parse_strap``
    reads ``node.props["shield,domain"]`` unconditionally, with no presence
    check. A config-group child authoring neither
    ``shield,position-domain`` nor ``shield,domain`` is routed to
@@ -428,7 +428,7 @@ Example — ``boards/shields/adafruit_winc1500/adafruit_winc1500.shield``
 :Type: string.
 :Required or optional: optional. **Absence means the emitted**
    :term:`config sheet` **carries an empty label** for that element
-   (``scripts/rigc/shields.py::_sheet_label`` returns ``""`` when the
+   (``scripts/rigc/loader/shields.py::_sheet_label`` returns ``""`` when the
    property is absent) — the element still functions, but the human-facing
    wiring instructions have nothing readable to call it. Presence supplies
    that label (a silkscreen name, typically).

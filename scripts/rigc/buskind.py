@@ -8,8 +8,8 @@ kind-prefix match (or, worse, a literal three-name membership check
 that silently stops covering a role-suffixed name).
 
 Also the one home for the two `socket,*` PROPERTY-NAME regexes every
-reader of a `socket,*` binding/node needs -- shields.py (exposed-socket
-parsing), board_edt.py (board-side projection) and registry.py
+reader of a `socket,*` binding/node needs -- loader/shields.py (exposed-socket
+parsing), board/project.py (board-side projection) and registry.py
 (connector-type binding facts) each read the identical two patterns off
 a different input (a dtlib node, an edtlib.EDT, a raw binding dict), so
 the patterns themselves belong here rather than as separate verbatim

@@ -1,4 +1,4 @@
-"""The edtlib READ side: guards over boarddt/board_edt/edt_build, the
+"""The edtlib READ side: guards over resolve/project/edt_build, the
 layer that projects a real board's own devicetree onto model.Board.
 
   * a real, PLAIN (no shield, no rig) west build --cmake-only per board
@@ -7,7 +7,7 @@ layer that projects a real board's own devicetree onto model.Board.
     performs + asserts this.
 
   * the edt.pickle cross-check: the standalone edtlib.EDT this reader
-    builds -- read through the PRODUCTION entry point, boarddt.load_board,
+    builds -- read through the PRODUCTION entry point, resolve.load_board,
     exactly as the expander itself calls it -- must agree with pass-2's OWN
     edt.pickle from the same board, on every rig-relevant projection
     (socket paths, gpio-map, bus phandles, cs-pool). This is the proof that
@@ -16,18 +16,18 @@ layer that projects a real board's own devicetree onto model.Board.
     build_info.yml) is equivalent to pass 2's real one -- if it weren't,
     pass 1 could read a socket that pass 2 never actually builds against.
 
-  * the production-plumbing guard: for every board, boarddt.load_board
+  * the production-plumbing guard: for every board, resolve.load_board
     (given the same --board-dts + recipe the dts.cmake fork would pass)
     must produce the exact same model.Board as a DIRECT
-    board_edt.load_board call -- boarddt.load_board is a thin board-
-    resolution wrapper over board_edt, and this pins that the wrapping
+    project.load_board call -- resolve.load_board is a thin board-
+    resolution wrapper over project, and this pins that the wrapping
     introduces no divergence.
 
   * the census-vs-DT-truth guard (board-coordinate-s2-brief.md Sec 6):
-    board_census's text-only scan of a board rig-extension's *.dts/*.dtsi
+    census's text-only scan of a board rig-extension's *.dts/*.dtsi
     fragments -- what `west rigs --boards-for` runs against, since a real
     per-board read costs a cmake configure per candidate -- must agree
-    with board_edt's own projection of the REAL edtlib.EDT, on every field
+    with project's own projection of the REAL edtlib.EDT, on every field
     the census actually populates (defining label, DASHED type_name,
     sorted bus KINDS, alias map). This is the only guard keeping a text
     scanner honest against the devicetree it stands in for.
@@ -48,7 +48,7 @@ import pytest
 from conftest import BOARD_DTS, BOARDS, REPO_ROOT, PlainBuild, plain_build_for
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-from rigc import board_census, board_edt, boarddt, edt_build  # noqa: E402
+from rigc.board import census, edt_build, project, resolve  # noqa: E402
 from rigc.diag import render  # noqa: E402
 
 # ---------------------------------------------------------------- plain-build fixture
@@ -79,7 +79,7 @@ def test_plain_build_configures_clean(plain_build: PlainBuild) -> None:
 
 @pytest.mark.build
 def test_edt_pickle_cross_check(plain_build: PlainBuild, tmp_path: Path) -> None:
-    """Pass-1, read through the PRODUCTION path (boarddt.load_board, with
+    """Pass-1, read through the PRODUCTION path (resolve.load_board, with
     the recipe recovered out of the SAME build's build_info.yml) must
     agree with pass-2's OWN edt.pickle, for every board, on the
     rig-relevant projection: socket node paths, gpio-map entries, bus
@@ -89,24 +89,24 @@ def test_edt_pickle_cross_check(plain_build: PlainBuild, tmp_path: Path) -> None
     complementing the narrower guard in test_production_matches_direct_read
     below."""
     # pickle.load needs devicetree.edtlib importable to unpickle an
-    # edtlib.EDT -- board_edt.py's own runtime reference triggers this as
+    # edtlib.EDT -- project.py's own runtime reference triggers this as
     # a side effect when the full suite runs, but this module never
     # imports edtlib itself, so a standalone run of this file alone
     # (board-coordinate-s2-brief.md Sec 5.4's verification contract runs
     # exactly that) needs it put on sys.path explicitly, same as
-    # board_edt.py already does before its own one edtlib reference.
+    # project.py already does before its own one edtlib reference.
     edt_build.ensure_devicetree_on_path()
     with open(plain_build.edt_pickle, "rb") as f:
         pass2_edt = pickle.load(f)
-    pass2_board = board_edt.project_edt(pass2_edt, plain_build.board)
+    pass2_board = project.project_edt(pass2_edt, plain_build.board)
 
     recipe = edt_build.recipe_from_build_info(str(plain_build.build_info))
     dts_path = str(REPO_ROOT / BOARD_DTS[plain_build.board])
-    standalone_board, diags, _deps = boarddt.load_board(
-        plain_build.board, str(tmp_path / "boarddt"),
+    standalone_board, diags, _deps = resolve.load_board(
+        plain_build.board, str(tmp_path / "resolve"),
         board_dts=dts_path, recipe=recipe)
     assert standalone_board is not None, (
-        f"boarddt.load_board({plain_build.board!r}) failed:\n{render(diags)}")
+        f"resolve.load_board({plain_build.board!r}) failed:\n{render(diags)}")
 
     assert standalone_board.sockets.keys() == pass2_board.sockets.keys()
     for label, standalone_socket in standalone_board.sockets.items():
@@ -129,21 +129,21 @@ def test_edt_pickle_cross_check(plain_build: PlainBuild, tmp_path: Path) -> None
 @pytest.mark.build
 def test_production_matches_direct_read(plain_build: PlainBuild,
                                         tmp_path: Path) -> None:
-    """boarddt.load_board (what the expander actually calls) is a thin
-    board-resolution wrapper over board_edt.load_board -- assert they
+    """resolve.load_board (what the expander actually calls) is a thin
+    board-resolution wrapper over project.load_board -- assert they
     produce the identical model.Board, given the same board-dts + recipe,
     so that wrapping can never introduce a divergence between what the
-    expander sees and what a direct board_edt read would see."""
+    expander sees and what a direct project read would see."""
     recipe = edt_build.recipe_from_build_info(str(plain_build.build_info))
     dts_path = str(REPO_ROOT / BOARD_DTS[plain_build.board])
 
-    production, diags, _deps = boarddt.load_board(
+    production, diags, _deps = resolve.load_board(
         plain_build.board, str(tmp_path / "production"),
         board_dts=dts_path, recipe=recipe)
     assert production is not None, (
-        f"boarddt.load_board({plain_build.board!r}) failed:\n{render(diags)}")
+        f"resolve.load_board({plain_build.board!r}) failed:\n{render(diags)}")
 
-    direct = board_edt.load_board(
+    direct = project.load_board(
         plain_build.board, dts_path, recipe, str(tmp_path / "direct"))
 
     assert production == direct
@@ -154,7 +154,7 @@ def test_production_matches_direct_read(plain_build: PlainBuild,
 
 @pytest.mark.build
 def test_census_matches_real_board_devicetree(plain_build: PlainBuild) -> None:
-    """board_census's text-only scan is what `west rigs --boards-for`
+    """census's text-only scan is what `west rigs --boards-for`
     runs against (board-coordinate-s2-brief.md Sec 3: a real per-board
     read costs a cmake configure per candidate, which is not a query) --
     this is the guard that keeps it honest against the board's REAL
@@ -165,9 +165,9 @@ def test_census_matches_real_board_devicetree(plain_build: PlainBuild) -> None:
     edt_build.ensure_devicetree_on_path()
     with open(plain_build.edt_pickle, "rb") as f:
         pass2_edt = pickle.load(f)
-    pass2_board = board_edt.project_edt(pass2_edt, plain_build.board)
+    pass2_board = project.project_edt(pass2_edt, plain_build.board)
 
-    censused = [cb for cb in board_census.census_boards()
+    censused = [cb for cb in census.census_boards()
                if cb.target == plain_build.board]
     assert len(censused) == 1, (
         f"expected exactly one census entry for board {plain_build.board!r}, "

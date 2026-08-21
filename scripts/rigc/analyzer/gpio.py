@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, NamedTuple, Optional, Tuple
 
 from ..diag import Diagnostic, SourceRef, error
-from ..model import (BoardSocket, ConnectorType, Device, GpioRef, Instance,
+from ..model import (BoardSocket, ConnectorType, Device, FunctionRef, Instance,
                      Jumper, Rig)
 from .socketmap import Sockets, for_ref
 
@@ -32,7 +32,7 @@ _DRIVER_HINTS = ("int", "irq")
 #: "socket,{fn}-map" is NOT a real property name either function is
 #: ever spelled with -- pwm-map / io-channel-map are the standard nexus
 #: names edtlib.Node.maps() resolves ("pwm"/"io-channel" being the
-#: specifier space, stripped of "-map"), matching what board_edt.py
+#: specifier space, stripped of "-map"), matching what board/project.py
 #: itself reads.
 _MAP_PROP = {"pwm": "pwm-map", "adc": "io-channel-map"}
 
@@ -146,7 +146,7 @@ def collect_gpio_nets(rig: Rig, sockets: Sockets,
 
     for inst in rig.instances:
         for dev in inst.shield.devices:
-            for ref in dev.gpio_refs:
+            for ref in dev.function_refs:
                 socket = for_ref(sockets, inst, ref)
                 if socket is None:
                     continue
@@ -158,7 +158,7 @@ def collect_gpio_nets(rig: Rig, sockets: Sockets,
     return result, diags
 
 
-def _collect_gpio(inst: Instance, dev: Device, ref: GpioRef, socket: BoardSocket,
+def _collect_gpio(inst: Instance, dev: Device, ref: FunctionRef, socket: BoardSocket,
                   ctype: ConnectorType, result: GpioNets, claim, diags: List[Diagnostic],
                   ) -> None:
     pos = ref.position
@@ -173,7 +173,7 @@ def _collect_gpio(inst: Instance, dev: Device, ref: GpioRef, socket: BoardSocket
          f"{dev.name}: {ref.prop}", role_of(ref.prop), ref.src)
 
 
-def _collect_channel(inst: Instance, dev: Device, ref: GpioRef, socket: BoardSocket,
+def _collect_channel(inst: Instance, dev: Device, ref: FunctionRef, socket: BoardSocket,
                      ctype: ConnectorType, result: GpioNets, claim,
                      diags: List[Diagnostic]) -> None:
     """PWM/ADC: the same position is reachable as a channel of a
@@ -181,7 +181,7 @@ def _collect_channel(inst: Instance, dev: Device, ref: GpioRef, socket: BoardSoc
     can't also be GPIO or another function) and the CHANNEL (exclusive:
     two consumers can't share one timer/adc channel)."""
     fn = ref.function
-    # pwm/adc refs always carry a fixed position at parse time (shields.py):
+    # pwm/adc refs always carry a fixed position at parse time (loader/shields.py):
     # jumper deferral is a gpio-only shape.
     assert ref.position is not None
     pos = ref.position
@@ -223,7 +223,7 @@ def _collect_channel(inst: Instance, dev: Device, ref: GpioRef, socket: BoardSoc
          ref.src)
 
 
-def _resolve_jumper(inst: Instance, dev: Device, ref: GpioRef, ctype: ConnectorType,
+def _resolve_jumper(inst: Instance, dev: Device, ref: FunctionRef, ctype: ConnectorType,
                     result: GpioNets, diags: List[Diagnostic]) -> Optional[int]:
     """A routing jumper's position must be pinned by the rig (explicit
     config:; non-CS positions are never auto-allocated). Returns the

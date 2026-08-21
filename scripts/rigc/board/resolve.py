@@ -1,9 +1,9 @@
 """Board DT reader -- analyzer-side input: the analyzer reads the board
 DT to find socket nodes by compatible. Delegates entirely to
-board_edt/edt_build's edtlib.EDT reader over the board's own devicetree.
+project/edt_build's edtlib.EDT reader over the board's own devicetree.
 
 This module keeps two responsibilities of its own, both about board
-RESOLUTION rather than DT mechanics (those live in board_edt/edt_build):
+RESOLUTION rather than DT mechanics (those live in project/edt_build):
 
   * board NAME -> .dts path, explicit (the in-build path: dts.cmake already
     resolved BOARD_DIR via boards.cmake, so it passes --board-dts directly)
@@ -29,12 +29,12 @@ import sys
 from pathlib import Path
 from typing import List, Optional, Tuple
 
-from . import board_edt
-from .deps import Deps, touch
-from .diag import Diagnostic, LoadError, anchor_path, error
-from .dtsio import MODULE_ROOT
+from ..deps import Deps, touch
+from ..diag import Diagnostic, LoadError, anchor_path, error
+from ..dtsio import MODULE_ROOT
+from ..model import Board
+from . import project
 from .edt_build import BuildRecipe
-from .model import Board
 
 log = logging.getLogger(__name__)
 
@@ -46,7 +46,7 @@ def load_board(name: str, workdir: str,
     """Resolve board name to a model.Board, or (None, diagnostics) if it
     can't be read at all.
 
-    board_dts / recipe are the two inputs board_edt.load_board needs (see
+    board_dts / recipe are the two inputs project.load_board needs (see
     edt_build.BuildRecipe). The in-build path (dts.cmake) always passes both
     explicitly -- BOARD_DIR is already resolved by boards.cmake long before
     the analyzer runs, and dts.cmake computes the recipe itself. Leaving
@@ -83,7 +83,7 @@ def load_board(name: str, workdir: str,
 
     deps = touch(board_dts)
     try:
-        board = board_edt.load_board(name, board_dts, recipe, workdir)
+        board = project.load_board(name, board_dts, recipe, workdir)
     except LoadError as e:
         # A malformed socket,* nexus (a PWM/ADC controller whose own
         # declared cell count this expander does not support) raises

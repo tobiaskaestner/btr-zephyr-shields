@@ -37,7 +37,7 @@ def resolve_board(injected_board: Optional[str] = None) -> str:
     Returning "" rather than raising is deliberate: a rig's TOPOLOGY
     (this loader's own job) never needs a board to assemble. Something
     downstream that actually needs a real board devicetree (cli.py,
-    right before boarddt.load_board) is where a still-empty board
+    right before board.load_board) is where a still-empty board
     becomes a diagnostic; a bare load (`west rigs --boards-for`'s own
     census, `rigc.promote`'s round-trip check) never reaches that
     point and so never needs one either."""

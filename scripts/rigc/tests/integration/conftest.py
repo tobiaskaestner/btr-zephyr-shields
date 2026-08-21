@@ -111,13 +111,13 @@ from rigc.tests.compare import (  # noqa: E402
 def assert_fixture_local(paths: List[Union[Path, str]]) -> None:
     """Structural proof of hermeticity for a test that claims to need no
     real Zephyr tree and no repo-production devicetree content: every
-    path it hands to board_edt/edtlib as a --board-dts/--bindings-dir/
+    path it hands to board/edtlib as a --board-dts/--bindings-dir/
     --include-dir resolves under FIXTURES_DIR, never under $ZEPHYR_BASE
     or REPO_ROOT/dts or REPO_ROOT/include.
 
     $ZEPHYR_BASE may still be SET for such a test (it locates the
     devicetree package itself, which this workspace's zephyr branch
-    patches -- edt_build.ensure_devicetree_on_path -- so it is not
+    patches -- board.edt_build.ensure_devicetree_on_path -- so it is not
     something a test can or should route around); what this asserts is
     that none of its DATA leaks in. Checking the caller's own recipe
     inputs (rather than, say, the ABSENCE of $ZEPHYR_BASE) is what makes
@@ -619,7 +619,7 @@ def run_expand(rig_yml: Path, out_dir: Path,
     through until now.
 
     board_dts/build_info are both None for the unknown-board fixture —
-    deliberately, so the CLI exercises boarddt's own name->dts DISCOVERY
+    deliberately, so the CLI exercises board.resolve's own name->dts DISCOVERY
     (list_boards.py) and its "board not found" diagnostic, exactly as a bare
     standalone invocation would.
 

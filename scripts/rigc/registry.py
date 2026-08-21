@@ -2,7 +2,7 @@
 socket+plug binding (board side, edtlib's job in the real build; shield
 side, consumed HERE by the loader) and the index header (position single
 source of truth). The registry is a PREREQUISITE, not a nicety --
-shields.py checks every shield's plug against it (lang-shield-type), so
+loader/shields.py checks every shield's plug against it (lang-shield-type), so
 an empty or stubbed registry would emit errors on perfectly valid
 fixture/corpus shields and corrupt every golden's bytes.
 
@@ -35,7 +35,7 @@ BINDINGS = os.path.join(MODULE_ROOT, "dts", "bindings", "connectors")
 
 #: socket,<kind>-<role>-cs-pool -- a named bus's own CS pool default,
 #: keyed the qualified way. This module reads the raw binding dict,
-#: board_edt.py reads an already-built edtlib.EDT -- two different
+#: board/project.py reads an already-built edtlib.EDT -- two different
 #: inputs to the same fact; see buskind.py for the regex itself and why
 #: it lives there rather than as a third verbatim copy.
 

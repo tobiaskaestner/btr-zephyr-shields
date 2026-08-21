@@ -3,11 +3,11 @@ Board socket properties
 
 Every ``socket,*`` property a typed board socket node may declare, plus
 the connector-type binding's own ``plug,*`` extension keys. The authority
-is ``scripts/rigc/board_edt.py`` (what a real board socket node projects
+is ``scripts/rigc/board/project.py`` (what a real board socket node projects
 into), ``scripts/rigc/registry.py`` (what a connector-type binding
 declares) and ``scripts/rigc/buskind.py`` (the shared bus-name patterns
 both, and the shield-side exposed-socket parser in
-``scripts/rigc/shields.py``, read). Every example below is copied
+``scripts/rigc/loader/shields.py``, read). Every example below is copied
 verbatim (only re-indented, or trimmed to the relevant socket, for this
 page) from a real board devicetree fragment or connector binding in this
 tree.
@@ -22,7 +22,7 @@ Declaring the connector type
 -------------------------------
 
 A node becomes a socket purely by its ``compatible`` starting with
-``"socket,"`` — ``scripts/rigc/board_edt.py::project_edt`` scans every node
+``"socket,"`` — ``scripts/rigc/board/project.py::project_edt`` scans every node
 of a board's devicetree for exactly that, keyed by the node's own
 defining label (``node.labels[0]``; a socket node with no label at all is
 refused outright, ``ValueError`` from ``_project_socket`` — a board
@@ -170,7 +170,7 @@ The PWM/ADC nexuses
    socket does).
 :Type: the same standard nexus shape as ``gpio-map``, targeting a PWM
    controller. ``#pwm-cells`` is checked against a **supported set**
-   (``scripts/rigc/board_edt.py::_CHANNEL_FN``): 2-cell (channel, period)
+   (``scripts/rigc/board/project.py::_CHANNEL_FN``): 2-cell (channel, period)
    or 3-cell (channel, period, flags) — both real shapes in upstream
    Zephyr's own PWM bindings.
 :Required or optional: optional — declared by absence, exactly like
@@ -277,7 +277,7 @@ Example — new scope, shield side, ``boards/shields/i2c_mux/i2c_mux.shield``:
 
 Example — role-qualified (**test-fixture only**; no production board in
 this tree authors a named multi-bus socket yet),
-``scripts/rigc/tests/unit/test_board_edt.py`` (``_multibus_edt``):
+``scripts/rigc/tests/unit/board/test_board_project.py`` (``_multibus_edt``):
 
 .. code-block:: devicetree
 
@@ -320,7 +320,7 @@ Example — connector-type default, ``dts/bindings/connectors/arduino-r3.yaml``:
 
 Example — role-qualified (**test-fixture only**; no production board
 authors a named multi-bus CS pool yet),
-``scripts/rigc/tests/unit/test_board_edt.py`` (``_multibus_edt``):
+``scripts/rigc/tests/unit/board/test_board_project.py`` (``_multibus_edt``):
 
 .. code-block:: devicetree
 

@@ -36,7 +36,7 @@ def test_no_injection_returns_the_empty_string() -> None:
     """Legal, not an error: a rig's topology never needed a board to
     assemble, and nothing left in rig.yml's own grammar could supply one
     anyway. A caller that actually needs a real board (cli.py, right
-    before boarddt.load_board) is where an empty board becomes a
+    before load_board) is where an empty board becomes a
     diagnostic -- not here."""
     assert resolve_board() == ""
     assert resolve_board(None) == ""

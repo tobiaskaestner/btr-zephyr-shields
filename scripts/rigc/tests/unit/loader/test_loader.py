@@ -93,7 +93,7 @@ def test_resolve_metadata_board_absent_is_the_empty_string_with_no_diagnostic(
     """The negative control: omitting `board` is legal, not an error --
     rig.yml has no grammar left to declare one from, and this loader
     phase never needed a real board to assemble a topology. A caller
-    that DOES need one (cli.py, right before boarddt.load_board) is
+    that DOES need one (cli.py, right before load_board) is
     where an empty board becomes a diagnostic, not here."""
     doc = _parsed(tmp_path, "rig.yml", "rig:\n  name: r\n")
     meta, diags = _resolve_metadata(doc, None, None)

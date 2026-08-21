@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: Apache-2.0
-"""Board DT reader, edtlib-based -- the production reader boarddt.load_board
+"""Board DT reader, edtlib-based -- the production reader resolve.load_board
 delegates to. It projects a real board's own devicetree, read via a
 standalone edtlib.EDT (see edt_build.py), onto model.Board /
 model.BoardSocket: the analyzer reads the board DT to find socket nodes
@@ -32,15 +32,15 @@ from .edt_build import BuildRecipe, build_edt, ensure_devicetree_on_path
 if TYPE_CHECKING:
     from devicetree import edtlib
 
-from .buskind import BUS_PROP_RE as _BUS_PROP_RE
-from .buskind import CS_POOL_PROP_RE as _CS_POOL_PROP_RE
-from .diag import LoadError, SourceRef, error
-from .model import Board, BoardSocket, BusRef
+from ..buskind import BUS_PROP_RE as _BUS_PROP_RE
+from ..buskind import CS_POOL_PROP_RE as _CS_POOL_PROP_RE
+from ..diag import LoadError, SourceRef, error
+from ..model import Board, BoardSocket, BusRef
 
 #: socket,<kind> or socket,<kind>-<role> -- a connector type names an
 #: additional bus of a kind by suffixing the kind with a role (multi-bus-
 #: socket schema, Sec 2); the QUALIFIED name (kind, or kind-role) is the
-#: key BoardSocket.buses/ConnectorType.cs_pool use throughout. shields.py
+#: key BoardSocket.buses/ConnectorType.cs_pool use throughout. loader/shields.py
 #: and registry.py read the identical two patterns off their own inputs
 #: -- see buskind.py for the regexes themselves and why they live there.
 
@@ -50,7 +50,7 @@ def load_board(name: str, dts_path: str, recipe: BuildRecipe,
     """Build a standalone edtlib.EDT over the board's OWN .dts (dts_path,
     no rig overlay, no shield/app context) and project every socket,* node
     into a model.Board -- the edtlib-side counterpart of
-    boarddt.load_board.
+    resolve.load_board.
 
     Returns the projected Board; the caller owns it."""
     edt = build_edt(dts_path, recipe, workdir)
@@ -137,7 +137,7 @@ def _project_socket(node: "edtlib.Node", compat: str) -> BoardSocket:
     # significantly, the analyzer's carrier/mux composition
     # (analyzer/sockets.py's compose_socket) builds each pass-through
     # bus's cs_pool from model.ExposedSocket.cs_pool -- the CARRIER'S OWN
-    # authored override on its exposed socket node, parsed by shields.py
+    # authored override on its exposed socket node, parsed by loader/shields.py
     # with no binding-default backfill at all, and never the PARENT
     # socket's own (possibly edtlib-backfilled) BusRef.cs_pool. A carrier
     # that never authors socket,cs-pool on its exposed socket node
@@ -220,7 +220,7 @@ def _project_channel_map(node: "edtlib.Node", label: str, specifier_space: str,
     two sides disagree with EACH OTHER even though both are
     individually supported: a nexus's mask/pass-thru idiom requires the
     child and parent specifier widths equal, and rigc does not translate
-    between specifier widths. `boarddt.load_board` is the
+    between specifier widths. `resolve.load_board` is the
     catch boundary that turns this into the caller's normal
     (board, diagnostics, deps) return shape, exactly as dtsio.py's own
     LoadError raises already do for a fatal cpp/parse failure.

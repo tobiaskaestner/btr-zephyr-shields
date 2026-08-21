@@ -15,7 +15,7 @@ import pytest
 from rigc.analyzer import ChannelResolution, Solved
 from rigc.diag import SourceRef
 from rigc.emitter.overlay import render_overlay
-from rigc.model import (BoardSocket, BusRef, ConnectorType, Device, GpioRef,
+from rigc.model import (BoardSocket, BusRef, ConnectorType, Device, FunctionRef,
                         Instance, Rig, Shield)
 
 _SRC = SourceRef("f.yml", 1, "k")
@@ -41,8 +41,8 @@ def _plain_dev(**kwargs: object) -> Device:
 
 
 def test_gpio_ref_flips_the_active_level_when_the_instance_inverts() -> None:
-    ref = GpioRef(prop="int-gpios", position=5, flags=0x1, src=_SRC, function="gpio")
-    dev = _plain_dev(gpio_refs=[ref])
+    ref = FunctionRef(prop="int-gpios", position=5, flags=0x1, src=_SRC, function="gpio")
+    dev = _plain_dev(function_refs=[ref])
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"}, invert=True)
     rig = Rig(name="r", instances=[inst])
@@ -54,8 +54,8 @@ def test_gpio_ref_flips_the_active_level_when_the_instance_inverts() -> None:
 
 
 def test_gpio_ref_keeps_flags_unchanged_when_not_inverted() -> None:
-    ref = GpioRef(prop="int-gpios", position=5, flags=0x1, src=_SRC, function="gpio")
-    dev = _plain_dev(gpio_refs=[ref])
+    ref = FunctionRef(prop="int-gpios", position=5, flags=0x1, src=_SRC, function="gpio")
+    dev = _plain_dev(function_refs=[ref])
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
@@ -69,9 +69,9 @@ def test_gpio_ref_keeps_flags_unchanged_when_not_inverted() -> None:
 def test_pwm_ref_omits_flags_and_renders_position_and_period() -> None:
     """2-cell socket (three-cell-pwm-brief.md Sec 3b): flags omitted,
     exactly as lotus's own atmel,sam0-tcc-pwm shape requires."""
-    ref = GpioRef(prop="pwms", position=2, flags=0, src=_SRC, function="pwm",
+    ref = FunctionRef(prop="pwms", position=2, flags=0, src=_SRC, function="pwm",
                  period=1000)
-    dev = _plain_dev(name="dev", label="dev", gpio_refs=[ref])
+    dev = _plain_dev(name="dev", label="dev", function_refs=[ref])
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
@@ -88,9 +88,9 @@ def test_pwm_ref_on_a_3cell_socket_renders_the_flags_word_too() -> None:
     """The 3-cell twin (three-cell-pwm-brief.md Sec 3b, acceptance
     criterion 1): the SAME (position, period) plus a real flags word --
     the common upstream shape (st,stm32-pwm/nxp,ftm-pwm)."""
-    ref = GpioRef(prop="pwms", position=2, flags=0x1, src=_SRC, function="pwm",
+    ref = FunctionRef(prop="pwms", position=2, flags=0x1, src=_SRC, function="pwm",
                  period=1000)
-    dev = _plain_dev(name="dev", label="dev", gpio_refs=[ref])
+    dev = _plain_dev(name="dev", label="dev", function_refs=[ref])
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
@@ -111,9 +111,9 @@ def test_nonzero_pwm_flags_raise_assertionerror_never_silently_emitted() -> None
     2-cell socket only (three-cell-pwm-brief.md Sec 3c): a 3-cell one has
     a real cell for flags, so this is unreachable there BY CONSTRUCTION,
     not merely by the analyzer's own gate -- see the 3-cell test above."""
-    ref = GpioRef(prop="pwms", position=2, flags=0, src=_SRC, function="pwm",
+    ref = FunctionRef(prop="pwms", position=2, flags=0, src=_SRC, function="pwm",
                  period=1000)
-    dev = _plain_dev(name="dev", label="dev", gpio_refs=[ref])
+    dev = _plain_dev(name="dev", label="dev", function_refs=[ref])
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
@@ -126,8 +126,8 @@ def test_nonzero_pwm_flags_raise_assertionerror_never_silently_emitted() -> None
 
 
 def test_adc_ref_renders_position_only_no_flags_no_period() -> None:
-    ref = GpioRef(prop="io-channels", position=3, flags=0, src=_SRC, function="adc")
-    dev = _plain_dev(name="dev", label="dev", gpio_refs=[ref])
+    ref = FunctionRef(prop="io-channels", position=3, flags=0, src=_SRC, function="adc")
+    dev = _plain_dev(name="dev", label="dev", function_refs=[ref])
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
@@ -150,9 +150,9 @@ def test_pwm_collection_entry_renders_the_resolved_period_not_the_flags_cell() -
     from flags=0, so a value-swap regression (period and flags rendered
     in each other's place) is visible rather than accidentally passing
     because both happen to be small."""
-    ref = GpioRef(prop="pwms", position=5, flags=0, src=_SRC, function="pwm",
+    ref = FunctionRef(prop="pwms", position=5, flags=0, src=_SRC, function="pwm",
                  period=1234)
-    dev = _plain_dev(name="led", label="led", collect="pwm-leds", gpio_refs=[ref])
+    dev = _plain_dev(name="led", label="led", collect="pwm-leds", function_refs=[ref])
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])
@@ -171,9 +171,9 @@ def test_invert_does_not_touch_a_pwm_collection_entry() -> None:
     """Criterion 3: invert: is a gpio-flags concept. Even on a COLLECTED
     entry whose instance sets invert: true, the pwm branch never consults
     inst.invert -- accepted, silently without effect on the emitted line."""
-    ref = GpioRef(prop="pwms", position=5, flags=0, src=_SRC, function="pwm",
+    ref = FunctionRef(prop="pwms", position=5, flags=0, src=_SRC, function="pwm",
                  period=1234)
-    dev = _plain_dev(name="led", label="led", collect="pwm-leds", gpio_refs=[ref])
+    dev = _plain_dev(name="led", label="led", collect="pwm-leds", function_refs=[ref])
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"}, invert=True)
     rig = Rig(name="r", instances=[inst])
@@ -193,9 +193,9 @@ def test_adc_collection_entry_renders_one_cell_no_flags_no_period() -> None:
     (#io-channel-cells is 1, not 2), not merely a wrong value like the pwm
     case above. No collected ADC device exists in the corpus today; this
     pins the shared helper's behavior ahead of one landing."""
-    ref = GpioRef(prop="io-channels", position=3, flags=0, src=_SRC, function="adc")
+    ref = FunctionRef(prop="io-channels", position=3, flags=0, src=_SRC, function="adc")
     dev = _plain_dev(name="sensor", label="sensor", collect="some-adc-collection",
-                     gpio_refs=[ref])
+                     function_refs=[ref])
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", instances=[inst])

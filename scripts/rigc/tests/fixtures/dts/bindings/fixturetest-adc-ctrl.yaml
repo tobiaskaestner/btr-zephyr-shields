@@ -1,6 +1,6 @@
 description: Purpose-built fixture ADC controller binding (rigc's own
-  board_edt/boarddt unit-test data, never a copy of a real controller
-  binding).
+  board/project.py's and board/resolve.py's unit-test data, never a copy of
+  a real controller binding).
 
 compatible: "fixturetest,adc-ctrl"
 

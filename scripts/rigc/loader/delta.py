@@ -123,10 +123,10 @@ def _parse_sockets_block(item: Val, shield: Shield, binding: SocketBinding,
         diags += plural_diags
         return sockets_map, diags
 
-    # Keyed by the plug's own name (model.py's GpioRef.plug/Shield.plugs
+    # Keyed by the plug's own name (model.py's FunctionRef.plug/Shield.plugs
     # contract), never the literal "plug": a single-plug shield's one
     # slot is whatever its plug node is actually named. `shield.plugs`
-    # is empty only when an earlier shields.py diagnostic already
+    # is empty only when an earlier loader/shields.py diagnostic already
     # rejected this shield (no plug node, or a retired shield,plugs
     # spelling) -- cli.py's has_errors gate stops the run before this
     # map is ever read, so an empty dict here (one entry per slot of
@@ -170,7 +170,7 @@ def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
     diags += d
 
     inv_v = item.value.get("invert")
-    pins, pin_refs, jumpers, jumper_refs, d = apply_config_block(
+    straps, strap_refs, jumpers, jumper_refs, d = apply_config_block(
         item.value.get("config"), name, shield)
     diags += d
     tag = f"{rig_name}_{name}"
@@ -183,7 +183,7 @@ def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
     inst = Instance(
         name=name, shield=shield, sockets=sockets_map,
         invert=bool(inv_v.value) if inv_v is not None else False,
-        pins=pins, pin_refs=pin_refs, jumpers=jumpers, jumper_refs=jumper_refs,
+        straps=straps, strap_refs=strap_refs, jumpers=jumpers, jumper_refs=jumper_refs,
         params=params, param_refs=param_refs, src=item.src)
     log.debug("instance '%s': shield=%r sockets=%r", name, shield.name, inst.sockets)
     return inst, diags, deps
@@ -224,7 +224,7 @@ def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
     # `socket:`/`sockets:` REPLACES WHOLESALE, same as `params:` -- never
     # a per-key merge. Absent from this patch item, the OLD sockets
     # carry forward untouched, even across a shield change -- the same
-    # "unspecified key inherits" shape pins/jumpers already use
+    # "unspecified key inherits" shape straps/jumpers already use
     # (reproduced as-is above), rather than an implicit reset. EXCEPT:
     # when the shield changed to one
     # whose slot names differ from the carried-forward map's keys, the
@@ -244,14 +244,14 @@ def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
         invert = bool(item.value["invert"].value)
 
     # A shield swap with no `config:` key alongside it leaves
-    # pins/jumpers referencing the OLD shield's config elements
+    # straps/jumpers referencing the OLD shield's config elements
     # untouched -- only params: is unconditionally reset on a shield
     # change. This asymmetry is deliberate; changing it is a
     # golden-changing decision, not something to fix in passing.
-    pins, pin_refs, jumpers, jumper_refs = (
-        inst.pins, inst.pin_refs, inst.jumpers, inst.jumper_refs)
+    straps, strap_refs, jumpers, jumper_refs = (
+        inst.straps, inst.strap_refs, inst.jumpers, inst.jumper_refs)
     if "config" in item.value:
-        pins, pin_refs, jumpers, jumper_refs, d = apply_config_block(
+        straps, strap_refs, jumpers, jumper_refs, d = apply_config_block(
             item.value["config"], inst.name, shield)
         diags += d
 
@@ -279,7 +279,7 @@ def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
 
     new_inst = Instance(
         name=inst.name, shield=shield, sockets=sockets_map, invert=invert,
-        pins=pins, pin_refs=pin_refs, jumpers=jumpers, jumper_refs=jumper_refs,
+        straps=straps, strap_refs=strap_refs, jumpers=jumpers, jumper_refs=jumper_refs,
         params=params, param_refs=param_refs, src=inst.src)
     log.debug("instance '%s': shield=%r sockets=%r (%s stage '%s')",
              inst.name, shield.name, sockets_map, stage, stage_value)

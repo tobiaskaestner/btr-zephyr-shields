@@ -8,7 +8,7 @@ overlay / context.cmake / config-sheet.md / conf the emitter
 produced. expectations.yml is deliberately excluded — it is emitted but
 never gated (see claude/hw-expectations/).
 
-Pass 1 reads the REAL board devicetree (boarddt/board_edt/edt_build), which
+Pass 1 reads the REAL board devicetree (board/), which
 needs a real recipe (cpp include dirs + edtlib bindings dirs) — the
 cached-plain-build pattern (conftest.plain_build_for) supplies it via one
 real west build --cmake-only PER BOARD, memoized for the whole test
@@ -22,7 +22,7 @@ production content is integration by PURPOSE, not by speed.
 
 test_unknown_board_golden and test_not_rig_enabled_golden are similarly
 unmarked (no build) yet integration: the former's diagnostic is reached by
-scanning the real board tree (boarddt/list_boards.py, "no such board
+scanning the real board tree (board/resolve.py/list_boards.py, "no such board
 directory under ./boards" -- a real dependency on production board-tree
 content, unlike every fixture in test_emitted_rejects.py, none of which
 ever reaches board resolution at all); the latter explicitly passes
@@ -69,7 +69,7 @@ from conftest import (
 )
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-from rigc import board_census  # noqa: E402
+from rigc import board  # noqa: E402
 
 
 @pytest.mark.parametrize("case", ALL_CASES, ids=lambda c: c.name)
@@ -152,7 +152,7 @@ def test_no_rig_content_names_a_board_prefixed_socket() -> None:
     build against that one board, exactly what board-as-coordinate exists
     to undo.
 
-    "board-prefixed" is derived, not hardcoded: board_census.census_boards
+    "board-prefixed" is derived, not hardcoded: board.census_boards
     builds each real board's Board.aliases as {conventional_alias:
     defining_label}, so the set of defining labels that have at least one
     alias pointing to them is exactly what content must not name. A board
@@ -178,7 +178,7 @@ def test_no_rig_content_names_a_board_prefixed_socket() -> None:
     rglob("*.yml"), not a flat glob("*/*.yml") -- five rigs live one level
     deeper, under boards/rigs/clash/ (clash-rigs-folder-brief.md)."""
     forbidden = {defining
-                 for cb in board_census.census_boards()
+                 for cb in board.census_boards()
                  for defining in cb.board.aliases.values()}
 
     offenders = []
@@ -273,7 +273,7 @@ def test_unknown_board_golden(tmp_path: Path) -> None:
     rig names a real, existing board). An injected unknown board is
     still a real error (board-coordinate-s6-brief.md Sec 11's own
     judgement call) -- the diagnostic is unchanged by where the name
-    came from, boarddt.load_board never learns the difference."""
+    came from, load_board never learns the difference."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "unknown-board" / "rig.yml"
     result = run_expand(rig_yml, out_dir, board="nonexistent_board_xyz")

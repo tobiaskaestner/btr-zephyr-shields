@@ -7,7 +7,7 @@
  * require-and-check (analyzer/sockets.py's compose_socket,
  * carrier-analog-passthrough-brief.md Sec 5) already checks -- this
  * fixture proves that check is ALREADY 3-cell-general (it does not
- * change for this slice), while board_edt.py's own widened read is what
+ * change for this slice), while board/project.py's own widened read is what
  * lets tc_socket3 resolve as this carrier's parent at all.
  */
 

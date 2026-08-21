@@ -19,7 +19,7 @@ from typing import Dict, Iterator, List, Optional, Tuple
 from ..analyzer import ChannelResolution, Solved
 from ..analyzer.socketmap import for_bus_device, for_ref, slots_of
 from ..buskind import is_bus_kind
-from ..model import BoardSocket, ConnectorType, Device, GpioRef, Instance, Rig
+from ..model import BoardSocket, ConnectorType, Device, FunctionRef, Instance, Rig
 from . import GEN
 
 
@@ -220,7 +220,7 @@ def _collection_entry(s: Solved, types: Dict[str, ConnectorType], inst: Instance
     # aggregation only composes the label/gpio, it must not drop the rest.
     for _pname, rendered in _instance_extra_props(inst, dev):
         lines.append(f"\t\t{rendered}")
-    for ref in dev.gpio_refs:
+    for ref in dev.function_refs:
         lines.append(_render_ref(s, types, inst, dev, ref))
     lines.append("\t};")
     return lines
@@ -254,7 +254,7 @@ def _bus_devices(rig: Rig, s: Solved, kind: str, bus_path: str,
             yield inst, dev, socket
 
 
-def _ref_socket(s: Solved, inst: Instance, ref: GpioRef) -> BoardSocket:
+def _ref_socket(s: Solved, inst: Instance, ref: FunctionRef) -> BoardSocket:
     """`ref`'s own resolved socket -- a cross-plug reference's slot may
     differ from its device's own bus slot, so every gpio/pwm/adc ref
     renderer resolves through THIS, never the device's bus socket. An
@@ -267,7 +267,7 @@ def _ref_socket(s: Solved, inst: Instance, ref: GpioRef) -> BoardSocket:
 
 
 def _render_ref(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
-                dev: Device, ref: GpioRef) -> str:
+                dev: Device, ref: FunctionRef) -> str:
     """One rendered property line for a single device reference (gpio, pwm,
     or adc) -- the per-ref half of a device node's body, shared by every
     caller that renders a device node's refs (`_device_node`, `_mux_node`'s
@@ -341,7 +341,7 @@ def _render_ref(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
             return (f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {res.period}>;"
                     f"\t/* {ctype.posname(pos)} */")
         # socket.pwm_cells == 3 (the only other supported count,
-        # board_edt.py's _CHANNEL_FN) -- the shield's own plug always
+        # board/project.py's _CHANNEL_FN) -- the shield's own plug always
         # declares #pwm-cells = <3> today (grove_servo, grove_pwm_led,
         # every corpus consumer), so ref.flags is always a real value
         # here, never a placeholder.
@@ -390,7 +390,7 @@ def _device_node(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
         lines.append(f"\t\t{rendered}")
     if reg is not None:
         lines.append(f"\t\treg = {reg};")
-    for ref in dev.gpio_refs:
+    for ref in dev.function_refs:
         # PER-REFERENCE resolution: a cross-plug ref's own slot may
         # differ from this device's own bus slot, so each ref looks up
         # ITS OWN socket rather than sharing one across the whole device

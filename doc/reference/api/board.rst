@@ -6,25 +6,30 @@ reduced to the sockets, buses and controllers the analyzer needs. This is
 the stage that needs a build recipe — include directories and bindings —
 and the one that runs the C preprocessor.
 
-``rigc.boarddt``
-------------------
+``rigc.board``
+----------------
 
-.. automodule:: rigc.boarddt
+.. automodule:: rigc.board
 
-``rigc.board_edt``
---------------------
+``rigc.board.resolve``
+------------------------
 
-.. automodule:: rigc.board_edt
+.. automodule:: rigc.board.resolve
 
-``rigc.edt_build``
---------------------
+``rigc.board.project``
+------------------------
 
-.. automodule:: rigc.edt_build
+.. automodule:: rigc.board.project
 
-``rigc.board_census``
+``rigc.board.edt_build``
+--------------------------
+
+.. automodule:: rigc.board.edt_build
+
+``rigc.board.census``
 -----------------------
 
-.. automodule:: rigc.board_census
+.. automodule:: rigc.board.census
 
 ``rigc.dtsio``
 ----------------

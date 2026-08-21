@@ -1,4 +1,4 @@
-"""board_census.py: the text-only census over board rig-extension SOURCES
+"""board/census.py: the text-only census over board rig-extension SOURCES
 that `west rigs --boards-for` runs against (board-coordinate-s2-brief.md),
 and `boards_for`'s own conformance query over synthetic Rig/Board values.
 
@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import textwrap
 
-from rigc.board_census import (BoardVerdict, CensusBoard, board_targets,
+from rigc.board.census import (BoardVerdict, CensusBoard, board_targets,
                                boards_for, census_board, scan_socket_nodes)
 from rigc.model import Board, BoardSocket, Device, Rig, Shield
 from rigc.tests.unit.analyzer.test_sockets import _ctype, _inst, _parent, _shield
@@ -113,7 +113,7 @@ def test_census_board_records_qualified_named_bus_kinds() -> None:
     """A connector type naming more than one bus of a kind suffixes it
     with a role -- the census's own bus-membership scan must recognize
     the QUALIFIED name as a distinct member, in lockstep with
-    board_edt.py's own regex, or --boards-for silently stops recognizing
+    board/project.py's own regex, or --boards-for silently stops recognizing
     a shield that needs a named bus."""
     fragment = textwrap.dedent("""\
         / {

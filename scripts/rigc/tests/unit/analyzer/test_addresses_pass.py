@@ -28,8 +28,8 @@ def _dev(name: str, reg=None, addr_from=None) -> Device:
                  group=None, reg=reg, addr_from=addr_from, cs_position=None)
 
 
-def _inst(name: str, shield: Shield, pins=None) -> Instance:
-    return Instance(name=name, shield=shield, sockets={"plug": "sock"}, pins=pins or {})
+def _inst(name: str, shield: Shield, straps=None) -> Instance:
+    return Instance(name=name, shield=shield, sockets={"plug": "sock"}, straps=straps or {})
 
 
 def test_fixed_address_is_claimed_verbatim() -> None:
@@ -65,7 +65,7 @@ def test_pinned_address_resolves_through_the_strap_domain() -> None:
                  sheet_label="")
     shield = _shield(straps={"addr": strap})
     dev = _dev("sensor", addr_from="addr")
-    inst = _inst("i1", shield, pins={"addr": 0x11})
+    inst = _inst("i1", shield, straps={"addr": 0x11})
     inst.shield.devices.append(dev)
     rig = Rig(name="r", instances=[inst])
 
@@ -80,7 +80,7 @@ def test_pinned_address_outside_the_strap_domain_is_phys_pin() -> None:
     strap = Strap(name="addr", label="addr", domain=[(0x10, 0)], sheet_label="")
     shield = _shield(straps={"addr": strap})
     dev = _dev("sensor", addr_from="addr")
-    inst = _inst("i1", shield, pins={"addr": 0x99})
+    inst = _inst("i1", shield, straps={"addr": 0x99})
     inst.shield.devices.append(dev)
     rig = Rig(name="r", instances=[inst])
 
