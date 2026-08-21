@@ -7,4 +7,5 @@ the conventions this repository holds itself to.
 .. toctree::
    :maxdepth: 1
 
+   architecture
    documentation-guidelines
