@@ -9,7 +9,7 @@ rigs.
 
 The reference shields also #include this fixture tree's own
 <dt-bindings/connector/fixture-nexus.h> and claim positions by macro
-(FIXTURE_D0, FIXTURE_CS), exactly the Convention-4 idiom a real shield
+(FIXTURE_D0, FIXTURE_CS), exactly the idiom a real shield
 uses — the same --include-dir list now reaches a .shield template's own
 cpp preprocess (dtsio.run_cpp), not only the board .dts and the registry's
 header lookup.

@@ -1,4 +1,4 @@
-"""Unit: emitter/sheet -- config-sheet.md (rigc-r5-brief.md Sec 4). The
+"""Unit: emitter/sheet -- config-sheet.md. The
 one contract this module exists to pin: the Wires section reads
 `solved.wires`, never `rig.wires` -- they differ (the loader's raw
 `via <name>` route string vs the analyzer's resolved connector-position
@@ -74,7 +74,7 @@ def test_params_table_shows_an_int_literal_value_with_no_resolution_attempt() ->
 
 
 def test_socket_assignment_row_shows_the_resolved_label_when_none_was_declared() -> None:
-    """socket-inference-brief.md Sec 7: an instance whose socket: was
+    """An instance whose socket: was
     omitted and inferred carries no declared string to print -- the sheet
     is a bench instruction and must fall back to the resolved socket's own
     label rather than print "None"."""
@@ -108,9 +108,8 @@ def test_socket_assignment_row_shows_the_declared_string_when_one_was_given() ->
 
 
 def test_strap_line_shows_the_owning_devices_own_slot_on_a_plural_shield() -> None:
-    """`_strap_owner_slot` pins its CURRENT first-device-wins choice
-    (reviewer finding 2, previously uncovered): straps are address-
-    domain and bus-scoped, unaffected by plurality itself, but the sheet
+    """`_strap_owner_slot` pins its first-device-wins choice: straps are
+    address-domain and bus-scoped, unaffected by plurality itself, but the sheet
     still needs a slot to pick a socket cell for -- it uses the slot of
     the (first) device whose addr_from names this strap. Here that
     device sits on the NON-default 'right' slot, so the straps line must
@@ -135,11 +134,9 @@ def test_strap_line_shows_the_owning_devices_own_slot_on_a_plural_shield() -> No
 
 def test_jumper_line_renders_on_a_shield_whose_plug_node_is_not_named_plug() -> None:
     """model.py's contract: a single-plug shield's one slot is the plug
-    node's own name -- here 'north'. The jumpers loop used to hardcode
-    the literal 'plug' for both `for_slot` and the socket-display cell;
-    on exactly this shield shape that crashed on `assert socket is not
-    None` (reviewer finding 1.3). Pins that it now reads the real slot
-    off `inst.shield.plugs` instead."""
+    node's own name -- here 'north'. Pins that the jumpers loop reads
+    the real slot off `inst.shield.plugs`, never a hardcoded 'plug'
+    literal, for both `for_slot` and the socket-display cell."""
     shield = Shield(name="sh", label="sh", plugs={"north": "t"})
     jmp = Jumper(name="j0", label="j0", domain=[(7, 0), (3, 1)], sheet_label="J0")
     shield.jumpers[jmp.name] = jmp

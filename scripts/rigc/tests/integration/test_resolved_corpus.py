@@ -86,12 +86,11 @@ def _run_build(rig_name: str, build_dir: Path,
 
     board threads west's own -b/--board (rig.py: "the board defaults to
     the rig's own ... or pass -b/--board yourself to override it -- given
-    wins, whatever the rig declares"). Since S6
-    (board-coordinate-s6-brief.md Sec 3) no corpus rig declares one at
-    all any more, every corpus call site now passes this -- the harness
-    IS the invocation supplying what the declaration used to. Omitted
+    wins, whatever the rig declares"). No corpus rig declares one at
+    all, so every corpus call site passes this -- the harness
+    IS the invocation supplying the board. Omitted
     (None) only for a fixture rig that still declares its own board
-    (outside boards/rigs/, untouched by S6's census)."""
+    (outside boards/rigs/, untouched by the census)."""
     cmd = [
         WEST_EXE, "build-rig", "--rig", rig_name,
     ]
@@ -140,7 +139,7 @@ def test_resolved_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
         f"(dts_equiv.py):\n--- argv ---\n{render_argv(check)}\n{check.stdout}\n{check.stderr}")
 
 
-# ---------------------------------------------------------------- V1a: qualified pilot builds
+# ---------------------------------------------------------------- qualified pilot builds
 
 def _build_and_freeze_dts(rig_target: str, golden_name: str, board: str,
                           tmp_path: Path) -> Path:
@@ -152,8 +151,8 @@ def _build_and_freeze_dts(rig_target: str, golden_name: str, board: str,
     this to work. Returns the build dir for callers that need to inspect
     more than zephyr.dts (e.g. .config).
 
-    board is required, not defaulted: since S6 no corpus rig declares one
-    (board-coordinate-s6-brief.md Sec 3), every qualified pilot/
+    board is required, not defaulted: no corpus rig declares one,
+    so every qualified pilot/
     shield-revision target below needs it injected explicitly -- every
     caller here happens to share RIG_BOARD["pilot_variants"], since
     qualifying a rig's revision/variant axis never changes which board it
@@ -206,7 +205,7 @@ def test_resolved_pilot_revision_2(tmp_path: Path) -> None:
 
 def test_resolved_pilot_variant_b_revision_2(tmp_path: Path) -> None:
     """The fully qualified tuple (variant_b @ revision 2) -- THE EVIDENCE
-    this slice's acceptance criteria ask for: STATUS-line claims alone
+    that STATUS-line claims alone
     don't prove a collected fragment took effect, so this test inspects
     the REAL build's own .config and zephyr.dts directly.
 
@@ -269,10 +268,11 @@ def test_resolved_shield_rev_family_revision_2(tmp_path: Path) -> None:
 
 
 def test_resolved_pilot_variant_c_shield_substitution(tmp_path: Path) -> None:
-    """variant_c (V1b): the topology-differing tuple -- its own delta
+    """variant_c: the topology-differing tuple -- its own delta
     substitutes the logger instance's shield (Adafruit Data Logger ->
-    pilot_alt_button). THE EVIDENCE this slice's acceptance criteria ask
-    for (item 6): asserted on zephyr.dts directly, not on STATUS lines --
+    pilot_alt_button). THE EVIDENCE that a topology substitution really
+    reached the real build:
+    asserted on zephyr.dts directly, not on STATUS lines --
     the SUBSTITUTED shield's own node/property must be present, and the
     ORIGINAL shield's devices must be completely gone."""
     build_dir = _build_and_freeze_dts(
@@ -298,7 +298,7 @@ def test_resolved_pilot_variant_c_shield_substitution(tmp_path: Path) -> None:
 
 
 def test_resolved_pilot_build_info_provenance(tmp_path: Path) -> None:
-    """Provenance (item 6/7): build_info.yml's cmake.vendor-specific.rig.*
+    """Provenance: build_info.yml's cmake.vendor-specific.rig.*
     carries the SELECTED revision/variant and the applied fragment list --
     same assertion shape as test_resolved_build_info_rig_provenance above,
     the established pattern for inspecting this block."""
@@ -323,11 +323,11 @@ def test_resolved_pilot_build_info_provenance(tmp_path: Path) -> None:
     assert "pilot_variants_2_defconfig" in fragments
 
 
-# ---------------------------------------------------------------- V1c: shield revisions
+# ---------------------------------------------------------------- shield revisions
 
 def test_resolved_shield_revision_conf_collected(tmp_path: Path) -> None:
-    """THE EVIDENCE the shield-revision Kconfig-collection claim asks for
-    (rig-variants-revisions.md V1c step 4): inspects the real build's OWN
+    """THE EVIDENCE the shield-revision Kconfig-collection claim needs:
+    inspects the real build's OWN
     .config, not a STATUS-line claim. shield_rev_pilot selects shield:
     i2c_sensor@2, whose OWN i2c_sensor_2.conf must be collected by
     cmake/dts.cmake's shield Kconfig tail (base .shield/.conf first,
@@ -581,16 +581,16 @@ def test_resolved_rig_depends_provenance(tmp_path: Path) -> None:
             "seeeduino_lotus_samd21g18a_rig.dts") in depends_line
 
 
-# ---------------------------------------------------------------- dual-host (S6 collapse)
+# ---------------------------------------------------------------- dual-host
 
 
 def test_resolved_ard_datalogger_frdm(tmp_path: Path) -> None:
     """ard_datalogger on its SECOND board, through a REAL build: the
     primary (nucleo) tuple already rides test_resolved_accept_zephyr_dts
     via ACCEPT_CASES; this proves the SAME rig.yml/content pair also
-    configures clean through the OTHER board (S6's collapse retired the
-    variants: axis entirely -- this is now just a different --board on
-    the identical, variant-less rig), with no fragment file collected for
+    configures clean through the OTHER board -- ard_datalogger declares
+    no variants: axis at all, just a different --board on
+    the identical rig -- with no fragment file collected for
     it at all (there is none to collect)."""
     _build_and_freeze_dts("ard_datalogger", "ard_datalogger_frdm",
                           ARD_DATALOGGER_FRDM_BOARD, tmp_path)
@@ -652,12 +652,9 @@ def test_resolved_ard_datalogger_dual_host_d10(tmp_path: Path) -> None:
 
 # ---------------------------------------------------------------- identity laws
 #
-# board-as-invocation-coordinate.md Sec 1 / board-as-coordinate-brief.md
-# Sec 5: the old ontology Sec 7 lift is replaced by two identity laws, of
-# which saferail 11 (empty rig == plain board) is the first ever tested.
-# Written against TODAY's coordinate (`west build-rig --rig <name>`, not
-# the not-yet-built `--board X --rig Y` form) so it still holds, unchanged,
-# once that coordinate lands.
+# An empty rig (`instances: []`) must configure identically to a plain
+# board build. Written against TODAY's coordinate
+# (`west build-rig --rig <name>`).
 
 
 _EMPTY_RIG_BOARD = "nucleo_f401re/stm32f401xe/rig"
@@ -665,7 +662,7 @@ _EMPTY_RIG_BOARD = "nucleo_f401re/stm32f401xe/rig"
 
 def test_resolved_empty_rig_equals_plain_board(
         tmp_path: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
-    """Saferail 11: a rig declaring `instances: []` must configure clean
+    """A rig declaring `instances: []` must configure clean
     and produce a zephyr.dts structurally EQUIVALENT (dts_equiv.py) to a
     PLAIN `west build` of the same board target -- no --shield, no -DRIG
     at all. The rig path applies rig-gen.overlay and the rest of
@@ -683,12 +680,8 @@ def test_resolved_empty_rig_equals_plain_board(
     build_dir = tmp_path / "build"
     extra = board_extra_defines(_EMPTY_RIG_BOARD) + [f"-DBOARD_ROOT={FIXTURES_DIR}"]
     # The board is passed explicitly like every corpus call site: this
-    # fixture's own rig.yml declares none at all (board-coordinate-
-    # s6-brief.md Sec 11 retired that grammar outright, so there is
-    # nothing left to spell even in principle) -- -DBOARD is the only
-    # source. This call omitted it while cmake's own rig->board
-    # inference still existed, which is what made it the one test that
-    # inference's deletion broke.
+    # fixture's own rig.yml declares none at all (no rig.yml can spell a
+    # board) -- -DBOARD is the only source.
     result = _run_build("empty_rig", build_dir, extra, board=_EMPTY_RIG_BOARD)
     assert result.returncode == 0, (
         f"empty_rig: expected `west build-rig --cmake-only` to configure "
@@ -709,7 +702,7 @@ def test_resolved_empty_rig_equals_plain_board(
         env={**os.environ, "ZEPHYR_BASE": zb},
         capture_output=True, text=True)
     assert check.returncode == 0, (
-        "saferail 11 (empty rig == plain board) VIOLATED -- empty_rig's "
+        "empty rig == plain board VIOLATED -- empty_rig's "
         "resolved zephyr.dts is not structurally equivalent to the same "
         f"board's plain build (dts_equiv.py):\n--- argv ---\n"
         f"{render_argv(check)}\n{check.stdout}\n{check.stderr}")

@@ -1,11 +1,10 @@
 """Shared helpers for rigc's own tests.
 
-Only the hermeticity enforcement lives here (R1): the boundary decays if
-the enforcement arrives late (rigc-r1-brief.md Sec 4), so
-assert_fixture_local exists from day one even though R1's tests barely
-needed it. Golden/corpus plumbing lives in tests/integration/conftest.py
-instead (the frozen suite's own conftest, moved here at cutover) -- this
-file must never grow a second copy of it.
+Only the hermeticity enforcement lives here: assert_fixture_local, so any
+test can prove at the point of use that the paths it hands to the code
+under test never escape its own fixture tree. Golden/corpus plumbing
+lives in tests/integration/conftest.py instead -- this file must never
+grow a second copy of it.
 """
 from __future__ import annotations
 
@@ -13,10 +12,9 @@ import os
 from pathlib import Path
 from typing import Iterable, Union
 
-#: rigc's own fixture tree (created by the slice that first needs it).
-#: A value derived from this file's location -- no environment lookup at
-#: module scope anywhere in this package (the dtsio.py:27 collection trap,
-#: designed out).
+#: rigc's own fixture tree. A value derived from this file's location --
+#: no environment lookup at module scope anywhere in this package, which
+#: would otherwise fire at collection time before any test gets to set it.
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 
 

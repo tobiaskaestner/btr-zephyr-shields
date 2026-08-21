@@ -1,26 +1,23 @@
-"""Multi-plug carriers, slice 2 (multi-plug-carrier-brief.md): a plural
+"""Multi-plug carriers: a plural
 shield may declare an exposed socket, composed from SEVERAL named
 parents. Two halves, mirroring test_multiplug_shield.py's own shape:
 
-  - the REAL corpus example, mikrobus_span_adapter on quail (multi-plug-
-    carrier-brief.md Sec 7): plugs two of quail's own mikroBUS sockets and
+  - the REAL corpus example, mikrobus_span_adapter on quail: plugs two
+    of quail's own mikroBUS sockets and
     re-exports ONE ordinary socket,mikrobus with the EXISTING eth_click
     (byte-untouched) plugged on it. SPI/CS chain through the LEFT parent,
     int-gpios chain through the RIGHT -- the cross-plug falsifier one
-    level up from can_span_click's own cross-plug DEVICE ref. This half
-    owns acceptance criterion 2.
-  - the combined-SPI negative control (Sec 7's fixture-only case, reusing
+    level up from can_span_click's own cross-plug DEVICE ref.
+  - the combined-SPI negative control (a fixture-only case, reusing
     the EXISTING fixture-multibus connector type and fixture_spi_sensor/
     fixture_spi_motor shields from test_multibus_socket.py's own fixture
     tree): a plural fixture carrier re-exports one socket,fixture-
     multibus, spi-sensors from its left plug and spi-motors from its
     right -- proving the two buses' CS namespaces stay independent
     through a CARRIER's pass-through composition, not just a board
-    socket's own two named buses. This half owns acceptance criterion 3
-    (accept + reject fixture pair; the collapse-to-one-parent mutation is
-    probed by hand, see the module docstring in analyzer/sockets.py's own
-    compose_socket -- reported in the implementor's handoff, not re-run
-    automatically here).
+    socket's own two named buses (accept + reject fixture pair; the
+    collapse-to-one-parent mutation is probed by hand, see the module
+    docstring in analyzer/sockets.py's own compose_socket).
 
 test_mikrobus_span_adapter_build_round_trip and
 test_mikrobus_span_adapter_cross_plug_cs_and_nexus (the @pytest.mark.build
@@ -51,10 +48,10 @@ _QUAIL_BOARD_DTS = (REPO_ROOT / "boards" / "extend" / "mikroe" / "quail"
 
 _CARRIER_CONNECTOR_BINDINGS = FIXTURES_DIR / "dts" / "multiplug-carrier-connectors"
 # The EXPOSED type (fixture-multibus) lives in the multi-bus feature's own
-# fixture tree, reused byte-untouched -- this slice composes with that
-# vocabulary rather than duplicating it (multi-plug-carrier-brief.md
-# Sec 1 ruling 1 is exactly "apply the multi-bus ownership ruling one
-# level up").
+# fixture tree, reused byte-untouched -- this composes with that
+# vocabulary rather than duplicating it: CS ownership through a carrier
+# follows the same per-bus scoping rule a board socket's own two named
+# buses already use.
 _MULTIBUS_CONNECTOR_BINDINGS = FIXTURES_DIR / "dts" / "multibus-connectors"
 _CONNECTOR_INCLUDE = FIXTURES_DIR / "include"
 _CARRIER_SHIELDS = FIXTURES_DIR / "boards" / "rigs" / "multiplug-carrier-sockets" / "shields"
@@ -92,7 +89,7 @@ def test_combined_spi_accept_both_devices_land_at_cs_index_zero(tmp_path: Path) 
     sockets/buses (left_spi_ctrl vs right_spi_ctrl) -- collapsing the
     composition's own parents map back to one socket would make this
     assertion fail (probed by hand, see analyzer/sockets.py's compose_
-    socket; reported in the implementor's handoff)."""
+    socket)."""
     out_dir = tmp_path / "out"
     result = _run_carrier_fixture(_ACCEPT_RIG, out_dir)
 
@@ -116,10 +113,10 @@ def test_combined_spi_accept_both_devices_land_at_cs_index_zero(tmp_path: Path) 
 
 def test_combined_spi_reject_parent_lacking_spi_is_slot_qualified_phys_subset(
         tmp_path: Path) -> None:
-    """Reject case (Sec 7): the right plug resolves to fx_right_no_spi,
+    """Reject case: the right plug resolves to fx_right_no_spi,
     which never wires socket,spi at all -- the carrier is plural, so the
-    phys-subset finding names the parent's own SLOT (Sec 4's rendering
-    rule), never just its label alone."""
+    phys-subset finding names the parent's own SLOT, never just its
+    label alone."""
     out_dir = tmp_path / "out"
     result = _run_carrier_fixture(_REJECT_RIG, out_dir)
 
@@ -167,7 +164,7 @@ def test_mikrobus_span_adapter_cross_plug_cs_and_nexus(
     test_multiplug_shield.py's own can_span_click tests) -- needed for
     pass-1's real board-DT read, not a verification build of its own.
 
-    Acceptance criterion 2, named in an assertion (not just a golden):
+    Named in an assertion (not just a golden):
     eth's int-gpios renders through the RIGHT parent's own nexus
     (quail_sock3) while its SPI/CS chains through the LEFT (quail_sock2)
     -- the multi-parent cross-plug falsifier, one level up from
@@ -192,7 +189,7 @@ def test_mikrobus_span_adapter_cross_plug_cs_and_nexus(
 
     # eth on spi1 (LEFT/quail_sock2's own bus), CS index 0 -- both the
     # CS line and the INT line are rendered through the span_combined
-    # nexus (Option C: a carrier-exported socket is never a real DT node
+    # nexus (a carrier-exported socket is never a real DT node
     # of its own), which is what actually carries the LEFT/RIGHT split.
     spi1_block = overlay.split("&spi1 {")[1].split("};")[0]
     assert "eth_mod_eth: eth@0 {" in spi1_block
@@ -263,14 +260,11 @@ def test_mikrobus_span_adapter_build_round_trip(
 
 
 def test_mikrobus_span_adapter_is_now_promotable_with_explicit_slot_options() -> None:
-    """Ruling 4's plurality gate is RETIRED as of multi-plug-promotion-
-    brief.md slice 3, for a carrier exactly as for an ordinary plural
-    shield (the gate never distinguished the two) -- the mechanism this
-    test used to pin (check_promotable's own plug_count refusal) is
-    gone, and this test flips with it rather than merely dying, mirroring
-    can_span_click's own flip in test_multiplug_shield.py
-    (test_singleton_identity_law.py pins the census side, criterion 2 --
-    EXCLUDED == set())."""
+    """A plural shield is promotable, for a carrier exactly as for an
+    ordinary plural shield (check_promotable never distinguishes the
+    two), mirroring can_span_click's own case in
+    test_multiplug_shield.py (test_singleton_identity_law.py pins the
+    census side: EXCLUDED == set())."""
     from rigc.promote import (check_promotable, discover_shields,
                               parse_promotion_opts, resolve_for_promotion,
                               shield_is_multiplug)

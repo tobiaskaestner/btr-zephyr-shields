@@ -39,7 +39,7 @@ byte-compared instead -- overlay_is_byte_compared names that exception.
 
 rig-gen-includes.dtsi's contract is the ORDERED list of headers a rig's
 own parameter assignments actually need (emitter._needed_param_includes,
-param-vocabulary-brief.md -- the union of the owning shield devices' own
+the union of the owning shield devices' own
 declared_param_includes) -- cpp include order can matter (a later header
 may depend on macros an earlier one defines), so this is a list, never a
 set, unlike RIG_DEPENDS above. The provenance banner is its only comment
@@ -289,7 +289,7 @@ _CS_RE = re.compile(
 
 def _split_table_row(line: str, lineno: int) -> Tuple[str, ...]:
     """Split one "| a | b | c |" line into its cell values, stripped.
-    Column HEADER TEXT is never the contract (D1) -- only how many
+    Column HEADER TEXT is never the contract -- only how many
     columns a row carries, which is what tells socket-assignment's table
     apart from parameters' -- so callers read cell values, never the
     header row's own text."""
@@ -578,7 +578,7 @@ def compare_config_sheet(expected: str, actual: str) -> Optional[str]:
 
 
 # --------------------------------------------------------------------------
-# rig-gen.overlay: the split contract (cutover-brief.md Sec 8.2). This
+# rig-gen.overlay's contract is split across two comparisons. This
 # module deliberately does NOT parse the overlay into a devicetree -- it
 # cannot: cpp has not run, so #include/<MACRO> are still unresolved, and
 # &label references only the board's own devicetree can chase. Semantics
@@ -640,10 +640,9 @@ _PINCTRL_NOTE = (
 
 # The one accept rig with a rig-gen.overlay golden but no zephyr.dts (no
 # tier-2 build), so under the split contract it would otherwise lose
-# semantic checking entirely (cutover-decisions.md D8) -- kept
+# semantic checking entirely -- kept
 # byte-compared as an explicit, interim exception. Retire this constant
-# together with the slice that adds shield-uart-subset-frdm's tier-2
-# build.
+# once shield-uart-subset-frdm gets a tier-2 build.
 _BYTE_COMPARED_OVERLAY_RIGS = frozenset({"shield-uart-subset-frdm"})
 
 
@@ -776,7 +775,7 @@ _INCLUDE_LINE_RE = re.compile(r"^#include <(?P<header>[^>]+)>$")
 class IncludesDtsiParseError(ValueError):
     """Raised by parse_includes_dtsi when a non-blank line is neither the
     provenance banner nor an angle-bracket #include <header> line. An unrecognised
-    line must never be silently skipped (D1): dropping it would let a
+    line must never be silently skipped: dropping it would let a
     truncated or malformed artifact compare equal to whatever header list
     the rest of the text happens to carry."""
 

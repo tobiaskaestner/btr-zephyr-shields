@@ -1,5 +1,5 @@
-"""`west rigs --boards-for` driven as a subprocess (board-coordinate-
-s2-brief.md). NOT build-marked: `west rigs` itself runs in 0.3s, and
+"""`west rigs --boards-for` driven as a subprocess. NOT build-marked:
+`west rigs` itself runs in 0.3s, and
 nothing this command reaches configures cmake -- it censuses board
 rig-extension SOURCES (board/census.py), never a real board devicetree.
 """
@@ -27,18 +27,16 @@ def _run(*args: str) -> "subprocess.CompletedProcess[str]":
     ("lotus_buttons", "seeeduino_lotus/samd21g18a/rig"),
     ("quail_temp_farm", "mikroe_quail/stm32f427xx/rig"),
 ])
-def test_boards_for_the_criterion_answers(rig_target: str, expected_board: str) -> None:
-    """Acceptance criterion 3, verbatim. nucleo_datalogger used to be a
-    third case here, back when every corpus rig answered exactly its
-    declared board (board-coordinate-s2-brief.md's own state of the
-    world) -- it moved out to
+def test_boards_for_answers_the_one_board_each_connector_type_offers(
+        rig_target: str, expected_board: str) -> None:
+    """nucleo_datalogger is not a third case here: its own content
+    answers TWO boards (see
     test_boards_for_nucleo_datalogger_now_conforms_to_both_arduino_r3_boards
-    below once S5's content migration made it answer two boards, which a
-    single-`expected_board` parametrization cannot express. grove
-    (lotus_buttons) and mikrobus (quail_temp_farm) stay here because only
-    one corpus board offers each of those connector types, so migrating
-    THEIR content to the conventional label (already true for grove, and
-    done in S5 for mikrobus) does not, by itself, open a second answer."""
+    below), which a single-`expected_board` parametrization cannot
+    express. grove (lotus_buttons) and mikrobus (quail_temp_farm) stay
+    here because only one corpus board offers each of those connector
+    types, so migrating their content to the conventional label does
+    not, by itself, open a second answer."""
     result = _run("--boards-for", rig_target)
     assert result.returncode == 0, (
         f"--boards-for {rig_target}: exit {result.returncode}\n{result.stderr}")
@@ -46,24 +44,22 @@ def test_boards_for_the_criterion_answers(rig_target: str, expected_board: str) 
 
 
 def test_boards_for_nucleo_datalogger_now_conforms_to_both_arduino_r3_boards() -> None:
-    """board-coordinate-s5-brief.md Sec 5.3, ruled as an ACCEPTANCE
-    CRITERION: at least one corpus rig's `--boards-for` answer must
+    """At least one corpus rig's `--boards-for` answer must
     contain more than one board once content migrates off board-prefixed
-    labels. Before S5, nucleo_datalogger's content named `nucleo_ard`
-    directly, so only nucleo_f401re could ever satisfy it even though
-    frdm_k64f's own arduino_r3 socket offers the identical i2c/spi subset,
-    mating and stackability adafruit_data_logger needs -- the "helpful"
-    board-agnostic reuse board-as-coordinate exists to unlock. Migrating
-    nucleo_datalogger.yml to the conventional `arduino_r3` alias is the
-    whole fix: no code in board/census.py or analyzer/sockets.py changed,
-    only what the content itself is willing to reference against."""
+    labels: nucleo_datalogger.yml names the conventional `arduino_r3`
+    alias rather than `nucleo_ard` directly, so both nucleo_f401re and
+    frdm_k64f's own arduino_r3 socket -- offering the identical i2c/spi
+    subset, mating and stackability adafruit_data_logger needs -- answer
+    it. No code in board/census.py or analyzer/sockets.py cares which
+    label content references; this proves the content's own choice of
+    label is what determines the answer."""
     result = _run("--boards-for", "nucleo_datalogger")
     assert result.returncode == 0, (
         f"--boards-for nucleo_datalogger: exit {result.returncode}\n{result.stderr}")
     assert result.stdout.split() == sorted([
         "frdm_k64f/mk64f12/rig", "nucleo_f401re/stm32f401xe/rig"]), (
-        "nucleo_datalogger must now conform to BOTH arduino_r3 boards -- "
-        f"the S5 migration's own falsifier\n--- stdout ---\n{result.stdout}")
+        "nucleo_datalogger must conform to BOTH arduino_r3 boards -- its "
+        f"content names no board-specific label\n--- stdout ---\n{result.stdout}")
 
 
 def test_boards_for_an_unresolved_rig_target_is_a_nonzero_exit_with_list_rigs_own_message() -> None:
@@ -73,8 +69,8 @@ def test_boards_for_an_unresolved_rig_target_is_a_nonzero_exit_with_list_rigs_ow
 
 
 def test_boards_for_a_promoted_shield_answers_the_same_boards_as_the_rig_it_stands_for() -> None:
-    """--boards-for resolves BOTH namespaces (the Sec 5 rule --explain
-    already applied), and the expectation comes from OUTSIDE this query:
+    """--boards-for resolves BOTH namespaces (the same rule --explain
+    already applies), and the expectation comes from OUTSIDE this query:
     `ard_datalogger` is the corpus rig that is one adafruit_data_logger on
     an arduino_r3 socket, so the promoted shield -- one SOCKET-LESS
     instance of the same shield, inferring that socket -- must answer
@@ -141,12 +137,12 @@ def test_boards_for_a_promoted_shield_naming_its_socket_answers_that_board() -> 
 
 
 def test_boards_for_a_bare_plural_shield_answers_empty_the_per_slot_ambiguity() -> None:
-    """multi-plug-promotion-brief.md Sec 3/7: `can_span_click` plugs two
+    """`can_span_click` plugs two
     mikroBUS slots, and quail offers FOUR mikroBUS sockets -- per-slot
-    inference (multi-plug-shield-brief.md Sec 4) refuses on EACH slot
+    inference refuses on EACH slot
     independently (several candidates, no tie-break), so a bare target
     answers no board at all. This is the ambiguity refusal working
-    correctly, not a gap (the brief's own words) -- the explicit
+    correctly, not a gap -- the explicit
     socket.<slot>= form below is the answer, not a smarter inference."""
     result = _run("--boards-for", "can_span_click")
     assert result.returncode == 0, (
@@ -186,10 +182,11 @@ def test_boards_for_a_bare_socket_on_a_plural_shield_is_refused() -> None:
 
 def test_boards_for_a_promoted_shield_with_a_required_param_answers_once_assigned() -> None:
     """The dotted `<device>.<prop>=<value>` promotion-option grammar's own
-    falsifier (Sec 9.6 part 2), the same shape the socket= pair above
+    falsifier, the same shape the socket= pair above
     uses: grove_btn declares zephyr,code required with no authored
-    default (grove_btn.shield), so the bare shield fails rule 2
-    (check_param_invariant) exactly as an authored rig.yml omitting the
+    default (grove_btn.shield), so the bare shield fails the
+    required-param check (check_param_invariant) exactly as an authored
+    rig.yml omitting the
     assignment would, and assigning it via the dotted grammar clears that
     failure. Asserted as a pair for the same reason the socket= test is:
     either half alone is satisfiable by a stub.
@@ -228,7 +225,7 @@ def test_boards_for_a_promoted_shield_with_socket_and_dotted_param_composes() ->
 
 
 def test_boards_for_promotion_options_on_a_persisted_rig_are_refused() -> None:
-    """Decision 1: promotion options are promotion-only. A persisted rig
+    """Promotion options are promotion-only. A persisted rig
     has N instances, so `socket=` could not say which one it means --
     refused rather than silently dropped, which would answer a question
     the target did not ask."""
@@ -267,7 +264,7 @@ def test_boards_for_a_variant_on_a_promoted_shield_is_refused() -> None:
 
 def test_boards_for_a_name_that_is_both_a_rig_and_a_shield_is_an_error_naming_both(
         tmp_path) -> None:
-    """The Sec 5 collision, now that --boards-for resolves both
+    """The rig/shield name collision, now that --boards-for resolves both
     namespaces: it must ERROR rather than silently pick one. Constructed
     the same way test_explain.py constructs it -- a scratch --board-root
     carrying a rig folder named after a REAL shield, additive only, never
@@ -284,7 +281,7 @@ def test_boards_for_a_name_that_is_both_a_rig_and_a_shield_is_an_error_naming_bo
 
 
 def test_boards_for_a_list_target_answers_a_board_hosting_both() -> None:
-    """multi-plug-list-brief.md Sec 3, the positive half: a board
+    """The positive half of the list-target contract: a board
     answers iff the WHOLE desugared rig resolves clean -- mikroe_quail
     hosts eth_click and flash_click on two of its four distinct mikroBUS
     sockets simultaneously, so the list target answers it."""
@@ -297,8 +294,8 @@ def test_boards_for_a_list_target_answers_a_board_hosting_both() -> None:
 
 
 def test_boards_for_a_list_target_answers_nothing_on_socket_exclusivity() -> None:
-    """The negative half, with the REASON asserted (Sec 3's own
-    requirement), not just the emptiness: two elements naming the SAME
+    """The negative half of the same contract, with the REASON asserted,
+    not just the emptiness: two elements naming the SAME
     non-stackable mikroBUS socket refuse via the existing exclusivity
     census message -- mikroe_quail hosts EITHER shield alone (the
     positive test above, and test_boards_for_a_promoted_shield_naming_
@@ -333,15 +330,16 @@ def test_boards_for_a_list_target_with_a_persisted_rig_element_is_refused() -> N
 
 
 def test_west_rigs_with_no_flag_still_lists_every_rig_unchanged() -> None:
-    """Acceptance criterion 2: --boards-for absent behaves exactly as
-    today -- the same rig NAMES, one per line. Asserting the count alone
+    """--boards-for absent behaves exactly as
+    the plain `west rigs` listing -- the same rig NAMES, one per line.
+    Asserting the count alone
     would hold just as well if the listing started printing board targets
     instead, so the expectation is the names themselves, taken from
     list_rigs (the module `west rigs` renders from) rather than from this
     command's own output.
 
     rglob, not a flat glob("*/rig.yml") -- five rigs live one level
-    deeper, under boards/rigs/clash/ (clash-rigs-folder-brief.md); a flat
+    deeper, under boards/rigs/clash/; a flat
     scan here would silently under-count `expected` and let a `find_rigs_
     in` regression that drops those five pass unnoticed."""
     result = _run()

@@ -1,21 +1,19 @@
 """Unit: dtsio -- the pure, cpp-free half of the DTS plumbing.
 
-**The cpp/unit-test seam** (rigc-mission-brief.md Sec 5, rigc-r3-brief.md
-Sec 2): `run_cpp`/`parse_dts`/`parse_tu`/`check_include`/`resolve_token`
-invoke a REAL subprocess (gcc) and get their coverage through the frozen
-suite's front door, integration-only by construction -- nothing here
-calls them. What IS unit-testable: `is_int_literal` (pure string
-classification), and `words`/`render_prop`/`src_of`, which operate on a
-`dtlib.DT` -- hermetic and cpp-free as long as the `.dts` text handed to
-`dtlib.DT()` is ALREADY in preprocessed form (no #include, no macros): a
-hand-written synthetic file, never a real board/shield's own content
-(assert_fixture_local's own proof, T0's rule).
+`run_cpp`/`parse_dts`/`parse_tu`/`check_include`/`resolve_token` invoke a
+REAL subprocess (gcc) and get their coverage through the frozen suite's
+front door, integration-only by construction -- nothing here calls them.
+What IS unit-testable: `is_int_literal` (pure string classification),
+and `words`/`render_prop`/`src_of`, which operate on a `dtlib.DT` --
+hermetic and cpp-free as long as the `.dts` text handed to `dtlib.DT()`
+is ALREADY in preprocessed form (no #include, no macros): a hand-written
+synthetic file, never a real board/shield's own content (enforced by
+assert_fixture_local).
 
 `get_dtlib()` is exercised only INDIRECTLY here, by building a real
 `dtlib.DT` from synthetic text -- this needs $ZEPHYR_BASE to locate the
-devicetree PACKAGE (pure Python, no Zephyr DATA), which the mission brief
-Sec 7 explicitly distinguishes from hermeticity ("no Zephyr DATA" is not
-"no $ZEPHYR_BASE").
+devicetree PACKAGE (pure Python, no Zephyr DATA): "no Zephyr DATA" is
+not "no $ZEPHYR_BASE".
 """
 from __future__ import annotations
 

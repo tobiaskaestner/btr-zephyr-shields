@@ -1,18 +1,19 @@
-"""Shield plurality (shield-plurality-brief.md): the ACCEPT proof for a
+"""Shield plurality: the ACCEPT proof for a
 folder declaring N shields via `shields:`, named neither of them --
-criterion 1/2's own end-to-end case, run through the CLI front door
-exactly like test_reference_shields.py's accept case.
+run through the CLI front door exactly like test_reference_shields.py's
+accept case.
 
 Not a frozen golden: neither exit_code nor stderr.txt is asserted against
 tests/goldens/ -- this fixture pins the SHAPE (two distinct names out of
 one folder resolve to two distinct templates), not a rendered diagnostic's
 wording, so freeze_or_assert has nothing to freeze here.
 
-The 4 rejection fixtures the same brief calls for (a `template: true`
-entry with no matching `<name>.shield`; the DECLARED-name half of ruling
-2; a duplicate name within one `shields:` list; a `shields:` entry
-missing `name:`) are frozen-golden cases instead, and live alongside
-their siblings in test_emitted_rejects.py rather than here.
+The rejection fixtures for shield plurality (a `template: true`
+entry with no matching `<name>.shield`; a `shields:` entry whose declared
+name disagrees with the folder's basename; a duplicate name within one
+`shields:` list; a `shields:` entry missing `name:`) are frozen-golden
+cases instead, and live alongside their siblings in
+test_emitted_rejects.py rather than here.
 """
 from __future__ import annotations
 
@@ -34,7 +35,7 @@ _CONNECTOR_INCLUDE = FIXTURES_DIR / "include"
 
 def test_two_names_from_one_folder_resolve_to_two_distinct_templates(
         tmp_path: Path) -> None:
-    """Criterion 1/2: `shields/plural_pair/` declares `fx_alpha` and
+    """`shields/plural_pair/` declares `fx_alpha` and
     `fx_beta` -- a folder named neither -- and a rig instancing both by
     name loads, expands and emits, each resolving to its OWN `<name>.
     shield` translation unit (not, e.g., both collapsing onto whichever

@@ -1,14 +1,11 @@
 # SPDX-License-Identifier: BSD-3-Clause
-"""Unit tests for edt_build.py, the generic devicetree/edtlib reader layer
-(rigc-r4-brief.md Sec 1): it knows nothing about rigs, sockets, or any
-other product concept -- only devicetree/edtlib mechanics plus one piece
-of Zephyr CMake convention (a build_info.yml's cmake.devicetree section),
-so it is the candidate for upstreaming into python-devicetree itself. Its
-tests travel with it, BSD-3, in the blueprint's own test_edt_build.py
-idiom: module-level test_* functions, plain asserts, no rigc product
-imports -- ported unchanged in shape (rigc-r4-brief.md Sec 1: "an
-existing unit-tested contract -- the blueprint's own
-test_recipe_from_build_info is the model")."""
+"""Unit tests for edt_build.py, the generic devicetree/edtlib reader layer:
+it knows nothing about rigs, sockets, or any other product concept -- only
+devicetree/edtlib mechanics plus one piece of Zephyr CMake convention (a
+build_info.yml's cmake.devicetree section), so it is the candidate for
+upstreaming into python-devicetree itself. Its tests mirror upstream
+python-devicetree's test_edtlib.py coverage shape (BSD-3): module-level
+test_* functions, plain asserts, no rigc product imports."""
 from __future__ import annotations
 
 from textwrap import dedent

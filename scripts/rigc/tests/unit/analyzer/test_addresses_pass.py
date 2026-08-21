@@ -6,7 +6,7 @@ pass's own `AddressAllocation` fields. The algorithm itself is covered
 value-shaped, without a scenario, in test_addresses.py; this module's
 subject is the WIRING -- so it necessarily needs a minimal constructed
 Rig/Instance/Shield/BoardSocket scope, the same shape test_cs_pass.py
-already uses for its own pass (rigc-r45-brief.md Part C)."""
+already uses for its own pass."""
 from __future__ import annotations
 
 from rigc.analyzer.addresses import allocate_addresses
@@ -144,7 +144,7 @@ def test_allocation_is_scoped_per_bus_not_shared_globally() -> None:
     assert result.addr[("i2", "b")] == 0x50
 
 
-def test_a_mux_channel_is_a_new_scope_r26() -> None:
+def test_a_mux_channel_is_a_new_scope() -> None:
     """A composed (mux-channel) socket's own path IS its scope identity --
     two fixed-same-address devices on the SAME channel still collide
     (proven above by test_two_fixed_addresses_on_one_bus_collide re-used

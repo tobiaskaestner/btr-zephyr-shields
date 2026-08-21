@@ -1,6 +1,6 @@
 """board/census.py: the text-only census over board rig-extension SOURCES
-that `west rigs --boards-for` runs against (board-coordinate-s2-brief.md),
-and `boards_for`'s own conformance query over synthetic Rig/Board values.
+that `west rigs --boards-for` runs against, and `boards_for`'s own
+conformance query over synthetic Rig/Board values.
 
 No corpus rig omits `socket:` today (checked: all 41 instance socket
 references are explicit), so the inference-path tests below are the ONLY
@@ -87,8 +87,8 @@ def test_census_board_keys_sockets_by_the_defining_label_only() -> None:
 
 
 def test_census_board_type_name_stays_dashed() -> None:
-    """The dash trap (brief Sec 4.1): compatible = "socket,arduino-r3"
-    must project as "arduino-r3", never underscored -- the census's value
+    """compatible = "socket,arduino-r3" must project as "arduino-r3",
+    never underscored -- the census's value
     feeds mating_ok against shield.plugs, which uses the identical dashed
     spelling."""
     boards = census_board(_BOARD_YML_ONE_VARIANT, [("f.dtsi", _TWO_LABEL_FRAGMENT)])

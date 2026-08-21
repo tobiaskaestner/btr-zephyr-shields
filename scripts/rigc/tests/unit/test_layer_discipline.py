@@ -5,7 +5,7 @@ tree itself (recorded exemption in _META_MODULES below). It enforces:
 
   - every test module lives under exactly one of tests/unit/ or
     tests/integration/;
-  - unit test modules NAME THEIR UNIT (Tobi's ruling, 2026-07-28): a
+  - unit test modules NAME THEIR UNIT: a
     test_<name>.py directly under tests/unit/ must name a python module
     of the rigc package (or the tests' own conftest); when one unit needs
     several test modules they live in a sub-folder tests/unit/<name>/
@@ -17,11 +17,7 @@ tree itself (recorded exemption in _META_MODULES below). It enforces:
     classification there; tests/integration/ keeps exactly one marker,
     `build`, because check.sh's fast gate selects on it
     (`pytest -m "not build"`), and every integration test that reaches a
-    real west/cmake configure must carry it (cutover C4: this replaces
-    the old rigexp-side test_marker_discipline.py, whose two checks --
-    "every test carries a layer marker" and "no module mixes layers" --
-    respectively died with the layer markers and are already covered by
-    test_every_test_module_is_layer_classified below);
+    real west/cmake configure must carry it;
   - no module-scope environment lookup of the Zephyr tree variable
     anywhere in the package or its tests (the dtsio.py:27 collection
     trap, designed out: pytest imports every module before deselection).
@@ -62,9 +58,9 @@ def test_every_test_module_is_layer_classified() -> None:
 
 def _top_level_units() -> set[str]:
     """Every valid unit NAME directly under the rigc package: a bare
-    module (cli.py -> "cli") or a SUB-PACKAGE (loader/ -> "loader",
-    R2's package-shaped loader) -- either way, a name a test module or a
-    tests/unit/<name>/ sub-folder may claim as its subject."""
+    module (cli.py -> "cli") or a SUB-PACKAGE (loader/ -> "loader") --
+    either way, a name a test module or a tests/unit/<name>/ sub-folder
+    may claim as its subject."""
     units = {p.stem for p in RIGC_DIR.glob("*.py")}
     units |= {p.name for p in RIGC_DIR.iterdir()
              if p.is_dir() and (p / "__init__.py").is_file()
@@ -162,11 +158,11 @@ _BUILD_HELPERS = frozenset({
 #: no helper at all, and those must not be invisible just because nobody
 #: named them. Recognising the command itself closes the class rather than
 #: the instance. "cmake" is unconditionally a configure; "west"/WEST_EXE is
-#: not -- west also fronts non-configuring subcommands (`west rigs`,
-#: board-coordinate-s2-brief.md's `--boards-for` census), so an argv headed
-#: by one of these two needs its SUBCOMMAND checked too (see
-#: _WEST_BUILD_SUBCOMMANDS below) rather than being treated as a build on
-#: sight.
+#: not -- west also fronts non-configuring subcommands (`west rigs
+#: --boards-for`, a plain census query), so an argv headed by one of
+#: these two needs its SUBCOMMAND checked too (see
+#: _WEST_BUILD_SUBCOMMANDS below) rather than being treated as a build
+#: on sight.
 _BUILD_COMMANDS = frozenset({"cmake", "WEST_EXE", "west"})
 
 #: The west subcommands that actually configure cmake -- an argv headed by
@@ -307,10 +303,10 @@ def _is_build_marked(fn: _FuncDef, module_marked: bool) -> bool:
 
 
 def test_every_build_reaching_integration_test_is_marked_build() -> None:
-    """The other half of the merged discipline (cutover C4): the layer
-    marker is gone (directory decides unit vs integration), but `build`
-    survives because check.sh's fast gate selects on it
-    (`pytest -m "not build"`). An integration test that runs a real
+    """The other half of the merged discipline: directory decides unit vs
+    integration, but `build` survives as a marker because check.sh's
+    fast gate selects on it (`pytest -m "not build"`). An integration
+    test that runs a real
     west/cmake configure and carries no @pytest.mark.build silently runs
     inside that fast gate -- or, symmetrically, hides from `-m "not
     build"` when someone means to select only builds.
@@ -434,8 +430,8 @@ def test_an_inline_cmake_launch_counts_as_a_build() -> None:
 
 def test_an_inline_west_launch_only_counts_as_a_build_for_a_configuring_subcommand() -> None:
     """west fronts non-configuring subcommands too (`west rigs
-    --boards-for`, board-coordinate-s2-brief.md) -- an inline WEST_EXE
-    argv only counts as a build when its SECOND element names one of
+    --boards-for`) -- an inline WEST_EXE argv only counts as a build
+    when its SECOND element names one of
     _WEST_BUILD_SUBCOMMANDS. A bare WEST_EXE with no subcommand at all is
     unknown, never a build (it cannot configure anything by itself)."""
     configures = ast.parse(textwrap.dedent("""
@@ -464,8 +460,8 @@ def test_an_inline_west_launch_only_counts_as_a_build_for_a_configuring_subcomma
 
 
 def test_build_reaching_guard_detects_an_unmarked_build_test() -> None:
-    """Negative control for the guard above (cutover-decisions.md D4: a
-    guard nobody proved can fail is worthless). A synthetic module
+    """Negative control for the guard above: a guard nobody proved can
+    fail is worthless. A synthetic module
     reaching _run_build with no @pytest.mark.build must be flagged by the
     same primitives the real guard uses; the identical module WITH the
     marker must not."""

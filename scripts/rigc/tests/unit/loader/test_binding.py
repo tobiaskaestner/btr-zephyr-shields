@@ -1,13 +1,11 @@
 """Unit: loader.binding -- the SocketBinding seam and the invocation's
-board -> rig.board (board-coordinate-s1-brief.md Sec 4).
+board -> rig.board.
 
 The stable contracts: SocketBinding's own lookup-else-identity semantics
 (the ONE seam a socket: reference resolves through), and resolve_board's
-now-trivial rule -- the injected board, or "" (board-coordinate-
-s6-brief.md Sec 11 retired the five S2 declaration-coherence rules this
-module used to dispatch on; nothing in rig.yml's own grammar can produce
-a `board:`/`sockets:` value for this function to read any more, so there
-is nothing left here to reject)."""
+trivial rule -- the injected board, or "". Nothing in rig.yml's own
+grammar can produce a `board:`/`sockets:` value for this function to
+read, so there is nothing here to reject."""
 from __future__ import annotations
 
 from rigc.loader.binding import SocketBinding, resolve_board

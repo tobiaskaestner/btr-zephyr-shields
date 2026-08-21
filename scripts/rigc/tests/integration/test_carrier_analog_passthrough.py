@@ -1,26 +1,24 @@
-"""PWM and ADC through a carrier -- the L1-L3 model sweep
-(carrier-analog-passthrough-brief.md), end to end. HERMETIC and
+"""PWM and ADC through a carrier, end to end. HERMETIC and
 non-build, mirroring test_multiplug_carrier.py's own combined-SPI
 fixture: a purpose-built fixture board (carrier_analog_board.dts)
 declares a real pwm-map/io-channel-map nexus on the connector a fixture
-carrier plugs -- the shape arduino-r3's own real board sockets still
-lack (L4, out of scope, brief Sec 7), which is why this witness needs a
+carrier plugs -- a shape none of the real board sockets in the corpus
+happen to carry, which is why this witness needs a
 fixture board rather than nucleo_grove_farm on nucleo_f401re/frdm_k64f.
 
 Two rigs (both driven through the real CLI, `python -m rigc expand`):
 
   carrier-analog-passthrough (ACCEPT) -- fixture_analog_carrier
     re-exports ONE socket (ca_out) carrying gpio+pwm+adc rows; a PWM
-    consumer and an ADC consumer both mate it. Proves criterion 1 (both
+    consumer and an ADC consumer both mate it. Proves that both
     functions resolve through a carrier-exposed socket, by an emitted
-    overlay) and criterion 5 (one synthesized node, all three maps)
+    overlay, and that one synthesized node carries all three maps
     together.
 
   carrier-analog-passthrough-reject -- two INDEPENDENT reject instance
-    pairs in one rig: ruling 2 (an unrouted PWM position is an error,
-    never gpio's own silent drop) and the RULED require-and-check (a
-    carrier's declared #pwm-cells disagreeing with the resolved
-    parent's).
+    pairs in one rig: an unrouted PWM position is an error, never gpio's
+    own silent drop, and a carrier's declared #pwm-cells disagreeing
+    with the resolved parent's is refused (require-and-check).
 """
 from __future__ import annotations
 
@@ -50,7 +48,7 @@ def _run(rig_yml: Path, out_dir: Path):
 
 
 def test_accept_both_functions_resolve_through_the_carrier(tmp_path: Path) -> None:
-    """Acceptance criterion 1: a shield needing PWM, and one needing ADC,
+    """A shield needing PWM, and one needing ADC,
     both resolve through a carrier-exposed socket, proven by an emitted
     overlay -- not reasoned about."""
     out_dir = tmp_path / "out"
@@ -67,10 +65,10 @@ def test_accept_both_functions_resolve_through_the_carrier(tmp_path: Path) -> No
 
 def test_accept_synthesized_nexus_carries_all_three_maps_on_one_node(
         tmp_path: Path) -> None:
-    """Acceptance criterion 5 (mixed socket): ONE synthesized node
+    """On a mixed socket, ONE synthesized node
     (carrier_ca_out) carries gpio-map AND pwm-map AND io-channel-map --
-    never two nodes, never one map silently winning. Acceptance
-    criterion 2: the nexus's own #pwm-cells/#io-channel-cells come from
+    never two nodes, never one map silently winning. The nexus's own
+    #pwm-cells/#io-channel-cells come from
     the RESOLVED parent (2 / 1), never a hardcoded value."""
     out_dir = tmp_path / "out"
     result = _run(_ACCEPT_RIG, out_dir)
@@ -99,9 +97,9 @@ def test_accept_synthesized_nexus_carries_all_three_maps_on_one_node(
     assert "&ca_adc { status = \"okay\"; };" in overlay
 
 
-def test_reject_ruling_2_unrouted_pwm_position_is_a_loud_phys_subset(
+def test_reject_unrouted_pwm_position_is_a_loud_phys_subset(
         tmp_path: Path) -> None:
-    """Ruling 2 (Tobi, 2026-08-14): a PWM/ADC row whose parent does not
+    """A PWM/ADC row whose parent does not
     route it is an ERROR, not a silent drop."""
     out_dir = tmp_path / "out"
     result = _run(_REJECT_RIG, out_dir)
@@ -116,7 +114,7 @@ def test_reject_ruling_2_unrouted_pwm_position_is_a_loud_phys_subset(
 
 def test_reject_require_and_check_names_both_counts_and_both_sides(
         tmp_path: Path) -> None:
-    """Sec 5 RULED (require-and-check), acceptance criterion 4b: a
+    """require-and-check: a
     declared count disagreeing with the resolved parent's is refused,
     naming BOTH numbers and both sides -- the carrier's shield/instance
     name and the parent socket's own label -- so a reader can tell which

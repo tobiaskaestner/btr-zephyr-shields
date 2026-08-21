@@ -5,7 +5,7 @@ format (structure only, with synthetic content: the `severity[code]:
 head` line, four-space continuation lines, `    at <path>:<line> (<key>)`
 anchors, anchor ordering and de-duplication — per-diagnostic message
 WORDING is asserted ONLY by the frozen stderr goldens), and anchor-path
-rendering (the RATIFIED module-agnostic rule: a path under a
+rendering (the module-agnostic rule: a path under a
 `scripts/<module>/` component renders relative to that component;
 anything else renders unchanged — a pure function of the path value,
 exercised with synthetic roots).
@@ -74,8 +74,10 @@ def test_under_a_scripts_module_renders_relative() -> None:
 
 
 def test_module_agnostic_any_module_name() -> None:
-    """The cutover property: fixtures moved under scripts/rigc/ render
-    IDENTICALLY -- no refreeze of the 43 reject goldens' anchor lines."""
+    """Anchor-path rendering does not depend on the module name in the
+    path: the same relative-rendering rule applies under any
+    scripts/<module>/ path, so the reject goldens' anchor lines don't
+    move when fixtures relocate between modules."""
     assert (anchor_path("/syn/repo/scripts/rigc/tests/fixtures/r/rig.yml")
             == "tests/fixtures/r/rig.yml")
 
@@ -105,7 +107,7 @@ def test_relative_input_with_scripts_component() -> None:
 # ------------------------------------------------------------------ LoadError
 
 def test_load_error_carries_every_diagnostic_it_unwound_past() -> None:
-    """The fatal-path contract (R3 review, D1): a LoadError renders as if
+    """The fatal-path contract: a LoadError renders as if
     every finding had been returned normally -- so boundaries prepend
     their accumulated diagnostics and NOTHING is lost to the raise. The
     exception's own message is the fatal (last) finding's."""

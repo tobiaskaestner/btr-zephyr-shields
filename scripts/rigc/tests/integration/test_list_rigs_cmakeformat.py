@@ -1,4 +1,4 @@
-"""list_rigs.py's own CLI (board-coordinate-s3b-brief.md ruling 3): the
+"""list_rigs.py's own CLI: the
 `--rig=<target> --cmakeformat=...` line cmake/boards.cmake's and
 cmake/dts.cmake's forks actually read via `execute_process`, driven here
 as a real subprocess -- resolution only, no cmake, no cpp, no board, so
@@ -65,7 +65,7 @@ def test_cmakeformat_line_for_a_revved_promoted_shield() -> None:
 
 
 def test_cmakeformat_line_for_a_slot_optioned_plural_shield_target() -> None:
-    """multi-plug-promotion-brief.md Sec 3: the `{PROMOTED}` line for a
+    """The `{PROMOTED}` line for a
     plural shield's slot-optioned target -- whole-line pin, following
     the revved-promoted precedent above (test_cmakeformat_line_for_a_
     revved_promoted_shield's own docstring: it caught a real desugaring
@@ -96,19 +96,18 @@ def test_cmakeformat_line_for_a_bare_socket_on_a_plural_shield_is_refused() -> N
 
 
 def test_cmakeformat_line_for_a_persisted_rig_is_unchanged() -> None:
-    """Criterion 4 (board-coordinate-s3b-brief.md): a real rig's own line
+    """A real rig's own line
     carries PROMOTED;NOTFOUND and is otherwise byte-identical to what this
     same CLI printed before promoted shields existed -- true of NAME/DIR/
     REVISION/VARIANT/PROMOTED, all still resolved from rig.yml alone.
 
-    BOARD is the one field this changed UNDER (board-coordinate-
-    s6-brief.md Sec 3, RULED): nucleo_datalogger no longer declares a
+    BOARD is the one field that differs: no corpus rig.yml declares a
     board at all, so this bare `list_rigs.py --rig=` query (no --board
-    injection -- it has none to give) now reads it back the same way it
+    injection -- it has none to give) reads it back the same way it
     already does for a promoted shield: NOTFOUND. This is the same fact
-    boards.cmake's own fork now hits for every persisted rig, which is
+    boards.cmake's own fork hits for every persisted rig, which is
     what makes its "no board of its own to fall back to" FATAL fire for a
-    real rig, not just a promoted shield (Sec 8 criterion 7)."""
+    real rig, not just a promoted shield."""
     result = _run("--rig=nucleo_datalogger", f"--cmakeformat={_CMAKEFORMAT}")
     assert result.returncode == 0, result.stderr
     line = result.stdout.strip()
@@ -127,7 +126,7 @@ def test_a_variant_qualified_shield_target_is_refused() -> None:
 
 def test_a_name_that_is_both_a_rig_and_a_shield_is_the_explain_message(
         tmp_path: Path) -> None:
-    """Criterion 5: the SAME message `west rigs --explain` renders for the
+    """The SAME message `west rigs --explain` renders for the
     identical collision (test_explain.py's own fixture, reproduced here
     against this module's CLI instead) -- one namespace rule, not two
     independently-worded ones."""
@@ -164,10 +163,10 @@ def test_bare_rig_flag_with_no_cmakeformat_still_prints_just_the_name() -> None:
     assert shield_result.stdout.strip() == "adafruit_data_logger"
 
 
-# --------------------------------------------------- list promotion (slice 4)
+# --------------------------------------------------- list promotion
 
 def test_cmakeformat_line_for_a_list_target() -> None:
-    """multi-plug-list-brief.md Sec 4: the `{PROMOTED}` value for a list
+    """The `{PROMOTED}` value for a list
     target is the raw `;`-joined text, escaped via `_cmake_list_escape`
     (the ONE field this hazard ever touches -- NAME is the `+`-joined
     desugared rig name, which never contains a `;`). Whole-line pin,
@@ -199,7 +198,7 @@ def test_a_list_target_with_a_duplicate_element_is_refused() -> None:
 
 
 def test_a_list_target_with_a_persisted_rig_element_is_refused() -> None:
-    """Every element must be a SHIELD (Sec 2): naming a real, persisted
+    """Every element must be a SHIELD: naming a real, persisted
     rig inside a list gets its own sentence, distinct from the ordinary
     "promotion options on a persisted rig" refusal a bare rig target
     hits (that refusal is about OPTIONS on a single rig target; this one

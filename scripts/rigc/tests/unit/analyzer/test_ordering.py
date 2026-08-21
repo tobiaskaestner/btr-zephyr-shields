@@ -1,6 +1,6 @@
-"""Allocation ordering: R18's `_key`, a named unit contract (rigc-r4-brief.md
-"Allocation order is R18's `_key` ... never rig-file declaration order").
-`allocation_key` needs only a plain Instance/Device pair plus the
+"""Allocation ordering: `allocation_key` is a named, stable sort key --
+allocation order is socket, then instance, then device, never rig-file
+declaration order. It needs only a plain Instance/Device pair plus the
 instance's own resolved BoardSocket -- no Shield/Rig/Board -- so ordering
 is asserted directly against constructed values, not a scenario."""
 from __future__ import annotations

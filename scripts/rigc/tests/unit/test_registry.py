@@ -1,7 +1,7 @@
 """Unit: registry -- the connector-type registry, assembled from a
 synthetic unified binding + a synthetic dt-bindings/connector/<type>.h
-index header (T0's hermeticity rule: purpose-built fixtures, never a copy
-of a real connector type). No cpp/subprocess anywhere in this path --
+index header (fixtures are purpose-built, never a copy of a real
+connector type). No cpp/subprocess anywhere in this path --
 `load_types`/`parse_header_indices` are pure file I/O.
 """
 from __future__ import annotations

@@ -1,8 +1,8 @@
-"""Unit: loader (loader/__init__.py) -- `load()`'s three-phase split
-(rigc-r45-brief.md Part A): `_resolve_metadata` (steps 2-5, the rig
-shell), `_gather_content` (steps 6-9, the content file + delta fragments
-+ rule 10), `_build_topology` (steps 10-11, stage 0 plus the two delta
-stages).
+"""Unit: loader (loader/__init__.py) -- `load()`'s three-phase split:
+`_resolve_metadata` (steps 2-5, the rig
+shell), `_gather_content` (steps 6-9, the content file + delta
+fragments + the contributes-nothing check), `_build_topology` (steps
+10-11, stage 0 plus the two delta stages).
 
 `_resolve_metadata` and `_gather_content` are entirely cpp-free --
 every test below feeds them a synthetic, already-parsed rig.yml document
@@ -73,9 +73,8 @@ def test_resolve_metadata_rejects_a_missing_name(tmp_path: Path) -> None:
 
 
 def test_resolve_metadata_happy_path_with_no_axes(tmp_path: Path) -> None:
-    """board is never read off rig.yml any more (board-coordinate-
-    s6-brief.md Sec 11) -- `board="b/s/rig"` here is the INJECTED value,
-    the only source of `meta.rig.board` left."""
+    """board is never read off rig.yml -- `board="b/s/rig"` here is the
+    INJECTED value, the only source of `meta.rig.board`."""
     doc = _parsed(tmp_path, "rig.yml", "rig:\n  name: r\n")
     meta, diags = _resolve_metadata(doc, None, None, board="b/s/rig")
     assert diags == []
@@ -142,11 +141,10 @@ def test_resolve_metadata_an_explicit_revision_selection_wins_over_the_default(
 
 def test_resolve_metadata_nearest_lower_match_keeps_requested_for_provenance(
         tmp_path: Path) -> None:
-    """The requested/resolved split (hwmv2-revision-semantics-brief.md
-    Sec 3): a nearest-lower match resolves DOWN, but the RAW requested
-    string survives on `revision_requested` -- what a caller (the
-    configure-log "requested -> resolved" line) needs to tell the two
-    apart."""
+    """The requested/resolved split: a nearest-lower match resolves
+    DOWN, but the RAW requested string survives on `revision_requested`
+    -- what a caller (the configure-log "requested -> resolved" line)
+    needs to tell the two apart."""
     doc = _parsed(
         tmp_path, "rig.yml",
         "rig:\n"
@@ -165,7 +163,7 @@ def test_resolve_metadata_nearest_lower_match_keeps_requested_for_provenance(
 
 
 def test_resolve_metadata_reports_an_axis_collision(tmp_path: Path) -> None:
-    """rule 4: a variant name equal to a revision id constructs the same
+    """A variant name equal to a revision id constructs the same
     fragment stem -- still returns a Rig (not None), since the collision
     is a warning-shaped continuation, not a stop-here defect. '9' rather
     than a word: a variant name has no format constraint, but a revision
@@ -211,7 +209,7 @@ def test_gather_content_reads_an_empty_content_file(tmp_path: Path) -> None:
     assert deps == frozenset((str(content_path),))
 
 
-def test_gather_content_rule_10_a_nondefault_variant_contributing_nothing(
+def test_gather_content_a_nondefault_variant_contributing_nothing_is_rejected(
         tmp_path: Path) -> None:
     _write(tmp_path, "r.yml", """\
         instances: []
@@ -290,8 +288,8 @@ def test_build_topology_resolves_an_instance_from_an_already_cached_shield(
 
 def test_build_topology_unions_deps_across_variant_substitution(
         tmp_path: Path) -> None:
-    """rigc-r5-brief.md Sec 2, fact 2: RIG_DEPENDS records RESOLUTION
-    HISTORY, not final topology -- a variant stage that substitutes one
+    """RIG_DEPENDS records RESOLUTION HISTORY, not final topology --
+    a variant stage that substitutes one
     instance's shield away must still leave the base stage's own
     resolution (of the shield the variant replaced) in the union, never
     derived from the final instance list alone (which would silently

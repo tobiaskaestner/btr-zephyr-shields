@@ -1,5 +1,5 @@
 """Unit: emitter/context -- context.cmake, the build-glue handoff kept
-OUT of `emit()` (rigc-r5-brief.md Sec 2). Pinned here: the "no
+OUT of `emit()`. Pinned here: the "no
 declaration, no artifact" rule for RIG_REVISION/RIG_VARIANT/
 RIG_SHIELD_REVISIONS, RIG_SHIELDS distinct-in-rig-order, RIG_DEPENDS
 sorted, and `_cmake_list_escape` over the one input shape no real path

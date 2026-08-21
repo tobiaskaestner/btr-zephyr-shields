@@ -1,7 +1,6 @@
 """Unit: analyzer.socketmap -- the one accessor family every downstream
-pass and emitter module reaches a per-slot socket through (multi-plug-
-shield-brief.md Sec 3, acceptance criterion 6). Each function is a pure
-lookup over hand-built values; no Rig/Board/dtlib needed."""
+pass and emitter module reaches a per-slot socket through. Each function
+is a pure lookup over hand-built values; no Rig/Board/dtlib needed."""
 from __future__ import annotations
 
 from rigc.analyzer.socketmap import for_bus_device, for_ref, for_slot, slots_of

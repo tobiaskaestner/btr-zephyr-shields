@@ -329,7 +329,7 @@ authors a named multi-bus CS pool yet),
 
 Example — a carrier's own override, both bare and qualified forms in one
 node (**test-fixture only**; no production carrier authors this yet),
-``scripts/rigc/tests/unit/test_shields.py``
+``scripts/rigc/tests/unit/loader/test_shields_exposed.py``
 (``test_exposed_socket_cs_pool_qualified_and_bare_both_parse``):
 
 .. code-block:: devicetree

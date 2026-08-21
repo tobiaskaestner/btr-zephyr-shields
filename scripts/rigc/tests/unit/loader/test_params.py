@@ -1,5 +1,5 @@
 """Unit: loader.params -- the per-instance-parameter invariant as a VALUE
-function (rigc-r3-brief.md Sec 6): "(declared params, authored defaults,
+function: "(declared params, authored defaults,
 assignments) -> findings", restate as "(previously-assigned set, delta-
 restated set) -> findings", and config/params block application (a PURE
 function of a Val + a Shield, never mutating an Instance).
@@ -12,9 +12,8 @@ NOT a bare integer literal. Every test here assigns bare integer literals
 this module's OWN logic -- undeclared/unknown-device/required/restate
 decisions -- gets covered without ever reaching cpp. `check_param_token`'s
 own cpp-reaching branch is integration-only by construction, covered
-through the frozen suite (its vocabulary is now the owning shield
-device's own declared_param_includes, param-vocabulary-brief.md, never a
-rig-level list).
+through the frozen suite; its vocabulary is the owning shield device's
+own declared_param_includes, never a rig-level list.
 """
 from __future__ import annotations
 
@@ -180,8 +179,8 @@ def test_apply_config_block_none_is_a_no_op() -> None:
 def test_apply_config_block_assigns_a_strap_by_label(tmp_path) -> None:
     """The rig key is the strap's DTS LABEL, which may differ from its
     node name (the real corpus's own convention) -- the internal dicts
-    stay keyed by the strap's NODE NAME regardless (item 29 Sec 5:
-    internal keying is untouched, only the rig-facing lookup moves)."""
+    stay keyed by the strap's NODE NAME regardless: internal keying is
+    untouched, only the rig-facing lookup moves."""
     shield = _shield()
     shield.straps["addr-strap"] = Strap(name="addr-strap", label="addr_strap",
                                        domain=[(0x48, 0), (0x49, 1)], sheet_label="")
@@ -204,11 +203,9 @@ def test_apply_config_block_assigns_a_jumper_by_label(tmp_path) -> None:
 
 
 def test_apply_config_block_node_name_no_longer_resolves(tmp_path) -> None:
-    """item 29 removes the old `_`->`-` normalization outright: a DTS
-    label can never contain a hyphen, so the node-name/hyphen spelling
-    (`addr-strap`, the pre-item-29 accepted form) is now REJECTED,
-    exactly like any other unknown config element -- not silently
-    resolved via a fallback."""
+    """A DTS label can never contain a hyphen, so the node-name/hyphen
+    spelling (`addr-strap`) is REJECTED, exactly like any other unknown
+    config element -- not silently resolved via a `_`->`-` fallback."""
     shield = _shield()
     shield.straps["addr-strap"] = Strap(name="addr-strap", label="addr_strap",
                                        domain=[(0x48, 0)], sheet_label="")

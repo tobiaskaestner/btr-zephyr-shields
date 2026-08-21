@@ -1,10 +1,10 @@
-"""Unit: emitter/overlay -- the device-node renderer (rigc-r5-brief.md
-Sec 4). Stable contracts pinned here: gpio/pwm/adc idioms, the
-`inst.invert` flag flip, per-instance params substitution (replace vs
-add), the sdmmc child node, the PWM-flags AssertionError, and
-determinism under a shuffled instance order (R7/R18) -- the frozen
-suite's own goldens already cover this end to end; this module aims at
-contracts that would survive a rewrite, not coverage.
+"""Unit: emitter/overlay -- the device-node renderer. Stable contracts
+pinned here: gpio/pwm/adc idioms, the `inst.invert` flag flip,
+per-instance params substitution (replace vs add), the sdmmc child
+node, the PWM-flags AssertionError, and determinism under a shuffled
+instance order -- the frozen suite's own goldens already cover this
+end to end; this module aims at contracts that would survive a
+rewrite, not coverage.
 """
 from __future__ import annotations
 
@@ -67,8 +67,8 @@ def test_gpio_ref_keeps_flags_unchanged_when_not_inverted() -> None:
 
 
 def test_pwm_ref_omits_flags_and_renders_position_and_period() -> None:
-    """2-cell socket (three-cell-pwm-brief.md Sec 3b): flags omitted,
-    exactly as lotus's own atmel,sam0-tcc-pwm shape requires."""
+    """2-cell socket: flags omitted, exactly as lotus's own
+    atmel,sam0-tcc-pwm shape requires."""
     ref = FunctionRef(prop="pwms", position=2, flags=0, src=_SRC, function="pwm",
                  period=1000)
     dev = _plain_dev(name="dev", label="dev", function_refs=[ref])
@@ -85,9 +85,8 @@ def test_pwm_ref_omits_flags_and_renders_position_and_period() -> None:
 
 
 def test_pwm_ref_on_a_3cell_socket_renders_the_flags_word_too() -> None:
-    """The 3-cell twin (three-cell-pwm-brief.md Sec 3b, acceptance
-    criterion 1): the SAME (position, period) plus a real flags word --
-    the common upstream shape (st,stm32-pwm/nxp,ftm-pwm)."""
+    """The 3-cell twin: the SAME (position, period) plus a real flags
+    word -- the common upstream shape (st,stm32-pwm/nxp,ftm-pwm)."""
     ref = FunctionRef(prop="pwms", position=2, flags=0x1, src=_SRC, function="pwm",
                  period=1000)
     dev = _plain_dev(name="dev", label="dev", function_refs=[ref])
@@ -107,10 +106,10 @@ def test_nonzero_pwm_flags_raise_assertionerror_never_silently_emitted() -> None
     """The analyzer's phys-function rejection is what makes this
     unreachable on an accepted rig (analyzer/gpio.py); this documents the
     invariant rather than re-deriving the diagnostic -- a RAISE, not a
-    bare `assert`, so it survives `python -O` (rigc-r5-brief.md Sec 1).
-    2-cell socket only (three-cell-pwm-brief.md Sec 3c): a 3-cell one has
-    a real cell for flags, so this is unreachable there BY CONSTRUCTION,
-    not merely by the analyzer's own gate -- see the 3-cell test above."""
+    bare `assert`, so it survives `python -O`.
+    2-cell socket only: a 3-cell one has a real cell for flags, so this
+    is unreachable there BY CONSTRUCTION, not merely by the analyzer's
+    own gate -- see the 3-cell test above."""
     ref = FunctionRef(prop="pwms", position=2, flags=0, src=_SRC, function="pwm",
                  period=1000)
     dev = _plain_dev(name="dev", label="dev", function_refs=[ref])
@@ -141,15 +140,12 @@ def test_adc_ref_renders_position_only_no_flags_no_period() -> None:
 
 
 def test_pwm_collection_entry_renders_the_resolved_period_not_the_flags_cell() -> None:
-    """Regression: `_collection_entry` used to run every ref through the
-    gpio-shaped two-cell render regardless of function -- <pos, ref.flags>
-    -- so a pwm-leds entry emitted the claim's POLARITY bit (0, always,
-    past the analyzer's phys-function gate) into the cell the nexus
-    expects to carry the resolved PERIOD from `s.channels`, dropping the
-    real period entirely. period=1234 here is chosen to differ sharply
-    from flags=0, so a value-swap regression (period and flags rendered
-    in each other's place) is visible rather than accidentally passing
-    because both happen to be small."""
+    """A pwm-leds collection entry must render the resolved PERIOD from
+    `s.channels` in the second cell, never the claim's flags/polarity
+    bit -- those are gpio-shaped, not pwm-shaped. period=1234 here is
+    chosen to differ sharply from flags=0, so a value-swap regression
+    (period and flags rendered in each other's place) is visible rather
+    than accidentally passing because both happen to be small."""
     ref = FunctionRef(prop="pwms", position=5, flags=0, src=_SRC, function="pwm",
                  period=1234)
     dev = _plain_dev(name="led", label="led", collect="pwm-leds", function_refs=[ref])
@@ -164,12 +160,12 @@ def test_pwm_collection_entry_renders_the_resolved_period_not_the_flags_cell() -
 
     assert 'compatible = "pwm-leds";' in text
     assert "pwms = <&sock 5 1234>;" in text
-    assert "pwms = <&sock 5 0x0>;" not in text   # the old gpio-shaped bug
+    assert "pwms = <&sock 5 0x0>;" not in text   # not the gpio-shaped flags cell
 
 
 def test_invert_does_not_touch_a_pwm_collection_entry() -> None:
-    """Criterion 3: invert: is a gpio-flags concept. Even on a COLLECTED
-    entry whose instance sets invert: true, the pwm branch never consults
+    """invert: is a gpio-flags concept. Even on a COLLECTED entry whose
+    instance sets invert: true, the pwm branch never consults
     inst.invert -- accepted, silently without effect on the emitted line."""
     ref = FunctionRef(prop="pwms", position=5, flags=0, src=_SRC, function="pwm",
                  period=1234)
@@ -255,7 +251,7 @@ def test_devices_without_the_sdmmc_compatible_get_no_extra_child() -> None:
 
 
 def test_render_overlay_is_deterministic_under_a_shuffled_instance_order() -> None:
-    """R7/R18: output is sorted by stable keys, never rig-file declaration
+    """Output is sorted by stable keys, never rig-file declaration
     order -- two instance lists differing only in ORDER must render
     byte-identical text."""
     def make(order: list[str]) -> str:
@@ -276,7 +272,7 @@ def test_render_overlay_is_deterministic_under_a_shuffled_instance_order() -> No
 def _mux_rig_and_solved(channel_order: list[int]) -> Tuple[Rig, Solved]:
     """One I2C mux instance whose scopes: entries are inserted in
     channel_order -- the mux-channel counterpart of the shuffled instance
-    list above (R26: each channel is a NEW address scope)."""
+    list above (each channel is a NEW address scope)."""
     dev = _plain_dev(name="mux", label="mux", bus="i2c",
                      extra_props=[("compatible", 'compatible = "ti,tca9548a";')])
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
@@ -291,9 +287,9 @@ def _mux_rig_and_solved(channel_order: list[int]) -> Tuple[Rig, Solved]:
 
 
 def test_render_overlay_is_deterministic_under_a_shuffled_scope_order() -> None:
-    """The same R7/R18 guarantee for `Solved.scopes`, whose iteration
-    builds the mux-channel lists: two dicts differing only in INSERTION
-    order must render byte-identical channel nodes."""
+    """The same sorted-output guarantee for `Solved.scopes`, whose
+    iteration builds the mux-channel lists: two dicts differing only in
+    INSERTION order must render byte-identical channel nodes."""
     forward_rig, forward = _mux_rig_and_solved([0, 1, 2])
     reverse_rig, reverse = _mux_rig_and_solved([2, 1, 0])
 
@@ -331,8 +327,8 @@ def test_no_controllers_means_no_controller_section_at_all() -> None:
 
 
 def test_carrier_exported_socket_synthesizes_a_chained_gpio_nexus() -> None:
-    """R19 Option C: a socket with no DT node of its own gets a synthesized
-    gpio-nexus chaining to its parent's, and a carrier stacked on a carrier
+    """A socket with no DT node of its own gets a synthesized gpio-nexus
+    chaining to its parent's, and a carrier stacked on a carrier
     synthesizes BOTH (the recursive parent visit). The four fixed property
     lines and the multi-row gpio-map join are frozen output text."""
     parent = BoardSocket(label="carrier", path="/c", type_name="t", gpio_map={},
@@ -360,11 +356,10 @@ def test_carrier_exported_socket_synthesizes_a_chained_gpio_nexus() -> None:
 
 
 def test_carrier_exported_socket_analog_only_is_not_skipped() -> None:
-    """Sec 5's fix: visit()'s old guard checked nexus_rows alone, so a
-    socket with adc/pwm rows but NO gpio rows (nexus_rows == []) was
-    silently dropped -- the exact bug the brief calls out ('a socket that
-    is analog-only ... must NOT be skipped'). This carrier-exported
-    socket authors ONLY an io-channel-map, no gpio-map at all."""
+    """A socket with adc/pwm rows but NO gpio rows (nexus_rows == []) must
+    still be visited and rendered: analog-only exported sockets are not
+    skipped. This carrier-exported socket authors ONLY an
+    io-channel-map, no gpio-map at all."""
     child = BoardSocket(label="a0", path="/c/a0", type_name="t", gpio_map={},
                         buses={}, nexus_label="carrier_a0", nexus_rows=[],
                         adc_map={5: ("adc0", 1)}, adc_cells=1,
@@ -403,9 +398,9 @@ def test_carrier_exported_socket_synthesizes_a_chained_pwm_nexus() -> None:
 
 
 def test_carrier_exported_socket_mixed_gpio_pwm_adc_is_one_node_both_maps() -> None:
-    """Acceptance criterion 5 (mixed socket): an exposed socket carrying
-    gpio AND pwm AND adc rows emits ONE synthesized node with all three
-    maps -- never two nodes, never one map silently winning over another."""
+    """An exposed socket carrying gpio AND pwm AND adc rows emits ONE
+    synthesized node with all three maps -- never two nodes, never one
+    map silently winning over another."""
     child = BoardSocket(label="a0", path="/c/a0", type_name="t",
                         gpio_map={0: ("gpiod", 2, 0)}, buses={},
                         nexus_label="carrier_a0",
@@ -432,8 +427,8 @@ def test_carrier_exported_socket_mixed_gpio_pwm_adc_is_one_node_both_maps() -> N
 
 
 def test_pwm_nexus_cells_come_from_the_socket_not_hardcoded() -> None:
-    """Acceptance criterion 2: the synthesized nexus carries the PARENT's
-    cell count, never a hardcoded one. A (synthetic, not a real supported
+    """The synthesized nexus carries the PARENT's cell count, never a
+    hardcoded one. A (synthetic, not a real supported
     shape) 3-cell value proves the emitter reads sock.pwm_cells rather
     than assuming 2 -- mutation check: hardcoding #pwm-cells=<2> here
     must fail THIS test on the cell count itself."""

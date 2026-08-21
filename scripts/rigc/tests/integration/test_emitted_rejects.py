@@ -21,7 +21,7 @@ hermeticity:
     whatever the test is labelled;
   - what each one pins is a REJECT -- an outcome against a scenario. A
     scenario does not exist at unit level; it is consumed by the system
-    (rigexp, later rigc). There is no unit whose specification says "this
+    as a whole. There is no unit whose specification says "this
     assembly is unrealizable".
 
 So hermetic-and-fast is a property of the COST axis, not of the unit
@@ -31,8 +31,8 @@ user-facing WORDING of a system verdict, which no unit test asserts.
 Some of these fixtures name a real production shield (e.g.
 adafruit_data_logger, i2c_sensor, flash_click) as ordinary instance
 content, or a fixture shield that itself plugs one of the four real
-connector types (arduino-r3, i2c-port) -- inherited from before the T0
-hermetic vocabulary existed. That is a real, reported coupling risk (a
+connector types (arduino-r3, i2c-port) -- inherited from before this
+module's own hermetic vocabulary existed. That is a real, reported coupling risk (a
 change to that shield's own declared shape could churn a golden here for
 reasons unrelated to what the test names), but it does not move a test out
 of this file: none of it is BOARD data, the loader never builds an EDT to
@@ -118,7 +118,7 @@ def test_route_no_via_golden(tmp_path: Path) -> None:
 
 
 def test_param_undeclared_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: per-instance-parameters rule 1 — a params: entry
+    """Synthetic fixture: a params: entry
     naming a property the device did not declare via shield,params (typo
     protection) must be rejected. Fast: the loader rejects before any board
     recipe is needed."""
@@ -137,7 +137,7 @@ def test_param_undeclared_golden(tmp_path: Path) -> None:
 
 
 def test_param_required_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: per-instance-parameters rule 2 — a declared,
+    """Synthetic fixture: a declared,
     REQUIRED (no default authored) parameter an instance never assigns must
     be rejected, not left as a silently-inert missing property."""
     out_dir = tmp_path / "out"
@@ -155,7 +155,7 @@ def test_param_required_golden(tmp_path: Path) -> None:
 
 
 def test_param_unknown_device_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: per-instance-parameters rule 3 — a params: entry
+    """Synthetic fixture: a params: entry
     naming a device label the shield has no device for must be rejected."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-unknown-device" / "rig.yml"
@@ -172,22 +172,25 @@ def test_param_unknown_device_golden(tmp_path: Path) -> None:
 
 
 def test_promoted_param_undeclared_golden(tmp_path: Path) -> None:
-    """Sec 9.6 part 2's own reject-golden confirmation: a `--promote`
+    """A `--promote`
     target's `<device>.<prop>` assignment naming a REAL device
     (grove_btn's gb_key) but a property it never declared via
-    shield,params must be rejected with the SAME rule-1 diagnostic an
+    shield,params must be rejected with the SAME diagnostic an
     authored rig.yml's params: block gets (test_param_undeclared_golden,
-    above) -- confirms rules 1/3 fire identically for a promoted
+    above) -- confirms the undeclared-property and unknown-device checks
+    fire identically for a promoted
     assignment as for an authored one, rather than assuming it from the
     shared-codepath argument (promote.promote_shield's own docstring):
     apply_params_block cannot tell a promoted document's params: block
     from an authored one, and this is what proves it, not merely states
     it.
 
-    The target ALSO assigns gb_key's own required `zephyr,code` (rule
-    2's own parameter, the one grove_btn's shield,params declares with no
-    default authored) so that rule fires nowhere in this golden --
-    without it, rule 2 fires ALONGSIDE rule 1 for the unrelated reason
+    The target ALSO assigns gb_key's own required `zephyr,code` (the
+    parameter test_param_required_golden pins, the one grove_btn's
+    shield,params declares with no default authored) so that the
+    required-parameter check fires nowhere in this golden --
+    without it, it would fire ALONGSIDE the undeclared-property check for
+    the unrelated reason
     that the instance never assigns a required parameter, which is not
     what this test exists to demonstrate. The authored-fixture control
     above stays a clean single diagnostic; this one matches it."""
@@ -208,9 +211,9 @@ def test_promoted_param_undeclared_golden(tmp_path: Path) -> None:
 
 
 def test_param_unresolvable_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: per-instance-parameters rule 4 — an assigned token
+    """Synthetic fixture: an assigned token
     that does not resolve against the OWNING SHIELD DEVICE's own declared
-    param-includes (param-vocabulary-brief.md) must be rejected, naming
+    param-includes must be rejected, naming
     the fix."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-unresolvable" / "rig.yml"
@@ -227,9 +230,7 @@ def test_param_unresolvable_golden(tmp_path: Path) -> None:
 
 
 def test_param_shield_no_includes_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: the direct successor of the retired param-no-
-    vocabulary case (param-vocabulary-brief.md Sec 6), now on the shield
-    side -- a shield declares shield,params with NO shield,param-includes
+    """Synthetic fixture: a shield declares shield,params with NO shield,param-includes
     at all, and a rig assigns a symbolic (non-literal) token to it.
     check_param_token's vocabulary is the owning device's own
     declared_param_includes, so an empty list still reaches cpp and still
@@ -253,22 +254,10 @@ def test_param_shield_no_includes_golden(tmp_path: Path) -> None:
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
 
 
-# param-no-vocabulary and param-missing-header RETIRED
-# (param-vocabulary-brief.md Sec 6): both pinned rig-level dt-includes:
-# mechanisms -- rule 5's "no vocabulary declared at all" and rule 6's
-# up-front, use-independent header existence check -- that cease to exist
-# once the vocabulary is the owning shield DEVICE's own
-# shield,param-includes. Neither fixture's own token (INPUT_KEY_0,
-# assigned to grove_btn's gb_key) fails to resolve any more: grove_btn
-# now declares the very header these fixtures assumed no rig-level
-# dt-includes: could reach, so both accept past the loader entirely and
-# their fixtures/goldens are deleted with the mechanism.
-
-
-# ---------------------------------------------------------------- V1a: qualifier rejects
+# ---------------------------------------------------------------- qualifier rejects
 
 def test_unknown_revision_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: rule 1 -- a --revision naming a value outside the
+    """Synthetic fixture: a --revision naming a value outside the
     declared revisions: list. Loader-level (fires before any board recipe
     is needed), like the other synthetic fixtures above."""
     out_dir = tmp_path / "out"
@@ -286,7 +275,7 @@ def test_unknown_revision_golden(tmp_path: Path) -> None:
 
 
 def test_unknown_variant_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: rule 2 -- a --variant naming a value outside the
+    """Synthetic fixture: a --variant naming a value outside the
     declared variants: list."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "unknown-variant" / "rig.yml"
@@ -303,9 +292,9 @@ def test_unknown_variant_golden(tmp_path: Path) -> None:
 
 
 def test_no_default_variant_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: rule 3 -- a bare target (no --variant) against a
+    """Synthetic fixture: a bare target (no --variant) against a
     declared axis with values but no declared default, naming the axis and
-    listing its values (Q5)."""
+    listing its values."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "no-default-variant" / "rig.yml"
     result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
@@ -321,9 +310,9 @@ def test_no_default_variant_golden(tmp_path: Path) -> None:
 
 
 def test_variant_revision_collision_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: rule 4 -- a declared variant name equal to a
+    """Synthetic fixture: a declared variant name equal to a
     declared revision id, so the constructed fragment filenames
-    (<rigname>_<id>...) would be ambiguous between the two axes (Q6).
+    (<rigname>_<id>...) would be ambiguous between the two axes.
     Checked unconditionally once both axes are declared, so a bare
     invocation already triggers it."""
     out_dir = tmp_path / "out"
@@ -341,9 +330,9 @@ def test_variant_revision_collision_golden(tmp_path: Path) -> None:
 
 
 def test_variant_no_fragment_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: rule 10 -- a selected NON-DEFAULT axis value none of
-    whose constructed fragment files (.overlay/_defconfig/.yml, V1b's third
-    kind) exist, naming the files that were looked for. A value that
+    """Synthetic fixture: a selected NON-DEFAULT axis value none of
+    whose constructed fragment files (.overlay/_defconfig/.yml) exist,
+    naming the files that were looked for. A value that
     changes nothing is meaningless, so it is an authoring error. The value
     must be non-default to reach this check: the declared default is
     exempt, since the base rig file is that value's content (the pilot
@@ -367,11 +356,12 @@ def test_variant_no_fragment_golden(tmp_path: Path) -> None:
 
 
 def test_widened_variant_revision_collision_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: rule 4 WIDENED (design-log 2026-07-26d) -- a
+    """Synthetic fixture: a
     variant literally named 'variant_a_2' constructs the SAME fragment
     stem as variant 'variant_a' + revision '2' combined, even though
-    neither axis value equals the other outright (the original, narrower
-    rule 4 would have missed this entirely)."""
+    neither axis value equals the other outright -- the same collision
+    check test_variant_revision_collision_golden pins, but on a stem the
+    two axes only construct TOGETHER rather than on either value alone."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "combined-fragment-collision" / "rig.yml"
     result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
@@ -388,9 +378,9 @@ def test_widened_variant_revision_collision_golden(tmp_path: Path) -> None:
 
 
 def test_no_such_axis_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: the declares-no-such-axis wording (item 5, P's
-    rule-5 precedent) -- a target naming an axis (--variant) this rig does
-    not declare AT ALL gets a DISTINCT message from rule 2's "not a
+    """Synthetic fixture: a target naming an axis (--variant) this rig does
+    not declare AT ALL gets a DISTINCT message from
+    test_unknown_variant_golden's "not a
     declared member", pointing the author at the missing declaration
     itself rather than implying a typo in an existing one."""
     out_dir = tmp_path / "out"
@@ -411,9 +401,9 @@ def test_empty_revisions_list_golden(tmp_path: Path) -> None:
     """Synthetic fixture: revisions: declared with list: [] --
     axes.parse_axis_decl's own "'list' must be a non-empty list" guard
     (lang-schema). The code path was already covered by a unit test that
-    asserted only the diagnostic CODE; this pins the WORDING itself, a
-    reject-corpus stderr.txt being the ratified place that happens (see
-    this file's own module docstring)."""
+    asserted only the diagnostic CODE; this pins the WORDING itself, since
+    a reject-corpus stderr.txt is where this suite pins user-facing
+    wording (see this file's own module docstring)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "empty-revisions-list" / "rig.yml"
     result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
@@ -428,20 +418,16 @@ def test_empty_revisions_list_golden(tmp_path: Path) -> None:
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
 
 
-# ---------------------------------------------------------------- V1b: delta engine rejects
+# ---------------------------------------------------------------- delta engine rejects
 
-# test_revision_carries_board_golden RETIRED (board-coordinate-s6-brief.md
-# Sec 11): the mechanism it pinned -- documents.reject_metadata_keys
-# rejecting a content/delta document that carries a rig.yml METADATA key
-# -- is gone along with board:/sockets: leaving rig.yml's own grammar
-# entirely. A delta fragment carrying `board:` is no longer special: it
-# is silently ignored, the same as any other unrecognized key. Its
-# fixture (revision-carries-board/) and golden directory are deleted with
-# it, mechanism and test together.
+# A delta fragment carrying `board:` is not special: it
+# is silently ignored, the same as any other unrecognized key -- board:
+# left rig.yml's own grammar entirely, so documents.reject_metadata_keys
+# has nothing rig.yml-shaped left to reject a delta fragment for.
 
 
 def test_instances_delta_unknown_instance_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: rule 6 -- an instances: delta naming an instance
+    """Synthetic fixture: an instances: delta naming an instance
     the effective topology does not have (additions are never implicit)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "instances-delta-unknown-instance" / "rig.yml"
@@ -458,7 +444,7 @@ def test_instances_delta_unknown_instance_golden(tmp_path: Path) -> None:
 
 
 def test_add_instances_already_exists_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: rule 7 -- add-instances: naming an instance that
+    """Synthetic fixture: add-instances: naming an instance that
     already exists."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "add-instances-already-exists" / "rig.yml"
@@ -475,7 +461,7 @@ def test_add_instances_already_exists_golden(tmp_path: Path) -> None:
 
 
 def test_remove_instance_drift_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: rule 8 -- remove-instances: naming an absent
+    """Synthetic fixture: remove-instances: naming an absent
     instance. variant 'b' removes 'logger' first; the family-wide revision
     '2' delta then tries removing it again -- the message must NAME the
     variant that already removed it, so drift cannot hide."""
@@ -495,7 +481,7 @@ def test_remove_instance_drift_golden(tmp_path: Path) -> None:
 
 
 def test_remove_wire_missing_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: rule 9 -- remove-wires: naming an endpoint pair
+    """Synthetic fixture: remove-wires: naming an endpoint pair
     that does not exist (the real wire is x.dl_sq -> y.dl_led1; the delta
     tries x.dl_sq -> y.dl_led2 -- dl_led2 is a real label, just the wrong
     endpoint)."""
@@ -515,7 +501,7 @@ def test_remove_wire_missing_golden(tmp_path: Path) -> None:
 
 
 def test_restate_check_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: rule 11 -- the params restate-check. variant b
+    """Synthetic fixture: the params restate-check. variant b
     does not change sensor_1's shield but supplies params: for it,
     forgetting to restate vnd,threshold -- which wholesale replace would
     otherwise silently revert to the shield's authored default."""
@@ -536,7 +522,7 @@ def test_restate_check_golden(tmp_path: Path) -> None:
 
 
 def test_revision_crosses_variant_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: rule 12 -- a family-wide revision whose params
+    """Synthetic fixture: a family-wide revision whose params
     names a device the POST-VARIANT topology does not have (variant hpm
     substituted sensor_1's shield, so 'rf_sensor' no longer exists) --
     unavoidable by construction, so the error must name the variant."""
@@ -557,12 +543,14 @@ def test_revision_crosses_variant_golden(tmp_path: Path) -> None:
 
 
 def test_dotted_revision_no_fragment_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: hwmv2's revision dot-normalization
-    (design-log 2026-07-26d) -- a dotted revision id ('1.5') constructs a
+    """Synthetic fixture: hwmv2's revision dot-normalization -- a dotted
+    revision id ('1.5') constructs a
     fragment filename with the dot replaced by an underscore
-    (..._1_5_defconfig), never the literal dot. Rule 10 fires since no
+    (..._1_5_defconfig), never the literal dot. The same
+    missing-fragment check test_variant_no_fragment_golden pins fires
+    since no
     such fragment exists, naming the NORMALIZED filename -- proof the
-    normalization happened, not just that rule 10 still works."""
+    normalization happened, not just that the check still works."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "dotted-revision-no-fragment" / "rig.yml"
     result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", revision="1.5")
@@ -580,12 +568,12 @@ def test_dotted_revision_no_fragment_golden(tmp_path: Path) -> None:
     freeze_or_assert(golden_dir / "stderr.txt", normalize(result.stderr, zb))
 
 
-# ---------------------------------------------------------------- V1c: shield revisions
+# ---------------------------------------------------------------- shield revisions
 
 def test_shield_undeclared_revision_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: rule 13 -- shield: <name>@<rev> naming a revision
-    shield.yml does not declare. i2c_sensor (a production shield,
-    rig-variants-revisions.md V1c pilot) declares "1"/"2" only. Loader-level
+    """Synthetic fixture: shield: <name>@<rev> naming a revision
+    shield.yml does not declare. i2c_sensor (a production shield)
+    declares "1"/"2" only. Loader-level
     (shield resolution fires before any board recipe is needed), like the
     other synthetic fixtures above."""
     out_dir = tmp_path / "out"
@@ -605,8 +593,9 @@ def test_shield_undeclared_revision_golden(tmp_path: Path) -> None:
 def test_shield_no_revisions_declared_golden(tmp_path: Path) -> None:
     """Synthetic fixture: @rev against a shield declaring no revisions: at
     all -- the shield-side analogue of the rig axis "declares no such
-    axis" wording (P's rule-5 precedent, mirrored via _resolve_axis's own
-    three failure shapes). flash_click is a production shield with no
+    axis" wording test_no_such_axis_golden pins, mirrored via
+    _resolve_axis's own
+    three failure shapes. flash_click is a production shield with no
     revisions: block."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-no-revisions-declared" / "rig.yml"
@@ -625,7 +614,8 @@ def test_shield_no_revisions_declared_golden(tmp_path: Path) -> None:
 
 def test_shield_missing_fragment_golden(tmp_path: Path) -> None:
     """Synthetic fixture: the missing non-default shield-revision fragment
-    check -- the shield-side analogue of rule 10, same default exemption
+    check -- the shield-side analogue of test_variant_no_fragment_golden's
+    check, same default exemption
     (the default MAY carry a fragment, it just must not be REQUIRED to).
     rev_fixture (fixture-only shield) declares revision "2" but ships
     neither rev_fixture_2.shield nor rev_fixture_2.conf."""
@@ -649,8 +639,8 @@ def test_shield_missing_fragment_golden(tmp_path: Path) -> None:
 
 
 def test_shield_revision_param_invariant_golden(tmp_path: Path) -> None:
-    """Proves the per-stage parameter invariant claim (rig-variants-
-    revisions.md V1c step 4) BY TEST rather than by inspection: a shield
+    """Proves the per-stage parameter invariant claim
+    BY TEST rather than by inspection: a shield
     REVISION (not a rig delta) introduces a new required parameter
     (paramrev_2.shield adds shield,params with no default to pr_dev), and
     _check_param_invariant -- already re-checked fresh after resolving
@@ -755,11 +745,10 @@ def test_shield_node_name_mismatch_golden(tmp_path: Path) -> None:
 
 
 def test_shield_template_missing_file_golden(tmp_path: Path) -> None:
-    """Synthetic fixture (shield-plurality-brief.md Sec 3, second
-    consequence): shield.yml declares `template: true` for a name with no
-    matching `<name>.shield` beside it. Silent before this slice (the
-    folder's own basename-keyed discovery never even looked at this
-    name); loud now, because the folder's authoring intent -- this name
+    """Synthetic fixture: shield.yml declares `template: true` for a name with no
+    matching `<name>.shield` beside it. The folder's own basename-keyed
+    discovery never looks at this name on its own; this check exists
+    because the folder's authoring intent -- this name
     IS meant to be a rig template -- is known by name once shield.yml
     says so. Its own exclusive shield-library scan root, because the
     defect is reported at library-scan time for every folder scanned."""
@@ -782,8 +771,8 @@ def test_shield_template_missing_file_golden(tmp_path: Path) -> None:
 
 
 def test_shield_plural_node_name_mismatch_golden(tmp_path: Path) -> None:
-    """Synthetic fixture: the DECLARED-name half of ruling 2
-    (shield-plurality-brief.md Sec 2) -- a `shields:` entry's own `name:`
+    """Synthetic fixture: the DECLARED-name half of the shield-name-
+    mismatch check -- a `shields:` entry's own `name:`
     (decl_beta) disagrees with its `<name>.shield` node name (wrong_node),
     in a folder that ALSO declares a well-formed sibling entry
     (decl_alpha) in the same list, so the mismatch is blamed on decl_beta
@@ -812,9 +801,9 @@ def test_shield_plural_node_name_mismatch_golden(tmp_path: Path) -> None:
 def test_shield_plural_duplicate_name_golden(tmp_path: Path) -> None:
     """Synthetic fixture: a duplicate name WITHIN one `shields:` list --
     newly reachable only because plurality lets one list declare more
-    than one name at all (shield-plurality-brief.md Sec 4/Sec 8: a
-    duplicate ACROSS folders/roots stays the existing silent last-wins
-    policy, out of scope; this is the in-scope, single-list case). No
+    than one name at all (a duplicate ACROSS folders/roots stays the
+    existing silent last-wins policy, out of scope; this is the
+    in-scope, single-list case). No
     instance references either name -- the defect is scan-time and
     unconditional, so nothing needs to reference it to trigger."""
     out_dir = tmp_path / "out"
@@ -862,8 +851,8 @@ def test_shield_plural_not_a_list_golden(tmp_path: Path) -> None:
 def test_shield_plural_missing_name_golden(tmp_path: Path) -> None:
     """Synthetic fixture: a `shields:` entry with no `name:` key at all --
     rigc parses shield.yml with its own `parse_marked`, never jsonschema,
-    so a malformed entry is this code's own problem to catch
-    (shield-plurality-brief.md Sec 4). The well-formed sibling entry
+    so a malformed entry is this code's own problem to catch. The
+    well-formed sibling entry
     (has_name) in the same list proves the malformed one is dropped, not
     fatal to the whole document."""
     out_dir = tmp_path / "out"
@@ -885,22 +874,16 @@ def test_shield_plural_missing_name_golden(tmp_path: Path) -> None:
 
 # ---------------------------------------------------------------- board-per-variant
 
-# test_variant_board_restated_golden RETIRED (board-coordinate-s6-brief.md
-# Sec 11): its own mechanism -- fragments.variant_metadata_differs, rule
-# 10's per-variant board/socket "second avenue" of contribution -- is
-# gone along with the per-variant-board grammar it read
-# (`AxisDecl.boards`/`.sockets` are never populated by any variants:
-# entry any more). A variant restating nothing now simply contributes
-# nothing, the plain rule 10 case test_variant_no_fragment_golden already
-# covers; its fixture (variant-board-restated/) and golden directory are
-# deleted with it.
+# `AxisDecl.boards`/`.sockets` are never populated by any variants: entry:
+# a variant restating nothing simply contributes nothing, the case
+# test_variant_no_fragment_golden covers.
 
 
 def test_unmapped_socket_golden(tmp_path: Path) -> None:
     """Synthetic fixture: an instance naming a socket the board does not
     have -- it passes through SocketBinding's own lookup-else-identity
-    (an empty binding since board-coordinate-s6-brief.md Sec 11: nothing
-    populates one any more), and the board simply has no socket by that
+    (an empty binding: nothing populates one), and the board simply has
+    no socket by that
     literal name (the pre-existing phys-socket diagnostic).
 
     The board is incidental to this: any board with any socket set
@@ -910,7 +893,8 @@ def test_unmapped_socket_golden(tmp_path: Path) -> None:
     never a real one) instead of a real corpus board -- no plain build,
     hence unmarked like fixtures/boards/rigs/not-rig-enabled's sibling
     test. board is INJECTED (the harness, not a rig.yml declaration --
-    Sec 11 retired that grammar), matching its own fixture .dts's name."""
+    no rig.yml can declare a board), matching its own fixture .dts's
+    name."""
     fixture = FIXTURES_DIR / "boards" / "rigs" / "unmapped-socket"
     board_dts = FIXTURES_DIR / "boards" / "mainboards" / "unmapped_socket_board.dts"
     bindings_dirs = [FIXTURES_DIR / "dts" / "connectors"]
@@ -937,51 +921,28 @@ def test_unmapped_socket_golden(tmp_path: Path) -> None:
 
 # ---------------------------------------------------------------- board resolution
 
-
-# test_revision_mapping_entry_golden RETIRED (hwmv2-revision-semantics-
-# brief.md ruling 2026-08-03): upstream's revision: shape IS mapping
-# entries with name: -- what this test asserted is no longer true, and
-# its fixture (revision-mapping-entry/) is gone. Its golden directory is
-# now orphaned; deleting it is the classified reject refreeze's job, not
-# this migration's (goldens are frozen bytes the fixture layer does not
-# touch).
-
-
-# test_board_declared_twice_golden, test_variant_board_partial_golden and
-# test_sockets_with_variant_board_golden RETIRED (board-coordinate-
-# s6-brief.md Sec 11): all three pinned one of binding.resolve_board's
-# per-variant-board coherence rules (a top-level board: alongside
-# per-variant ones; a partial per-variant declaration; a top-level
-# sockets: alongside per-variant boards) -- rules that policed a
-# DECLARATION shape no rig.yml can spell any more. resolve_board itself
-# is now a one-line injection (loader/binding.py), with no declaration
-# left to be incoherent about; their fixtures (board-declared-twice/,
-# variant-board-partial/, sockets-with-variant-board/) and goldens are
-# deleted with the mechanism.
+# upstream's revision: shape IS mapping entries with name:.
 #
-# test_content_file_carries_board_golden and test_content_file_carries_
-# sockets_golden RETIRED alongside them: their mechanism,
-# documents.reject_metadata_keys (board:/sockets: as rig.yml-only
-# METADATA keys, illegal in any content document), existed only to
-# police the same retired grammar from the other side -- a content file
-# naming `board:` or `sockets:` today is just an unrecognized key,
-# silently ignored like any other. Their fixtures (content-file-carries-
-# board/, content-file-carries-sockets/) and goldens are deleted too.
+# binding.resolve_board carries no per-variant-board coherence rules: no
+# rig.yml can declare a board at all (top-level or per-variant), so
+# resolve_board itself is a one-line injection (loader/binding.py), with
+# no declaration left to be incoherent about. A content file naming
+# `board:` or `sockets:` is just an unrecognized key, silently ignored
+# like any other -- documents.reject_metadata_keys has nothing rig.yml-
+# only left to police on the content side either.
 
 
 def test_no_board_declared_golden(tmp_path: Path) -> None:
-    """A rig with no board INJECTED (no --board, and -- since
-    board-coordinate-s6-brief.md Sec 11 -- no declaration exists any
-    more to fall back to) is rejected: a rig has no board of its own to
-    build against. The diagnostic itself moved (binding.resolve_board
-    never rejects any more; the loader assembles a boardless topology
-    just fine) to cli.py, right before it would otherwise ask load_board to
-    read a board literally named "" -- so this fixture's rig.yml carries
-    no `board:` key at all (there is nothing left to declare), and the
-    golden's shape changed with the mechanism: phys-board, unanchored,
-    the same family every other board-reading diagnostic already uses,
-    rather than a lang-schema finding anchored at a rig.yml line that no
-    longer exists to point at."""
+    """A rig with no board INJECTED (no --board, and no declaration
+    exists to fall back to) is rejected: a rig has no board of its own to
+    build against. The diagnostic lives in cli.py, not binding.py
+    (binding.resolve_board never rejects; the loader assembles a
+    boardless topology just fine), right before cli.py would otherwise
+    ask load_board to read a board literally named "" -- so this
+    fixture's rig.yml carries no `board:` key at all (there is nothing
+    left to declare), and the diagnostic is phys-board, unanchored, the
+    same family every other board-reading diagnostic uses, rather than a
+    lang-schema finding anchored at a rig.yml line."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "no-board-declared" / "rig.yml"
     result = run_expand(rig_yml, out_dir)

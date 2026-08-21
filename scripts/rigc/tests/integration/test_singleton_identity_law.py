@@ -1,4 +1,4 @@
-"""The singleton identity law (board-coordinate-s4-brief.md, S4):
+"""The singleton identity law:
 
     --board b --rig <shield-name>
       ≡
@@ -7,27 +7,27 @@
 
 checked at EXPAND level -- `rigc expand` run twice (once given a fixture
 rig.yml by PATH, once via `--promote <shield>`) and every emitted
-artifact compared, so the desugaring (promote.promote_shield, fixed by
-S3a) can never silently drift from the persisted form it claims to stand
+artifact compared, so the desugaring (promote.promote_shield) can never
+silently drift from the persisted form it claims to stand
 for. NOT build-marked: no configure, no toolchain -- the one build-marked
-cross-check (Sec 2.5, whether cmake/dts.cmake's own promoted branch feeds
+cross-check (whether cmake/dts.cmake's own promoted branch feeds
 the analyzer the same thing) lives in test_cmake_alone_entry.py, which
 already owns configure-level rig comparisons.
 
-Sec 2.1's RULING is why this module never touches list_rigs.py's
+This module never touches list_rigs.py's
 namespace resolver at all: the fixture side is given by PATH straight to
 `rigc expand` (which performs no namespace resolution), so the fixture
 rig may legally be named after a real shield with no both-paths
 collision -- there is nothing here for that rule to ever see.
 
-Sec 2.3's RULING is why the domain below is DERIVED, never hand-listed:
+The domain below is DERIVED, never hand-listed:
 every `template: true` shield discover_shields() finds is resolved
 through the real shield library and tested against promote.
 shield_declares_required_params (the exact rule params.
 check_param_invariant applies per instance, factored so this census and
 that invariant can never drift apart) -- never a literal name list.
 
-Sec 2.2's RULING is why RIG_DEPENDS compares as a set with exactly one
+RIG_DEPENDS compares as a set with exactly one
 exemption: each side's own two rig documents (a real path on one side, a
 synthesized path inside rigc's own workdir on the other) are genuinely
 different files, dropped by basename ("rig.yml" / "<shield>.yml" is not a
@@ -81,12 +81,13 @@ _MODULE_INCLUDE = REPO_ROOT / "include"
 _BOARD_LABEL = "singleton_law_board"
 
 # The law's domain is THIS module's own vendored shield library, passed
-# EXPLICITLY rather than left to discover_shields()'s default. Ruling 4
-# claims `a -> [a]` for "OUR .shield template shields", which is exactly
-# this root -- but S3a shipped a defect from relying on that same default
-# implicitly (a cross-module shield was invisible to the namespace rule,
-# which then failed OPEN), so the narrowness here is a deliberate,
-# stated scope rather than an inherited accident. A shield under some
+# EXPLICITLY rather than left to discover_shields()'s default: a shield
+# resolved through some OTHER module's board root must not be silently
+# assumed in scope just because the default happened to include it (a
+# cross-module shield being invisible to the namespace rule, and that
+# rule then failing OPEN, is exactly the defect this scoping avoids), so
+# the narrowness here is a deliberate, stated scope rather than an
+# inherited accident. A shield under some
 # OTHER module's board root is out of the law's claimed domain, not
 # silently forgotten by it -- and `load_shield_library` is given the same
 # list, so the census and the resolver can never disagree about what the
@@ -94,11 +95,11 @@ _BOARD_LABEL = "singleton_law_board"
 _SHIELD_DIRS = [SHIELDS_DIR]
 
 # For a shield listed here, the census supplies exactly this device-label
-# -> property -> value assignment (Sec 9.6 part 2's `<device>.<prop>=
+# -> property -> value assignment (the `<device>.<prop>=
 # <value>` grammar) on BOTH sides of the law -- the fixture's own params:
 # block (_materialize_fixture) and --promote's own dotted CLI opts
 # (_promotion_target) -- so the comparison is a real instance of the law
-# (the identical assignment, same shape S4 already uses for socket=),
+# (the identical assignment, same shape the law already uses for socket=),
 # never merely an emptied exclusion. A shield that declares a required
 # param NOT listed here stays EXCLUDED: the value a required token
 # resolves to (which macro, off which header) is shield-specific domain
@@ -109,14 +110,12 @@ _REQUIRED_PARAM_ASSIGNMENTS: Dict[str, Dict[str, Dict[str, str]]] = {
 }
 
 # For a shield listed here, the census supplies exactly this slot -> board
-# socket label assignment (multi-plug-promotion-brief.md Sec 2's
-# `socket.<slot>=<value>` grammar for a plural shield, single-plug-brief's
-# own bare `socket=<value>` otherwise) on BOTH sides of the law -- the
+# socket label assignment (the
+# `socket.<slot>=<value>` grammar for a plural shield, the bare
+# `socket=<value>` grammar otherwise) on BOTH sides of the law -- the
 # fixture's own socket:/sockets: block (_materialize_fixture) and
 # --promote's own opts (_promotion_target), threaded the SAME way
-# _REQUIRED_PARAM_ASSIGNMENTS already is (Sec 4: "study how the law's
-# machinery threads promotion options for the required-param shields...
-# and thread socket.<slot>= the same way").
+# _REQUIRED_PARAM_ASSIGNMENTS already is.
 #
 # The fixture board (singleton_law_board.dts) carries exactly TWO mikroBUS
 # sockets. eth_click/flash_click/temp_click/temp_hum_click are each
@@ -128,8 +127,8 @@ _REQUIRED_PARAM_ASSIGNMENTS: Dict[str, Dict[str, Dict[str, str]]] = {
 # so their emitted artifacts do not move. can_span_click/
 # mikrobus_span_adapter each need their two same-type slots on the two
 # DISTINCT physical sockets (a shared defining label is a phys-socket
-# error, slice 1's own ruling) -- every candidate board is slot-ambiguous
-# for them by construction (multi-plug-promotion-brief.md Sec 4), so an
+# error) -- every candidate board is slot-ambiguous
+# for them by construction, so an
 # explicit assignment is mandatory, not a style choice.
 _SOCKET_ASSIGNMENTS: Dict[str, Dict[str, str]] = {
     "eth_click": {"plug": "nexus_mikrobus"},
@@ -142,7 +141,7 @@ _SOCKET_ASSIGNMENTS: Dict[str, Dict[str, str]] = {
 }
 
 # For a shield listed here, the census supplies exactly this config-
-# element LABEL -> value assignment (promotion-config-brief.md Sec 2's
+# element LABEL -> value assignment (the
 # `config.<label>=<value>` grammar) on BOTH sides of the law -- the
 # fixture's own config: block (_materialize_fixture) and --promote's own
 # dotted CLI opts (_promotion_target), threaded the SAME way
@@ -207,22 +206,16 @@ def _promotion_target(shield: str) -> str:
 
 
 # Which eligible shields are expected to REJECT on both sides rather than
-# emit comparable artifacts. adafruit_winc1500 USED TO be here: it needs a
-# routing-jumper selection (`config:`) that, before promotion-config-
-# brief.md's slice, neither side of the law could supply. As of that
-# slice, `_CONFIG_ASSIGNMENTS` gives BOTH sides the identical
-# `w_irq_jmp: D2` assignment (config.w_irq_jmp=D2 on the promoted side,
-# a config: block on the fixture side), so it now emits comparable
-# artifacts like any other eligible shield and has moved OFF this set.
+# emit comparable artifacts.
 #
-# grove_pwm_led_inv (L4-PWM, item 36) is what keeps this set non-empty:
+# grove_pwm_led_inv is what keeps this set non-empty:
 # this fixture board's own singleton-law Grove socket ("nexus_grove",
 # tests/fixtures/boards/mainboards/singleton_law_board.dts) is a 2-cell
 # (channel, period) PWM nexus, the lotus/SAMD21 shape -- and
 # grove_pwm_led_inv's whole PURPOSE is to author a nonzero PWM flags
 # value (PWM_POLARITY_INVERTED), which rigc/analyzer/gpio.py::
-# _collect_channel correctly refuses on a 2-cell socket (three-cell-pwm-
-# brief.md Sec 3c: "there is no cell for flags"). Both sides reject
+# _collect_channel correctly refuses on a 2-cell socket: there is no cell
+# for flags. Both sides reject
 # identically on that same phys-function diagnostic -- the law still
 # holds, it just has nothing to compare on this particular fixture board
 # (the shield's REAL, comparable use is nucleo_f401re's own 3-cell
@@ -233,15 +226,15 @@ def _promotion_target(shield: str) -> str:
 EXPECTED_REJECTING = {"grove_pwm_led_inv"}
 
 # `--promote`'s materialized pair lives inside rigc's OWN workdir
-# (`<--out-dir>/rigc-generated`, cli.WORKDIR_NAME -- kept on a reject,
-# D10), a DIFFERENT absolute path on each side because each side gets its
+# (`<--out-dir>/rigc-generated`, cli.WORKDIR_NAME -- kept on a reject), a
+# DIFFERENT absolute path on each side because each side gets its
 # own --out-dir; the fixture rig's own materialized pair
 # (_materialize_fixture, below) is equally ephemeral (pytest's tmp_path).
 # A rejected rig's diagnostic may quote either one verbatim (a "lang-*"
 # finding anchored to the rig's own source), so a REJECT comparison needs
 # both stripped before stderr compares meaningfully -- an ACCEPT never has
-# this problem (Sec 2.1: the emitted artifacts' own RIG_NAME/instance name
-# are the same STRING on both sides, never a path).
+# this problem: the emitted artifacts' own RIG_NAME/instance name
+# are the same STRING on both sides, never a path.
 _RIGC_WORKDIR_RE = re.compile(r"/[^\s]*rigc-generated")
 
 
@@ -269,17 +262,15 @@ def _assignment_covers_every_required_param(
 
 def _census() -> Tuple[List[str], Set[str]]:
     """Every discovered, promotable (`template: true`) shield, split into
-    the singleton law's own domain (Sec 2.3): ELIGIBLE (no device
+    the singleton law's own domain: ELIGIBLE (no device
     declares a required, no-default `shield,params` -- OR one that does,
     with a known `_REQUIRED_PARAM_ASSIGNMENTS` entry covering every such
-    parameter, Sec 9.6 part 2) vs EXCLUDED (a required parameter with no
+    parameter) vs EXCLUDED (a required parameter with no
     known assignment to supply it) -- resolved through the REAL shield
     library, never hand-listed.
 
-    The `shield_is_multiplug` exclusion (multi-plug-shield-brief.md Sec 8
-    criterion 5: a plural shield had no promoted form to compare against
-    at all) is RETIRED as of multi-plug-promotion-brief.md slice 3 --
-    `EXCLUDED` is now derived from the required-param gap alone, and both
+    A plural (multi-plug) shield is not excluded on that basis alone:
+    `EXCLUDED` is derived from the required-param gap alone, and both
     multi-plug corpus shields join ELIGIBLE via their own
     `_SOCKET_ASSIGNMENTS` entry (threaded through `_promotion_target`/
     `_materialize_fixture` exactly like a required-param shield's dotted
@@ -287,8 +278,7 @@ def _census() -> Tuple[List[str], Set[str]]:
 
     Returns (sorted eligible names, excluded names) -- fresh values this
     module owns, computed once at collection time (a dozen cheap dtlib
-    parses, no cpp of any real board or app -- "nearly free" per Sec
-    2.3)."""
+    parses, no cpp of any real board or app -- nearly free)."""
     infos = discover_shields(_SHIELD_DIRS)
     templated = sorted(name for name, info in infos.items() if info.template)
     types, _deps = load_types()
@@ -297,8 +287,7 @@ def _census() -> Tuple[List[str], Set[str]]:
     # The workdir is this census's OWN scratch space for the shield
     # library's cpp output, and nothing outside the loop reads it: a
     # resolved Shield carries its devices as values. Removed on the way
-    # out (D10 -- the expander leaking a workdir per invocation was its
-    # own slice, and /tmp is tmpfs here, so a leak is charged to RAM);
+    # out (a leaked workdir here is charged to RAM, since /tmp is tmpfs);
     # this runs at COLLECTION time, so a mkdtemp with no cleanup would
     # leak one directory per pytest run of the whole integration suite.
     with tempfile.TemporaryDirectory(
@@ -327,19 +316,17 @@ ELIGIBLE, EXCLUDED = _census()
 
 
 def test_excluded_set_is_now_empty() -> None:
-    """Criterion 2 (multi-plug-promotion-brief.md): the domain is DERIVED
-    (Sec 2.3), never hand-listed -- this pins only what today's
-    derivation yields. grove_btn and pilot_alt_button each declare a
-    `shield,params` `zephyr,code` name with no authored default, but
-    both now have a `_REQUIRED_PARAM_ASSIGNMENTS` entry (Sec 9.6 part
-    2's `<device>.<prop>=<value>` CLI grammar gives a promoted rig a
+    """The domain is DERIVED, never hand-listed -- this pins only what
+    today's derivation yields. grove_btn and pilot_alt_button each
+    declare a `shield,params` `zephyr,code` name with no authored
+    default, but both now have a `_REQUIRED_PARAM_ASSIGNMENTS` entry
+    (the `<device>.<prop>=<value>` CLI grammar gives a promoted rig a
     real way to satisfy it), so the required-param gap contributes
     nothing today. `can_span_click`/`mikrobus_span_adapter` (the two
-    multi-plug corpus shields) used to be EXCLUDED by ruling 4's own
-    plurality gate (`:socket=` was inherently single-slot) -- that gate
-    is RETIRED as of this slice, and both now have a
-    `_SOCKET_ASSIGNMENTS` entry of their own, so `EXCLUDED` shrinks to
-    `set()`, the S4 pattern realized. This assertion can only grow again
+    multi-plug corpus shields) are not excluded on plurality alone: both
+    have a
+    `_SOCKET_ASSIGNMENTS` entry of their own, so `EXCLUDED` is
+    `set()`. This assertion can only grow again
     the day a new required-param shield lands with no entry supplied for
     it yet."""
     assert EXCLUDED == set(), (
@@ -351,26 +338,27 @@ def test_excluded_set_is_now_empty() -> None:
 
 
 def _materialize_fixture(name: str, tmp_path: Path) -> Path:
-    """Write the singleton-law fixture TEMPLATE (Sec 4: "one file pair
+    """Write the singleton-law fixture TEMPLATE ("one file pair
     under tests/fixtures/boards/rigs/"), substituted for `name`, into a
     fresh directory under tmp_path -- never under tests/fixtures/boards/
     rigs/ itself, so no folder named after a real shield is ever checked
-    in (Sec 2.1's caveat: nothing here is reachable from a live namespace
+    in (nothing here is reachable from a live namespace
     scan of the fixtures root, since no such folder exists on disk at
-    all outside a test's own tmp_path). Declares no board: (Sec 2.1
-    parity with the promoted side) and exactly one socket-less instance
-    named after the shield (S3a's own desugaring convention,
-    board-coordinate-s3-brief.md Sec 3).
+    all outside a test's own tmp_path). Declares no board: (parity
+    with the promoted side, which has none either) and exactly one
+    socket-less instance
+    named after the shield (promote.promote_shield's own desugaring
+    convention).
 
     A `name` with a `_SOCKET_ASSIGNMENTS` entry gets a socket:/sockets:
     block appended (single-plug/plural spelling per the entry's own
     shape, `promote.promote_shield`'s identical rule); a `name` with a
     `_CONFIG_ASSIGNMENTS` entry gets that exact assignment appended as a
-    config: block next (`promote.promote_shield`'s own print order,
-    Sec 3.4); and a `name` with a `_REQUIRED_PARAM_ASSIGNMENTS` entry
+    config: block next (`promote.promote_shield`'s own print order);
+    and a `name` with a `_REQUIRED_PARAM_ASSIGNMENTS` entry
     gets that exact assignment appended as a params: block last, in the
     SAME shape `promote.promote_shield` prints on the other side of the
-    law (Sec 2.2 symmetry) -- the value the promoted side supplies via
+    law -- the value the promoted side supplies via
     its own CLI opts and the value this fixture assigns must be the
     identical string for the comparison to prove anything.
 
@@ -437,7 +425,7 @@ def _run(*args: str, out_dir: Path) -> "subprocess.CompletedProcess[str]":
 
 def _context_cmake_mismatch(expected: str, actual: str, name: str) -> Optional[str]:
     """compare_context_cmake's own contract (RIG_DEPENDS as a set, every
-    other key exact), PLUS Sec 2.2's one declared exemption: each side's
+    other key exact), PLUS one declared exemption: each side's
     own two rig documents (rig.yml / f"{name}.yml") dropped from ITS OWN
     RIG_DEPENDS by basename before the sets are compared -- the files are
     genuinely different (a real path on the fixture side, a path inside
@@ -483,19 +471,15 @@ def _context_cmake_mismatch(expected: str, actual: str, name: str) -> Optional[s
 
 @pytest.mark.parametrize("shield", ELIGIBLE, ids=lambda s: s)
 def test_singleton_law_holds(shield: str, tmp_path: Path) -> None:
-    """Criterion 2: for every eligible shield, `--board b --rig <shield>`
+    """For every eligible shield, `--board b --rig <shield>`
     (via --promote) and `--board b --rig <the fixture rig containing one
     socket-less instance of that shield>` (via the path directly) behave
     IDENTICALLY -- same verdict, and either the same rejection (e.g.
     grove_pwm_led_inv: both sides reject identically on the fixture
-    board's own 2-cell Grove socket, an axis outside Sec 2.3's own
+    board's own 2-cell Grove socket, an axis outside the
     required-PARAM domain but one the law still holds for -- a promoted
     rig fails exactly the way the checked-in rig it stands for would) or
-    every emitted artifact byte-for-byte plus context.cmake (Sec 2.2).
-    adafruit_winc1500 used to be a reject-branch example too, before
-    `_CONFIG_ASSIGNMENTS` gave both sides its required routing-jumper
-    selection (`config:`, promotion-config-brief.md); it now takes the
-    ACCEPT branch like any other config-carrying shield."""
+    every emitted artifact byte-for-byte plus context.cmake."""
     fixture_out = tmp_path / "fixture-out"
     promoted_out = tmp_path / "promoted-out"
     fixture_rig = _materialize_fixture(shield, tmp_path)
@@ -551,13 +535,12 @@ def test_singleton_law_holds(shield: str, tmp_path: Path) -> None:
             continue
         expected = fixture_file.read_text()
         actual = promoted_file.read_text()
-        # Every emitted artifact compares BYTE-FOR-BYTE (Sec 2.2: "compare
-        # every emitted artifact byte-for-byte, plus context.cmake" --
-        # RIG_DEPENDS' set exemption is context.cmake's own, handled
-        # below, never a reason to weaken any OTHER artifact's own
-        # comparison here). Both sides share the same rig name, board
-        # label, and instance name (Sec 2.1), so nothing path-dependent
-        # ever enters rig-gen.overlay's or config-sheet.md's own banner.
+        # Every emitted artifact compares BYTE-FOR-BYTE (RIG_DEPENDS' set
+        # exemption is context.cmake's own, handled below, never a
+        # reason to weaken any OTHER artifact's own comparison here).
+        # Both sides share the same rig name, board label, and instance
+        # name, so nothing path-dependent ever enters rig-gen.overlay's
+        # or config-sheet.md's own banner.
         assert expected == actual, (
             f"{shield}: {fname} mismatch\n--- fixture ---\n{expected}\n"
             f"--- promoted ---\n{actual}")
@@ -569,34 +552,30 @@ def test_singleton_law_holds(shield: str, tmp_path: Path) -> None:
     assert context_report is None, f"{shield}: context.cmake mismatch\n{context_report}"
 
 
-# ------------------------------- list promotion's induction step (slice 4)
+# ------------------------------- list promotion's induction step
 #
-# multi-plug-list-brief.md Sec 5: the law's real acceptance criterion for
+# The law's real contract for
 # list promotion is the SAME shape as the singleton law above, generalized
 # to N instances -- promoted `[a;b]` compares byte-for-byte against the
 # two-instance rig.yml carrying the identical assignments. A SMALL fixed
 # set of representative pairs (never a full N x N census: the composition
 # is mechanical once the singleton law already holds for each element
-# individually, per multi-plug-list-brief.md's own "everything below the
-# desugaring seam is unchanged" framing) -- written directly against this
+# individually) -- written directly against this
 # module's own `_run`/EMITTED_FILES/_context_cmake_mismatch machinery
 # rather than through `_materialize_fixture`/`_promotion_target` (both
-# scoped to exactly ONE shield's own census entry, Sec 4's own domain
-# table shape, which does not generalize to an N-element list without
-# rewriting those tables' own keys -- extending IN this module, per the
-# brief's own "implementor's call" option, since the machinery these two
-# tests need (_run, EMITTED_FILES, _context_cmake_mismatch) is already
-# here and needs no change of its own).
+# scoped to exactly ONE shield's own census entry, a domain
+# table shape which does not generalize to an N-element list without
+# rewriting those tables' own keys).
 #
-# Both cases below are the ACCEPT branch, asserted explicitly (Sec 5's own
-# partition-pinning rule: a comparison law's reject branch checks nothing,
-# so which branch a case takes must be pinned, not merely observed).
+# Both cases below are the ACCEPT branch, asserted explicitly: a
+# comparison law's reject branch checks nothing,
+# so which branch a case takes must be pinned, not merely observed.
 
 def _assert_list_law_holds(fixture_content: str, promoted_target: str,
                            rig_name: str, tmp_path: Path) -> None:
     """One list-law comparison: write `fixture_content` under a rig named
-    `rig_name` (matching the promoted side's own desugared name, per Sec
-    2.1's parity argument the singleton law already relies on), run both
+    `rig_name` (matching the promoted side's own desugared name, the
+    same parity argument the singleton law already relies on), run both
     sides, and assert the ACCEPT branch plus every emitted artifact
     byte-for-byte, exactly mirroring `test_singleton_law_holds`'s own
     comparison shape one level up (N instances instead of one)."""
@@ -640,7 +619,7 @@ def _assert_list_law_holds(fixture_content: str, promoted_target: str,
 
 def test_list_law_holds_for_two_single_plug_shields_with_explicit_sockets(
         tmp_path: Path) -> None:
-    """Sec 5 case 1: two single-plug shields (eth_click, flash_click),
+    """Two single-plug shields (eth_click, flash_click),
     each with an explicit `socket:`, on the law fixture board's own two
     DISTINCT mikroBUS sockets (nexus_mikrobus/nexus_mikrobus2 -- the
     second one exists on this fixture specifically so two same-type
@@ -662,13 +641,12 @@ def test_list_law_holds_for_two_single_plug_shields_with_explicit_sockets(
 
 def test_list_law_holds_for_a_multiplug_element_composed_with_a_single_plug_one(
         tmp_path: Path) -> None:
-    """Sec 5 case 2: can_span_click (a multi-plug shield, slot-optioned
-    per multi-plug-promotion-brief.md's own `socket.<slot>=` grammar,
-    slices 1-3 of this thread) alongside grove_led (an ordinary single-
+    """can_span_click (a multi-plug shield, slot-optioned
+    via the `socket.<slot>=` grammar) alongside grove_led (an ordinary single-
     plug shield, socket-LESS -- the fixture board's one grove socket
     resolves it by unique-by-type inference on both sides identically)
-    -- composing slices 1-3 with slice 4 in one comparison, per Sec 5's
-    own instruction."""
+    -- composing multi-plug promotion with list promotion in one
+    comparison."""
     _assert_list_law_holds(
         textwrap.dedent("""\
             instances:

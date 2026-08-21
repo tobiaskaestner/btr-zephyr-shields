@@ -2,7 +2,7 @@
 <target> with west absent entirely must configure a build equivalent to
 the west build-rig path. The rig and the board are INDEPENDENT
 coordinates: the rig names a topology, the invocation names the board,
-and neither is derived from the other (board-coordinate-s6-brief.md).
+and neither is derived from the other.
 SHIELD is still derived from the rig's own instances (cmake/shields.cmake's
 fork).
 
@@ -14,8 +14,8 @@ invocations (no west subprocess at all):
     build_info.yml (modulo the build directory itself) as west build-rig
     given the same two coordinates.
   * a rig with no -DBOARD is a configure-time FATAL_ERROR naming the rig
-    and the missing flag -- and since S6 that is EVERY rig, not just one
-    that happened to declare nothing.
+    and the missing flag -- and that is EVERY rig, since no corpus rig
+    declares a board at all.
   * a promoted shield behaves identically on that point, with its own
     wording (a shield never had a board axis; a rig merely stopped having
     one), and the two messages stay distinguishable.
@@ -26,23 +26,12 @@ invocations (no west subprocess at all):
     configure is a FATAL_ERROR (never a silent no-op); a plain --shield
     build (no RIG) is untouched.
 
-RETIRED IN S6, deliberately, along with the mechanism they covered:
-test_cmake_alone_reconfigure_of_rig_build_dir_proceeds and the three
-rig-swap-guard tests. Those rested on board INFERENCE from a bare
--DRIG=<name> and on the RIG_INFERRED_BOARD marker it set. The guard
-existed because a stale cache-carried BOARD (our own earlier inference)
-would let the expander read the OLD board's dts under the NEW rig's
-DECLARED board name -- and a rig has no declared board now, so swapping
--DRIG cannot change the board at all. The failure mode ceased to exist
-rather than merely stopping being tested, which is why the tests went
-with cmake/boards.cmake's inference block in the same change instead of
-being adapted to inject a board (that would have kept them green while
-proving nothing about a mechanism no longer present).
-
-One consequence that is NOT a rig concern any more, recorded here so it
-is not rediscovered as a regression: zephyr_check_cache(BOARD) only WARNS
-on a changed BOARD in an existing build dir and silently reverts. A rig
-build is now exactly as exposed to that as any other Zephyr build.
+No rig-swap guard exists, and none is needed: a rig declares no board of
+its own, so swapping -DRIG in an existing build dir cannot change the
+board at all -- there is nothing for a guard to protect against.
+zephyr_check_cache(BOARD) only WARNS on a changed BOARD in an existing
+build dir and silently reverts; a rig build is exactly as exposed to
+that as any other Zephyr build.
 
 All run a real CMake configure -- marked @pytest.mark.build;
 CHECK_FAST=1 (scripts/check.sh) deselects them via pytest -m "not build".
@@ -90,7 +79,7 @@ def _run_build_rig(rig_name: str, build_dir: Path,
     is threaded after --, e.g. the lotus board's
     -DEXTRA_ZEPHYR_MODULES=<bridle_root>.
 
-    `board` is KEYWORD-ONLY and REQUIRED, which is the point: since S6 no
+    `board` is KEYWORD-ONLY and REQUIRED, which is the point: no
     rig declares one, so there is no such thing as "the board this rig
     would have picked". Making it required means a future test cannot
     quietly reintroduce the assumption by omitting it."""
@@ -140,8 +129,8 @@ def _cmake_alone_env() -> Dict[str, str]:
 
 def _cmake_alone_argv(build_dir: Path, extra_defines: list) -> list:
     """The bare cmake invocation a rig build must support: -S/-B, whatever
-    coordinates the caller passes in extra_defines (since S6 that always
-    includes -DBOARD -- nothing infers one), and an explicit
+    coordinates the caller passes in extra_defines (always
+    including -DBOARD -- nothing infers one), and an explicit
     -DPython3_EXECUTABLE (this venv's own
     interpreter) so CMake's Python discovery does not fall back to whatever a
     stripped PATH might still turn up — mirrors what west build itself
@@ -218,15 +207,11 @@ def test_cmake_alone_entry_equivalent_to_build_rig(tmp_path: Path) -> None:
 
 def test_cmake_alone_board_rig_both_given_configures_with_given_board(
         tmp_path: Path) -> None:
-    """BOARD is an independent coordinate with a per-rig default
-    (board-coordinate-s1-brief.md): -DBOARD + -DRIG on a fresh configure
-    now CONFIGURES, and the GIVEN board is the one built -- inverts the
-    old exclusivity FATAL this test used to assert. The value here
-    MATCHES the rig's own declared board (nucleo_datalogger's is
-    nucleo_f401re/stm32f401xe/rig, passed back verbatim), which is
-    exactly the byte-inert case the slice's own acceptance criterion
-    rests on: today's inferred board already equals the rig's declared
-    one, so this must be indistinguishable from a bare -DRIG configure."""
+    """BOARD is an independent coordinate: -DBOARD + -DRIG on a fresh
+    configure CONFIGURES, and the GIVEN board is the one built. The
+    value here MATCHES nucleo_datalogger's own board
+    (nucleo_f401re/stm32f401xe/rig, passed back verbatim), so this must
+    be indistinguishable from a bare -DRIG configure."""
     build_dir = tmp_path / "both-given"
     result = _run_cmake_alone(build_dir, [
         f"-DRIG={_RIG}", "-DBOARD=nucleo_f401re/stm32f401xe/rig",
@@ -243,14 +228,9 @@ def test_cmake_alone_board_rig_both_given_configures_with_given_board(
             == "nucleo_f401re/stm32f401xe/rig")
 
 
-# no_board_datalogger declares NO board: at all. As of S6
-# (board-coordinate-s6-brief.md), that is no longer a special case -- the
-# REAL corpus (boards/rigs/) declares no board anywhere either, so every
-# corpus rig now shares this fixture's own no-board shape. This fixture
-# predates that (it targets a namespace this file's own module fixtures
-# root has always owned, board_root: FIXTURES_DIR, so it needed no
-# change here), and it stays useful as the file's canonical instance of
-# "no board, no injection is fatal" -- see
+# no_board_datalogger declares NO board: at all -- the same shape every
+# corpus rig now shares. It stays useful as the file's canonical instance
+# of "no board, no injection is fatal" -- see
 # test_cmake_alone_no_board_declared_without_injection_is_fatal below.
 # It lives in its OWN board_root, added via -DBOARD_ROOT alongside the
 # module's default one
@@ -258,21 +238,20 @@ def test_cmake_alone_board_rig_both_given_configures_with_given_board(
 # that an extra -DBOARD_ROOT augments rather than replaces the module's
 # own, so the rig resolves from the fixture root while its shield
 # (adafruit_data_logger) and both boards still resolve from btr-shields'
-# own default root). Its content names the shared arduino_r3 socket alias
-# (Ruling 1, board-as-invocation-coordinate-brief.md Sec 2 -- already
-# landed on both real boards' own devicetree) rather than a board-
-# prefixed label, so the SAME rig resolves on either real board.
+# own default root). Its content names the shared arduino_r3 socket
+# alias (already present on both real boards' own devicetree) rather
+# than a board-prefixed label, so the SAME rig resolves on either real
+# board.
 #
-# Deviation from the brief's own suggestion (reuse ard_datalogger, the
-# corpus's dual-host rig, for the cross-board falsifier): ard_datalogger's
-# per-variant sockets: maps are board-prefixed (nucleo_ard/frdm_ard), so
-# crossing its OWN two declared variants to each OTHER's board fails at
-# socket resolution (a real content/board mismatch per Sec 4's "sockets:
-# handling is unchanged in every case" rule, not a mechanism bug) -- it
-# would make the falsifier assert a rejection instead of a clean build.
-# Building the SAME boardless rig against two DIFFERENT real boards and
-# asserting each build actually used the one it was given is at least as
-# strong a falsifier as crossing a rig's own declared board would be.
+# ard_datalogger, the corpus's own dual-host rig, cannot serve as this
+# cross-board falsifier: its per-variant sockets: maps are board-prefixed
+# (nucleo_ard/frdm_ard), so crossing its OWN two declared variants to
+# each OTHER's board fails at socket resolution (a real content/board
+# mismatch, not a mechanism bug) -- it would make the falsifier assert a
+# rejection instead of a clean build. Building the SAME boardless rig
+# against two DIFFERENT real boards and asserting each build actually
+# used the one it was given is at least as strong a falsifier as crossing
+# a rig's own declared board would be.
 _EXTRA_BOARD_ROOT = str(FIXTURES_DIR / "extra_board_root")
 _NO_BOARD_RIG = "no_board_datalogger"
 
@@ -312,7 +291,7 @@ def test_cmake_alone_no_board_declared_without_injection_is_fatal(
 
 
 def test_cmake_alone_board_injection_is_read_not_ignored(tmp_path: Path) -> None:
-    """The real falsifier (board-coordinate-s1-brief.md Sec 5): building
+    """The real falsifier: building
     the SAME boardless rig with two DIFFERENT real -DBOARD values must
     configure BOTH times, and each build must have actually used the
     board it was given, not a constant or an ignored one -- proven by
@@ -354,7 +333,7 @@ def test_cmake_alone_board_injection_is_read_not_ignored(tmp_path: Path) -> None
 
 
 def test_cmake_alone_qualified_target_resolves(tmp_path: Path) -> None:
-    """rig-variants-revisions.md V1a, end-to-end at the cmake-alone entry
+    """End-to-end at the cmake-alone entry
     point specifically (not just west build-rig): a FULLY qualified target
     (name@rev/variant) must resolve to the SAME board and rig provenance
     (including the SELECTED revision/variant themselves, and the applied
@@ -392,8 +371,7 @@ def test_cmake_alone_qualified_target_resolves(tmp_path: Path) -> None:
 
 def test_cmake_alone_qualified_rig_target_against_undeclared_axis_rejected(
         tmp_path: Path) -> None:
-    """rig-variants-revisions.md V1a: qualifiers now RESOLVE (the old
-    unconditional not-yet-supported placeholder is gone) — list_rigs.py's
+    """Qualifiers RESOLVE — list_rigs.py's
     own resolve_rig_target validates a selected axis against the rig's OWN
     declarations, so a qualifier against nucleo_datalogger (which declares
     NEITHER axis) is rejected with the declares-no-such-axis wording,
@@ -423,7 +401,7 @@ def test_cmake_alone_shield_rig_both_given_is_fatal(tmp_path: Path) -> None:
     already names."""
     build_dir = tmp_path / "shield-rig-clash"
     # -DBOARD is given so the configure actually REACHES the shields.cmake
-    # fork: since S6, boards.cmake FATALs on a missing board first, and
+    # fork: boards.cmake FATALs on a missing board first, and
     # without a board this test would pass on the wrong diagnostic
     # entirely -- asserting SHIELD/RIG exclusion while really observing
     # "no -DBOARD was given".
@@ -532,11 +510,10 @@ def test_cmake_alone_lotus_with_bridle_module_configures(tmp_path: Path) -> None
         f"to the build-rig reference (dts_equiv.py):\n--- argv ---\n{render_argv(check)}\n{check.stdout}\n{check.stderr}")
 
 
-# ---------------------------------------------------------- promoted shield (S3b)
+# ---------------------------------------------------------- promoted shield
 #
-# board-coordinate-s3b-brief.md's own criteria 2.2 and 2.3. The slice's
-# headline capability is a -DRIG that names a SHIELD rather than a rig
-# folder, and without these two it is guarded by nothing: every other test
+# A -DRIG that names a SHIELD rather than a rig
+# folder, and without these tests it is guarded by nothing: every other test
 # in this file names a real rig, so a regression that broke promotion
 # alone would leave the whole suite green.
 
@@ -544,11 +521,11 @@ def test_cmake_alone_lotus_with_bridle_module_configures(tmp_path: Path) -> None
 @pytest.mark.build
 def test_cmake_alone_promoted_shield_configures_with_a_given_board(
         tmp_path: Path) -> None:
-    """Criterion 2.2: -DRIG naming a SHIELD configures, given a board.
+    """-DRIG naming a SHIELD configures, given a board.
     adafruit_data_logger plugs arduino-r3 and nucleo's rig extension
     declares exactly one socket of that type, so the socket resolves by
     inference with nothing named -- the promoted form has no socket: to
-    name (S3a).
+    name.
 
     Asserted through build_info rather than the exit code alone: a
     configure that succeeded while silently building something else is
@@ -632,13 +609,13 @@ def test_cmake_alone_promoted_shield_with_a_socket_configures_where_the_bare_for
 @pytest.mark.build
 def test_cmake_alone_list_target_configures_with_both_shields(
         tmp_path: Path) -> None:
-    """multi-plug-list-brief.md Sec 4 -- the module observing the cmake-
+    """The module observing the cmake-
     list hazard, with its own list-target case: `-DRIG='a;b'` carries a
     literal `;` all the way from the invocation, through list_rigs.py's
     own `--rig=` resolution (boards.cmake's Step 1) and its `{PROMOTED}`
     cmakeformat value, to dts.cmake's `--promote` forwarding into the
     real expander subprocess -- EVERY hop an unquoted expansion could
-    silently corrupt (Sec 4's own warning). A configure that succeeds
+    silently corrupt. A configure that succeeds
     and lands BOTH shields' own labels in the emitted overlay is the
     only proof that the whole chain carried the value intact rather than
     truncating it at the first embedded `;`."""
@@ -680,7 +657,7 @@ def test_cmake_alone_list_target_configures_with_both_shields(
 
 def test_cmake_alone_promoted_shield_without_a_board_is_fatal(
         tmp_path: Path) -> None:
-    """Criterion 2.3: a promoted shield declares no board and has no axis
+    """A promoted shield declares no board and has no axis
     to fall back to, so omitting -DBOARD must FATAL rather than guess.
 
     The assertion names the SHIELD wording specifically, not just any
@@ -700,13 +677,13 @@ def test_cmake_alone_promoted_shield_without_a_board_is_fatal(
     assert "no -DBOARD was given" in combined
 
 
-# ---------------------------------------------------------- singleton identity law (S4)
+# ---------------------------------------------------------- singleton identity law
 #
-# board-coordinate-s4-brief.md Sec 2.5: the ONE build-marked cross-check
+# The ONE build-marked cross-check
 # the singleton law needs -- expand-level equality (test_singleton_
 # identity_law.py) does not prove the cmake/dts.cmake path feeds the
-# analyzer the same thing, and the promoted branch through dts.cmake is
-# brand new (S3b). One shield is enough here; the census belongs at
+# analyzer the same thing, and the promoted branch through dts.cmake needs
+# its own coverage. One shield is enough here; the census belongs at
 # expand level, where it is cheap.
 
 _SINGLETON_LAW_BOARD_ROOT = str(FIXTURES_DIR / "singleton_law_board_root")
@@ -720,9 +697,9 @@ def test_cmake_alone_singleton_law_promoted_matches_fixture_rig_build(
         tmp_path: Path) -> None:
     """A promoted adafruit_data_logger build and a fixture rig build
     containing the IDENTICAL topology (one socket-less instance named
-    after the shield, board-coordinate-s3-brief.md Sec 3's own
+    after the shield, the promoted form's own
     convention) must produce a structurally equivalent zephyr.dts.
-    Deliberately DIFFERENT rig names (Sec 2.5: zephyr.dts carries no rig
+    Deliberately DIFFERENT rig names: zephyr.dts carries no rig
     name at all, so unlike the expand-level law this half needs no path
     trick to dodge the both-paths namespace rule -- naming the fixture
     rig 'adafruit_data_logger' would collide with the real shield of that

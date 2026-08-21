@@ -1,8 +1,7 @@
-"""Unit: loader.axes -- V1a qualifier axes, hwmv2-shaped
-(hwmv2-revision-semantics-brief.md).
+"""Unit: loader.axes -- hwmv2-shaped qualifier axes for variant/revision
+declarations.
 
-The stable contracts (rigc-r2-brief.md Sec 7, extended by the hwmv2
-slice): variant declaration parsing (the mapping-entry shape only
+Covers: variant declaration parsing (the mapping-entry shape only
 `variants:` takes), revision declaration parsing (hwmv2's own
 format:/default:/exact:/revisions: shape), axis resolution's three
 failure shapes (undeclared axis / not-a-member / no-default) plus
@@ -63,9 +62,9 @@ def test_revision_fragment_stem_normalizes_dots() -> None:
 
 def test_variant_fragment_stem_is_never_normalized() -> None:
     """Normalization is a REVISION concept: a variant legally named with
-    a dot keeps its raw stem (blueprint loader_yml.py:1244 vs :1250) --
-    normalizing it would make the loader look for a file rule 10 and the
-    collision enumerator never construct."""
+    a dot keeps its raw stem -- normalizing it would make the loader look
+    for a file that doesn't exist and the collision enumerator never
+    construct."""
     assert variant_fragment_name("pilot", "b.1") == "pilot_b.1.yml"
 
 
@@ -157,11 +156,11 @@ def test_variant_empty_list_is_rejected(tmp_path: Path) -> None:
 
 def test_variant_mapping_entry_board_and_sockets_are_silently_ignored(
         tmp_path: Path) -> None:
-    """board-coordinate-s6-brief.md Sec 11 retired board:/sockets: from
-    rig.yml's own grammar entirely -- a variant entry may still carry
-    them (nothing rejects an unrecognized key here, same as anywhere
-    else in this grammar), but only name: is read: `AxisDecl.boards`/
-    `.sockets` stay at their frozen (model.py) empty default regardless."""
+    """rig.yml's grammar has no board:/sockets: keys -- a variant entry
+    may still carry them (nothing rejects an unrecognized key here, same
+    as anywhere else in this grammar), but only name: is read:
+    `AxisDecl.boards`/`.sockets` stay at their frozen (model.py) empty
+    default regardless."""
     rig_v = _rig(tmp_path,
                 """\
         rig:
@@ -296,9 +295,8 @@ def test_revision_default_not_a_member_is_rejected(tmp_path: Path) -> None:
 def test_revision_empty_list_is_rejected(tmp_path: Path) -> None:
     """Asserts the message text too, not just the code -- deliberately,
     against this module's own general policy above: a code-only
-    assertion is exactly what let this wording go unfrozen with no
-    reject-corpus fixture pinning it (now added alongside the golden
-    fixture empty-revisions-list)."""
+    assertion would let this wording drift unnoticed. The golden
+    fixture empty-revisions-list pins the same message."""
     rig_v = _rig(tmp_path, """\
         rig:
           name: r
@@ -314,10 +312,9 @@ def test_revision_empty_list_is_rejected(tmp_path: Path) -> None:
 
 
 def test_revision_bare_scalar_entry_is_rejected(tmp_path: Path) -> None:
-    """Upstream's shape IS mapping entries with name: -- a bare scalar
-    entry (the OLD shape) is now the thing that is rejected, per entry,
-    the well-formed remainder still constituting a valid (partial)
-    axis."""
+    """Upstream's shape is mapping entries with name: -- a bare scalar
+    entry is rejected, per entry, with the well-formed remainder still
+    constituting a valid (partial) axis."""
     rig_v = _rig(tmp_path, """\
         rig:
           name: r
@@ -369,9 +366,8 @@ def test_revision_default_must_be_a_quoted_string(tmp_path: Path) -> None:
 
 
 def test_revision_id_must_be_a_string(tmp_path: Path) -> None:
-    """hwmv2-revision-semantics-brief.md Sec 0.6(i): a non-string
-    revision id is a lang-schema REJECTION, never a coercion -- upstream's
-    own `name: {type: string}`."""
+    """A non-string revision id is a lang-schema REJECTION, never a
+    coercion -- upstream's own `name: {type: string}`."""
     rig_v = _rig(tmp_path, """\
         rig:
           name: r

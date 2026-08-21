@@ -1,8 +1,7 @@
-"""Unit: deps -- dependency data as a RETURNED/threaded value (ratified
-ruling 3, rigc-r3-brief.md Sec 4): never a mutable accumulator passed in
-and written to (rigexp's own `Depends` is exactly that banned shape,
-mission brief Sec 6). `touch`/`union` are the two primitives every
-recording point (registry.py, loader/library.py) composes upward with.
+"""Unit: deps -- dependency data is a returned, threaded value: never a
+mutable accumulator passed in and written to. `touch`/`union` are the
+two primitives every recording point (registry.py, loader/library.py)
+composes upward with.
 """
 from __future__ import annotations
 
@@ -39,8 +38,8 @@ def test_union_never_mutates_its_inputs() -> None:
 
 
 def test_deps_value_is_immutable() -> None:
-    """Deps is a frozenset -- a VALUE, with no `.add`/`.see` mutator (the
-    structural difference from rigexp's own `Depends(set)`)."""
+    """Deps is a frozenset -- a value, with no `.add`/`.see` mutator: a
+    caller cannot accumulate into it in place, only combine via `union`."""
     d = touch("/a.yaml")
     assert not hasattr(d, "add")
     assert not hasattr(d, "see")

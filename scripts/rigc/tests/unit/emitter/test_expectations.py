@@ -1,5 +1,5 @@
-"""Unit: emitter/expectations -- expectations.yml (rigc-r5-brief.md Sec
-4). Same `solved.wires`-never-`rig.wires` contract as sheet.py, pinned
+"""Unit: emitter/expectations -- expectations.yml. Same
+`solved.wires`-never-`rig.wires` contract as sheet.py, pinned
 here from the OTHER angle: since a wire's rendered line carries no route
 text (only the endpoint pair), the trap is proven by using two DIFFERENT
 wires -- one on `rig.wires` only, one on `solved.wires` only -- and
@@ -33,9 +33,8 @@ def test_wire_signals_come_from_solved_wires_not_rig_wires() -> None:
 
 
 def test_addr_and_cs_entries_are_sorted_and_carry_the_probe_check() -> None:
-    """A real backing Instance/Device (unlike the flat-socket-map days):
-    `for_bus_device` resolves through `Device.plug`, so the socket lookup
-    now needs the actual device object, not just its name -- see
+    """`for_bus_device` resolves through `Device.plug`, so the socket lookup
+    needs a real backing Instance/Device, not just a name -- see
     `test_cs_entry_resolves_a_named_bus_through_the_backing_device` for
     the qualified-bus twin of this same shape."""
     from rigc.model import BoardSocket, BusRef, Device, Instance, Shield

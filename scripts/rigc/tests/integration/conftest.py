@@ -14,8 +14,8 @@ the order the two layers were built:
   comparison instead), with one declared byte-compared exception;
   rig-gen-includes.dtsi as an ordered header list; rig-gen.conf asserted
   absent. Only the path placeholders below are normalized first.
-  Split in two so no module mixes unit and integration tests (Tobi,
-  2026-07-27): test_emitted_rejects.py holds the fixture-only rejects that
+  Split in two so no module mixes unit and integration tests:
+  test_emitted_rejects.py holds the fixture-only rejects that
   need no Zephyr DATA at all; test_emitted_corpus.py holds the real corpus
   sweep plus the handful of synthetic fixtures whose own behavior still
   depends on real repo content (board discovery, real Zephyr bindings).
@@ -54,8 +54,8 @@ import yaml
 
 _LOGGER = logging.getLogger(__name__)
 
-# This file lives in tests/integration/ (moved here at cutover, alongside
-# the frozen suite's other own modules); TESTS_DIR is tests/ itself, one
+# This file lives in tests/integration/, alongside
+# the frozen suite's other own modules; TESTS_DIR is tests/ itself, one
 # level up, where fixtures/ and goldens/ actually sit (siblings of
 # integration/, not children of it -- fixtures/ in particular must land at
 # exactly this depth for diag.anchor_path()'s "scripts/<module>/"-relative
@@ -72,8 +72,8 @@ RIGS_DIR = REPO_ROOT / "boards" / "rigs"
 def rig_dir(name: str) -> Path:
     """The on-disk directory for corpus rig `name`, wherever it actually
     lives under boards/rigs/ -- flat (every rig but five) or one level
-    deeper, under boards/rigs/clash/ (the REJECT_CASES that cannot build,
-    clash-rigs-folder-brief.md Sec 1). A rig's folder basename is asserted
+    deeper, under boards/rigs/clash/ (the REJECT_CASES that cannot build).
+    A rig's folder basename is asserted
     identical to its own rig.yml rig.name by test_corpus_rig_identity, so
     finding the one directory named `name` anywhere under RIGS_DIR is
     exactly as canonical as reading the name back out of rig.yml, and
@@ -131,7 +131,7 @@ def assert_fixture_local(paths: List[Union[Path, str]]) -> None:
             "hermeticity must reference only its own fixture-tree paths")
 DTS_EQUIV = REPO_ROOT / "scripts" / "dts_equiv.py"
 
-# board name -> its OWN .dts, relative to the repo root (Conv. 4: typed
+# board name -> its OWN .dts, relative to the repo root (typed
 # socket nodes live in the board's own devicetree). Shared by
 # test_emitted_corpus.py (--board-dts per rig) and test_board_read.py (the
 # plain-build / edt.pickle-cross-check corpus).
@@ -185,8 +185,8 @@ def board_extra_defines(board: str) -> List[str]:
     the resolved-corpus west build-rig, cmake-alone) must thread through
     identically.
 
-    -DRIG_EXPAND_COMPILE=<value> (the differential-harness module knob,
-    rigc-mission-brief.md Sec 3) is threaded UNCONDITIONALLY, for every
+    -DRIG_EXPAND_COMPILE=<value> (the differential-harness module knob)
+    is threaded UNCONDITIONALLY, for every
     board -- not a case-level mechanism like the bridle define below, since
     the module under test is a property of the whole differential run, not
     of any one board. Passed even when RIG_EXPAND_COMPILE already holds
@@ -225,28 +225,22 @@ WEST_EXE = str(_VENV_WEST) if _VENV_WEST.is_file() else "west"
 # never silent drift.
 REFREEZE = bool(os.environ.get("RIGC_REFREEZE"))
 
-# RIG_EXPAND_COMPILE: the module knob (rigc-mission-brief.md Sec 3) -- the
+# RIG_EXPAND_COMPILE: the module knob -- the
 # Python module name of the expander CLI under test, read ONCE here from the
 # environment (same name as cmake/dts.cmake's own cache variable of the same
 # name, deliberately: most subprocesses this suite launches inherit this
 # process's environment wholesale, e.g. via env=dict(os.environ), so that
 # cache variable's own environment fallback picks up the SAME value without
-# every call site needing to thread an explicit -D). rigc is the tool
-# (cutover C1/C3); the knob survives cutover as cheap insurance for any
-# future re-implementation (cutover-brief.md Sec 8.4), but scripts/rigexp/
-# is gone from disk (C3) -- RIG_EXPAND_COMPILE=rigexp no longer runs an
-# original tool to differential against; it fails outright (no such
-# module), not merely expected-red.
+# every call site needing to thread an explicit -D). rigc is the only
+# module this name may resolve to today.
 RIG_EXPAND_COMPILE = os.environ.get("RIG_EXPAND_COMPILE", "rigc")
 
-# rigc's workdir is `<--out-dir>/rigc-generated` (cli.WORKDIR_NAME), so
+# rigc's workdir is <--out-dir>/rigc-generated (cli.WORKDIR_NAME), so
 # the leading part varies per run -- a pytest tmp_path here, a real build
 # directory under cmake. Match the whole absolute path up to and including
-# the fixed trailing component: anchoring on `rigc-generated` alone would
+# the fixed trailing component: anchoring on "rigc-generated" alone would
 # leave the run-specific prefix in the text, and matching a bare
-# `/generated` would collide with zephyr's own include/generated. The
-# workdir used to be `/tmp/rigc-<mkdtemp suffix>`, which is why the
-# trailing component still carries the `rigc-` marker.
+# "/generated" would collide with zephyr's own include/generated.
 _WORKDIR_RE = re.compile(r"/[^\s]*rigc-generated")
 
 # A resolved zephyr.dts's own DT provenance comments (/* in PATH:LINE */,
@@ -366,14 +360,11 @@ class RigCase:
     verdict.
 
     `board` is this table's own answer to "what does this rig build
-    against", not rig.yml's (board-coordinate-s6-brief.md Sec 3, RULED):
-    since S6, no corpus rig.yml declares a board at all, so nothing here
-    reads one back out of rig.yml — this field is the injected value
-    every corpus build (run_expand's --board, west build-rig's -b) uses,
-    the harness acting as the invocation strict symmetry says supplies
-    it. It is the value each rig was frozen against BEFORE S6 too (S6's
-    own acceptance criterion 2: RIG_BOARD must come back byte-unchanged),
-    never a new choice."""
+    against", not rig.yml's: no corpus rig.yml declares a board at all,
+    so nothing here reads one back out of rig.yml — this field is the
+    injected value every corpus build (run_expand's --board, west
+    build-rig's -b) uses, the harness acting as the invocation supplies
+    it. RIG_BOARD must come back byte-unchanged in every golden."""
 
     name: str
     board: str
@@ -387,18 +378,17 @@ ACCEPT_CASES: List[RigCase] = [
     RigCase("nucleo_datalogger", "nucleo_f401re/stm32f401xe/rig", True),
     RigCase("quail_temp_farm", "mikroe_quail/stm32f427xx/rig", True),
     RigCase("quail_sockets", "mikroe_quail/stm32f427xx/rig", True),
-    # multi-plug-shield-brief.md Sec 7's corpus example: can_span_click
-    # plugs two of quail's own mikroBUS sockets at once (test_multiplug_
-    # shield.py's own ad-hoc rig exercises the same shield/board pair
-    # already; this is that same pairing PROMOTED into the permanent
-    # corpus, so the emitted/resolved golden machinery protects it too).
+    # can_span_click plugs two of quail's own mikroBUS sockets at once
+    # (test_multiplug_shield.py's own ad-hoc rig exercises the same
+    # shield/board pair already; this is that same pairing carried into
+    # the permanent corpus, so the emitted/resolved golden machinery
+    # protects it too).
     RigCase("quail_can_span", "mikroe_quail/stm32f427xx/rig", True),
-    # multi-plug-carrier-brief.md Sec 7's corpus example: mikrobus_span_
-    # adapter re-exports ONE mixed-parent socket,mikrobus from two of
-    # quail's own mikroBUS sockets, with the EXISTING eth_click plugged
-    # on it (test_multiplug_carrier.py's own ad-hoc rig exercises the
-    # same shield/board pair already; this is that same pairing PROMOTED
-    # into the permanent corpus).
+    # mikrobus_span_adapter re-exports ONE mixed-parent socket,mikrobus
+    # from two of quail's own mikroBUS sockets, with the EXISTING
+    # eth_click plugged on it (test_multiplug_carrier.py's own ad-hoc rig
+    # exercises the same shield/board pair already; this is that same
+    # pairing carried into the permanent corpus).
     RigCase("quail_eth_span", "mikroe_quail/stm32f427xx/rig", True),
     RigCase("nucleo_wifi_logger_ok", "nucleo_f401re/stm32f401xe/rig", True),
     RigCase("frdm_eth_nest", "frdm_k64f/mk64f12/rig", True),
@@ -410,45 +400,42 @@ ACCEPT_CASES: List[RigCase] = [
     # user of shield,collect on a NON-gpio function.
     RigCase("lotus_pwm_led", "seeeduino_lotus/samd21g18a/rig", True),
     RigCase("lotus_buttons", "seeeduino_lotus/samd21g18a/rig", True),
-    # Pilot rig family (rig-variants-revisions.md V1a): this entry alone
+    # Pilot rig family: this entry alone
     # exercises the BARE target (declared defaults revision=1/variant=
     # variant_a) through the standard emitted/resolved machinery; the other
     # three qualifier combinations get their own dedicated tests below,
     # since a single corpus folder now resolves to more than one tuple.
     RigCase("pilot_variants", "nucleo_f401re/stm32f401xe/rig", True),
-    # Shield revisions accept pilot (V1c): shield: i2c_sensor@2 is an
+    # Shield revisions accept pilot: shield: i2c_sensor@2 is an
     # ordinary instance-level string, needing no rig-level qualifier at
     # all, so it rides the standard corpus machinery directly rather than
     # a dedicated test function like the rig-axis pilot above.
     RigCase("shield_rev_pilot", "nucleo_f401re/stm32f401xe/rig", True),
-    # The two revision axes composing (V1c): this entry covers the BARE
+    # The two revision axes composing: this entry covers the BARE
     # target, whose default revision 1 must resolve the sensor to the
     # shield's revision 1; revision 2, where the rig's own delta moves it
     # to the shield's revision 2, gets its own tests since one folder
     # again resolves to more than one tuple.
     RigCase("shield_rev_family", "nucleo_f401re/stm32f401xe/rig", True),
-    # Dual-host rig (S6's collapse, board-coordinate-s6-brief.md Sec 5):
-    # this entry rides the BARE target on its PRIMARY board (nucleo) --
-    # the same one it was frozen against before the collapse, when it was
-    # still the declared default variant. The second board (frdm) gets
-    # its own dedicated emitted/resolved tests below via
+    # Dual-host rig: this entry rides the BARE target on its PRIMARY
+    # board (nucleo) -- the declared default variant. The second board
+    # (frdm) gets its own dedicated emitted/resolved tests below via
     # ARD_DATALOGGER_FRDM_BOARD, since one RigCase carries exactly one
     # board and this is the corpus's only rig genuinely built on two.
     RigCase("ard_datalogger", "nucleo_f401re/stm32f401xe/rig", True),
     # grove_sens (the first real corpus shield behind the Grove socket's
     # I2C bus proxy, dts/bindings/connectors/grove.yaml's socket,i2c):
     # config: pins the address strap to its NON-DEFAULT domain state
-    # (0x77), a real user of the label-resolution config: path (item 29)
+    # (0x77), a real user of the label-resolution config: path
     # with an AUTHORED address, distinct from the silent/allocated half
     # the singleton-law census already exercises for this same shield.
     RigCase("grove_sens_pinned", "m5stack_nanoc6/esp32c6/hpcore/rig", True),
-    # grove-carriers-brief.md Sec 7/acceptance criterion 3: the first
-    # NESTED carrier promotion in the permanent corpus -- a Grove Base
-    # Shield V2 on the Nucleo Arduino header re-exports typed Grove
-    # sockets, and one I2C shield (grove_sens_bme280) plus one digital
-    # shield (grove_btn) plug straight into two of those EXPOSED sockets,
-    # exactly nucleo_mux_farm's own carrier-then-instance shape (S8) but
-    # through a passive carrier instead of an active mux.
+    # The first NESTED carrier promotion in the permanent corpus -- a
+    # Grove Base Shield V2 on the Nucleo Arduino header re-exports typed
+    # Grove sockets, and one I2C shield (grove_sens_bme280) plus one
+    # digital shield (grove_btn) plug straight into two of those EXPOSED
+    # sockets, exactly nucleo_mux_farm's own carrier-then-instance shape
+    # but through a passive carrier instead of an active mux.
     RigCase("nucleo_grove_farm", "nucleo_f401re/stm32f401xe/rig", True),
 ]
 
@@ -469,12 +456,11 @@ ALL_CASES: List[RigCase] = ACCEPT_CASES + REJECT_CASES
 # qualifier tuple is under test.
 RIG_BOARD: Dict[str, str] = {c.name: c.board for c in ALL_CASES}
 
-# ard_datalogger's SECOND board (S6's dual-host collapse, board-coordinate-
-# s6-brief.md Sec 5) -- deliberately NOT in RIG_BOARD/RigCase, which carry
-# exactly one board per rig; this is the one rig actually built on two, so
-# its second board is its own named constant, mirroring how the
-# shield-uart-subset fixture pair already names its two boards as literals
-# rather than inventing a second-board slot in the corpus table.
+# ard_datalogger's SECOND board -- deliberately NOT in RIG_BOARD/RigCase,
+# which carry exactly one board per rig; this is the one rig actually
+# built on two, so its second board is its own named constant, mirroring
+# how the shield-uart-subset fixture pair already names its two boards as
+# literals rather than inventing a second-board slot in the corpus table.
 ARD_DATALOGGER_FRDM_BOARD = "frdm_k64f/mk64f12/rig"
 
 # The artifact filenames the emitter may produce, shared by
@@ -487,14 +473,11 @@ ARD_DATALOGGER_FRDM_BOARD = "frdm_k64f/mk64f12/rig"
 EMITTED_FILES = ("rig-gen.overlay", "rig-gen-includes.dtsi", "context.cmake",
                  "config-sheet.md", "rig-gen.conf")
 
-
-# rig_board_name (which read rig.yml's own rig.board back out) is RETIRED
-# as of S6 (board-coordinate-s6-brief.md Sec 3, RULED): no corpus rig.yml
-# declares a board any more, so there is nothing left for it to read.
-# RIG_BOARD / RigCase.board / ARD_DATALOGGER_FRDM_BOARD above are the
-# harness's own answer now -- the test corpus table names each rig's
-# board, the invocation (run_expand's --board, west build-rig's -b)
-# supplies it, and nothing reads it back out of the rig's own metadata.
+# No corpus rig.yml declares a board: RIG_BOARD / RigCase.board /
+# ARD_DATALOGGER_FRDM_BOARD above are the harness's own answer -- the test
+# corpus table names each rig's board, the invocation (run_expand's
+# --board, west build-rig's -b) supplies it, and nothing reads it back out
+# of the rig's own metadata.
 
 
 # ---------------------------------------------------------------- cached plain builds
@@ -623,22 +606,20 @@ def run_expand(rig_yml: Path, out_dir: Path,
     (list_boards.py) and its "board not found" diagnostic, exactly as a bare
     standalone invocation would.
 
-    board threads cli.py's own --board (board-coordinate-s1-brief.md Sec
-    4/board-coordinate-s6-brief.md Sec 3): the board the INVOCATION
-    supplies, winning over whatever the rig declares (nothing, since S6)
-    unconditionally. Omitted (None) means no injection at all -- the rig
-    must declare its own board, or the loader rejects it exactly as an
-    ordinary `rigc expand` with no -DBOARD would. Every corpus rig call
-    site passes this now (RigCase.board), since S6 removed the
-    declaration this used to fall back to; a caller wanting the
-    un-injected diagnostic path itself (no-board-declared) leaves it
-    unset on purpose.
+    board threads cli.py's own --board: the board the INVOCATION supplies,
+    winning over whatever the rig declares (nothing -- no corpus rig.yml
+    declares a board) unconditionally. Omitted (None) means no injection
+    at all -- the rig must declare its own board, or the loader rejects
+    it exactly as an ordinary `rigc expand` with no -DBOARD would. Every
+    corpus rig call site passes this now (RigCase.board); a caller
+    wanting the un-injected diagnostic path itself (no-board-declared)
+    leaves it unset on purpose.
 
-    revision/variant carry the SELECTED qualifier axis values (rig-variants-
-    revisions.md V1a) — the harness's stand-in for what cmake/dts.cmake's
-    fork would resolve via list_rigs.py before invoking this same CLI.
-    Omitted (None) means a bare target: the loader applies the rig's own
-    declared default, if any.
+    revision/variant carry the SELECTED qualifier axis values -- the
+    harness's stand-in for what cmake/dts.cmake's fork would resolve via
+    list_rigs.py before invoking this same CLI. Omitted (None) means a
+    bare target: the loader applies the rig's own declared default, if
+    any.
 
     connector_dirs is cli.py's --connector-dir (repeatable): a fixture rig
     that must MATE a shield against a synthetic connector type needs this,
@@ -700,8 +681,7 @@ def freeze_or_assert(golden_path: Path, content: str) -> None:
     stay that way PERMANENTLY -- not pending a comparator. The reject
     corpus's rendered diagnostic wording is a user-facing product surface
     (a rig author reads it), which is the whole reason those goldens
-    exist. Loosening them is not a later slice; it is out of scope by
-    ruling."""
+    exist; loosening that comparison is out of scope."""
     if REFREEZE:
         golden_path.parent.mkdir(parents=True, exist_ok=True)
         golden_path.write_text(content)

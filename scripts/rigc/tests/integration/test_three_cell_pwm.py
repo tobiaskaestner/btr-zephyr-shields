@@ -1,37 +1,37 @@
-"""3-cell PWM controllers -- backlog item 34's own end-to-end witness
-(three-cell-pwm-brief.md), HERMETIC and non-build, mirroring
+"""3-cell PWM controllers, end to end. HERMETIC and non-build, mirroring
 test_carrier_analog_passthrough.py's own shape: purpose-built fixture
 boards (three_cell_pwm_board.dts and two deliberately-bad siblings)
-declare real pwm-map nexuses the shape arduino-r3's own real board
-sockets still lack (L4, out of scope), which is why this witness needs
+declare real pwm-map nexuses a shape none of the real board sockets in
+the corpus happen to carry, which is why this witness needs
 fixture boards rather than a real nucleo_f401re/frdm_k64f.
 
 Five rigs, each driven through the real CLI (`python -m rigc expand`):
 
   three-cell-pwm-plain (ACCEPT) -- a plain shield mates the board's own
     3-cell PWM socket directly, authoring a nonzero PWM flags value.
-    Proves acceptance criterion 1 (a four-word pwms property) and
-    criterion 3's accept half.
+    Proves a four-word pwms property is emitted, and that a nonzero
+    flags word is accepted on a 3-cell socket.
 
   three-cell-pwm-carrier (ACCEPT) -- the same nonzero-flags claim,
     mated through a pure-copper carrier's exposed socket instead.
-    Proves acceptance criterion 2 (the synthesized nexus resolves at
-    #pwm-cells = <3>, with mask/pass-thru/row shapes -- _channel_nexus_
-    block's own claimed generality, Sec 2) and criterion 3's carrier
-    half.
+    Proves the synthesized nexus resolves at
+    #pwm-cells = <3>, with mask/pass-thru/row shapes derived from the
+    resolved parent, and that the same nonzero flags word is accepted
+    through a carrier too.
 
   three-cell-pwm-2cell-reject (REJECT) -- the identical nonzero-flags
     claim, mated against the SAME board's 2-cell PWM socket instead.
-    Proves acceptance criterion 3's reject half: the pair is the whole
-    point, and one without the other proves nothing.
+    Proves the reject half of the accept/reject pair above: the pair is
+    the whole point, and one without the other proves nothing.
 
   three-cell-pwm-mismatch (REJECT) -- a board whose one socket disagrees
     with its own parent controller's cell count (3 vs 2), both
-    individually supported. Proves acceptance criterion 4 (§3a RULED).
+    individually supported. Proves the mismatch is refused at
+    board-load time.
 
   three-cell-pwm-unsupported (REJECT) -- a board whose one socket and
     parent controller agree with EACH OTHER at a count (4) outside the
-    supported set {2, 3}. Proves acceptance criterion 5 -- the OLD-style
+    supported set {2, 3}. Proves the existing
     "not supported yet" wording still applies to a genuinely unsupported
     count.
 """
@@ -67,15 +67,15 @@ def _run(rig_dir_name: str, board_dts: Path, board_name: str,
         connector_dirs=[_CONNECTOR_BINDINGS])
 
 
-# ----------------------------------------------------------- criteria 1 + 3 (accept)
+# ----------------------------------------------------------- plain shield (accept)
 
 
 def test_accept_plain_shield_on_3cell_socket_emits_four_word_pwms(
         tmp_path: Path) -> None:
-    """Acceptance criterion 1: a 3-cell PWM controller resolves end to
+    """A 3-cell PWM controller resolves end to
     end, proven by an emitted overlay containing a four-word pwms
     property (position, period, flags -- FOUR words counting the
-    phandle). Criterion 3's accept half: the flags word is nonzero,
+    phandle). The flags word is nonzero,
     carried rather than refused, because the socket itself is 3-cell."""
     out_dir = tmp_path / "out"
     result = _run("three-cell-pwm-plain", _GOOD_BOARD,
@@ -88,18 +88,17 @@ def test_accept_plain_shield_on_3cell_socket_emits_four_word_pwms(
     assert "pwms = <&tc_socket3 0 20000000 0x1>;" in overlay
 
 
-# ----------------------------------------------------------- criterion 2 (carrier)
+# ----------------------------------------------------------- through a carrier
 
 
 def test_accept_through_carrier_synthesizes_a_3cell_nexus(tmp_path: Path) -> None:
-    """Acceptance criterion 2: the same claim resolves through a
+    """The same claim resolves through a
     carrier-exposed socket, with the synthesized nexus's own
     #pwm-cells/mask/pass-thru/row shape all derived from the RESOLVED
     parent's cell count (3), never a hardcoded 2 --
-    _channel_nexus_block's own claimed generality (Sec 2), confirmed
-    here by an emitted overlay rather than reasoning about it. The row
-    is SEVEN words: 3 child (pos, 0, 0) + phandle + 3 parent (channel,
-    0, 0)."""
+    confirmed here by an emitted overlay rather than reasoning about it.
+    The row is SEVEN words: 3 child (pos, 0, 0) + phandle + 3 parent
+    (channel, 0, 0)."""
     out_dir = tmp_path / "out"
     result = _run("three-cell-pwm-carrier", _GOOD_BOARD,
                   "three_cell_pwm_fixture_board", out_dir)
@@ -124,12 +123,12 @@ def test_accept_through_carrier_synthesizes_a_3cell_nexus(tmp_path: Path) -> Non
     assert '&tc_pwm3 { status = "okay"; };' in overlay
 
 
-# ----------------------------------------------------------- criterion 3 (reject half)
+# ----------------------------------------------------------- 2-cell socket (reject)
 
 
 def test_reject_nonzero_flags_on_a_2cell_socket_names_socket_and_count(
         tmp_path: Path) -> None:
-    """Acceptance criterion 3's reject half: the IDENTICAL nonzero-flags
+    """The IDENTICAL nonzero-flags
     claim, on the SAME board's 2-cell socket, is still refused --
     analyzer/gpio.py's _collect_channel, now conditional on the socket's
     own pwm_cells rather than unconditional. The refusal names the
@@ -145,12 +144,12 @@ def test_reject_nonzero_flags_on_a_2cell_socket_names_socket_and_count(
     assert "2-cell" in result.stderr
 
 
-# ----------------------------------------------------------- criterion 4 (mismatch)
+# ----------------------------------------------------------- child/parent mismatch
 
 
 def test_reject_child_parent_cell_count_mismatch_names_both_counts(
         tmp_path: Path) -> None:
-    """Acceptance criterion 4 (§3a RULED): a socket declaring #pwm-cells
+    """A socket declaring #pwm-cells
     = <3> whose own pwm-map's target controller declares <2> is refused
     at board-load time, naming both counts. No shield/instance is
     needed: board/project.py's project_edt walks every socket,* node
@@ -166,14 +165,14 @@ def test_reject_child_parent_cell_count_mismatch_names_both_counts(
     assert "must equal" in result.stderr
 
 
-# ----------------------------------------------------------- criterion 5 (unsupported)
+# ----------------------------------------------------------- unsupported cell count
 
 
 def test_reject_unsupported_cell_count_keeps_old_style_wording(tmp_path: Path) -> None:
-    """Acceptance criterion 5: a 4-cell PWM parent (self-consistent with
+    """A 4-cell PWM parent (self-consistent with
     its own socket, but outside the supported set {2, 3}) is still
-    refused with the existing phys-board wording -- "only the accepted
-    set widens" (§3a)."""
+    refused with the existing phys-board wording -- only the accepted
+    set of cell counts widens."""
     out_dir = tmp_path / "out"
     result = _run("three-cell-pwm-unsupported", _UNSUPPORTED_BOARD,
                   "three_cell_pwm_unsupported_fixture_board", out_dir, shields=False)

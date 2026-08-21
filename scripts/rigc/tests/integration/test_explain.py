@@ -1,5 +1,5 @@
-"""`west rigs --explain` driven as a subprocess (board-coordinate-
-s3-brief.md, S3a). NOT build-marked: this command touches no cmake, no
+"""`west rigs --explain` driven as a subprocess. NOT build-marked:
+this command touches no cmake, no
 cpp, no board -- a promoted shield's two documents are pure text and a
 persisted rig's are read verbatim off disk.
 """
@@ -22,7 +22,7 @@ def _run(*args: str) -> "subprocess.CompletedProcess[str]":
 
 
 def test_explain_a_promoted_shield_prints_the_desugared_pair() -> None:
-    """Criterion 2: the synthesized rig.yml has no board:, the content
+    """The synthesized rig.yml has no board:, the content
     file has exactly one instance named after the shield, no socket:."""
     result = _run("--explain", "adafruit_data_logger")
     assert result.returncode == 0, result.stderr
@@ -39,7 +39,6 @@ def test_explain_a_promoted_shield_prints_the_desugared_pair() -> None:
 
 
 def test_explain_a_persisted_rig_prints_its_two_files_verbatim() -> None:
-    """Criterion 3."""
     rig_dir = REPO_ROOT / "boards" / "rigs" / "nucleo_datalogger"
     rig_yml_text = (rig_dir / "rig.yml").read_text().rstrip("\n")
     content_text = (rig_dir / "nucleo_datalogger.yml").read_text().rstrip("\n")
@@ -53,7 +52,7 @@ def test_explain_a_persisted_rig_prints_its_two_files_verbatim() -> None:
 
 
 def test_explain_a_name_that_is_neither_a_rig_nor_a_shield_reuses_the_existing_message() -> None:
-    """Criterion 4, the "neither" branch: the message list_rigs.
+    """The "neither" branch: the message list_rigs.
     resolve_rig_target already owns for an unresolved -DRIG target, never
     a second one invented for --explain."""
     result = _run("--explain", "no_such_target_at_all")
@@ -63,7 +62,7 @@ def test_explain_a_name_that_is_neither_a_rig_nor_a_shield_reuses_the_existing_m
 
 def test_explain_a_name_that_is_both_a_rig_and_a_shield_is_an_error_naming_both(
         tmp_path) -> None:
-    """Criterion 4, the "both" branch. No natural collision exists in the
+    """The "both" branch. No natural collision exists in the
     tree, so this constructs one: a scratch --board-root carrying a rig
     folder named after a REAL shield (adafruit_data_logger) -- additive
     only, never a mutation of tracked content, so no restore is needed."""
@@ -86,14 +85,14 @@ def test_explain_a_variant_on_a_promoted_shield_is_refused() -> None:
 
 
 def test_west_rigs_with_no_flag_is_unaffected_by_explain_landing() -> None:
-    """Criterion 5, the cheap half: plain `west rigs` still lists every
+    """Plain `west rigs` still lists every
     corpus rig's own rig.yml name, one per line -- --boards-for's own
     test already covers this in depth; this is --explain's own
     confirmation that adding a THIRD short-circuiting flag changed
     nothing about the default path.
 
     rglob, not a flat glob("*/rig.yml") -- five rigs live one level
-    deeper, under boards/rigs/clash/ (clash-rigs-folder-brief.md); a flat
+    deeper, under boards/rigs/clash/; a flat
     scan here would silently under-count `expected` and let a `find_rigs_
     in` regression that drops those five pass unnoticed."""
     result = _run()
@@ -124,8 +123,8 @@ def test_explain_a_promoted_shield_with_a_socket_shows_it_on_the_instance() -> N
 
 
 def test_explain_a_promoted_shield_with_params_shows_them_on_the_instance() -> None:
-    """The dotted `<device>.<prop>=<value>` promotion-option grammar (Sec
-    9.6 part 2), printed the same way the fixed-keyword `socket=` case
+    """The dotted `<device>.<prop>=<value>` promotion-option grammar,
+    printed the same way the fixed-keyword `socket=` case
     above is: --explain is the oracle for what a promoted shield's
     params: block actually desugars to."""
     result = _run("--explain", "grove_btn:gb_key.zephyr,code=INPUT_KEY_0")
@@ -146,8 +145,8 @@ def test_explain_a_promoted_shield_with_params_shows_them_on_the_instance() -> N
 
 
 def test_explain_a_promoted_plural_shield_with_slot_options_shows_the_sockets_map() -> None:
-    """The slot-qualified `socket.<slot>=<label>` promotion-option grammar
-    (multi-plug-promotion-brief.md Sec 2), printed the same way the
+    """The slot-qualified `socket.<slot>=<label>` promotion-option
+    grammar, printed the same way the
     single-plug `socket=` case above is: --explain is the oracle for what
     a plural shield's sockets: block actually desugars to -- and this is
     the one caller of that threading (`_explain`'s own promote_shield
@@ -180,7 +179,7 @@ def test_explain_a_bare_socket_on_a_plural_shield_is_refused_naming_the_slots() 
 
 
 def test_explain_promotion_options_on_a_persisted_rig_are_refused() -> None:
-    """Decision 1, on the other query surface -- and it must be the SAME
+    """The same promotion-only rule, on the other query surface -- and it must be the SAME
     refusal: the message comes from list_rigs, which the cmake seam uses
     too, never a second wording owned by this command."""
     result = _run("--explain", "nucleo_datalogger:socket=arduino_r3")
@@ -188,10 +187,10 @@ def test_explain_promotion_options_on_a_persisted_rig_are_refused() -> None:
     assert "persisted rig" in result.stderr
 
 
-# --------------------------------------------------- list promotion (slice 4)
+# --------------------------------------------------- list promotion
 
 def test_explain_a_list_target_prints_the_desugared_n_instance_pair() -> None:
-    """multi-plug-list-brief.md Sec 3: --explain prints the N-instance
+    """--explain prints the N-instance
     desugared pair -- the rig's own name is every element's shield name
     joined with `+`, and the content file carries one instance per
     element, each with its own socket, in order."""
@@ -216,7 +215,7 @@ def test_explain_a_list_target_prints_the_desugared_n_instance_pair() -> None:
 
 
 def test_explain_a_list_target_with_a_duplicate_element_is_refused() -> None:
-    """Ruling 2 (Sec 1): [a, a] is refused first, with its own sentence."""
+    """[a, a] is refused first, with its own sentence."""
     result = _run("--explain", "eth_click;eth_click")
     assert result.returncode != 0
     assert "eth_click" in result.stderr
@@ -224,7 +223,7 @@ def test_explain_a_list_target_with_a_duplicate_element_is_refused() -> None:
 
 
 def test_explain_a_list_target_with_a_persisted_rig_element_is_refused() -> None:
-    """Every element must be a SHIELD (Sec 2): a persisted rig inside a
+    """Every element must be a SHIELD: a persisted rig inside a
     list is refused with its own sentence naming it."""
     result = _run("--explain", "eth_click;nucleo_datalogger")
     assert result.returncode != 0
@@ -234,7 +233,7 @@ def test_explain_a_list_target_with_a_persisted_rig_element_is_refused() -> None
 
 
 def test_explain_a_list_target_with_a_multiplug_element_composes() -> None:
-    """The per-element grammar (multi-plug-promotion-brief.md Sec 2)
+    """The per-element grammar
     composes over N list elements unchanged: can_span_click's own
     socket.<slot>= sockets: map, alongside a single-plug shield's bare
     socket:."""

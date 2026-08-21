@@ -1,6 +1,5 @@
-"""Unit: loader.library -- the shield library's VALUE-shaped contracts
-(rigc-r3-brief.md Sec 4; lazy-shield-library-brief.md;
-shield-plurality-brief.md): `_pick_shield`'s declared-name-vs-node-name
+"""Unit: loader.library -- the shield library's VALUE-shaped contracts:
+`_pick_shield`'s declared-name-vs-node-name
 decision (a pure function over already-parsed Shield values), `resolve()`'s
 three failure shapes plus lazy-parse memoization for BOTH axis-less base
 templates and revisions (exercised against a synthetic library VALUE,
@@ -23,10 +22,9 @@ three failure shapes), or by monkeypatching `_parse_shield_template`
 itself to a canned stub -- the same seam-substitution idiom
 `test_board_resolve.py` uses for `project.load_board`. `load_shield_library`'s
 DISCOVERY is exercised directly against real folders (garbage `.shield`
-content included, deliberately, since discovery never reads it), which
-is honestly stronger than before this slice: neither axis-less nor
-revisioned shields are ever eagerly parsed now, so scanning stays
-subprocess-free unconditionally, not only for the revisioned case.
+content included, deliberately, since discovery never reads it):
+neither axis-less nor revisioned shields are ever eagerly parsed, so
+scanning stays subprocess-free unconditionally.
 """
 from __future__ import annotations
 
@@ -80,10 +78,10 @@ def test_pick_shield_reports_none_when_the_template_defines_nothing() -> None:
 
 def test_pick_shield_mismatch_names_shield_yml_as_the_source_when_given_one(
         ) -> None:
-    """Ruling 2 (shield-plurality-brief.md Sec 2): a mismatch on a name
-    that came FROM shield.yml (yml_path given) must say so, never claim
-    the folder as the source -- the wording the yml-less case above
-    keeps is only true when there is no shield.yml to have named it."""
+    """A mismatch on a name that came FROM shield.yml (yml_path given)
+    must say so, never claim the folder as the source -- the wording
+    the yml-less case above keeps is only true when there is no
+    shield.yml to have named it."""
     parsed = {"other_name": _shield("other_name")}
     shield, diags = _pick_shield(parsed, "declared", "/x/folder/declared.shield",
                                  yml_path="/x/folder/shield.yml")
@@ -179,9 +177,9 @@ def test_shield_yml_entries_a_repeated_name_in_one_list_is_dropped(
 # ------------------------------------------ per-entry revisions:, owner-named
 #
 # `load_shield_library`'s scan calls parse_legacy_revision_decl directly on
-# each promotable entry's own Val, owner=f"shield '{name}'" -- the fix
-# ruling 1's identity change requires (the folder basename and the
-# declared name may now differ). These prove the ENTRY-level Val
+# each promotable entry's own Val, owner=f"shield '{name}'" -- correct
+# even when the folder basename and the declared name differ. These
+# prove the ENTRY-level Val
 # `_shield_yml_entries` hands back carries what that call needs, with a
 # folder name distinct from the declared name so a regression back to
 # `os.path.basename(shield_dir)` would fail here even though it kept the
@@ -262,9 +260,9 @@ def test_resolve_a_declared_default_axis_shield_returns_the_cached_value() -> No
 
 def test_resolve_bare_name_with_no_declared_axis_and_a_memoized_failure_returns_none() -> None:
     """A shield with NO declared axis whose base parse already failed on
-    an earlier reference (recorded in `failed`, Sec 2.1) resolves
-    quietly on a later one -- no re-parse (`pending` is deliberately
-    left EMPTY here, so a re-parse attempt would KeyError), no re-echo."""
+    an earlier reference (recorded in `failed`) resolves quietly on a
+    later one -- no re-parse (`pending` is deliberately left EMPTY
+    here, so a re-parse attempt would KeyError), no re-echo."""
     lib = ShieldLibrary(shields={}, axes={"plain": None}, pending={},
                         ymls={}, types={}, workdir="/nonexistent",
                         failed={"plain"})
@@ -300,15 +298,12 @@ def test_resolve_at_rev_not_a_declared_member() -> None:
 
 
 def test_resolve_at_rev_nearest_lower_match_is_owner_agnostic_in_the_shared_function() -> None:
-    """hwmv2-revision-semantics-brief.md ruling 3 ("shields get hwmv2
-    semantics too") turned out to collide with a hard external
-    constraint, discovered by running a REAL cmake configure against a
-    migrated shield.yml: the pinned zephyr tree carries its own schema
-    restricting a shield's revisions: block to {default:, list: []} --
-    Zephyr's own list_shields.py enforces it on every configure, whether
-    or not the shield is used, so a shield.yml can never carry format:
-    until that schema itself changes (parse_legacy_revision_decl's own
-    docstring has the measured detail).
+    """A shield's revisions: block cannot carry format: today: the
+    pinned zephyr tree's own schema restricts it to
+    {default:, list: []} -- Zephyr's own list_shields.py enforces it on
+    every configure, whether or not the shield is used
+    (parse_legacy_revision_decl's own docstring has the measured
+    detail).
 
     resolve_axis_selection itself is unaffected -- it reads decl.format,
     never owner_kind, so if a shield decl EVER carried one, this exact
@@ -367,7 +362,7 @@ def test_resolve_memoizes_a_cached_revision_without_reparsing() -> None:
 def test_resolve_records_the_shield_yml_dependency_when_referenced() -> None:
     """A shield's own shield.yml becomes load-bearing (dependency data)
     only once something actually NAMES it -- recorded at resolve() time,
-    never at scan time (rigc-r3-brief.md Sec 4)."""
+    never at scan time."""
     cached = _shield("fx")
     lib = ShieldLibrary(shields={"fx": cached}, axes={"fx": None}, pending={},
                         ymls={"fx": "/some/fx/shield.yml"}, types={},
@@ -438,7 +433,7 @@ def test_axis_less_shield_parses_on_first_reference_and_caches_after(
 
 def test_axis_less_shield_base_parse_failure_is_memoized_and_reports_once(
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """Sec 2.1's decision: naive laziness would re-run the parse (and
+    """Naive laziness would re-run the parse (and
     re-emit the same diagnostic) on every reference to a broken template;
     this memoizes the failure the first time and answers silently after.
     Negative control: an implementation that memoizes only SUCCESSFUL
@@ -465,7 +460,7 @@ def test_axis_less_shield_base_parse_failure_is_memoized_and_reports_once(
 
 def test_resolved_axis_less_shield_deps_include_its_own_base_file(
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """Sec 2.3: the base template becomes a dependency once resolve()
+    """The base template becomes a dependency once resolve()
     actually parses it -- touched explicitly by resolve(), not left to
     cpp-linemarker recovery (`source_files`) alone, because a template
     that defines no node at all would otherwise vanish from RIG_DEPENDS.
@@ -491,14 +486,14 @@ def test_resolved_axis_less_shield_deps_include_its_own_base_file(
 # _load_shield_revisions entirely. They prove `_resolve_revision` and its
 # stem/memoization-key construction have NO owner-kind branching of their
 # own: whatever resolve_axis_selection resolves to is what gets used,
-# rig or shield alike. That is what makes ruling 3 ("shields get hwmv2
-# semantics too") already true of the MACHINERY, pending only the
-# zephyr-side schema change that would let a real shield.yml reach it.
+# rig or shield alike. The MACHINERY already supports shields getting
+# hwmv2 semantics too, pending only the zephyr-side schema change that
+# would let a real shield.yml reach it.
 
 def test_resolve_shield_side_nearest_lower_stem_follows_the_resolved_value(
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """hwmv2-revision-semantics-brief.md Sec 0.4: the RESOLVED value (not
-    the requested one) constructs a shield revision's own template dts
+    """The RESOLVED value (not the requested one) constructs a shield
+    revision's own template dts
     name, .shield/.conf lookups and memoization key -- a nearest-lower
     match must never look for the REQUESTED id's own fragment files. A
     requested '1.5' zero-appends to '1.5.0' (major.minor.patch's own
@@ -533,10 +528,10 @@ def test_resolve_shield_side_nearest_lower_stem_follows_the_resolved_value(
 
 def test_resolve_nearest_lower_memoizes_under_the_resolved_key(
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """Sec 5's own interaction to verify, not assume: '@1.5' and '@1'
-    both resolve to the SAME declared revision here -- they must parse
-    the template only ONCE, memoized under the RESOLVED key, or a naive
-    requested-keyed cache would parse it (and re-run cpp) twice."""
+    """'@1.5' and '@1' both resolve to the SAME declared revision here
+    -- they must parse the template only ONCE, memoized under the
+    RESOLVED key, or a naive requested-keyed cache would parse it
+    (and re-run cpp) twice."""
     decl = AxisDecl(values=["1.0.0", "2.0.0"], default="1.0.0",
                     format="major.minor.patch")
     calls: List[str] = []
@@ -624,9 +619,7 @@ def test_scan_unions_multiple_shield_dirs(tmp_path: Path) -> None:
 
 def _axisless_shield_folder(root: Path, name: str) -> None:
     """An axis-less shield folder (no shield.yml at all) -- deliberately
-    GARBAGE, non-DTS `.shield` content. Before this slice, discovery
-    would have cpp-preprocessed and dtlib-parsed this immediately and
-    raised LoadError on this content; now discovery never reads the
+    GARBAGE, non-DTS `.shield` content. Discovery never reads the
     template at all, only probes its presence, so a folder built with
     this helper proves that by construction -- any test using it that
     doesn't raise is already evidence the scan stayed lazy."""
@@ -636,7 +629,7 @@ def _axisless_shield_folder(root: Path, name: str) -> None:
 
 
 def test_scan_is_eager_and_complete_for_axis_less_shields_too(tmp_path: Path) -> None:
-    """Discovery breadth (Sec 3, first bullet): every discovered shield,
+    """Discovery breadth: every discovered shield,
     axis-less or revisioned, lands in BOTH `axes` (the known-shields
     census) and `pending` -- none of it parsed. Negative control: a
     lazy-discovery implementation (the folder walk itself deferred to
@@ -656,13 +649,12 @@ def test_scan_is_eager_and_complete_for_axis_less_shields_too(tmp_path: Path) ->
 
 
 def test_scan_parses_nothing_at_all(tmp_path: Path) -> None:
-    """Wart 1 (mission brief Sec 1) retired: NOTHING reaches cpp at scan
-    time, axis-less or not -- proven here by asserting no translation
-    unit was ever written into workdir. Negative control: today's eager
-    implementation calls parse_tu for every axis-less shield, which would
-    both create workdir and write a TU into it -- and, given this
-    fixture's garbage content, raise LoadError before this assertion even
-    runs."""
+    """NOTHING reaches cpp at scan time, axis-less or not -- proven here
+    by asserting no translation unit was ever written into workdir.
+    Negative control: an eager implementation that calls parse_tu for
+    every axis-less shield would both create workdir and write a TU
+    into it -- and, given this fixture's garbage content, raise
+    LoadError before this assertion even runs."""
     root = tmp_path / "shields"
     _axisless_shield_folder(root, "fx_a")
     workdir = tmp_path / "work"
@@ -671,13 +663,13 @@ def test_scan_parses_nothing_at_all(tmp_path: Path) -> None:
 
 
 def test_unreferenced_broken_axis_less_template_is_silent(tmp_path: Path) -> None:
-    """Wart 2 (mission brief Sec 1) retired: an axis-less shield whose
-    template cannot even parse never poisons the scan and produces no
-    diagnostic at all, as long as nothing references it -- discovery
-    reads shield.yml (absent here), never the template. Negative
-    control: today's implementation calls parse_tu unconditionally for
-    every axis-less shield, which raises LoadError out of
-    load_shield_library for this fixture's garbage content."""
+    """An axis-less shield whose template cannot even parse never
+    poisons the scan and produces no diagnostic at all, as long as
+    nothing references it -- discovery reads shield.yml (absent here),
+    never the template. Negative control: an implementation that calls
+    parse_tu unconditionally for every axis-less shield would raise
+    LoadError out of load_shield_library for this fixture's garbage
+    content."""
     root = tmp_path / "shields"
     _axisless_shield_folder(root, "broken")
     lib, diags, deps = load_shield_library(str(tmp_path / "work"),
@@ -687,14 +679,13 @@ def test_unreferenced_broken_axis_less_template_is_silent(tmp_path: Path) -> Non
 
 
 def test_discovery_deps_exclude_shield_templates(tmp_path: Path) -> None:
-    """Sec 2.3: a discovered `.shield` template is not a dependency by
+    """A discovered `.shield` template is not a dependency by
     itself -- shield.yml is the only file discovery reads, and even that
     is not recorded as a dep until resolve() is reached
     (test_resolve_records_the_shield_yml_dependency_when_referenced,
-    above). Negative control: keeping the discovery-time
-    `touch(base_file)` this slice removes would put this folder's own
-    `fx_a.shield` path into `deps` regardless of whether anything ever
-    references it."""
+    above). Negative control: a discovery-time `touch(base_file)` would
+    put this folder's own `fx_a.shield` path into `deps` regardless of
+    whether anything ever references it."""
     root = tmp_path / "shields"
     _axisless_shield_folder(root, "fx_a")
     _, _, deps = load_shield_library(str(tmp_path / "work"),
@@ -704,7 +695,7 @@ def test_discovery_deps_exclude_shield_templates(tmp_path: Path) -> None:
 
 def test_unknown_shield_reference_still_lists_every_discovered_shield(
         tmp_path: Path) -> None:
-    """Sec 3, first bullet: the known-shields census a
+    """The known-shields census a
     `lang-instance-shield` diagnostic prints must name every DISCOVERED
     shield regardless of whether any of them has been parsed, resolved,
     or has a memoized failure -- `axes` is the census, never

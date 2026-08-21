@@ -117,8 +117,8 @@ def test_expectations_yml_is_always_emitted() -> None:
 
 def test_every_artifact_is_utf8_encoded_bytes() -> None:
     """config-sheet.md's own banner carries an em dash -- a real
-    multi-byte UTF-8 decision, not a formality (rigc-r5-brief.md Sec 1's
-    ratified reading of "artifacts as {filename: bytes}")."""
+    multi-byte UTF-8 decision, not a formality. Every emitted artifact is
+    exactly a {filename: bytes} pair, never str."""
     rig = Rig(name="r", board="b", instances=[])
     out = emit(rig, Solved(), {}, workdir="/does-not-matter")
 

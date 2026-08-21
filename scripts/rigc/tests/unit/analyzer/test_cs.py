@@ -1,18 +1,16 @@
-"""Where and how the final cs-gpios property is calculated (mission brief
-Sec 6, rigc-r4-brief.md Sec 2 -- the acid test): `allocate_cs_positions` is
-THE algorithm, extracted from the blueprint's `_allocate_cs(rig, solved,
-types, diags)` as a value-shaped contract -- given an ORDERED pool, the
-already-taken net identities, and the members of one SPI scope in R18
-allocation order (some copper-fixed), assign each a position, or report
-the pool exhausted. `effective_cs_pool` is the one upstream pool-MERGE
-source this module keeps separate from the algorithm ("bus.cs_pool if
-not None else ctype.cs_pool[qualified bus name]").
+"""Where and how the final cs-gpios property is calculated:
+`allocate_cs_positions` is THE algorithm, extracted from `_allocate_cs(rig,
+solved, types, diags)` as a value-shaped contract -- given an ORDERED pool,
+the already-taken net identities, and the members of one SPI scope in
+their fixed allocation order (some copper-fixed), assign each a position,
+or report the pool exhausted. `effective_cs_pool` is the one upstream
+pool-MERGE source this module keeps separate from the algorithm ("bus.cs_pool
+if not None else ctype.cs_pool[qualified bus name]").
 
 Every test here constructs plain CsMember/CsPlacement values directly --
 no Rig, Instance, Shield, Board, or BoardSocket anywhere -- proving the
-contract needs no scenario to exercise (rigc-mission-brief.md Sec 5: "A
-reject is not a unit concern ... this layer is new coverage of a
-different subject")."""
+contract needs no larger scenario to exercise: a reject here is not a unit
+concern, it is new coverage of a different subject."""
 from __future__ import annotations
 
 from rigc.analyzer.cs import (CsMember, CsPlacement, allocate_cs_positions,
@@ -46,10 +44,10 @@ def test_copper_fixed_member_is_never_reported_exhausted() -> None:
 
 def test_copper_fixed_precedence_over_a_later_pool_member() -> None:
     """A fixed member's position is reserved before a LATER pool member of
-    the same scope is considered -- allocation order (R18's `_key`) feeds
-    members here already sorted, and this function processes them in that
-    order, so an earlier fixed claim narrows what a later free member may
-    still pick."""
+    the same scope is considered -- allocation order feeds members here
+    already sorted by a named, stable key, and this function processes
+    them in that order, so an earlier fixed claim narrows what a later
+    free member may still pick."""
     members = [
         CsMember(identity="fixed", fixed=(0, "net-a")),
         CsMember(identity="free", pool=((0, "net-a"), (1, "net-b"))),
@@ -84,9 +82,8 @@ def test_first_free_selection_skips_already_taken_candidates() -> None:
 def test_pool_members_of_one_scope_do_not_collide_with_each_other() -> None:
     """Two pool-allocated members of the SAME call take DIFFERENT
     candidates -- each placement's net identity is added to the taken set
-    before the next member is considered, matching the blueprint's single
-    sequential pass where each registration is visible to every later
-    member of the scope."""
+    before the next member is considered, a single sequential pass where
+    each registration is visible to every later member of the scope."""
     members = [
         CsMember(identity="a", pool=((0, "net-0"), (1, "net-1"))),
         CsMember(identity="b", pool=((0, "net-0"), (1, "net-1"))),

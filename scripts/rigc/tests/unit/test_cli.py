@@ -7,8 +7,8 @@ unimplemented paths (exit 3, single-line `rigc: not implemented: <what>`
 on stderr, never a traceback, never exit 1, never a silent accept).
 
 Every `main([...])` call below passes an EXPLICIT `--shield-dir` pointing
-at an empty/nonexistent directory (`_no_shields`) -- R3 makes shield-dir
-scanning live (it runs unconditionally, before rig.yml even opens), and
+at an empty/nonexistent directory (`_no_shields`) -- shield-dir scanning
+runs unconditionally, before rig.yml even opens, and
 the CLI's own bare-invocation fallback is the vendored PRODUCTION shield
 library (`loader/library.py`'s `SHIELDS_DIR`, direct-API/test use only per
 its own docstring). Omitting `--shield-dir` here would make these unit
@@ -37,9 +37,9 @@ def _no_shields(tmp_path: Path) -> list[str]:
     """Point EVERY library root that has a production fallback at an
     empty directory -- --shield-dir alone is not enough: --connector-dir
     has the identical None-falls-back-to-the-real-tree shape
-    (cli._expand -> load_types -> registry.BINDINGS), so omitting it made
-    the unit suite read production connector bindings and headers (R3
-    review finding D2). A unit test touches NO production data."""
+    (cli._expand -> load_types -> registry.BINDINGS), so omitting it
+    would let the unit suite read production connector bindings and
+    headers. A unit test touches NO production data."""
     empty = tmp_path / "no_library_here"
     return ["--shield-dir", str(empty),
             "--connector-dir", str(empty),
@@ -161,19 +161,17 @@ def test_main_is_callable_in_process(tmp_path: Path) -> None:
 
 
 def test_board_reading_options_are_now_live(tmp_path: Path) -> None:
-    """--board-dts/--build-info/--bindings-dir were inert through R3;
-    rigc-r4-brief.md Sec 1 wires them into the board reader. A rig with
-    no board-resolution problem of its own (loader accepts cleanly) but
-    naming a --board-dts that does not exist on disk must now be rejected
-    (exit 1, phys-board) -- proving the option actually reaches
-    load_board rather than being parsed and discarded. (A rig the
-    LOADER itself rejects first -- e.g. unreadable -- still exits 3
-    regardless of these options: see test_recipe_resolved_lazily below,
-    which is the case that used to make this look inert.) --board is
-    given here too (board-coordinate-s6-brief.md Sec 11 retired rig.yml's
-    own board: grammar -- with no board injected, cli.py's own
-    board-empty check would reject BEFORE ever reaching --board-dts,
-    which is not what this test means to exercise)."""
+    """--board-dts/--build-info/--bindings-dir wire into the board
+    reader. A rig with no board-resolution problem of its own (loader
+    accepts cleanly) but naming a --board-dts that does not exist on
+    disk must be rejected (exit 1, phys-board) -- proving the option
+    actually reaches load_board rather than being parsed and discarded.
+    (A rig the LOADER itself rejects first -- e.g. unreadable -- still
+    exits 3 regardless of these options: see test_recipe_resolved_lazily
+    below.) --board is given here too: rig.yml carries no board: of its
+    own, so with no board injected, cli.py's own board-empty check would
+    reject BEFORE ever reaching --board-dts, which is not what this test
+    means to exercise."""
     (tmp_path / "rig.yml").write_text(
         dedent("""\
         rig:
@@ -191,12 +189,11 @@ def test_board_reading_options_are_now_live(tmp_path: Path) -> None:
 
 def test_board_option_reaches_load_board_with_the_given_name(
         tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """--board (S1) threads straight to `rig.board` -- proven the same
-    way as the option above (a --board-dts that does not exist forces a
+    """--board threads straight to `rig.board` -- proven the same way as
+    the option above (a --board-dts that does not exist forces a
     phys-board rejection), but checking that the GIVEN name is what
-    load_board's own diagnostic embeds. rig.yml declares no
-    board of its own (board-coordinate-s6-brief.md Sec 11: there is
-    nothing left to declare it with) -- --board is the only source."""
+    load_board's own diagnostic embeds. rig.yml declares no board: of
+    its own -- --board is the only source."""
     (tmp_path / "rig.yml").write_text(
         dedent("""\
         rig:
@@ -216,13 +213,12 @@ def test_board_option_reaches_load_board_with_the_given_name(
 
 def test_board_option_absent_is_a_clean_phys_board_reject(
         tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    """The negative control: omitting --board, with no declaration left
-    in rig.yml to fall back to (board-coordinate-s6-brief.md Sec 11),
-    must still be a clean phys-board rejection -- never a crash, and
-    never load_board's own confusing "unknown board ''" (this fixture's
-    --board-dts, which would otherwise force exactly that, proves
-    cli.py's own board-empty check fires FIRST: --board-dts is never
-    even reached)."""
+    """The negative control: omitting --board, with no board: declaration
+    in rig.yml to fall back to, must still be a clean phys-board
+    rejection -- never a crash, and never load_board's own confusing
+    "unknown board ''" (this fixture's --board-dts, which would
+    otherwise force exactly that, proves cli.py's own board-empty check
+    fires FIRST: --board-dts is never even reached)."""
     (tmp_path / "rig.yml").write_text(
         dedent("""\
         rig:
@@ -246,10 +242,9 @@ def test_recipe_resolved_lazily(tmp_path: Path) -> None:
     itself is rejected first (here: unreadable) -- the recipe is a
     board-reading concern, resolved only once the loader has already
     accepted, never eagerly alongside the other inputs (cli.py's own
-    docstring at the _resolve_recipe call site). Before this was ordered
-    correctly, `open()`-ing a nonexistent --build-info path raised an
-    unhandled FileNotFoundError -- a traceback, which is never an
-    acceptable outcome (rigc-r1-brief.md Sec 1)."""
+    docstring at the _resolve_recipe call site). `open()`-ing a
+    nonexistent --build-info path must never surface as an unhandled
+    FileNotFoundError -- a traceback is never an acceptable outcome."""
     ret = main(["expand", str(tmp_path / "no-such-rig.yml"),
                "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path),
                "--build-info", str(tmp_path / "no-such-build-info.yml")])
@@ -277,11 +272,10 @@ def test_unreadable_rig_refuses(tmp_path: Path,
 
 def test_out_of_scope_feature_refuses(tmp_path: Path,
                                       capsys: pytest.CaptureFixture[str]) -> None:
-    """R3 closes the ShieldRef seam (params:/config: are fully implemented
-    now, the R2-era example this test used to exercise) -- a YAML parse
-    failure is the capability that stays Unimplemented (rigc-r2-brief.md
-    Sec 2: no frozen golden covers lang-parse wording, so Unimplemented
-    remains the deliberate, always-acceptable choice, unrevisited by R3)."""
+    """params:/config: are fully implemented -- a YAML parse failure is
+    the capability that stays Unimplemented: no frozen golden covers
+    lang-parse wording, so Unimplemented remains the deliberate,
+    always-acceptable choice."""
     (tmp_path / "rig.yml").write_text(dedent("""\
         rig: [this is not, valid: yaml
         """))
@@ -297,8 +291,8 @@ def _write_zero_instance_rig(tmp_path: Path) -> None:
     to resolve, no shield,param-includes header to probe) -- the shape
     every accept-path test below reuses so board reading is the only
     thing left to stub.
-    Carries no `board:` of its own (board-coordinate-s6-brief.md Sec 11):
-    every caller must pass `--board` itself now, the only source left."""
+    Carries no `board:` of its own -- every caller must pass `--board`
+    itself, the only source."""
     (tmp_path / "rig.yml").write_text(
         dedent("""\
         rig:
@@ -310,10 +304,9 @@ def _write_zero_instance_rig(tmp_path: Path) -> None:
 
 
 def _stub_board_reading(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Board reading is integration-only by construction (rigc-r3-brief.md
-    Sec 2's cpp/unit-test seam applies here just the same as it does to
-    the shield side) -- stubbed rather than exercised via a real board
-    .dts + cpp."""
+    """Board reading is integration-only by construction (the same
+    cpp/unit-test seam that applies to the shield side) -- stubbed
+    rather than exercised via a real board .dts + cpp."""
     import rigc.cli
     from rigc.model import Board
 
@@ -326,11 +319,9 @@ def _stub_board_reading(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_accept_path_now_accepts_and_writes_artifacts(
         tmp_path: Path, capsys: pytest.CaptureFixture[str],
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """R5 closes the emitter: input the loader/analyzer find nothing wrong
-    with now exits 0 and writes the rig artifacts + context.cmake, rather
-    than the pre-R5 loud exit-3 refusal this test used to pin -- proving
-    the full accept path (emit, context.render, the one writer) without a
-    subprocess."""
+    """Input the loader/analyzer find nothing wrong with exits 0 and
+    writes the rig artifacts + context.cmake -- proving the full accept
+    path (emit, context.render, the one writer) without a subprocess."""
     _write_zero_instance_rig(tmp_path)
     _stub_board_reading(monkeypatch)
 
@@ -353,29 +344,24 @@ def test_accept_path_now_accepts_and_writes_artifacts(
     assert 'set(RIG_SHIELDS "")' in context_text
 
 
-# ----------------------------------------- the workdir (workdir-retention-ruling.md)
+# ----------------------------------------------------------- the workdir
 
 def _workdir_of(out_dir: Path) -> Path:
     """Where cli.py puts its workdir for a given --out-dir. Derived from
     cli.WORKDIR_NAME rather than spelled again, so a rename cannot leave
     these tests asserting a path nothing writes.
 
-    This replaced a monkeypatched-mkdtemp spy, and the replacement is
-    STRONGER than what it replaced: the old spy could only observe that
-    SOME directory was created and later removed, and had to force it
-    under tmp_path itself to stop the reject case leaking into real /tmp.
-    The location is now a property of the code under test, so these tests
-    assert it directly -- and nothing can leak, because a workdir inside
-    --out-dir is inside tmp_path by construction."""
+    The location is a property of the code under test, so these tests
+    assert it directly -- and nothing can leak into real /tmp, because a
+    workdir inside --out-dir is inside tmp_path by construction."""
     return out_dir / cli.WORKDIR_NAME
 
 
 def test_accept_path_keeps_the_workdir(
         tmp_path: Path, capsys: pytest.CaptureFixture[str],
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """workdir-retention-ruling.md (2026-08-19), REVERSING D10's
-    accept-path deletion: an ACCEPTED run is the one that produces an
-    overlay somebody later doubts, so its intermediates -- the shield
+    """An ACCEPTED run is the one that produces an overlay somebody
+    later doubts, so its intermediates -- the shield
     `.dts` the loader wrote, the cpp-preprocessed `.pre` of each, a
     promoted shield's synthesized pair -- are exactly the evidence that
     doubt needs, and success is no reason to burn them.
@@ -400,17 +386,15 @@ def test_accept_path_keeps_the_workdir(
 def test_reject_path_keeps_the_workdir(
         tmp_path: Path, capsys: pytest.CaptureFixture[str],
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """The other exit, kept for the same reason and unchanged by the
-    2026-08-19 reversal: a rejected board-dts is real evidence a cpp
-    failure's own rendered diagnostic points at (e.g.
-    `param-missing-header`, which embeds this very path inside gcc's
-    stderr text), so the directory must survive this exit too.
+    """The other exit, kept for the same reason: a rejected board-dts is
+    real evidence a cpp failure's own rendered diagnostic points at
+    (e.g. `param-missing-header`, which embeds this very path inside
+    gcc's stderr text), so the directory must survive this exit too.
 
-    Held as a SEPARATE test rather than folded into the accept one now
-    that both verdicts agree: the two exits reach the end of `_expand`
-    by different routes (this one returns early from `_reject`, the
-    other falls off the end), and one route surviving proves nothing
-    about the other."""
+    Held as a SEPARATE test rather than folded into the accept one: the
+    two exits reach the end of `_expand` by different routes (this one
+    returns early from `_reject`, the other falls off the end), and one
+    route surviving proves nothing about the other."""
     _write_zero_instance_rig(tmp_path)
     out_dir = tmp_path / "out"
 
@@ -460,14 +444,13 @@ def test_entry_wipe_clears_a_previous_runs_workdir(
 def test_promote_writes_promote_shields_own_documents_verbatim(
         tmp_path: Path, capsys: pytest.CaptureFixture[str],
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """The pin that there is exactly ONE desugaring (board-coordinate-
-    s3b-brief.md Sec 5): --promote's materialized rig.yml/content pair is
-    byte-identical to promote.promote_shield's own return, for the exact
-    name/filename it chose. No --board is given, so this run rejects at
-    cli.py's own board-empty check (board-coordinate-s6-brief.md Sec 11:
-    the loader itself no longer needs a board to accept a promoted rig's
+    """There is exactly ONE desugaring: --promote's materialized
+    rig.yml/content pair is byte-identical to promote.promote_shield's
+    own return, for the exact name/filename it chose. No --board is
+    given, so this run rejects at cli.py's own board-empty check: the
+    loader itself no longer needs a board to accept a promoted rig's
     topology, so this is the first and only place a missing one still
-    matters) -- D10 keeps the workdir on that reject, which is what lets
+    matters. The workdir is kept on that reject, which is what lets
     this test read the two files back off disk."""
     from rigc.promote import promote_shield
 
@@ -486,12 +469,11 @@ def test_promote_writes_promote_shields_own_documents_verbatim(
 def test_promote_with_revision_bakes_the_shields_own_revision(
         tmp_path: Path, capsys: pytest.CaptureFixture[str],
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """--revision alongside --promote means the SHIELD's own revision
-    (Sec 3's `@rev` rule) -- baked into the synthesized content file's
-    `shield:` reference, never forwarded to loader.load as a rig-level
-    axis selection (a promoted rig declares no revisions: of its own).
-    Reused promote_shield directly as the oracle, same as the test
-    above."""
+    """--revision alongside --promote means the SHIELD's own revision --
+    baked into the synthesized content file's `shield:` reference, never
+    forwarded to loader.load as a rig-level axis selection (a promoted
+    rig declares no revisions: of its own). Reused promote_shield
+    directly as the oracle, same as the test above."""
     from rigc.promote import promote_shield
 
     out_dir = tmp_path / "out"
@@ -511,10 +493,10 @@ def test_promote_with_revision_bakes_the_shields_own_revision(
 def test_promote_with_a_dotted_config_opt_writes_a_config_block_verbatim(
         tmp_path: Path, capsys: pytest.CaptureFixture[str],
         monkeypatch: pytest.MonkeyPatch) -> None:
-    """The end-to-end `--promote <shield>:config.<label>=<value>` path
-    (promotion-config-brief.md Sec 2), threaded through cli.py's own
-    `--promote` branch (args.promote.partition(":") -> parse_promotion_
-    opts -> promote_shield) rather than calling promote_shield directly:
+    """The end-to-end `--promote <shield>:config.<label>=<value>` path,
+    threaded through cli.py's own `--promote` branch
+    (args.promote.partition(":") -> parse_promotion_opts ->
+    promote_shield) rather than calling promote_shield directly:
     proves `ParsedPromotionOpts.config` actually reaches the printed
     text via THIS module's own plumbing, not merely via promote.py's own
     printer in isolation. A MUTATION that routed `config.<label>=` to
@@ -537,7 +519,7 @@ def test_promote_with_a_dotted_config_opt_writes_a_config_block_verbatim(
     assert (workdir / "rig.yml").read_text() == expected.rig_yml
 
 
-# --------------------------------------------------- logging (rigc-r45-brief.md Part B)
+# --------------------------------------------------------------- logging
 
 def test_stderr_carries_only_renderer_bytes_when_rigc_log_is_unset(
         tmp_path: Path, capsys: pytest.CaptureFixture[str],

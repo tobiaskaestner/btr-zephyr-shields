@@ -1,11 +1,11 @@
-"""Multi-plug shields, slice 1 (multi-plug-shield-brief.md): a shield
+"""Multi-plug shields: a shield
 mates more than one socket at once. Two halves, mirroring
 test_multibus_socket.py's own shape:
 
   - the REAL corpus example, can_span_click on quail (two mikroBUS
-    sockets, brief Sec 7): proves the mechanism against real board/shield
-    content, through the real CLI. This half owns acceptance criteria 2
-    (the cross-plug falsifier) and 3 (the negative control).
+    sockets): proves the mechanism against real board/shield
+    content, through the real CLI -- the cross-plug falsifier and the
+    negative control.
   - fixture-only per-slot mechanics (inference, subset, the same-
     physical-socket refusal, and the socket:/sockets: grammar) over a
     purpose-built connector-type/board pair, following multibus's own
@@ -75,7 +75,7 @@ def _write_rig(tmp_path: Path, name: str, content: str) -> Path:
     return rig_dir / "rig.yml"
 
 
-# ---------------------------------------------------------------- per-slot inference (Sec 4)
+# ---------------------------------------------------------------- per-slot inference
 
 
 def test_per_slot_inference_accepts_with_no_sockets_at_all(tmp_path: Path) -> None:
@@ -108,7 +108,7 @@ def test_per_slot_inference_ambiguity_is_slot_qualified(tmp_path: Path) -> None:
     assert "slot 'b'" not in result.stderr
 
 
-# ---------------------------------------------------------------- per-slot subset (Sec 4)
+# ---------------------------------------------------------------- per-slot subset
 
 
 def test_per_slot_subset_accept_pair(tmp_path: Path) -> None:
@@ -142,7 +142,7 @@ def test_per_slot_subset_reject_names_the_right_slot_never_the_other(tmp_path: P
     assert "slot 'a'" not in result.stderr
 
 
-# ---------------------------------------------------------------- distinct-socket refusal (Sec 4)
+# ---------------------------------------------------------------- distinct-socket refusal
 
 
 def test_two_slots_resolving_to_one_physical_socket_is_refused(tmp_path: Path) -> None:
@@ -168,7 +168,7 @@ def test_two_slots_resolving_to_one_physical_socket_is_refused(tmp_path: Path) -
     assert "fx_a" in result.stderr
 
 
-# ---------------------------------------------------------------- socket:/sockets: grammar (Sec 2)
+# ---------------------------------------------------------------- socket:/sockets: grammar
 
 
 def test_socket_on_a_plural_instance_is_rejected(tmp_path: Path) -> None:
@@ -277,7 +277,7 @@ def test_can_span_click_cross_plug_cs_and_nexus(
     (cpp include dirs + edtlib bindings), not a verification build of
     its own.
 
-    Acceptance criteria 2 and 3, named in assertions (not just a
+    Named in assertions (not just a
     golden): can0's CS allocated from the LEFT socket's own pool,
     log_flash's from the RIGHT's; can0's int-gpios rendered through the
     RIGHT socket's nexus -- the cross-plug falsifier. The negative
@@ -352,7 +352,7 @@ def test_can_span_click_shared_controller_two_slot_contract(
     shares quail's ONE cached plain configure with every other test in this
     module).
 
-    Driver-added pin (Tobi, 2026-08-12): does a multi-plug shield whose two
+    Does a multi-plug shield whose two
     slots land on two sockets wired to the SAME controller resolve
     correctly? It does by construction -- allocation scope identity is
     bus.path, and quail_sock1/quail_sock2 share bus.path (&spi1) while
@@ -414,13 +414,10 @@ def test_can_span_click_shared_controller_two_slot_contract(
 
 
 def test_can_span_click_is_now_promotable_with_explicit_slot_options() -> None:
-    """Ruling 4's plurality gate is RETIRED as of multi-plug-promotion-
-    brief.md slice 3 -- the mechanism this test used to pin
-    (check_promotable's own plug_count refusal) is gone, and this test
-    flips with it (mechanism and tests together) rather than merely
-    dying: it now pins the POSITIVE fact, from the promotion seam's own
-    angle (test_singleton_identity_law.py pins the census side,
-    criterion 2 -- EXCLUDED == set()). can_span_click still needs
+    """A multi-plug shield is promotable: check_promotable's own
+    plug_count refusal is gone, so this pins the POSITIVE fact, from the
+    promotion seam's own angle (test_singleton_identity_law.py pins the
+    census side: EXCLUDED == set()). can_span_click still needs
     explicit slot options to promote onto quail at all (four mikroBUS
     candidates per slot kills per-slot inference by construction,
     exactly as it does for the persisted rig's own sockets: map) -- a
@@ -472,7 +469,7 @@ def test_can_span_click_build_round_trip(
     generated overlay is injected as EXTRA_DTC_OVERLAY_FILE on top of
     quail's OWN board.dts via a real `west build --cmake-only`, proving
     the devicetree text the expander emits is genuine, toolchain-
-    buildable devicetree -- and, per brief Sec 7's own probe requirement,
+    buildable devicetree -- and confirms
     that neither microchip,mcp2515's nor jedec,spi-nor's Kconfig walls
     the configure the way TCA954x's driver walled a childless mux
     (probed manually before this test was written: CAN_MCP2515 lives
@@ -528,7 +525,7 @@ def _run_can_span_click_promoted(
         ) -> "subprocess.CompletedProcess[str]":
     """The --promote counterpart of _run_can_span_click: the SAME two
     board sockets (quail_sock2/quail_sock3), named via the slot-optioned
-    promotion grammar (multi-plug-promotion-brief.md Sec 2) instead of a
+    promotion grammar instead of a
     persisted sockets: map -- run through the real CLI exactly as
     cmake's --promote seam (rigs.py's PromotedTarget.promotion_target)
     would invoke it. run_expand has no --promote mode (it always takes a
@@ -555,7 +552,7 @@ def _run_can_span_click_promoted(
 @pytest.mark.build
 def test_can_span_click_promoted_round_trip_matches_the_persisted_cross_plug_facts(
         tmp_path: Path, tmp_path_factory: "pytest.TempPathFactory") -> None:
-    """Acceptance criterion 3 (multi-plug-promotion-brief.md): the
+    """The
     promoted form of can_span_click, given the ONLY spelling its own
     four-candidate-per-slot ambiguity leaves it (explicit
     socket.left=/socket.right= options), produces the SAME cross-plug/CS
@@ -606,9 +603,7 @@ def test_can_span_click_promotion_refuses_a_bare_socket_naming_the_slots(
     sentence, naming both real slots -- proving the promoted round trip
     above passed BECAUSE of the slot-optioned grammar, not despite it.
     Driven through the real CLI (not parse_promotion_opts in-process)
-    since the refusal must fire at cli.py's own --promote seam too, the
-    caller multi-plug-promotion-brief.md Sec 3 flagged as missing from
-    its own predicted list."""
+    since the refusal must fire at cli.py's own --promote seam too."""
     env = dict(os.environ)
     env["ZEPHYR_BASE"] = zephyr_base()
     env["PYTHONPATH"] = str(REPO_ROOT / "scripts")

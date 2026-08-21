@@ -1,22 +1,20 @@
-"""Board resolution's own value-shaped decision points (rigc-r4-brief.md
-Sec 1): board.load_board's early-exit shapes (a --board-dts naming no
-real file; no usable recipe) need no real devicetree or edtlib call at
-all to reach, so they are asserted directly. The success / not-rig-
-enabled outcomes DO need project.load_board's own result -- stubbed via
-monkeypatch here rather than a real board .dts + cpp, exactly like
-cli.py's own `test_accept_path_refuses_rather_than_accepting` does: board
-reading invokes cpp, so it is integration-only by construction
-(rigc-r3-brief.md Sec 2's cpp/unit-test seam applies to the board side
-just as it does to the shield side) -- `_discover_board_dts` needs no
-cpp itself (zephyr's list_boards.py over a real MODULE_ROOT scan is
-plain YAML/filesystem reading), so its not-found path is exercised
+"""Board resolution's own value-shaped decision points: board.load_board's
+early-exit shapes (a --board-dts naming no real file; no usable recipe)
+need no real devicetree or edtlib call at all to reach, so they are
+asserted directly. The success / not-rig-enabled outcomes DO need
+project.load_board's own result -- stubbed via monkeypatch here rather
+than a real board .dts + cpp, exactly like cli.py's own
+`test_accept_path_refuses_rather_than_accepting` does: board reading
+invokes cpp, so it is integration-only by construction, the same seam
+that makes shield-side parsing integration-only -- `_discover_board_dts`
+needs no cpp itself (zephyr's list_boards.py over a real MODULE_ROOT scan
+is plain YAML/filesystem reading), so its not-found path is exercised
 directly below too, alongside the frozen suite's unknown-board golden.
 
-Wording stays out of these tests (mission brief Sec 6); code, return
-shape, and which branch fired are what's asserted -- the hand-differential
-rule (rigc-r4-brief.md Sec 7) is what verifies wording for the two shapes
-with no frozen golden (no-recipe, missing-file), recorded in the slice
-report."""
+Wording stays out of these tests; code, return shape, and which branch
+fired are what's asserted. Diagnostic wording for the two shapes with no
+frozen golden (no-recipe, missing-file) is instead verified by comparing
+this module's output against a hand-written reference by eye."""
 from __future__ import annotations
 
 from textwrap import dedent
@@ -81,9 +79,10 @@ def test_no_recipe_is_phys_board_with_no_edtlib_call(
 
 def test_a_board_with_no_socket_nodes_is_not_rig_enabled(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """Conv. 4's opt-in mechanism: a board .dts that exists and reads
-    clean but declares no socket,* node is the DISTINCT "exists, but is
-    not rig-enabled" diagnostic -- never confused with "unknown board"."""
+    """A board .dts that exists and reads clean but declares no socket,*
+    node is the DISTINCT "exists, but is not rig-enabled" diagnostic --
+    never confused with "unknown board". Declaring at least one socket,*
+    node is how a board opts into rig support."""
     real_dts = tmp_path / "board.dts"
     real_dts.write_text(dedent("""\
         /dts-v1/;
@@ -167,7 +166,7 @@ def test_a_malformed_socket_load_error_becomes_the_normal_reject_shape(
 
 def test_unknown_board_message_is_cwd_independent(
         tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The unknown-board diagnostic anchors MODULE_ROOT via the ratified
+    """The unknown-board diagnostic anchors MODULE_ROOT via the
     anchor_path renderer, not a bare os.path.relpath -- rendered from two
     different process working directories, the message must come out
     byte-identical. This is the control the CWD-relative wart existed for

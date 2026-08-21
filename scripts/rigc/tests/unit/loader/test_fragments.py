@@ -1,18 +1,16 @@
-"""Unit: loader.fragments -- rule 10, the fragment-presence check.
+"""Unit: loader.fragments -- the fragment-presence contributes-nothing
+check.
 
 The stable contract: a selected NON-DEFAULT axis value must contribute
 something (an existing delta doc, or a cmake-collected overlay/
 defconfig); the declared DEFAULT is always exempt. The rule is PURE:
 which files exist arrives as a FragmentPresence VALUE (the IO phase
-probes; joint review 2026-07-29), so nothing here touches a filesystem
--- no tmp_path, no fixture files.
+probes), so nothing here touches a filesystem -- no tmp_path, no
+fixture files.
 
-A variant's second avenue of contribution -- its own board/socket
-metadata differing from the default's -- used to be tested here
-directly (`variant_metadata_differs`); retired along with the grammar
-that populated `AxisDecl.boards`/`.sockets` at all
-(board-coordinate-s6-brief.md Sec 11), so a variant's only remaining way
-to contribute is the same fragment-file avenue a revision has.
+A variant's only avenue of contribution is the same fragment-file
+avenue a revision has: rig.yml's grammar carries no board/socket
+metadata for a variant to differ on.
 """
 from __future__ import annotations
 
@@ -81,8 +79,9 @@ def test_dotted_revision_names_the_normalized_filename() -> None:
 
 
 def test_an_existing_overlay_or_defconfig_counts_as_contribution() -> None:
-    """The two cmake-collected artifact kinds satisfy rule 10 exactly
-    like a loaded delta does -- the presence FACT arrives as a value."""
+    """The two cmake-collected artifact kinds satisfy the
+    contributes-nothing check exactly like a loaded delta does -- the
+    presence FACT arrives as a value."""
     variants = AxisDecl(values=["a", "b"], default="a")
     rig = _rig(variant="b", variants=variants)
     assert check_fragment_presence(

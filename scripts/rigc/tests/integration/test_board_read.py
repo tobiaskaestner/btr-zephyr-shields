@@ -23,8 +23,8 @@ layer that projects a real board's own devicetree onto model.Board.
     resolution wrapper over project, and this pins that the wrapping
     introduces no divergence.
 
-  * the census-vs-DT-truth guard (board-coordinate-s2-brief.md Sec 6):
-    census's text-only scan of a board rig-extension's *.dts/*.dtsi
+  * the census-vs-DT-truth guard: census's text-only scan of a board
+    rig-extension's *.dts/*.dtsi
     fragments -- what `west rigs --boards-for` runs against, since a real
     per-board read costs a cmake configure per candidate -- must agree
     with project's own projection of the REAL edtlib.EDT, on every field
@@ -92,8 +92,7 @@ def test_edt_pickle_cross_check(plain_build: PlainBuild, tmp_path: Path) -> None
     # edtlib.EDT -- project.py's own runtime reference triggers this as
     # a side effect when the full suite runs, but this module never
     # imports edtlib itself, so a standalone run of this file alone
-    # (board-coordinate-s2-brief.md Sec 5.4's verification contract runs
-    # exactly that) needs it put on sys.path explicitly, same as
+    # needs it put on sys.path explicitly, same as
     # project.py already does before its own one edtlib reference.
     edt_build.ensure_devicetree_on_path()
     with open(plain_build.edt_pickle, "rb") as f:
@@ -155,12 +154,12 @@ def test_production_matches_direct_read(plain_build: PlainBuild,
 @pytest.mark.build
 def test_census_matches_real_board_devicetree(plain_build: PlainBuild) -> None:
     """census's text-only scan is what `west rigs --boards-for`
-    runs against (board-coordinate-s2-brief.md Sec 3: a real per-board
+    runs against (a real per-board
     read costs a cmake configure per candidate, which is not a query) --
     this is the guard that keeps it honest against the board's REAL
-    devicetree, compared only on the fields the census actually populates
-    (Sec 4.1): defining label, DASHED type_name, and the sorted set of bus
-    KINDS a socket offers (never a bus's resolved target, which the
+    devicetree, compared only on the fields the census actually
+    populates: defining label, DASHED type_name, and the sorted set of
+    bus KINDS a socket offers (never a bus's resolved target, which the
     census cannot see), plus the alias map."""
     edt_build.ensure_devicetree_on_path()
     with open(plain_build.edt_pickle, "rb") as f:

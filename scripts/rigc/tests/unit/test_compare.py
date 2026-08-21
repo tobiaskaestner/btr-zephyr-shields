@@ -9,13 +9,11 @@ own docstring for each contract in full.
 
 Most cases below are deliberate NEGATIVE CONTROLS: a mutation the
 comparator must still reject. A comparator nobody has proven can still
-fail is a tautological check at suite scale -- the same defect class the
-reject-corpus review round already caught once in a unit test
-(rigc-r5-brief.md's review notes), applied here to the comparators
-themselves. The config-sheet.md controls additionally cover OMISSIONS
-(a dropped section, row, or bullet) deliberately, per cutover-brief.md
-Sec 3: altering a value is the easy case for a fact extractor to catch,
-silently dropping content is the one that actually gets missed.
+fail is a tautological check at suite scale. The config-sheet.md
+controls additionally cover OMISSIONS (a dropped section, row, or
+bullet) deliberately: altering a value is the easy case for a fact
+extractor to catch, silently dropping content is the one that
+actually gets missed.
 """
 from __future__ import annotations
 
@@ -81,7 +79,7 @@ def test_identical_text_compares_equal() -> None:
     assert compare_context_cmake(GOLDEN, GOLDEN) is None
 
 
-# --- negative controls (cutover-brief.md Sec 3) ------------------------
+# --- negative controls -------------------------------------------------
 
 
 def test_reordering_rig_depends_is_accepted() -> None:
@@ -267,9 +265,9 @@ def test_identical_sheet_text_compares_equal() -> None:
     assert compare_config_sheet(SHEET_GOLDEN, SHEET_GOLDEN) is None
 
 
-# --- negative controls: omissions (cutover-brief.md Sec 3: the main -------
-# --- evidence, and they must include DROPPED content, not just changed ---
-# --- values -- a value change is the easy case for a fact extractor). ----
+# --- negative controls: omissions -- these must include DROPPED content,
+# --- not just changed values, since a value change is the easy case for
+# --- a fact extractor to catch. ------------------------------------------
 
 
 def test_removing_an_entire_section_is_rejected() -> None:
@@ -335,7 +333,7 @@ def test_changed_position_name_is_rejected() -> None:
 
 
 def test_swapping_two_rows_within_a_section_is_rejected() -> None:
-    """Row order is contract (D2): the emitter sorts deterministically, so
+    """Row order is contract: the emitter sorts deterministically, so
     a swap is a real regression, never noise to tolerate."""
     swapped = SHEET_GOLDEN.replace(
         "| flash_a | flash_click | sock1 |\n| temp_a | temp_click | sock2 |\n",
@@ -348,7 +346,7 @@ def test_swapping_two_rows_within_a_section_is_rejected() -> None:
 
 def test_an_unrecognised_line_inserted_is_rejected() -> None:
     """A line the recognisers do not understand must be a mismatch, never
-    silently skipped (D1) -- inserted as a bogus bullet inside an existing
+    silently skipped -- inserted as a bogus bullet inside an existing
     bullet section, since a bogus line elsewhere would just as easily fail
     the header/heading recognisers."""
     corrupted = SHEET_GOLDEN.replace(
@@ -632,7 +630,7 @@ def test_the_generated_sheet_self_compares_equal() -> None:
     assert compare_config_sheet(generated, generated) is None
 
 
-# --- rig-gen.overlay: the split contract (cutover-brief.md Sec 8.2) --------
+# --- rig-gen.overlay: the split contract ----------------------------------
 # compare_overlay does not parse the overlay into a devicetree at all --
 # semantics ride the zephyr.dts + dts_equiv.py comparison instead. What
 # follows targets only the three facts that comparison structurally
@@ -692,8 +690,8 @@ def test_the_generated_overlay_self_compares_equal(OVERLAY_GOLDEN: str) -> None:
 
 
 # --- negative controls: each pins one of compare_overlay's four guards ----
-# (cutover-decisions.md D4: every guard needs its own negative control,
-# proven to actually fail, not merely asserted correct by a green suite).
+# every guard needs its own negative control, proven to actually fail,
+# not merely asserted correct by a green suite. --------------------------
 
 
 def test_param_token_resolved_to_a_bare_number_is_rejected(OVERLAY_GOLDEN: str) -> None:
@@ -757,8 +755,7 @@ def test_pwm_adc_pinctrl_note_dropped_is_rejected(OVERLAY_GOLDEN: str) -> None:
 
 
 def test_property_reordering_that_drops_no_fact_is_accepted(OVERLAY_GOLDEN: str) -> None:
-    """The freedom the split contract creates (cutover-brief.md's parked
-    R10 label scheme is exactly why it matters): swapping two property
+    """The freedom the split contract creates: swapping two property
     lines removes no token, no include position, and no annotation."""
     reordered = OVERLAY_GOLDEN.replace(
         "\t\t\tzephyr,code = <INPUT_KEY_9>;\n"
@@ -785,7 +782,7 @@ def test_overlay_a_differing_provenance_banner_is_accepted(OVERLAY_GOLDEN: str) 
     assert compare_overlay(OVERLAY_GOLDEN, reworded) is None
 
 
-# --- the shield-uart-subset-frdm interim exception (cutover-decisions.md D8) -
+# --- the shield-uart-subset-frdm interim exception -----------------------
 
 
 def test_shield_uart_subset_frdm_overlay_stays_byte_compared() -> None:
@@ -891,9 +888,9 @@ def test_an_annotation_kept_while_its_position_moves_is_rejected(
 
 # --------------------------------------------------------------------------
 # rig-gen-includes.dtsi: the ORDERED header list the rig's own parameter
-# assignments needed (cutover-brief.md Sec 3; param-vocabulary-brief.md).
-# Unlike RIG_DEPENDS, cpp include order can matter, so this compares as a
-# LIST, never a set -- reordering is a mismatch, not noise.
+# assignments needed. Unlike RIG_DEPENDS, cpp include order can matter, so
+# this compares as a LIST, never a set -- reordering is a mismatch, not
+# noise.
 
 INCLUDES_GOLDEN = textwrap.dedent("""\
     /* generated by rigc — do not edit; the rig file is the source of truth */
@@ -923,7 +920,7 @@ def test_blank_lines_between_includes_are_accepted() -> None:
     assert compare_includes_dtsi(INCLUDES_GOLDEN, spaced) is None
 
 
-# --- negative controls (cutover-brief.md Sec 3) ------------------------
+# --- negative controls -------------------------------------------------
 
 
 def test_dropping_an_include_is_rejected() -> None:
@@ -959,7 +956,7 @@ def test_adding_an_unexpected_include_is_rejected() -> None:
 
 
 def test_an_unrecognised_includes_line_is_rejected() -> None:
-    """D1: a line neither the banner nor a #include is a mismatch, never
+    """A line neither the banner nor a #include is a mismatch, never
     silently skipped."""
     corrupted = INCLUDES_GOLDEN + "this is not an include line at all\n"
     mismatch = compare_includes_dtsi(INCLUDES_GOLDEN, corrupted)
@@ -991,7 +988,7 @@ def test_includes_unparseable_golden_is_a_reported_mismatch() -> None:
 
 
 def test_includes_missing_banner_raises_on_parse() -> None:
-    """The total-coverage guard (D1): a document with no banner at all must
+    """The total-coverage guard: a document with no banner at all must
     not silently parse as an empty-but-valid header list."""
     without_banner = "\n".join(
         line for line in INCLUDES_GOLDEN.splitlines()

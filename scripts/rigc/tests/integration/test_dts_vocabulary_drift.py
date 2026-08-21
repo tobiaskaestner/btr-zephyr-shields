@@ -4,7 +4,7 @@ scripts/rigc/'s own production code agree on the `shield,*`/`plug,*`/
 `socket,*` vocabulary, in BOTH directions.
 
 A reference page that silently falls behind the code is worse than
-none -- a reader trusts it (dts-vocabulary-reference-brief.md Sec 6). This
+none -- a reader trusts it. This
 is a law about the CORPUS (docs + production source, together) rather
 than about any one module, so it lives here beside the other
 corpus-level laws (test_singleton_identity_law.py,
@@ -41,7 +41,7 @@ so a family is not silently un-mentioned entirely.
 Scanning string literals is crude -- a regex over raw file text, not a
 real Python/reST parse -- but sufficient and robust here: every property
 name in this schema is exactly the shape `(shield|plug|socket),<ident>`
-and never appears any other way (mission brief's own convention),
+and never appears any other way,
 confirmed while re-deriving this page's own vocabulary from the parsers.
 """
 from __future__ import annotations
@@ -198,8 +198,8 @@ def test_dts_vocabulary_qualified_families_are_documented_by_pattern() -> None:
 # ------------------------------------------------- the retired plug spelling
 # The vocabulary scan above cannot see this one: `shield,plugs` is a real
 # production literal either way, so a page still showing it on the TEMPLATE
-# node passes every check above while teaching a form the loader refuses
-# (plug-unification-brief.md). This is the law that catches that, over
+# node passes every check above while teaching a form the loader refuses.
+# This is the law that catches that, over
 # EVERY doc page rather than the two reference ones -- a tutorial's example
 # is the copy a reader actually pastes.
 
@@ -262,9 +262,8 @@ def test_no_doc_example_declares_cells_on_a_plug_node() -> None:
 def test_the_devicetree_block_scan_finds_something() -> None:
     """The control for the two laws above: both assert an EMPTY offender
     list, so a block regex that matched nothing would let them pass
-    vacuously -- `test_cli_reference_drift`'s own lesson
-    (plug-unification-brief.md, and the handoff's "run the mutation; do
-    not reason about it"). Fixed floors, deliberately well under the real
+    vacuously -- run the mutation; do
+    not reason about it. Fixed floors, deliberately well under the real
     counts so ordinary doc growth never trips them."""
     blocks = list(_devicetree_blocks())
     assert len(blocks) >= 15, f"only {len(blocks)} devicetree blocks found"

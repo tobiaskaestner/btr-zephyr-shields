@@ -1,20 +1,16 @@
-"""Integration verification for the lazy shield-library parse
-(lazy-shield-library-brief.md Sec 2.2): a LAZILY-resolved axis-less base
-template that fails to preprocess raises LoadError out of
-`ShieldLibrary.resolve()`, reached mid-loop inside
-`loader._build_topology`'s phase-3 instance loop. That phase already
-carries its own D1 try/except boundary (the same shape
-`load_shield_library`'s own scan loop uses) for exactly this reason -- a
-lazily-resolved REVISION could already raise there before this slice, and
-this proves the same boundary still holds now that an axis-less BASE
-template can raise there too.
+"""Integration verification for the lazy shield-library parse: a LAZILY-
+resolved axis-less base template that fails to preprocess raises
+LoadError out of `ShieldLibrary.resolve()`, reached mid-loop inside
+`loader._build_topology`'s phase-3 instance loop. That phase carries a
+try/except boundary (the same shape `load_shield_library`'s own scan loop
+uses) so a lazily-resolved template's raise still carries every
+diagnostic collected before it, whether the template is a REVISION or an
+axis-less BASE.
 
 Not a frozen golden: no `freeze_or_assert` call, nothing under
 tests/goldens/ read or written. The fixture only needs to prove the
 boundary carries prior diagnostics through a raise, not pin the tool's
-exact wording -- a genuine golden for this shape is out of scope for this
-slice (goldens are the reviewer's own refreeze, lazy-shield-library-
-brief.md Sec 4/8).
+exact wording.
 """
 from __future__ import annotations
 
@@ -36,7 +32,8 @@ def test_broken_referenced_shield_preserves_earlier_diagnostics(
     diagnostic already sat in _build_topology's `diags` list when the
     second instance's resolve() raised, and the phase's own except
     clause re-raises with those priors prepended (loader/__init__.py's
-    `_build_topology`, mirroring `load_shield_library`'s own D1 shape)."""
+    `_build_topology`, mirroring `load_shield_library`'s own try/except
+    shape)."""
     out_dir = tmp_path / "out"
     result = run_expand(_FIXTURE / "rig.yml", out_dir,
                         board="nucleo_f401re/stm32f401xe/rig",

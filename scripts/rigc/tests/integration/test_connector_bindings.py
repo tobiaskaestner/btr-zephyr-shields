@@ -61,14 +61,13 @@ def test_unified_connector_bindings_are_valid_edtlib_bindings() -> None:
 
 
 def test_fixture_nexus_type_is_registry_visible() -> None:
-    """The ceiling T0 hit, lifted: registry.load_types can see the
-    fixture connector type when pointed at its directory explicitly, and
-    still sees the four real types when it is not — the same function, two
-    different roots, proving the default-preserving fallback rather than
-    merely asserting it. Moved here (not test_reference_shields.py, where
-    it was authored) because the second half asserts directly on
-    repo-production connector-type names -- integration by that half's
-    purpose, and no module may mix unit and integration tests."""
+    """registry.load_types can see the fixture connector type when
+    pointed at its directory explicitly, and still sees the four real
+    types when it is not — the same function, two different roots,
+    proving the default-preserving fallback rather than merely asserting
+    it. Lives here rather than in a unit test because the second half
+    asserts directly on repo-production connector-type names -- no
+    module may mix unit and integration tests."""
     fixture_types, _deps = load_types(
         connector_dirs=[str(FIXTURES_DIR / "dts" / "connectors")],
         header_dirs=[str(FIXTURES_DIR / "include")])

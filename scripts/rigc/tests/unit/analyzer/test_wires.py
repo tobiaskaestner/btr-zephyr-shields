@@ -1,9 +1,7 @@
-"""Wires and route resolution (rigc-r4-brief.md Sec 5). No frozen golden
-covers this family (phys-wire) -- every wording here is hand-differential
-territory (recorded in the slice report), so these tests assert
-structure (code, which endpoint, resolved route) rather than exact
-message text, per the mission brief's "wording stays out of unit tests"
-rule."""
+"""Wires and route resolution. No frozen golden covers this family
+(phys-wire) -- diagnostic wording here is not frozen, so these tests
+assert structure (code, which endpoint, resolved route) rather than exact
+message text, keeping wording out of unit tests."""
 from __future__ import annotations
 
 from rigc.diag import SourceRef
@@ -128,11 +126,10 @@ def test_route_via_an_unknown_position_name_is_phys_wire() -> None:
 
 
 def test_via_route_from_a_multiplug_instance_is_refused() -> None:
-    """multi-plug-shield-brief.md Sec 4/6: a `via: <position>` route
-    resolves through the FROM end's socket's connector type, which is
-    ambiguous when the FROM instance plugs more than one socket -- loud
-    refusal this slice rather than a guessed-at plug, naming the
-    instance (reviewer finding 1 -- previously zero coverage)."""
+    """A `via: <position>` route resolves through the FROM end's socket's
+    connector type, which is ambiguous when the FROM instance plugs more
+    than one socket -- a loud refusal naming the instance, rather than a
+    guessed-at plug."""
     from rigc.analyzer.wires import check_wires
 
     plural_shield = Shield(name="sh2", label="sh2", plugs={"left": "t", "right": "t"})
@@ -155,10 +152,9 @@ def test_via_route_from_a_multiplug_instance_is_refused() -> None:
 
 
 def test_check_wires_never_mutates_the_original_wire() -> None:
-    """Value-shaped, non-mutating (rigc-r4-brief.md Sec 5): the blueprint
-    resolves route: via <name> by mutating wire.route in place; this
-    module returns a NEW Wire list instead, leaving rig.wires' own
-    objects untouched."""
+    """Value-shaped, non-mutating: resolving `route: via <name>` never
+    mutates wire.route in place; this module returns a NEW Wire list
+    instead, leaving rig.wires' own objects untouched."""
     from rigc.analyzer.wires import check_wires
     from rigc.model import BoardSocket
 

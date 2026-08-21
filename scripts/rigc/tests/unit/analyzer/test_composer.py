@@ -1,12 +1,11 @@
 """The composer: `analyze()` assembles every pass's piece into one Solved
-value, in the blueprint's own pass order (rigc-r4-brief.md Sec 2) --
-sockets -> gpio nets -> addresses -> CS -> wires -> net conflicts ->
-labels. This module's OWN subject is the ASSEMBLY, not any one pass's
-algorithm (those are covered where they are named: test_sockets.py,
-test_gpio.py, test_addresses.py, test_cs.py, test_wires.py,
-test_labels.py) -- so it exercises the composer end to end over one tiny
-rig, pinning that Solved's fields actually come from the pass results
-(never a blueprint-style mutable accumulator any pass writes into from
+value, in a fixed pass order -- sockets -> gpio nets -> addresses -> CS ->
+wires -> net conflicts -> labels. This module's OWN subject is the
+ASSEMBLY, not any one pass's algorithm (those are covered where they are
+named: test_sockets.py, test_gpio.py, test_addresses.py, test_cs.py,
+test_wires.py, test_labels.py) -- so it exercises the composer end to end
+over one tiny rig, pinning that Solved's fields actually come from the
+pass results (never a mutable accumulator any pass writes into from
 outside), that skip-don't-abort survives composition, and that
 diagnostics stay ordered pass-by-pass."""
 from __future__ import annotations

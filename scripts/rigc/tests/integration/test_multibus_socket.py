@@ -67,8 +67,8 @@ def _run(rig_yml: Path, out_dir: Path) -> "subprocess.CompletedProcess[str]":
 def test_multibus_accept_both_devices_land_at_cs_index_zero(tmp_path: Path) -> None:
     """Accept case: fixture_spi_sensor (bus: "spi-sensors") and
     fixture_spi_motor (bus: "spi-motors") both mate multibus_socket and
-    both build. The negative control this project's discipline demands
-    (post-cutover-backlog Sec G): both devices may legally share the SAME
+    both build. The negative control this project's discipline demands:
+    both devices may legally share the SAME
     cs-pool INDEX (0) without collision, since they sit on DIFFERENT
     physical SPI buses -- CS allocation is scoped by bus.path, never by
     kind string. Without this assertion, a regression that accidentally
@@ -118,8 +118,8 @@ def test_multibus_reject_unknown_named_bus_is_phys_subset(tmp_path: Path) -> Non
 
 @pytest.mark.build
 def test_multibus_expand_and_build_round_trip(tmp_path: Path) -> None:
-    """The expand+build round trip for the fixture connector (multi-bus-
-    socket schema Sec 6). A REAL `west build-rig` cannot exercise this
+    """The expand+build round trip for the fixture connector. A REAL
+    `west build-rig` cannot exercise this
     fixture connector type at all: registry.load_types's connector_dirs
     override is a standalone-CLI recipe argument (cli.py's own
     --connector-dir), and cmake/dts.cmake's fork never threads it for a

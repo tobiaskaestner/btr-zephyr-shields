@@ -1,4 +1,4 @@
-"""Unit: loader.delta -- base topology parsing and the V1b delta engine.
+"""Unit: loader.delta -- base topology parsing and the delta engine.
 
 The stable contracts: delta operations over a synthetic effective
 topology (match/add/remove for instances and wires, `removed_by`
@@ -6,15 +6,15 @@ propagation), and diagnostic ORDERING on a multi-error synthetic input --
 composed upward in document/traversal order, never accumulated into a
 side channel.
 
-R3 closes R2's ShieldRef seam: `parse_instance`/`apply_delta` now resolve
-`shield:` against a REAL (synthetic, hermetic) `ShieldLibrary` built
-in-process from a hand-constructed `Shield` value -- never a filesystem
-scan, never cpp (the cpp/unit-test seam, rigc-r3-brief.md Sec 2). Params/
-pin application and wire node-existence/ambiguity checks get their own
-unit coverage in test_params.py; this module's tests exercise the SHIELD
-RESOLUTION seam itself (a resolve() that succeeds, fails "unknown shield",
-or is never reached because a required key is missing) plus everything
-that needs no shield data at all (removal/collision/ordering mechanics).
+`parse_instance`/`apply_delta` resolve `shield:` against a REAL
+(synthetic, hermetic) `ShieldLibrary` built in-process from a
+hand-constructed `Shield` value -- never a filesystem scan, never cpp.
+Params/pin application and wire node-existence/ambiguity checks get
+their own unit coverage in test_params.py; this module's tests exercise
+the SHIELD RESOLUTION seam itself (a resolve() that succeeds, fails
+"unknown shield", or is never reached because a required key is
+missing) plus everything that needs no shield data at all
+(removal/collision/ordering mechanics).
 """
 from __future__ import annotations
 
@@ -111,10 +111,9 @@ def test_parse_instance_applies_the_socket_binding(tmp_path) -> None:
 
 
 def test_parse_instance_socket_is_optional(tmp_path) -> None:
-    """socket-inference-brief.md Sec 2: the loader never sees the board
-    and so must not be the one requiring a socket to be named -- omitting
-    socket: parses cleanly, carrying `None` through for the analyzer to
-    infer later."""
+    """The loader never sees the board and so must not be the one
+    requiring a socket to be named -- omitting socket: parses cleanly,
+    carrying `None` through for the analyzer to infer later."""
     lib = _library(_shield("sh"))
     item = _doc(tmp_path, """\
         name: a
@@ -137,7 +136,7 @@ def test_parse_instance_missing_required_key_returns_diagnostic(tmp_path) -> Non
     assert diags[0].code == "lang-schema"
 
 
-# ---------------------------------------------------------- sockets:/socket: (multi-plug-shield-brief.md Sec 2)
+# ---------------------------------------------------------- sockets:/socket:
 
 def test_parse_instance_plural_shield_builds_the_sockets_map(tmp_path) -> None:
     lib = _library(_plural_shield("sh2"))
@@ -236,7 +235,7 @@ def test_parse_instance_single_plug_shield_named_other_than_plug_keys_by_its_own
     literal "plug". A shield whose plug node is named 'north' must get
     its authored socket: keyed 'north' -- keying it 'plug' instead would
     match no slot of `shield.plugs` and silently fall back to per-slot
-    inference (reviewer finding 1.3)."""
+    inference."""
     shield = Shield(name="sh4", label="sh4", plugs={"north": "synthetic-type"},
                     src=SourceRef("synthetic", 1))
     lib = _library(shield)
@@ -297,9 +296,8 @@ def test_resolve_dotted_rejects_unknown_instance(tmp_path) -> None:
 
 
 def test_resolve_dotted_rejects_unknown_node_in_the_shield(tmp_path) -> None:
-    """R3 closes the R2 deferral: node existence is now validated via
-    Shield.by_name (no frozen golden covers this wording -- hand-
-    differential rule, recorded in the slice report)."""
+    """Node existence is validated via Shield.by_name (no frozen golden
+    covers this wording)."""
     doc = _doc(tmp_path, """\
         x: a.no-such-node
         """)
@@ -312,10 +310,10 @@ def test_resolve_dotted_rejects_unknown_node_in_the_shield(tmp_path) -> None:
 
 def test_resolve_dotted_rejects_ambiguous_node(tmp_path) -> None:
     """A LABEL matching more than one of pads/devices/straps is ambiguous
-    (Shield.by_name's own contract, item 29: the scope resolves by
-    label) -- exercised here via a pad and a device sharing a LABEL
-    while their node names differ, the simplest synthetic collision
-    that survives the move off node-name matching."""
+    (Shield.by_name's own contract: the scope resolves by label) --
+    exercised here via a pad and a device sharing a LABEL while their
+    node names differ, the simplest synthetic collision that survives
+    the move off node-name matching."""
     shield = _shield("sh")
     shield.pads["dup"] = Pad(name="dup", label="dup", role="bidir", of=None)
     shield.by_path["p1"] = shield.pads["dup"]
@@ -634,12 +632,12 @@ def test_instance_patch_shield_swap_drops_the_old_params(tmp_path) -> None:
 
 def test_instance_patch_shield_swap_to_differently_shaped_shield_resets_stale_sockets(
         tmp_path) -> None:
-    """Reviewer finding 3: swapping to a shield whose slot-name set
-    differs from the carried-forward sockets map (single<->plural, or
-    between differently-shaped plurals) with no `sockets:`/`socket:`
-    restatement must not leave stale keys behind -- every slot would
-    otherwise silently fall back to per-slot inference with no
-    diagnostic. Mirrors the params reset immediately above."""
+    """Swapping to a shield whose slot-name set differs from the
+    carried-forward sockets map (single<->plural, or between
+    differently-shaped plurals) with no `sockets:`/`socket:` restatement
+    must not leave stale keys behind -- every slot would otherwise
+    silently fall back to per-slot inference with no diagnostic. Mirrors
+    the params reset immediately above."""
     old_shield = _plural_shield("sh2", plugs={"left": "t", "right": "t"})
     new_shield = _shield("sh3")   # single-plug: one slot, named "plug"
     topology = _topology_with("a", shield=old_shield)
@@ -676,8 +674,9 @@ def test_instance_patch_shield_swap_to_same_shaped_shield_carries_sockets_forwar
 def test_instance_patch_params_without_shield_change_runs_the_restate_check(
         tmp_path) -> None:
     """params: for an instance whose shield: is UNCHANGED must restate
-    every already-assigned property (rule 11) -- the glue that decides
-    WHEN to call check_restate lives in `_apply_instance_patch`."""
+    every already-assigned property -- omitting one is rejected, not
+    silently kept. The glue that decides WHEN to call check_restate
+    lives in `_apply_instance_patch`."""
     dev = Device(name="d", label="dl", compatible=None, bus="i2c", group=None,
                 reg=None, addr_from=None, cs_position=None,
                 declared_params=["vnd,threshold"])

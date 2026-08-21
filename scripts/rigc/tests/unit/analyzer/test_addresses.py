@@ -1,18 +1,16 @@
-"""Where and how the final I2C address is calculated (mission brief Sec 6's
-acid test, applied to addresses rather than cs-gpios -- rigc-r45-brief.md
-Part C): `allocate_scope_addresses` is THE algorithm, extracted from
-`_allocate_scope` as a value-shaped contract -- given one scope's members
-in R18 allocation order (some copper-fixed, some rig-pinned, some free),
-each already carrying its own address(es), assign every member an address
-(+ strap state), or report why not (an out-of-domain pin, a same-address
-conflict, or a free member's domain exhausted).
+"""Where and how the final I2C address is calculated: `allocate_scope_addresses`
+is THE algorithm, extracted from `_allocate_scope` as a value-shaped contract
+-- given one scope's members in their fixed allocation order (some
+copper-fixed, some rig-pinned, some free), each already carrying its own
+address(es), assign every member an address (+ strap state), or report why
+not (an out-of-domain pin, a same-address conflict, or a free member's
+domain exhausted).
 
 Every test here constructs plain AddressMember values directly -- no
 Rig, Instance, Shield, Device, or BoardSocket anywhere -- proving the
-contract needs no scenario to exercise (rigc-mission-brief.md Sec 5's
-"a reject is not a unit concern ... this layer is new coverage of a
-different subject", the same standard `test_cs.py` already meets for CS
-allocation)."""
+contract needs no larger scenario to exercise: a reject here is not a unit
+concern, it is new coverage of a different subject, the same standard
+`test_cs.py` already meets for CS allocation."""
 from __future__ import annotations
 
 from rigc.analyzer.addresses import (AddressMember, AddressPlacement,
@@ -117,9 +115,8 @@ def test_exhaustion_is_per_member_not_all_or_nothing() -> None:
 
 def test_two_free_members_of_one_call_do_not_collide_with_each_other() -> None:
     """Each placement's address is added to the shared `taken` map before
-    the next member is considered -- matching the blueprint's single
-    sequential pass, where each registration is visible to every later
-    member of the scope."""
+    the next member is considered: a single sequential pass where each
+    registration is visible to every later member of the scope."""
     members = [
         AddressMember(identity="a", free=((0x10, 0), (0x11, 1))),
         AddressMember(identity="b", free=((0x10, 0), (0x11, 1))),

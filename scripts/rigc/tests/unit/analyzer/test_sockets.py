@@ -1,5 +1,5 @@
-"""Mating and socket resolution, with carrier/mux composition
-(rigc-r4-brief.md Sec 3). `mating_ok`/`subset_gaps` are the plug-vs-socket
+"""Mating and socket resolution, with carrier/mux composition.
+`mating_ok`/`subset_gaps` are the plug-vs-socket
 and needed-vs-offered decisions as pure value functions over plain
 strings/sets. `compose_socket` is exercised directly against synthetic
 ExposedSocket/BoardSocket values -- no Instance/Rig/Shield needed to call
@@ -76,13 +76,12 @@ def test_compose_socket_position_the_parent_fragment_never_routes_stays_local() 
     assert 2 not in socket.gpio_map
 
 
-# --------------------------------------- pwm/adc pass-through (carrier-analog-passthrough-brief.md)
+# --------------------------------------- pwm/adc pass-through
 
 
 def test_compose_socket_pwm_passes_through_a_routed_position() -> None:
-    """The PWM twin of the gpio witness above -- SAME shape, mirroring
-    Sec 2's own unification (pwm/adc share ONE branch's worth of
-    treatment, never a half-done one)."""
+    """The PWM twin of the gpio witness above -- SAME shape: pwm and adc
+    share one branch's worth of treatment, never a half-done one."""
     parent = _parent()
     parent.pwm_map = {0: ("tcc0", 0)}
     parent.pwm_cells = 2
@@ -117,7 +116,7 @@ def test_compose_socket_adc_passes_through_a_routed_position() -> None:
 
 
 def test_compose_socket_pwm_and_adc_together_on_one_exposed_socket() -> None:
-    """Mixed-socket acceptance criterion, at the composition level: ONE
+    """Mixed-socket support, at the composition level: ONE
     exposed socket carrying both a pwm row and an adc row composes BOTH
     onto the same BoardSocket -- never one silently winning."""
     parent = _parent()
@@ -140,9 +139,9 @@ def test_compose_socket_pwm_and_adc_together_on_one_exposed_socket() -> None:
 
 
 def test_compose_socket_pwm_row_the_parent_does_not_route_is_an_error_not_a_silent_drop() -> None:
-    """Ruling 2 (Tobi, 2026-08-14): unlike gpio's own 'stays socket-local'
-    silent drop, an unrouted PWM/ADC position is not a meaningful net --
-    it must be a loud phys-subset error."""
+    """Unlike gpio's own 'stays socket-local' silent drop, an unrouted
+    PWM/ADC position is not a meaningful net -- it must be a loud
+    phys-subset error."""
     parent = _parent()
     parent.pwm_map = {}   # parent offers no pwm at all
     parent.pwm_cells = None
@@ -156,7 +155,7 @@ def test_compose_socket_pwm_row_the_parent_does_not_route_is_an_error_not_a_sile
     assert 5 not in socket.pwm_map
     # the cells mismatch (2 vs None) would ALSO fire; isolate this test to
     # the route-missing sentence by giving the parent the SAME declared
-    # count so only ruling 2's check can possibly trip.
+    # count so only the route-missing check can possibly trip.
 
 
 def test_compose_socket_pwm_row_unrouted_is_phys_subset_with_position_and_parent_named() -> None:
@@ -197,7 +196,7 @@ def test_compose_socket_adc_row_unrouted_is_phys_subset() -> None:
 
 
 def test_compose_socket_pwm_cells_mismatch_is_refused_naming_both_counts_and_sides() -> None:
-    """RULED require-and-check (Tobi, 2026-08-14): a carrier does not get
+    """A carrier does not get
     to choose its own cell count -- a declared count disagreeing with the
     resolved parent's is refused, naming BOTH numbers and both sides (the
     carrier's shield name, the parent socket's own label) so a reader can
@@ -242,8 +241,9 @@ def test_compose_socket_adc_cells_mismatch_is_refused() -> None:
 def test_compose_socket_no_pwm_map_at_all_yields_no_pwm_cells_or_nexus_rows() -> None:
     """Declared by absence: an exposed socket authoring no pwm-map at all
     composes a socket with pwm_cells=None and empty nexus rows -- never a
-    guessed count or a phantom nexus block (L3's own emit guard depends
-    on this being genuinely empty, not just falsy)."""
+    guessed count or a phantom nexus block (the emitter's guard against
+    rendering a pwm nexus block depends on this being genuinely empty,
+    not just falsy)."""
     parent = _parent()
     exposed = ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
                             gpio_map={}, buses={})
@@ -272,7 +272,7 @@ def test_compose_socket_bus_pass_through() -> None:
 
 
 def test_compose_socket_bus_pass_through_selects_by_kind_not_exact_name() -> None:
-    """Sec 2: the child-side qualified name is independent of the
+    """The child-side qualified name is independent of the
     parent-side name -- a pass-through selects the parent's bus of the
     same KIND, so a child asking for bare "spi" is satisfied by a
     parent's role-suffixed "spi-sensors" (its only spi-kind bus)."""
@@ -288,7 +288,7 @@ def test_compose_socket_bus_pass_through_selects_by_kind_not_exact_name() -> Non
 
 
 def test_compose_socket_pass_through_without_parent_bus_is_phys_subset() -> None:
-    """R19 pass-through needs the parent to actually provide the bus it
+    """A pass-through needs the parent to actually provide the bus it
     passes through -- a carrier claiming to pass through SPI when its own
     parent socket offers none is rejected."""
     parent = _parent(buses={})
@@ -305,7 +305,7 @@ def test_compose_socket_pass_through_without_parent_bus_is_phys_subset() -> None
 
 def test_compose_socket_pass_through_parent_lacking_kind_is_slot_qualified_when_plural() -> None:
     """The same phys-subset refusal, but the carrier is plural: the
-    message names the parent's own SLOT (Sec 4's rendering rule)."""
+    message names the parent's own SLOT."""
     left = _parent(buses={}, path="/left", label="fx_left")
     right = _parent(buses={"spi": BusRef(label="spi1", path="/spi1")}, path="/right", label="fx_right")
     exposed = ExposedSocket(name="combined", label="combined", type_name="mikrobus",
@@ -321,8 +321,8 @@ def test_compose_socket_pass_through_parent_lacking_kind_is_slot_qualified_when_
 
 
 def test_compose_socket_pass_through_ambiguous_parent_kind_is_refused() -> None:
-    """Sec 2's ambiguity refusal: a parent offering MORE than one bus of
-    the queried kind is a loud, not-yet-supported error, never a guess."""
+    """A parent offering MORE than one bus of
+    the queried kind is refused with a loud, not-yet-supported error, never a guess."""
     parent = _parent(buses={
         "spi-sensors": BusRef(label="spi0", path="/spi0"),
         "spi-motors": BusRef(label="spi1", path="/spi1"),
@@ -339,7 +339,7 @@ def test_compose_socket_pass_through_ambiguous_parent_kind_is_refused() -> None:
 
 
 def test_compose_socket_scope_creation_registers_a_scope_entry() -> None:
-    """S8: a bus routed to a DEVICE of the shield (not the plug) creates a
+    """A bus routed to a DEVICE of the shield (not the plug) creates a
     NEW scope, keyed by the composing instance's own socket reference."""
     parent = _parent(buses={"i2c": BusRef(label="i2c1", path="/i2c1")})
     exposed = ExposedSocket(name="ch0", label="ch0", type_name="i2c-mux-ch",
@@ -360,8 +360,7 @@ def test_compose_socket_cs_pool_override_travels_to_the_composed_bus() -> None:
     socket as a whole, so this override's destination is the SAME kind's
     composed BusRef.cs_pool, not a socket-level field. The parent's OWN
     per-bus BusRef.cs_pool (here [16, 15, 14], as if edtlib-backfilled)
-    must NOT leak through instead -- that was the regression this test
-    guards against."""
+    must NOT leak through instead."""
     parent = _parent(buses={"spi": BusRef(label="spi0", path="/spi0",
                                           cs_pool=[16, 15, 14])})
     exposed = ExposedSocket(name="mb1", label="mb1", type_name="mikrobus",
@@ -467,7 +466,7 @@ def test_resolve_sockets_finds_a_direct_board_socket() -> None:
 
 
 def test_resolve_sockets_finds_a_board_socket_by_its_conventional_alias() -> None:
-    """board-as-invocation-coordinate-brief.md Sec 2.1: a socket node's
+    """A socket node's
     SECOND (conventional) label must resolve exactly like its defining
     one -- resolve_sockets goes through Board.resolve, not a bare
     board.sockets.get, precisely so this works."""
@@ -513,7 +512,7 @@ def test_resolve_sockets_single_plug_shield_named_other_than_plug_honors_authore
     (were it to run instead of honoring the authored reference), so a
     clean, diagnostic-free resolve to the explicitly named socket proves
     the authored socket: was actually read, not silently dropped for
-    inference (reviewer finding 1.3)."""
+    inference."""
     board = Board(name="b", sockets={
         "ard1": BoardSocket(label="ard1", path="/ard1", type_name="arduino-r3",
                             gpio_map={}, buses={}),
@@ -593,8 +592,8 @@ def test_resolve_sockets_carrier_chain_composes() -> None:
 
 def test_resolve_sockets_carrier_exposed_socket_resolves_by_label_not_node_name() -> None:
     """`socket: <carrier>.<exposed>` resolves by the exposed node's DTS
-    LABEL (item 30), exactly like config:/params:/wires: already do (item
-    29) -- proven here with a label that DIFFERS from the node name,
+    LABEL, exactly like config:/params:/wires: already do
+    -- proven here with a label that DIFFERS from the node name,
     since the real corpus's own 8 exposed nodes all happen to share the
     two spellings and so cannot show which one actually resolves."""
     board = Board(name="b", sockets={
@@ -642,8 +641,7 @@ def test_resolve_sockets_carrier_exposed_socket_node_name_is_refused_once_it_dif
 
 
 def test_resolve_sockets_plural_carrier_slot_plugs_another_carriers_exposed_socket() -> None:
-    """Chains recurse over a PLURAL carrier too (multi-plug-carrier-
-    brief.md Sec 4): bridge's own 'left' slot plugs single_carrier's
+    """Chains recurse over a PLURAL carrier too: bridge's own 'left' slot plugs single_carrier's
     exposed socket (a single-plug carrier one level down), its 'right'
     slot plugs a board socket directly, and bridge itself exposes a
     combined socket a leaf instance plugs -- three levels deep, the
@@ -753,7 +751,7 @@ def test_resolve_sockets_skips_a_failed_instance_but_keeps_going() -> None:
 
 
 def test_resolve_sockets_two_labels_for_one_socket_still_caught_as_not_stackable() -> None:
-    """socket-inference-brief.md Sec 6: since a board socket can be named
+    """Since a board socket can be named
     by either its defining label or a conventional alias, two instances
     naming the SAME physical socket through DIFFERENT strings must still
     collide -- the exclusivity check is keyed by the RESOLVED socket, not
@@ -777,7 +775,7 @@ def test_resolve_sockets_two_labels_for_one_socket_still_caught_as_not_stackable
     assert "not stackable" in diags[0].message
 
 
-# ---------------------------------------------------------------- socket inference (Sec 1/2)
+# ---------------------------------------------------------------- socket inference
 
 
 def test_resolve_sockets_infers_the_sole_mating_candidate_silently() -> None:
@@ -815,7 +813,7 @@ def test_resolve_sockets_inference_zero_candidates_names_plug_type_and_offerings
 
 
 def test_resolve_sockets_inference_two_candidates_rejects_rather_than_tie_breaks() -> None:
-    """The control Sec 8 calls out by name: an implementation that
+    """An implementation that
     tie-breaks between several mating sockets passes the single-candidate
     test above and fails only here. Two sockets of the same mating type
     must be listed and the instance must be rejected -- never resolved to
@@ -838,7 +836,7 @@ def test_resolve_sockets_inference_two_candidates_rejects_rather_than_tie_breaks
 
 
 def test_resolve_sockets_inference_never_considers_carrier_exposed_sockets() -> None:
-    """RULING 1 (Sec 4): candidates are BOARD sockets only. A carrier
+    """Candidates are BOARD sockets only. A carrier
     exposing a socket of the mating type must not make it a candidate --
     otherwise inference would depend on which carriers happen to already
     be parsed, an order-dependence the delta engine exists to avoid. The
@@ -863,7 +861,7 @@ def test_resolve_sockets_inference_never_considers_carrier_exposed_sockets() -> 
 
 
 def test_resolve_sockets_inference_obeys_the_existing_stacking_rule() -> None:
-    """RULING 2 (Sec 5): two instances that each infer the SAME socket are
+    """Two instances that each infer the SAME socket are
     subject to the ordinary stackability check, not a rule of inference's
     own -- a non-stackable type still rejects the second instance even
     though neither one named a socket."""
@@ -887,7 +885,7 @@ def _ctype(name: str = "arduino-r3", stackable: bool = True) -> ConnectorType:
                         stackable=stackable, cs_pool={})
 
 
-# ---------------------------------------------------------------- per-slot resolution (multi-plug-shield-brief.md Sec 4)
+# ---------------------------------------------------------------- per-slot resolution
 
 
 def _plural_shield(plugs: dict, devices=None) -> Shield:
@@ -923,7 +921,7 @@ def test_resolve_sockets_per_slot_inference_resolves_each_slot_independently() -
 def test_resolve_sockets_per_slot_inference_ambiguity_is_slot_qualified() -> None:
     """Two same-type slots on a board with two candidates: BOTH slots
     refuse independently -- no bipartite matching, no tie-break between
-    slots (Sec 4)."""
+    slots."""
     board = Board(name="b", sockets={
         "ard1": BoardSocket(label="ard1", path="/ard1", type_name="arduino-r3",
                            gpio_map={}, buses={}),
@@ -943,7 +941,7 @@ def test_resolve_sockets_per_slot_inference_ambiguity_is_slot_qualified() -> Non
 
 
 def test_resolve_sockets_per_slot_subset_needed_from_that_slots_own_devices_only() -> None:
-    """Sec 4: a bus needed only by slot 'right' must never be demanded of
+    """A bus needed only by slot 'right' must never be demanded of
     slot 'left''s socket -- the ACCEPT half (both slots' own needs are
     satisfied by their own sockets)."""
     from rigc.model import Device
@@ -993,7 +991,7 @@ def test_resolve_sockets_per_slot_subset_gap_names_the_right_slot_and_socket() -
 
 
 def test_resolve_sockets_distinct_slots_resolving_to_one_physical_socket_is_rejected() -> None:
-    """Sec 4: one physical connector cannot take two plugs at once --
+    """One physical connector cannot take two plugs at once --
     checked regardless of the stackability census (which would only
     catch this as a non-stackable-type collision, with a message that
     counts instances rather than slots)."""
@@ -1017,7 +1015,7 @@ def test_resolve_sockets_distinct_slots_resolving_to_one_physical_socket_is_reje
 
 
 def test_resolve_sockets_single_slot_shield_diagnostics_stay_unqualified() -> None:
-    """Criterion 1's load-bearing property, pinned directly: a single-
+    """A load-bearing property, pinned directly: a single-
     slot shield's own diagnostics carry NO slot qualifier -- byte-
     identical to every diagnostic this module emitted before plurality."""
     board = Board(name="b", sockets={})

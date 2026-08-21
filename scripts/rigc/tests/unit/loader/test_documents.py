@@ -1,17 +1,14 @@
 """Unit: loader.documents -- the document model.
 
 Two contracts live here: content/fragment filename CONSTRUCTION
-(construct-don't-parse, the Q6 discipline: filenames derive from the
-rig's own declared name: and a selected axis value, NEVER from the
-folder the rig happens to live in), and require()'s missing-key
-structure (a stable contract -- code, severity, anchor -- even though
-the wording itself is a no-golden diagnostic, hand-differentialed
-separately, not duplicated here). A third contract used to live here --
-the metadata/content key split, board:/sockets: rejected out of any
-content document -- retired along with that grammar
-(board-coordinate-s6-brief.md Sec 11): neither key is rig.yml metadata
-any more, so nothing about a content document needs to reject them
-specially.
+(construct-don't-parse: filenames derive from the rig's own declared
+name: and a selected axis value, NEVER from the folder the rig happens
+to live in), and require()'s missing-key structure (a stable contract --
+code, severity, anchor -- even though the wording itself is a
+no-golden diagnostic, hand-differentialed separately, not duplicated
+here). A content document has no metadata/content key split to enforce:
+board:/sockets: are not rig.yml metadata, so nothing about a content
+document needs to reject them specially.
 
 The anchor-line contract rides along: an anchor carries the VALUE node's
 start line (a scalar value sits on its key's line; a nested mapping

@@ -132,16 +132,14 @@ def test_instances_without_a_resolved_socket_are_skipped() -> None:
     assert diags == []
 
 
-def test_allocate_cs_never_mutates_the_gpio_passes_nets(  # R4 review, D1
-        ) -> None:
+def test_allocate_cs_never_mutates_the_gpio_passes_nets() -> None:
     """`nets_before` is ANOTHER pass's returned value: allocate_cs may
     read it (occupancy) but never write into it -- the symmetric twin of
-    test_wires' own never-mutates contract. The defect this pins shut:
-    a shallow dict copy SHARED the per-key claim lists, so a copper-fixed
-    CS landing on an already-claimed net appended into gpio_result.nets
-    -- the claim then counted twice after merge_nets, flipping a phys-net
-    conflict report into a duplicated-claim phys-cs one and corrupting
-    Solved.nets (R5's input)."""
+    test_wires' own never-mutates contract. A copper-fixed CS landing on
+    an already-claimed net must add its own claim to THIS pass's result
+    only, never append into the caller's `nets_before` claim lists (a
+    shared list there would double-count the claim after merge_nets and
+    corrupt the composer's merged net view)."""
     from rigc.analyzer.gpio import NetClaim, merge_nets, soc_net
 
     dev = _dev("flash", cs_position=16)     # copper-fixed: placed regardless

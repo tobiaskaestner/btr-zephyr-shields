@@ -1,8 +1,7 @@
-"""Net identity and GPIO/PWM/ADC claim collection (rigc-r4-brief.md Sec 4).
-`role_of` and `soc_net` are the two ALREADY-value-shaped contracts the
-mission brief names explicitly (Sec 6): both are pure functions of a
-property name / (socket, position) pair, asserted here with no scenario
-at all. `check_nets` is exercised directly against constructed
+"""Net identity and GPIO/PWM/ADC claim collection.
+`role_of` and `soc_net` are two value-shaped contracts: both are pure
+functions of a property name / (socket, position) pair, asserted here
+with no scenario at all. `check_nets` is exercised directly against constructed
 NetClaim/Nets values -- no Rig needed, since a net's conflict-or-not
 outcome is a function of its claim list alone. `collect_gpio_nets` (the
 pass itself) gets one minimal constructed Rig, to pin position/jumper
@@ -51,7 +50,7 @@ def test_soc_net_resolves_through_the_gpio_map() -> None:
 
 
 def test_soc_net_two_sockets_sharing_a_pin_are_the_same_net() -> None:
-    """R13: two DIFFERENT sockets whose positions map to the same SoC pin
+    """Two DIFFERENT sockets whose positions map to the same SoC pin
     are the SAME net identity."""
     a = _socket(gpio_map={0: ("gpioa", 5, 0)}, path="/a", label="a")
     b = _socket(gpio_map={3: ("gpioa", 5, 0)}, path="/b", label="b")
@@ -236,16 +235,15 @@ def test_collect_gpio_nets_channel_ref_missing_map_entry_is_phys_function() -> N
     assert result.nets == {}
     assert len(diags) == 1
     assert diags[0].code == "phys-function"
-    # the wart fix (carrier-analog-passthrough-brief.md Sec 5): the old
-    # message named "socket,pwm-map", a property that does not exist --
-    # the real DTS spelling is "pwm-map" (io-channel-map for ADC).
+    # The diagnostic must name the real DTS property, "pwm-map" -- never
+    # the nonexistent "socket,pwm-map".
     assert "pwm-map" in diags[0].message
     assert "socket,pwm-map" not in diags[0].message
 
 
 def test_collect_gpio_nets_channel_ref_missing_map_entry_names_the_real_adc_property() -> None:
-    """The ADC twin of the wart fix above: "io-channel-map", never the
-    nonexistent "socket,adc-map"."""
+    """The ADC twin of the case above: the diagnostic names the real DTS
+    property, "io-channel-map", never the nonexistent "socket,adc-map"."""
     socket = _socket()   # no adc_map at all
     dev = _dev("sensor")
     dev.function_refs.append(FunctionRef(prop="io-channels", position=0, flags=0,
@@ -266,10 +264,9 @@ def test_collect_gpio_nets_channel_ref_missing_map_entry_names_the_real_adc_prop
 def test_collect_gpio_nets_nonzero_pwm_flags_is_phys_function_on_a_2cell_socket() -> None:
     """A 2-cell socket's PWM emission carries only (position, period) -- no
     cell for flags -- so a nonzero flags value is rejected rather than
-    silently dropped (pwm-nonzero-flags). CONDITIONAL on the socket's own
-    pwm_cells (three-cell-pwm-brief.md Sec 3c) -- pinned == 2 here, the
-    genuinely-nowhere-to-put-it case; see the 3-cell twin below for the
-    other half of the pair."""
+    silently dropped (pwm-nonzero-flags). This depends on the socket's own
+    pwm_cells count -- pinned to 2 here, the genuinely-nowhere-to-put-it
+    case; see the 3-cell twin below for the other half of the pair."""
     socket = _socket(gpio_map={0: ("gpioa", 3, 0)})
     socket.pwm_map[0] = ("tcc0", 0)
     socket.pwm_cells = 2
@@ -292,9 +289,9 @@ def test_collect_gpio_nets_nonzero_pwm_flags_is_phys_function_on_a_2cell_socket(
 
 
 def test_collect_gpio_nets_nonzero_pwm_flags_is_carried_on_a_3cell_socket() -> None:
-    """The other half of the pair (three-cell-pwm-brief.md Sec 3c): a
-    3-cell socket has a real cell for flags, so the identical nonzero
-    flags value is carried through to result.channels, never refused."""
+    """The other half of the pair: a 3-cell socket has a real cell for
+    flags, so the identical nonzero flags value is carried through to
+    result.channels, never refused."""
     socket = _socket(gpio_map={0: ("gpioa", 3, 0)})
     socket.pwm_map[0] = ("tcc0", 0)
     socket.pwm_cells = 3

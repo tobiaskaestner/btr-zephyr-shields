@@ -1,6 +1,6 @@
-"""Emission feasibility of generated labels (rigc-r4-brief.md Sec 5): the
-deterministic `<instance>_<shield label>` scheme must be collision-free --
-checked over minimal constructed Rig/Instance/Device values."""
+"""Emission feasibility of generated labels: the deterministic
+`<instance>_<shield label>` scheme must be collision-free -- checked over
+minimal constructed Rig/Instance/Device values."""
 from __future__ import annotations
 
 from rigc.analyzer.labels import check_labels
@@ -34,8 +34,8 @@ def test_two_devices_of_one_instance_generate_distinct_labels() -> None:
 
 def test_a_generated_label_collision_is_phys_label() -> None:
     """Two devices whose SHIELD-LOCAL labels are identical, on the same
-    instance, generate the identical <instance>_<label> pair -- R10's
-    deterministic naming cannot disambiguate them."""
+    instance, generate the identical <instance>_<label> pair -- the
+    deterministic naming scheme cannot disambiguate them."""
     rig = Rig(name="r", instances=[
         _inst("i1", _dev("a", "same"), _dev("b", "same")),
     ])

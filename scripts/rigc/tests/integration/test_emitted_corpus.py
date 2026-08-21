@@ -75,9 +75,8 @@ from rigc import board  # noqa: E402
 @pytest.mark.parametrize("case", ALL_CASES, ids=lambda c: c.name)
 def test_corpus_rig_identity(case: RigCase) -> None:
     """Guard the corpus table against drift: a rig's folder under
-    boards/rigs/ and its rig.yml rig.name must be the identical string
-    (Ground rule elsewhere in the front-end spec) — RigCase.name serves
-    as both."""
+    boards/rigs/ and its rig.yml rig.name must be the identical
+    string — RigCase.name serves as both."""
     with open(rig_dir(case.name) / "rig.yml") as f:
         doc = yaml.safe_load(f)
     assert doc["rig"]["name"] == case.name
@@ -88,7 +87,7 @@ def test_corpus_complete() -> None:
     newly added rig must be frozen into the goldens, never silently skipped.
 
     Recursive (rglob, not a flat iterdir): five rigs live one level deeper,
-    under boards/rigs/clash/ (clash-rigs-folder-brief.md) -- a flat scan
+    under boards/rigs/clash/ -- a flat scan
     would silently drop them from `live`, and this test exists precisely
     to catch a rig going missing, so it must not itself be blind to one
     that moved."""
@@ -98,8 +97,7 @@ def test_corpus_complete() -> None:
 
 
 def test_no_rig_declares_a_board() -> None:
-    """S6 acceptance criterion 1 (board-coordinate-s6-brief.md Sec 8):
-    board leaves rig.yml entirely -- a rig describes a topology; the
+    """board leaves rig.yml entirely -- a rig describes a topology; the
     invocation supplies the board. Scans every rig.yml under boards/
     rigs/ for a literal `board` key in EITHER legal declaration shape
     binding.resolve_board still accepts (a top-level rig.board:, or one
@@ -108,18 +106,18 @@ def test_no_rig_declares_a_board() -> None:
     THIRD shape (or a board: nested somewhere unexpected) would still be
     caught rather than silently missed.
 
-    binding.resolve_board itself still ACCEPTS a declared board (S1's
-    inversion made it a default, never removed the grammar) -- this test
+    binding.resolve_board itself still ACCEPTS a declared board (a
+    default, not a removed grammar) -- this test
     is a fact about what the CORPUS currently declares, not a schema-
     level prohibition the loader enforces.
 
     Census-style: falsified by mutating the WORLD it observes -- add a
     board: key back to any rig's rig.yml -- never by editing this
-    assertion (S5's test_no_rig_content_names_a_board_prefixed_socket,
+    assertion (test_no_rig_content_names_a_board_prefixed_socket,
     just below, is the shape this follows).
 
     rglob, not a flat glob("*/rig.yml") -- five rigs live one level
-    deeper, under boards/rigs/clash/ (clash-rigs-folder-brief.md)."""
+    deeper, under boards/rigs/clash/."""
     def _board_key_paths(node: object, path: str) -> List[str]:
         found: List[str] = []
         if isinstance(node, dict):
@@ -140,14 +138,14 @@ def test_no_rig_declares_a_board() -> None:
         if keys:
             offenders.append(f"{rig_yml.relative_to(RIGS_DIR)}: {', '.join(keys)}")
     assert not offenders, (
-        "board: leaves rig.yml entirely (board-coordinate-s6-brief.md) -- "
+        "board: is not part of rig.yml's grammar -- "
         f"the invocation supplies it, never the declaration: {offenders}")
 
 
 def test_no_rig_content_names_a_board_prefixed_socket() -> None:
-    """S5 acceptance criterion 5 (board-coordinate-s5-brief.md Sec 6): once
-    a board's socket carries a CONVENTIONAL alias (Ruling 1, parent brief
-    Sec 2), a rig's own content naming the board-prefixed DEFINING label
+    """Once
+    a board's socket carries a CONVENTIONAL alias, a rig's own content
+    naming the board-prefixed DEFINING label
     directly is a portability bug, not a style choice -- it can only ever
     build against that one board, exactly what board-as-coordinate exists
     to undo.
@@ -159,24 +157,18 @@ def test_no_rig_content_names_a_board_prefixed_socket() -> None:
     whose socket carries only ONE label that is already conventional
     (seeeduino_lotus's grove_d2/d4/...) contributes nothing to this set --
     Board.aliases only ever holds a node's SECOND-and-later labels -- so
-    lotus's own content is never flagged, matching Sec 2's census that
-    lotus already conforms.
+    lotus's own content is never flagged.
 
-    ard_datalogger was the one ruled exception (Sec 5.1) before S6: its
-    content named the ABSTRACT `ard`, resolved per-variant through
-    rig.yml's own sockets: map rather than a board-side alias at all.
-    board-coordinate-s6-brief.md Sec 5 collapsed that map (both boards
-    already carried the SAME conventional alias, arduino_r3, since S5)
-    and migrated the content to name it directly -- so this rig is no
-    longer excluded, and IS now covered by the same census as every
-    other rig's content.
+    ard_datalogger's content now names the conventional arduino_r3 alias
+    directly (both its boards carry the SAME alias), so it is covered by
+    the same census as every other rig's content, with no exclusion.
 
     Census-style: falsified by mutating the WORLD it observes -- add a
     board-prefixed socket: to any OTHER rig's content file -- never by
     editing this assertion.
 
     rglob("*.yml"), not a flat glob("*/*.yml") -- five rigs live one level
-    deeper, under boards/rigs/clash/ (clash-rigs-folder-brief.md)."""
+    deeper, under boards/rigs/clash/."""
     forbidden = {defining
                  for cb in board.census_boards()
                  for defining in cb.board.aliases.values()}
@@ -271,8 +263,7 @@ def test_unknown_board_golden(tmp_path: Path) -> None:
     rejected with a phys-board diagnostic before pass 1 ever tries to
     read any devicetree. No corpus rig exercises this path (every corpus
     rig names a real, existing board). An injected unknown board is
-    still a real error (board-coordinate-s6-brief.md Sec 11's own
-    judgement call) -- the diagnostic is unchanged by where the name
+    still a real error -- the diagnostic is unchanged by where the name
     came from, load_board never learns the difference."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "unknown-board" / "rig.yml"
@@ -351,14 +342,14 @@ def test_pwm_nonzero_flags_golden(tmp_path: Path,
         assert_absent_or_refreeze(golden_dir / fname)
 
 
-# ---------------------------------------------------------------- V1a: qualifier accepts
+# ---------------------------------------------------------------- qualifier accepts
 
 def _pilot_golden(tmp_path, tmp_path_factory, golden_name, revision, variant):
     """Shared body for the pilot rig family's three NON-default qualifier
     tuples (the bare/default tuple already rides the standard
     test_emitted_golden via ACCEPT_CASES's pilot_variants entry, above) --
     same board/build for every tuple, since variants/revisions carry no
-    delta engine yet (V1a) and never change the board."""
+    delta engine and never change the board."""
     board = RIG_BOARD["pilot_variants"]
     plain_build = plain_build_for(board, tmp_path_factory)
     out_dir = tmp_path / "out"
@@ -413,7 +404,7 @@ def test_shield_rev_family_revision_2_golden(
     """The two revision axes composing: rig revision 2's delta moves the
     sensor instance to the SHIELD's revision 2, so the emitted overlay must
     carry revision 2's own compatible where the bare (revision 1) tuple
-    carries the base one. Nothing in V1c was written for this -- an
+    carries the base one. An
     instance patch's shield: resolves through the same resolver a base
     reference does -- so the point of the golden is to keep that true."""
     board = RIG_BOARD["shield_rev_family"]
@@ -460,10 +451,10 @@ def test_pilot_variant_b_revision_2_golden(tmp_path: Path,
 @pytest.mark.build
 def test_pilot_variant_c_golden(tmp_path: Path,
                                 tmp_path_factory: "pytest.TempPathFactory") -> None:
-    """variant_c @ revision 1 (V1b) -- the TOPOLOGY-differing tuple: its own
+    """variant_c @ revision 1 -- the TOPOLOGY-differing tuple: its own
     delta (pilot_variants_variant_c.yml) substitutes the logger instance's
     shield entirely (Adafruit Data Logger -> pilot_alt_button), the case
-    that forces wholesale params replace (Sec. 5), since the base names no
+    that forces wholesale params replace, since the base names no
     params: for 'logger' at all. rig-gen.overlay must show
     logger_pab_key/zephyr,code, never anything from the original shield."""
     _pilot_golden(tmp_path, tmp_path_factory, "pilot_variants_variant_c",
@@ -475,9 +466,8 @@ def test_pilot_variant_c_golden(tmp_path: Path,
 @pytest.mark.build
 def test_ard_datalogger_frdm_golden(tmp_path: Path,
                                     tmp_path_factory: "pytest.TempPathFactory") -> None:
-    """ard_datalogger on its SECOND board: after S6's collapse
-    (board-coordinate-s6-brief.md Sec 5) this is no longer a variant --
-    ard_datalogger declares no variants: axis at all any more, just a
+    """ard_datalogger on its SECOND board: this is not a variant --
+    ard_datalogger declares no variants: axis at all, just a
     DIFFERENT --board injected against the identical rig.yml/content
     pair ACCEPT_CASES's ard_datalogger entry already builds on its
     primary (nucleo) board. NO fragment of any kind on disk for frdm --
@@ -517,8 +507,7 @@ def test_shield_uart_subset_reject_on_nucleo_golden(
     content that test_shield_uart_subset_accept_on_frdm below builds
     clean on the OTHER host, which is the property this fixture pair
     exists to freeze. One variant-less rig built twice, on two different
-    injected boards (board-coordinate-s6-brief.md Sec 11's collapse) --
-    not two variants of one rig any more."""
+    injected boards -- not two variants of one rig."""
     board = "nucleo_f401re/stm32f401xe/rig"
     plain_build = plain_build_for(board, tmp_path_factory)
     fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-uart-subset"
@@ -550,8 +539,8 @@ def test_shield_uart_subset_accept_on_frdm_golden(
     against frdm instead -- its Arduino socket exposes socket,uart
     (uart3), so the same rig accepts here. Proves the subset-exposure
     check runs against the board's own typed socket, not only a single
-    fixed board mapping. No variant selected: this rig declares none any
-    more (Sec 11's collapse) -- a different --board is the only thing
+    fixed board mapping. No variant selected: this rig declares none --
+    a different --board is the only thing
     that changes between this test and the one above."""
     board = "frdm_k64f/mk64f12/rig"
     plain_build = plain_build_for(board, tmp_path_factory)

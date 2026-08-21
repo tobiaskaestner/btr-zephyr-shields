@@ -1,8 +1,7 @@
-"""Unit: promote -- the `--rig <shield>` desugaring (board-coordinate-
-s3-brief.md), the namespace rule that decides when a bare name resolves
-as a shield at all, and the census tying discovery's own marker-file
-authority to shield.yml's `template:` flag (Sec 4: two facts about one
-thing, on purpose).
+"""Unit: promote -- the `--rig <shield>` desugaring, the namespace rule
+that decides when a bare name resolves as a shield at all, and the
+census tying discovery's own marker-file authority to shield.yml's
+`template:` flag: two facts about one thing, on purpose.
 """
 from __future__ import annotations
 
@@ -88,14 +87,11 @@ def test_a_promotable_shield_with_no_variant_passes() -> None:
 
 
 def test_a_multiplug_shield_is_now_promotable() -> None:
-    """Ruling 4's plurality gate is RETIRED as of multi-plug-promotion-
-    brief.md slice 3 (per-slot promotion, socket.<slot>=<label>) -- this
-    test used to pin check_promotable's own plug_count refusal
-    (multi-plug-shield-brief.md Sec 6) and flips with it (mechanism and
-    tests together) rather than dying outright: check_promotable no
-    longer takes a plug_count at all, and never refuses a multi-plug
-    shield on that basis. The slot-optioned grammar's own refusals
-    (bare socket= on a plural shield, an unknown slot) now live in
+    """check_promotable takes no plug_count and never refuses a
+    multi-plug shield on that basis: per-slot promotion
+    (socket.<slot>=<label>) makes plug count irrelevant to
+    promotability. The slot-optioned grammar's own refusals (bare
+    socket= on a plural shield, an unknown slot) live in
     parse_promotion_opts -- see the socket.<slot>= section below."""
     info = ShieldInfo(name="can_span_click", dir="/m/boards/shields/can_span_click",
                      template=True, has_yml=True)
@@ -137,28 +133,25 @@ def test_both_paths_error_names_both_offending_locations() -> None:
 # ---------------------------------------------------------------- discover_shields
 
 def test_discover_shields_finds_the_real_corpus_and_agrees_with_template_flag() -> None:
-    """Census (Sec 4): every discovered name (marker file present) whose
+    """Census: every discovered name (marker file present) whose
     shield.yml declares `template: true` shows up as promotable, and
     every one of today's 25 corpus shields does -- 15 one-per-folder plus
-    four plurality folders: lcd_char_1602/lcd_tft_24 (shield-plurality-
-    brief.md Sec 5, boards/shields/arduino_lcd/, named neither),
+    four plurality folders: lcd_char_1602/lcd_tft_24
+    (boards/shields/arduino_lcd/, named neither),
     grove_sens_bme280/grove_sens_bmp280/grove_sens_dps310
     (boards/shields/grove_sens/, named neither -- three shields, one
     `.shield` per name, following arduino_lcd's own precedent),
     grove_led/grove_pwm_led/grove_pwm_led_inv (boards/shields/grove_led/,
     sharing the folder bridle's own grove_led/ keeps both LED kinds in --
     the one plurality folder actually named after one of its own members;
-    grove_pwm_led_inv, item 36's own nonzero-flags witness, is NOT a
-    bridle port and joins this same folder rather than a new one, since
-    it is grove_pwm_led's own inverted-polarity sibling), and
-    seeed_grove_base_v1/seeed_grove_base_v2 (grove-carriers-brief.md,
-    boards/shields/grove/, named neither -- the `arduino_lcd` falsifier
-    shape again, acceptance criterion 1); can_span_click and
-    mikrobus_span_adapter (the multi-plug corpus shields --
-    multi-plug-shield-brief.md and multi-plug-carrier-brief.md's own
-    examples) are two of the 15 -- DISCOVERABLE, `template: true`, and
-    (as of multi-plug-promotion-brief.md slice 3) genuinely promotable
-    too, this census predicate having no plurality concept at all.
+    grove_pwm_led_inv is NOT a bridle port and joins this same folder
+    rather than a new one, since it is grove_pwm_led's own
+    inverted-polarity sibling), and seeed_grove_base_v1/seeed_grove_base_v2
+    (boards/shields/grove/, named neither -- the `arduino_lcd` falsifier
+    shape again); can_span_click and mikrobus_span_adapter (the
+    multi-plug corpus shields) are two of the 15 -- DISCOVERABLE,
+    `template: true`, and genuinely promotable too, this census
+    predicate having no plurality concept at all.
     Falsified by mutating a real shield.yml, not by editing this
     assertion (see the mutation test below) -- this one just proves the
     real tree is clean today."""
@@ -173,7 +166,7 @@ def test_discover_shields_finds_the_real_corpus_and_agrees_with_template_flag() 
 
 
 def test_discover_shields_census_is_falsified_by_a_real_mutation(tmp_path: Path) -> None:
-    """Mutation-verified negative control (Sec 8): drop `template: true`
+    """Mutation-verified negative control: drop `template: true`
     from a REAL shield.yml (i2c_sensor, copied first, hashed before
     mutating, restored from the copy, verified against that hash) and
     confirm exactly that one shield stops being promotable -- nothing
@@ -212,13 +205,12 @@ def _purge_pycache() -> None:
 
 def test_discover_shields_reports_a_legacy_shield_with_no_marker_file(
         tmp_path: Path) -> None:
-    """Sec 3's third consequence: a folder whose shield.yml declares a
-    name but omits (or falses) `template:` is discoverable here even
+    """A folder whose shield.yml declares a name but omits (or falses)
+    `template:` is discoverable here even
     though it carries no `<name>.shield` at all -- the ONLY way
     `check_promotable`'s 'shield.yml does not declare template: true'
     branch stays reachable once discovery's own pending/axes are
-    template-only. Before plurality this name would be invisible to
-    discover_shields entirely (it was never in `lib.pending`)."""
+    template-only."""
     root = tmp_path / "shields"
     legacy_dir = root / "legacy_overlay_shield"
     legacy_dir.mkdir(parents=True)
@@ -284,15 +276,15 @@ def test_discover_shields_reports_a_template_entry_whose_file_is_missing(
                             variant=None) is None
 
 
-# ---------------------------------------------------------------- round trip (criterion 2.2)
+# ---------------------------------------------------------------- round trip
 
 def test_promoted_shield_round_trips_through_the_loader_with_no_diagnostics(
         tmp_path: Path) -> None:
-    """Criterion 2.2, the anti-decoration guard: --explain's synthesized
-    pair, written verbatim into a tmp rig folder, must load through
+    """The anti-decoration guard: --explain's synthesized pair, written
+    verbatim into a tmp rig folder, must load through
     rigc.loader.load as one instance of the right shield with NO
-    diagnostics. The printed rig.yml declares no board of its own (Sec 3:
-    "a board reaches this rig only by injection") -- loader.load's own
+    diagnostics. The printed rig.yml declares no board of its own -- "a
+    board reaches this rig only by injection", and loader.load's own
     `board` argument is exactly that injection point, a bare STRING the
     loader never dereferences against a real board devicetree (no
     --board-dts, no subprocess, no analyzer) -- so supplying one here
@@ -318,7 +310,7 @@ def test_promoted_shield_round_trips_through_the_loader_with_no_diagnostics(
     assert rig.instances[0].sockets["plug"] is None
 
 
-# ---------------------------------------------------------------- census predicate (Sec 2.3)
+# ---------------------------------------------------------------- census predicate
 
 def _device(label: str, declared_params: List[str],
            extra_props: List[Tuple[str, str]]) -> Device:
@@ -373,7 +365,7 @@ def test_a_revved_promoted_shield_round_trips_to_the_named_revision(
     assert rig.instances[0].shield.revision == "2"
 
 
-# ------------------------------------------- promotion options (Tobi, 2026-08-08)
+# ------------------------------------------------------ promotion options
 
 def test_no_opts_is_an_empty_mapping_not_an_error() -> None:
     """A bare promotion target is the overwhelmingly common case and must
@@ -390,7 +382,7 @@ def test_socket_assignment_parses() -> None:
 
 
 def test_a_bare_word_is_refused_rather_than_read_as_a_socket() -> None:
-    """Decision 3: explicit `key=value` only. `flash_click:quail_sock1`
+    """Explicit `key=value` only. `flash_click:quail_sock1`
     is the shorthand deliberately NOT adopted -- a positional rule would
     have to be re-litigated the moment a second option lands, so it is an
     error today rather than a meaning that changes later."""
@@ -406,7 +398,7 @@ def test_an_unknown_key_names_the_known_ones() -> None:
 
 
 def test_name_is_not_an_option_key() -> None:
-    """Excluded ON PURPOSE, not merely absent: S4's singleton identity
+    """Excluded ON PURPOSE, not merely absent: the singleton identity
     law pins the desugared instance name to the shield name, and that
     name reaches config-sheet.md, so a CLI slot for it would let a user
     break the law from the command line."""
@@ -440,8 +432,8 @@ def test_promote_shield_with_a_socket_emits_it_on_the_one_instance() -> None:
 
 def test_promote_shield_without_a_socket_stays_socket_less() -> None:
     """The default is unchanged: socket-LESS, so unique-by-type
-    inference still resolves it board-agnostically. S4's identity law
-    compares against exactly this text."""
+    inference still resolves it board-agnostically. The singleton
+    identity law compares against exactly this text."""
     assert "socket:" not in promote_shield("flash_click").content
 
 
@@ -466,7 +458,7 @@ def test_a_socketed_promoted_shield_round_trips_through_the_loader(
     assert rig.instances[0].sockets["plug"] == "quail_sock1"
 
 
-# --------------------- socket.<slot>= per-slot promotion grammar (multi-plug-promotion-brief.md Sec 2)
+# --------------------------- socket.<slot>= per-slot promotion grammar
 
 _PLURAL_SHIELD = Shield(name="can_span_click", label="can_span_click",
                        plugs={"left": "mikrobus", "right": "mikrobus"})
@@ -475,8 +467,8 @@ _SINGLE_SHIELD = Shield(name="flash_click", label="flash_click",
 
 
 def test_socket_dot_slot_parses_as_a_slot_assignment_not_a_param() -> None:
-    """The socket. dotted-key prefix is RESERVED (Sec 2): unlike every
-    other dotted key, it never routes to params -- even with no shield
+    """The socket. dotted-key prefix is RESERVED: unlike every other
+    dotted key, it never routes to params -- even with no shield
     given to validate the slot name against (the reservation is
     unconditional, purely syntactic)."""
     parsed = parse_promotion_opts("socket.left=quail_sock2", "t")
@@ -516,8 +508,8 @@ def test_a_bare_socket_on_a_plural_shield_is_refused_naming_the_slots() -> None:
 
 
 def test_a_bare_socket_on_a_single_plug_shield_is_unaffected() -> None:
-    """Byte-untouched (Sec 2's own criterion): a resolved single-plug
-    shield's bare socket= parses exactly as it did before this slice."""
+    """Byte-untouched: a resolved single-plug shield's bare socket=
+    parses the same whether or not the multi-plug slot grammar exists."""
     parsed = parse_promotion_opts("socket=quail_sock1", "t", _SINGLE_SHIELD)
     assert parsed == ParsedPromotionOpts(
         fixed={"socket": "quail_sock1"}, params={}, sockets={})
@@ -544,8 +536,7 @@ def test_a_slot_assignment_with_no_slot_name_is_malformed() -> None:
 
 
 def test_no_shield_given_skips_slot_validation_but_still_parses() -> None:
-    """`shield=None` (the default) is the backward-compatible case,
-    mirroring check_promotable's own retired plug_count default: a
+    """`shield=None` (the default) is the backward-compatible case: a
     caller that has not resolved the shield at all gets neither the
     plural-bare refusal nor the unknown-slot refusal, but the slot
     assignment still parses (routing is unconditional -- only
@@ -606,7 +597,7 @@ def test_promote_shield_with_a_sockets_map_round_trips_through_the_loader(
     trips_through_the_loader: the synthesized sockets: block is not
     merely well-formed, it LOADS, and both slot assignments reach the
     instance the loader builds -- against the REAL can_span_click
-    template already in the corpus (slice 1/2), not a fixture stand-in."""
+    template already in the corpus, not a fixture stand-in."""
     promoted = promote_shield(
         "can_span_click",
         sockets={"left": "quail_sock2", "right": "quail_sock3"})
@@ -626,7 +617,7 @@ def test_promote_shield_with_a_sockets_map_round_trips_through_the_loader(
         "left": "quail_sock2", "right": "quail_sock3"}
 
 
-# ---------------------------------- <device>.<prop> parameter assignments (Sec 9.6 part 2)
+# --------------------------- <device>.<prop> parameter assignments
 
 def test_a_dotted_key_parses_as_a_device_parameter() -> None:
     parsed = parse_promotion_opts("gb_key.zephyr,code=INPUT_KEY_0", "t")
@@ -733,12 +724,11 @@ def test_promote_shield_with_no_params_omits_the_block() -> None:
 
 def test_a_param_carrying_promoted_shield_round_trips_and_satisfies_the_invariant(
         tmp_path: Path) -> None:
-    """Criterion 1/2's own unit-level proof: grove_btn's required,
-    no-default zephyr,code (declared via shield,params on gb_key) is
-    satisfied entirely through the promoted params: block, with NO
-    parallel validation in promote.py -- rule 2 (check_param_invariant)
-    passes because the printed text reaches the identical loader path an
-    authored rig.yml would."""
+    """grove_btn's required, no-default zephyr,code (declared via
+    shield,params on gb_key) is satisfied entirely through the
+    promoted params: block, with NO parallel validation in promote.py
+    -- check_param_invariant passes because the printed text reaches
+    the identical loader path an authored rig.yml would."""
     promoted = promote_shield(
         "grove_btn", params={"gb_key": {"zephyr,code": "INPUT_KEY_0"}})
     rig_dir = tmp_path / "rig"
@@ -758,11 +748,11 @@ def test_a_param_carrying_promoted_shield_round_trips_and_satisfies_the_invarian
 
 def test_a_promoted_shield_missing_its_required_param_still_rejects(
         tmp_path: Path) -> None:
-    """Criterion 4, the regression control: a promoted grove_btn given NO
-    params: block still fails exactly as an authored rig.yml omitting the
-    assignment would -- rule 2, fired by the SAME check_param_invariant,
-    never a bespoke promote.py check. Proves the params: block is real
-    plumbing, not a rubber stamp that always happens to pass."""
+    """The regression control: a promoted grove_btn given NO params:
+    block still fails exactly as an authored rig.yml omitting the
+    assignment would -- check_param_invariant fires, never a bespoke
+    promote.py check. Proves the params: block is real plumbing, not a
+    rubber stamp that always happens to pass."""
     promoted = promote_shield("grove_btn")
     rig_dir = tmp_path / "rig"
     rig_dir.mkdir()
@@ -778,13 +768,13 @@ def test_a_promoted_shield_missing_its_required_param_still_rejects(
     assert any("required" in d.message for d in diags), diags
 
 
-# ------------------------------------------------- list promotion (slice 4)
+# ------------------------------------------------------ list promotion
 
 def test_promote_shield_list_of_one_is_byte_identical_to_promote_shield() -> None:
-    """Sec 8 criterion 1, at the unit level: a one-element list renders
-    through the IDENTICAL `_render_instance` helper `promote_shield`
-    itself uses, so this must be byte-for-byte the same PromotedRig --
-    proven directly, not merely asserted by construction."""
+    """At the unit level: a one-element list renders through the
+    IDENTICAL `_render_instance` helper `promote_shield` itself uses,
+    so this must be byte-for-byte the same PromotedRig -- proven
+    directly, not merely asserted by construction."""
     single = promote_shield("flash_click", socket="quail_sock1")
     listed = promote_shield_list(
         [("flash_click", None,
@@ -900,7 +890,7 @@ def test_list_element_not_a_shield_error_names_the_element_and_target() -> None:
     assert "eth_click;no_such_thing" in msg
 
 
-# ------------------- config.<label>= config-element grammar (promotion-config-brief.md Sec 2)
+# ---------------------------- config.<label>= config-element grammar
 
 def test_config_dot_label_parses_as_a_config_assignment_not_a_param() -> None:
     """The config. dotted-key prefix is RESERVED, config's exact analogue
@@ -939,10 +929,10 @@ def test_a_config_assignment_with_no_label_is_malformed() -> None:
 
 
 def test_config_needs_no_shield_to_parse() -> None:
-    """Unconditional reservation (Sec 2): unlike socket.<slot>=, config.
-    has no validation branch at all -- parse_promotion_opts deliberately
-    never checks a label against the shield's real config elements
-    (that's the loader's job), so passing a shield changes nothing here."""
+    """Unconditional reservation: unlike socket.<slot>=, config. has no
+    validation branch at all -- parse_promotion_opts deliberately never
+    checks a label against the shield's real config elements (that's
+    the loader's job), so passing a shield changes nothing here."""
     parsed = parse_promotion_opts(
         "config.w_irq_jmp=D2", "t", _SINGLE_SHIELD)
     assert parsed == ParsedPromotionOpts(
@@ -950,9 +940,9 @@ def test_config_needs_no_shield_to_parse() -> None:
 
 
 def test_promote_shield_with_config_emits_it_on_the_one_instance() -> None:
-    """Criterion 2: matches boards/rigs/nucleo_wifi_logger_ok/
-    nucleo_wifi_logger_ok.yml's own spelling exactly -- 4-space config:,
-    6-space label: value, value a position NAME, not an index."""
+    """Matches the golden nucleo_wifi_logger_ok.yml's own spelling
+    exactly -- 4-space config:, 6-space label: value, value a position
+    NAME, not an index."""
     promoted = promote_shield(
         "adafruit_winc1500", socket="arduino_r3",
         config={"w_irq_jmp": "D2"})
@@ -972,7 +962,7 @@ def test_promote_shield_with_no_config_omits_the_block() -> None:
 
 
 def test_promote_shield_with_config_and_params_orders_config_before_params() -> None:
-    """Print order (Sec 3.4): socket:/sockets:, then config:, then
+    """Print order: socket:/sockets:, then config:, then
     params: -- exactly nucleo_wifi_logger_ok.yml's own layout."""
     promoted = promote_shield(
         "fixture_shield", config={"w_irq_jmp": "D2"},
@@ -1014,11 +1004,10 @@ def test_a_config_carrying_promoted_shield_round_trips_through_the_loader(
 
 
 def test_promote_shield_list_of_one_with_config_is_byte_identical_to_promote_shield() -> None:
-    """Criterion 3, Sec 3.3's own byte-identity invariant WITH a config
-    assignment in play: a one-element list must render byte-for-byte the
-    same as a bare promote_shield call, proving the invariant survived
-    this slice's own new field rather than being quietly dropped by one
-    of the two paths."""
+    """The byte-identity invariant WITH a config assignment in play: a
+    one-element list must render byte-for-byte the same as a bare
+    promote_shield call, proving the invariant holds for the config:
+    field too, not only for socket/params."""
     single = promote_shield(
         "adafruit_winc1500", socket="arduino_r3", config={"w_irq_jmp": "D2"})
     listed = promote_shield_list(
