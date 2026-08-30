@@ -4,17 +4,23 @@ Every test here freezes python -m rigc expand's verdict + rendered
 diagnostics against a SYNTHETIC fixture under tests/fixtures/, never a real
 corpus rig, and none reaches analyzer.analyze (board/,
 which needs a real board recipe) -- each one is rejected by loader_yml.load
-alone, on YAML/schema shape, before any board devicetree would even be
-read.
+alone, on YAML/schema shape (or, for test_no_board_declared_golden, by
+cli.py itself, before load_board is ever asked to read a board), before any
+board devicetree would even be read. Verified per test, not assumed: every
+diagnostic code this module asserts on is either a `lang-*` loader finding
+or the one `phys-board` "no board given" check, none of which reach
+board/project.py's real edtlib.EDT build -- `phys-socket`
+(test_unmapped_socket_golden) is the one exception, and it already reads
+its OWN dedicated fixture board (unmapped_socket_board.dts), never this
+module's shared one.
 
 Both labels above are true at once, and the distinction is the point. These
-are HERMETIC: no $ZEPHYR_BASE bindings/includes, no real board .dts, no
-cmake/west build, nothing from REPO_ROOT/dts or REPO_ROOT/include
-(harness.assert_fixture_local is the structural proof for the handful of
-tests that pass an explicit board/bindings/include recipe at all; most pass
-none, since the rejection fires before board resolution is attempted). They
-are nonetheless INTEGRATION, for two reasons that have nothing to do with
-hermeticity:
+are now genuinely HERMETIC, not merely fast: no $ZEPHYR_BASE bindings/
+includes DATA, no real board .dts, no cmake/west build, nothing from
+REPO_ROOT/dts, REPO_ROOT/include, or REPO_ROOT/boards/shields
+(harness.assert_fixture_local is the structural proof, applied to every
+test's own board/shield recipe). They are nonetheless INTEGRATION, for two
+reasons that have nothing to do with hermeticity:
 
   - they reach the code through the FRONT DOOR, as a subprocess running the
     real CLI, and a unit reached through the CLI is being integration-tested
@@ -28,20 +34,36 @@ So hermetic-and-fast is a property of the COST axis, not of the unit
 boundary. These stay exactly as they are: what they uniquely protect is the
 user-facing WORDING of a system verdict, which no unit test asserts.
 
-Some of these fixtures name a real production shield (e.g.
-adafruit_data_logger, i2c_sensor, flash_click) as ordinary instance
-content, or a fixture shield that itself plugs one of the four real
-connector types (arduino-r3, i2c-port) -- inherited from before this
-module's own hermetic vocabulary existed. That is a real, reported coupling risk (a
-change to that shield's own declared shape could churn a golden here for
-reasons unrelated to what the test names), but it does not move a test out
-of this file: none of it is BOARD data, the loader never builds an EDT to
-reach these diagnostics, and the shield-library scan itself is unconditional
-plumbing every invocation performs regardless of override (see
-test_no_board_declared_golden below, which touches no shield at all and
-still incurs the same scan) -- not something a test's own recipe can
-control, the same way $ZEPHYR_BASE may be set purely to locate the
-devicetree package without that counting as a DATA dependency.
+Some of these fixtures name a shield (adafruit_data_logger, grove_btn,
+flash_click, i2c_sensor, pilot_alt_button) as ordinary instance content.
+Each is now a VENDORED, byte-identical copy under tests/fixtures/boards/
+shields/ (never the real boards/shields/ tree), the same pattern
+test_connector_bindings.py already established for the real connector-type
+bindings it needs. This module's own shield-library root
+(_SHIELD_DIR, below) is that vendored directory, not boards/shields/ --
+so every instance naming one of these five resolves from the fixture copy,
+and every OTHER call still performs the same unconditional shield-library
+scan (see test_no_board_declared_golden below, which touches no shield at
+all and still incurs the same scan), just against a small, known set
+instead of the whole real corpus. These five are deliberately NOT held to
+production by a drift guard, unlike the vendored connector-type bindings
+(test_vendored_connector_drift.py): that guard exists because those files
+are the schema a real build resolves, so a stale copy would mean the
+travelling test validating something the build no longer uses. These are
+the opposite case -- pinned inputs whose only job is to make a diagnostic
+render the same words every run. Holding them byte-identical to production
+would hand every edit of a real shield the power to churn 36 byte-compared
+goldens for a reason none of these tests are about. Refresh one only when
+this module's own subject needs it.
+
+_BOARD_DTS (tests/fixtures/boards/mainboards/emitted_rejects_board.dts) is
+this module's own shared fixture board, typed against the same vendored
+unified-connectors bindings test_connector_bindings.py reads, carrying the
+two socket names (nucleo_ard, grove_d2) these fixture rigs already mate --
+see that file's own comment for why a synthetic board keeps a real board's
+socket-label vocabulary. Nothing in this module ever actually reads its
+content (every reject fires before board reading), so this is built for
+correctness/future-proofing, not because any test today needs it parsed.
 
 test_unknown_board_golden is the sibling case that reads the opposite way:
 its own fixture rig.yml is just as synthetic, but its diagnostic is reached
@@ -63,7 +85,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-from corpus import SHIELD_DIR, run_expand
 from harness import (
     FIXTURES_DIR,
     GOLDENS_DIR,
@@ -72,26 +93,41 @@ from harness import (
     assert_fixture_local,
     freeze_or_assert,
     normalize,
+    run_expand,
     zephyr_base,
 )
 
+# This module's own vendored shield library (adafruit_data_logger,
+# grove_btn, flash_click, i2c_sensor, pilot_alt_button -- byte-identical
+# copies of their real boards/shields/ originals, see the module docstring)
+# and its own shared fixture board (nucleo_ard/grove_d2, the two socket
+# names these fixture rigs already mate) -- never boards/shields/ or a
+# real board .dts.
+_SHIELD_DIR = FIXTURES_DIR / "boards" / "shields"
+_BOARD = "emitted_rejects_board"
+_BOARD_DTS = FIXTURES_DIR / "boards" / "mainboards" / "emitted_rejects_board.dts"
 
-def _run_promoted(target: str, out_dir: Path, board: str,
+
+def _run_promoted(target: str, out_dir: Path, board: str, board_dts: Path,
                   ) -> "subprocess.CompletedProcess[str]":
     """`python -m rigc expand --promote <target>`, the promoted-side
     counterpart to `run_expand`'s positional rig.yml path -- every OTHER
     reject fixture in this module compares an AUTHORED rig.yml by path,
     which `run_expand` takes no `--promote` form to reach. Shares run_
     expand's own env/cwd/timeout recipe (ZEPHYR_BASE pinned, PYTHONPATH
-    set, cwd at REPO_ROOT, no --shield-dir override) so a rendered
-    diagnostic's own paths normalize the same way and the real corpus
-    shield library resolves exactly as a bare invocation would."""
+    set, cwd at REPO_ROOT) so a rendered diagnostic's own paths normalize
+    the same way -- and, UNLIKE before this module went fixture-local,
+    passes --board-dts and --shield-dir explicitly (this module's own
+    _BOARD_DTS/_SHIELD_DIR), so the promotion target (grove_btn, this
+    module's own vendored copy) resolves from the fixture shield library
+    rather than the real one."""
     zb = zephyr_base()
     env = dict(os.environ)
     env["ZEPHYR_BASE"] = zb
     env["PYTHONPATH"] = str(REPO_ROOT / "scripts")
     cmd = [sys.executable, "-m", RIG_EXPAND_COMPILE, "expand",
-          "--promote", target, "--board", board, "--out-dir", str(out_dir)]
+          "--promote", target, "--board", board, "--board-dts", str(board_dts),
+          "--shield-dir", str(_SHIELD_DIR), "--out-dir", str(out_dir)]
     return subprocess.run(cmd, env=env, cwd=str(REPO_ROOT),
                           capture_output=True, text=True, timeout=60)
 
@@ -104,7 +140,9 @@ def test_route_no_via_golden(tmp_path: Path) -> None:
     that path. Fast: the loader rejects before any board recipe is needed."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "route-no-via" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR])
 
     assert result.returncode != 0, "route:{} without via: must be rejected"
     assert "[lang-schema]" in result.stderr, result.stderr
@@ -123,7 +161,9 @@ def test_param_undeclared_golden(tmp_path: Path) -> None:
     recipe is needed."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-undeclared" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR])
 
     assert result.returncode != 0, "an undeclared params: property must be rejected"
     assert "[lang-param]" in result.stderr, result.stderr
@@ -141,7 +181,9 @@ def test_param_required_golden(tmp_path: Path) -> None:
     be rejected, not left as a silently-inert missing property."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-required" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR])
 
     assert result.returncode != 0, "an unassigned required parameter must be rejected"
     assert "[lang-param]" in result.stderr, result.stderr
@@ -158,7 +200,9 @@ def test_param_unknown_device_golden(tmp_path: Path) -> None:
     naming a device label the shield has no device for must be rejected."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-unknown-device" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR])
 
     assert result.returncode != 0, "an unknown params: device label must be rejected"
     assert "[lang-param]" in result.stderr, result.stderr
@@ -194,9 +238,10 @@ def test_promoted_param_undeclared_golden(tmp_path: Path) -> None:
     what this test exists to demonstrate. The authored-fixture control
     above stays a clean single diagnostic; this one matches it."""
     out_dir = tmp_path / "out"
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
     result = _run_promoted(
         "grove_btn:gb_key.bogus_prop=INPUT_KEY_0:gb_key.zephyr,code=INPUT_KEY_0",
-        out_dir, board="nucleo_f401re/stm32f401xe/rig")
+        out_dir, board=_BOARD, board_dts=_BOARD_DTS)
 
     assert result.returncode != 0, (
         "an undeclared params: property reached via promotion must be rejected")
@@ -216,7 +261,9 @@ def test_param_unresolvable_golden(tmp_path: Path) -> None:
     the fix."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-unresolvable" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR])
 
     assert result.returncode != 0, "an unresolvable parameter token must be rejected"
     assert "[lang-dt-include]" in result.stderr, result.stderr
@@ -237,8 +284,9 @@ def test_param_shield_no_includes_golden(tmp_path: Path) -> None:
     accepting."""
     out_dir = tmp_path / "out"
     fixture = FIXTURES_DIR / "boards" / "rigs" / "param-shield-no-includes"
+    assert_fixture_local([_BOARD_DTS, fixture / "shields"])
     result = run_expand(fixture / "rig.yml", out_dir,
-                        board="nucleo_f401re/stm32f401xe/rig",
+                        board=_BOARD, board_dts=_BOARD_DTS,
                         shield_dirs=[fixture / "shields"])
 
     assert result.returncode != 0, (
@@ -261,7 +309,9 @@ def test_unknown_revision_golden(tmp_path: Path) -> None:
     is needed), like the other synthetic fixtures above."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "unknown-revision" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", revision="99")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR], revision="99")
 
     assert result.returncode != 0, "an undeclared revision must be rejected"
     assert "[lang-rev]" in result.stderr, result.stderr
@@ -278,7 +328,9 @@ def test_unknown_variant_golden(tmp_path: Path) -> None:
     declared variants: list."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "unknown-variant" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="nope")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR], variant="nope")
 
     assert result.returncode != 0, "an undeclared variant must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -296,7 +348,9 @@ def test_no_default_variant_golden(tmp_path: Path) -> None:
     listing its values."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "no-default-variant" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR])
 
     assert result.returncode != 0, "no selection + no default must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -316,7 +370,9 @@ def test_variant_revision_collision_golden(tmp_path: Path) -> None:
     invocation already triggers it."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "variant-revision-collision" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR])
 
     assert result.returncode != 0, "a variant/revision id collision must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -339,7 +395,9 @@ def test_variant_no_fragment_golden(tmp_path: Path) -> None:
     and is accepted)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "variant-no-fragment" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="ghost")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR], variant="ghost")
 
     assert result.returncode != 0, "a variant contributing nothing must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -363,7 +421,9 @@ def test_widened_variant_revision_collision_golden(tmp_path: Path) -> None:
     two axes only construct TOGETHER rather than on either value alone."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "combined-fragment-collision" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR])
 
     assert result.returncode != 0, "a combined-fragment stem collision must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -384,7 +444,9 @@ def test_no_such_axis_golden(tmp_path: Path) -> None:
     itself rather than implying a typo in an existing one."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "no-such-axis" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="anything")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR], variant="anything")
 
     assert result.returncode != 0, "a qualifier against an undeclared axis must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -405,7 +467,9 @@ def test_empty_revisions_list_golden(tmp_path: Path) -> None:
     wording (see this file's own module docstring)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "empty-revisions-list" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR])
 
     assert result.returncode != 0, "an empty revisions: list must be rejected"
     assert "[lang-schema]" in result.stderr, result.stderr
@@ -430,7 +494,9 @@ def test_instances_delta_unknown_instance_golden(tmp_path: Path) -> None:
     the effective topology does not have (additions are never implicit)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "instances-delta-unknown-instance" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="b")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR], variant="b")
 
     assert result.returncode != 0, "instances: naming an unknown instance must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -447,7 +513,9 @@ def test_add_instances_already_exists_golden(tmp_path: Path) -> None:
     already exists."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "add-instances-already-exists" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="b")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR], variant="b")
 
     assert result.returncode != 0, "add-instances: naming an existing instance must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -466,7 +534,9 @@ def test_remove_instance_drift_golden(tmp_path: Path) -> None:
     variant that already removed it, so drift cannot hide."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "remove-instance-drift" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="b", revision="2")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR], variant="b", revision="2")
 
     assert result.returncode != 0, "remove-instances: naming an absent instance must be rejected"
     assert "[lang-rev]" in result.stderr, result.stderr
@@ -486,7 +556,9 @@ def test_remove_wire_missing_golden(tmp_path: Path) -> None:
     endpoint)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "remove-wire-missing" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="b")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR], variant="b")
 
     assert result.returncode != 0, "remove-wires: naming a nonexistent pair must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -506,8 +578,9 @@ def test_restate_check_golden(tmp_path: Path) -> None:
     otherwise silently revert to the shield's authored default."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "restate-check" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="b",
-                        shield_dirs=[FIXTURES_DIR / "boards" / "shields"])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, variant="b",
+                        shield_dirs=[_SHIELD_DIR])
 
     assert result.returncode != 0, "an un-restated optional parameter must be rejected"
     assert "[lang-param]" in result.stderr, result.stderr
@@ -527,8 +600,9 @@ def test_revision_crosses_variant_golden(tmp_path: Path) -> None:
     unavoidable by construction, so the error must name the variant."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "revision-crosses-variant" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", variant="hpm", revision="2",
-                        shield_dirs=[FIXTURES_DIR / "boards" / "shields", SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, variant="hpm", revision="2",
+                        shield_dirs=[_SHIELD_DIR])
 
     assert result.returncode != 0, "a revision crossing a variant's shield swap must be rejected"
     assert "[lang-param]" in result.stderr, result.stderr
@@ -552,7 +626,9 @@ def test_dotted_revision_no_fragment_golden(tmp_path: Path) -> None:
     normalization happened, not just that the check still works."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "dotted-revision-no-fragment" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig", revision="1.5")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR], revision="1.5")
 
     assert result.returncode != 0, "a dotted revision contributing nothing must be rejected"
     assert "[lang-rev]" in result.stderr, result.stderr
@@ -577,7 +653,9 @@ def test_shield_undeclared_revision_golden(tmp_path: Path) -> None:
     other synthetic fixtures above."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-undeclared-revision" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR])
 
     assert result.returncode != 0, "an undeclared shield revision must be rejected"
     assert "[lang-rev]" in result.stderr, result.stderr
@@ -598,7 +676,9 @@ def test_shield_no_revisions_declared_golden(tmp_path: Path) -> None:
     revisions: block."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-no-revisions-declared" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR])
 
     assert result.returncode != 0, (
         "an @rev against a shield declaring no revisions: must be rejected")
@@ -620,7 +700,9 @@ def test_shield_missing_fragment_golden(tmp_path: Path) -> None:
     neither rev_fixture_2.shield nor rev_fixture_2.conf."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-missing-fragment" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig",
+    assert_fixture_local([_BOARD_DTS, FIXTURES_DIR / "boards" / "rigs" /
+                          "shield-missing-fragment" / "shields"])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
                         shield_dirs=[FIXTURES_DIR / "boards" / "rigs" /
                                      "shield-missing-fragment" / "shields"])
 
@@ -648,7 +730,9 @@ def test_shield_revision_param_invariant_golden(tmp_path: Path) -> None:
     assigns it."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-revision-param-invariant" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig",
+    assert_fixture_local([_BOARD_DTS, FIXTURES_DIR / "boards" / "rigs" /
+                          "shield-revision-param-invariant" / "shields"])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
                         shield_dirs=[FIXTURES_DIR / "boards" / "rigs" /
                                      "shield-revision-param-invariant" / "shields"])
 
@@ -675,7 +759,9 @@ def test_missing_content_file_golden(tmp_path: Path) -> None:
     parsed from the folder and is therefore not obvious from the layout."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "missing-content-file" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig")
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
+                        shield_dirs=[_SHIELD_DIR])
 
     assert result.returncode != 0, "a missing content file must be rejected"
     assert "[lang-content]" in result.stderr, result.stderr
@@ -701,7 +787,8 @@ def test_shield_bad_revisions_block_golden(tmp_path: Path) -> None:
     fixture's output too."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-bad-revisions-block" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig",
+    assert_fixture_local([_BOARD_DTS, FIXTURES_DIR / "boards" / "rigs" / "shield-bad-revisions-block" / "shields"])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
                         shield_dirs=[FIXTURES_DIR / "boards" / "rigs" / "shield-bad-revisions-block" / "shields"])
 
     assert result.returncode != 0, (
@@ -728,7 +815,8 @@ def test_shield_node_name_mismatch_golden(tmp_path: Path) -> None:
     and the node name disagreeing about what was built."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-node-name-mismatch" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig",
+    assert_fixture_local([_BOARD_DTS, FIXTURES_DIR / "boards" / "rigs" / "shield-node-name-mismatch" / "shields"])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
                         shield_dirs=[FIXTURES_DIR / "boards" / "rigs" / "shield-node-name-mismatch" / "shields"])
 
     assert result.returncode != 0, (
@@ -753,8 +841,9 @@ def test_shield_template_missing_file_golden(tmp_path: Path) -> None:
     defect is reported at library-scan time for every folder scanned."""
     out_dir = tmp_path / "out"
     fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-template-missing-file"
+    assert_fixture_local([_BOARD_DTS, fixture / "shields"])
     result = run_expand(fixture / "rig.yml", out_dir,
-                        board="nucleo_f401re/stm32f401xe/rig",
+                        board=_BOARD, board_dts=_BOARD_DTS,
                         shield_dirs=[fixture / "shields"])
 
     assert result.returncode != 0, (
@@ -779,8 +868,9 @@ def test_shield_plural_node_name_mismatch_golden(tmp_path: Path) -> None:
     fixture for the folder-name half, which must keep working unchanged."""
     out_dir = tmp_path / "out"
     fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-plural-node-name-mismatch"
+    assert_fixture_local([_BOARD_DTS, fixture / "shields"])
     result = run_expand(fixture / "rig.yml", out_dir,
-                        board="nucleo_f401re/stm32f401xe/rig",
+                        board=_BOARD, board_dts=_BOARD_DTS,
                         shield_dirs=[fixture / "shields"])
 
     assert result.returncode != 0, (
@@ -807,8 +897,9 @@ def test_shield_plural_duplicate_name_golden(tmp_path: Path) -> None:
     unconditional, so nothing needs to reference it to trigger."""
     out_dir = tmp_path / "out"
     fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-plural-duplicate-name"
+    assert_fixture_local([_BOARD_DTS, fixture / "shields"])
     result = run_expand(fixture / "rig.yml", out_dir,
-                        board="nucleo_f401re/stm32f401xe/rig",
+                        board=_BOARD, board_dts=_BOARD_DTS,
                         shield_dirs=[fixture / "shields"])
 
     assert result.returncode != 0, (
@@ -832,8 +923,9 @@ def test_shield_plural_not_a_list_golden(tmp_path: Path) -> None:
     shield: reference blaming the rig instead of this file."""
     out_dir = tmp_path / "out"
     fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-plural-not-a-list"
+    assert_fixture_local([_BOARD_DTS, fixture / "shields"])
     result = run_expand(fixture / "rig.yml", out_dir,
-                        board="nucleo_f401re/stm32f401xe/rig",
+                        board=_BOARD, board_dts=_BOARD_DTS,
                         shield_dirs=[fixture / "shields"])
 
     assert result.returncode != 0, (
@@ -856,8 +948,9 @@ def test_shield_plural_missing_name_golden(tmp_path: Path) -> None:
     fatal to the whole document."""
     out_dir = tmp_path / "out"
     fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-plural-missing-name"
+    assert_fixture_local([_BOARD_DTS, fixture / "shields"])
     result = run_expand(fixture / "rig.yml", out_dir,
-                        board="nucleo_f401re/stm32f401xe/rig",
+                        board=_BOARD, board_dts=_BOARD_DTS,
                         shield_dirs=[fixture / "shields"])
 
     assert result.returncode != 0, (
@@ -898,13 +991,18 @@ def test_unmapped_socket_golden(tmp_path: Path) -> None:
     board_dts = FIXTURES_DIR / "boards" / "mainboards" / "unmapped_socket_board.dts"
     bindings_dirs = [FIXTURES_DIR / "dts" / "connectors"]
     include_dirs = [FIXTURES_DIR / "include"]
-    assert_fixture_local([board_dts, *bindings_dirs, *include_dirs])
+    # adafruit_data_logger (the instance's own shield: reference) now
+    # resolves from this module's own vendored copy too -- _SHIELD_DIR,
+    # not boards/shields/ -- even though this test's own subject (an
+    # unmapped socket NAME) has nothing to do with shields.
+    assert_fixture_local([board_dts, *bindings_dirs, *include_dirs, _SHIELD_DIR])
     out_dir = tmp_path / "out"
     result = run_expand(
         fixture / "rig.yml", out_dir,
         board="unmapped_socket_board",
         board_dts=board_dts,
-        bindings_dirs=bindings_dirs, include_dirs=include_dirs)
+        bindings_dirs=bindings_dirs, include_dirs=include_dirs,
+        shield_dirs=[_SHIELD_DIR])
 
     assert result.returncode != 0, (
         "an instance socket name absent from the declared map must be "
@@ -944,7 +1042,8 @@ def test_no_board_declared_golden(tmp_path: Path) -> None:
     lang-schema finding anchored at a rig.yml line."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "no-board-declared" / "rig.yml"
-    result = run_expand(rig_yml, out_dir)
+    assert_fixture_local([_SHIELD_DIR])
+    result = run_expand(rig_yml, out_dir, shield_dirs=[_SHIELD_DIR])
 
     assert result.returncode != 0, "a rig with no board injected at all must be rejected"
     assert "[phys-board]" in result.stderr, result.stderr
@@ -973,7 +1072,8 @@ def test_shield_revisions_mapping_entry_golden(tmp_path: Path) -> None:
     reported at library-scan time for every folder scanned."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-revisions-mapping-entry" / "rig.yml"
-    result = run_expand(rig_yml, out_dir, board="nucleo_f401re/stm32f401xe/rig",
+    assert_fixture_local([_BOARD_DTS, FIXTURES_DIR / "boards" / "rigs" / "shield-revisions-mapping-entry" / "shields"])
+    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
                         shield_dirs=[FIXTURES_DIR / "boards" / "rigs" / "shield-revisions-mapping-entry" / "shields"])
 
     assert result.returncode != 0, (
