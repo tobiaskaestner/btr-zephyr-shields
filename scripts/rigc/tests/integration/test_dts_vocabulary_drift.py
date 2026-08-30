@@ -50,7 +50,7 @@ import re
 from pathlib import Path
 from typing import Set
 
-from conftest import REPO_ROOT
+from harness import REPO_ROOT
 
 import sys
 

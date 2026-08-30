@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from conftest import FIXTURES_DIR, assert_fixture_local, run_expand
+from harness import FIXTURES_DIR, assert_fixture_local, run_expand
 
 _CONNECTOR_BINDINGS = FIXTURES_DIR / "dts" / "carrier-analog-connectors"
 _CONNECTOR_INCLUDE = FIXTURES_DIR / "include"

@@ -11,8 +11,8 @@ import subprocess
 import pytest
 import yaml
 
-from conftest import (REPO_ROOT, WEST_EXE, WEST_TOPDIR, subprocess_timeout,
-                      zephyr_base)
+from harness import (REPO_ROOT, WEST_EXE, WEST_TOPDIR, subprocess_timeout,
+                     zephyr_base)
 
 
 def _run(*args: str) -> "subprocess.CompletedProcess[str]":

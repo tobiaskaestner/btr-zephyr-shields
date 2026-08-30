@@ -10,7 +10,7 @@ read.
 Both labels above are true at once, and the distinction is the point. These
 are HERMETIC: no $ZEPHYR_BASE bindings/includes, no real board .dts, no
 cmake/west build, nothing from REPO_ROOT/dts or REPO_ROOT/include
-(conftest.assert_fixture_local is the structural proof for the handful of
+(harness.assert_fixture_local is the structural proof for the handful of
 tests that pass an explicit board/bindings/include recipe at all; most pass
 none, since the rejection fires before board resolution is attempted). They
 are nonetheless INTEGRATION, for two reasons that have nothing to do with
@@ -63,16 +63,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-from conftest import (
+from corpus import SHIELD_DIR, run_expand
+from harness import (
     FIXTURES_DIR,
     GOLDENS_DIR,
     REPO_ROOT,
     RIG_EXPAND_COMPILE,
-    SHIELD_DIR,
     assert_fixture_local,
     freeze_or_assert,
     normalize,
-    run_expand,
     zephyr_base,
 )
 

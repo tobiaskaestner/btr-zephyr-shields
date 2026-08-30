@@ -48,13 +48,12 @@ from typing import Dict, List, Optional
 import pytest
 import yaml
 
-from conftest import (
+from corpus import RIG_BOARD, board_extra_defines
+from harness import (
     DTS_EQUIV,
     FIXTURES_DIR,
-    RIG_BOARD,
     WEST_EXE,
     WEST_TOPDIR,
-    board_extra_defines,
     render_argv,
     subprocess_timeout,
     zephyr_base,

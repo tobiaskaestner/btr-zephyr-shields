@@ -17,7 +17,7 @@ import glob
 import os
 import sys
 
-from conftest import FIXTURES_DIR, REPO_ROOT, zephyr_base
+from harness import FIXTURES_DIR, REPO_ROOT, zephyr_base
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigc.registry import BINDINGS, load_types  # noqa: E402

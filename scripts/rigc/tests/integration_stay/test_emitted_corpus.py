@@ -10,7 +10,7 @@ never gated (see claude/hw-expectations/).
 
 Pass 1 reads the REAL board devicetree (board/), which
 needs a real recipe (cpp include dirs + edtlib bindings dirs) — the
-cached-plain-build pattern (conftest.plain_build_for) supplies it via one
+cached-plain-build pattern (corpus.plain_build_for) supplies it via one
 real west build --cmake-only PER BOARD, memoized for the whole test
 session (4 boards, not 13 rigs) rather than 13 independent configures.
 
@@ -46,25 +46,27 @@ from typing import List
 import pytest
 import yaml
 
-from conftest import (
+from corpus import (
     ALL_CASES,
     ARD_DATALOGGER_FRDM_BOARD,
     BOARD_DTS,
-    EMITTED_FILES,
-    FIXTURES_DIR,
-    GOLDENS_DIR,
-    REPO_ROOT,
     RIG_BOARD,
     RIGS_DIR,
     RigCase,
     rig_dir,
     SHIELD_DIR,
+    plain_build_for,
+    run_expand,
+)
+from harness import (
+    EMITTED_FILES,
+    FIXTURES_DIR,
+    GOLDENS_DIR,
+    REPO_ROOT,
     assert_absent_or_refreeze,
     freeze_or_assert,
     normalize,
     overlay_is_byte_compared,
-    plain_build_for,
-    run_expand,
     zephyr_base,
 )
 

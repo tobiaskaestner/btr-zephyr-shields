@@ -11,7 +11,7 @@ import textwrap
 
 import yaml
 
-from conftest import REPO_ROOT, WEST_EXE, WEST_TOPDIR, subprocess_timeout
+from harness import REPO_ROOT, WEST_EXE, WEST_TOPDIR, subprocess_timeout
 
 
 def _run(*args: str) -> "subprocess.CompletedProcess[str]":

@@ -40,7 +40,7 @@ fail_under = 88
 [tool.pytest.ini_options]
 # Top-level tests/ is reserved for twister test apps (Zephyr-module
 # convention); python tests live with the package.
-testpaths = ["scripts/rigc/tests/integration"]
+testpaths = ["scripts/rigc/tests/integration", "scripts/rigc/tests/integration_stay"]
 markers = [
     "build: runs west/cmake builds (slow resolved-corpus goldens); deselect with -m 'not build'",
 ]

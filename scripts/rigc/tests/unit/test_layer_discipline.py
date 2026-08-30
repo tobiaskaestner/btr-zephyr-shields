@@ -3,8 +3,9 @@
 The one test module whose subject is not a production unit but the tests
 tree itself (recorded exemption in _META_MODULES below). It enforces:
 
-  - every test module lives under exactly one of tests/unit/ or
-    tests/integration/;
+  - every test module lives under exactly one of tests/unit/,
+    tests/integration/ or tests/integration_stay/ -- the latter two are
+    one LAYER in two homes (see _LAYER_DIRS);
   - unit test modules NAME THEIR UNIT: a
     test_<name>.py directly under tests/unit/ must name a python module
     of the rigc package (or the tests' own conftest); when one unit needs
@@ -14,8 +15,8 @@ tree itself (recorded exemption in _META_MODULES below). It enforces:
   - no module under tests/unit/ imports subprocess (the structural proxy
     for "a unit test uses NO subprocess");
   - no pytest markers under tests/unit/ -- the directory IS the
-    classification there; tests/integration/ keeps exactly one marker,
-    `build`, because check.sh's fast gate selects on it
+    classification there; the integration layer keeps exactly one
+    marker, `build`, because check.sh's fast gate selects on it
     (`pytest -m "not build"`), and every integration test that reaches a
     real west/cmake configure must carry it;
   - no module-scope environment lookup of the Zephyr tree variable
@@ -38,6 +39,22 @@ TESTS_DIR = RIGC_DIR / "tests"
 #: not a production unit -- the recorded exemption from unit naming.
 _META_MODULES = {"test_layer_discipline"}
 
+#: The integration LAYER's two directories. The split is by TETHER, not by
+#: kind: integration/ holds the tests that read nothing outside
+#: tests/fixtures/, rigc/ and doc/, so they travel with the transpiler when
+#: it migrates out of btr-shields; integration_stay/ holds the ones that
+#: read this repo's own boards/rigs/, boards/shields/ or boards/extend/ and
+#: therefore stay behind with the hardware definitions. Every guard over
+#: "the integration layer" must walk BOTH -- a guard that walks only the
+#: first would, after the split, cover almost none of the build tests,
+#: which is exactly the regression this constant exists to prevent.
+_INTEGRATION_DIRS = ("integration", "integration_stay")
+
+#: Every directory a test module may live in, as the (top, layer) prefix of
+#: its rigc-relative path.
+_LAYER_DIRS = ((("tests", "unit"),)
+               + tuple(("tests", name) for name in _INTEGRATION_DIRS))
+
 
 def _python_files(root: Path) -> List[Path]:
     return sorted(p for p in root.rglob("*.py") if "__pycache__" not in p.parts)
@@ -49,11 +66,12 @@ def test_every_test_module_is_layer_classified() -> None:
         if not path.name.startswith("test_"):
             continue
         rel = path.relative_to(RIGC_DIR)
-        if rel.parts[:2] not in (("tests", "unit"), ("tests", "integration")):
+        if rel.parts[:2] not in _LAYER_DIRS:
             offenders.append(str(rel))
     assert not offenders, (
-        "test modules outside tests/unit/ and tests/integration/ "
-        f"(the directory IS the layer classification): {offenders}")
+        "test modules outside tests/unit/, tests/integration/ and "
+        "tests/integration_stay/ (the directory IS the layer "
+        f"classification): {offenders}")
 
 
 def _top_level_units() -> set[str]:
@@ -138,14 +156,15 @@ def test_no_pytest_markers_under_tests_unit() -> None:
 # ---------------------------------------------------------------- build-marker guard
 
 # Functions whose OWN body launches a real west/cmake configure, read out of
-# tests/integration/conftest.py, test_resolved_corpus.py and
+# tests/integration_stay/corpus.py, test_resolved_corpus.py and
 # test_cmake_alone_entry.py rather than guessed: a blanket "calls
 # subprocess" heuristic would misclassify every fixture that calls
-# conftest.run_expand, which is a subprocess too but only the plain
-# expander -- never a build.
+# harness.run_expand, which is a subprocess too but only the plain
+# expander -- never a build. All six live on the stay side today: a build
+# needs a real board, and every real board is a btr-shields extension.
 _BUILD_HELPERS = frozenset({
-    "plain_build_for",        # conftest.py: session-cached `west build --cmake-only` per board
-    "_run_plain_build",       # conftest.py: the plain `west build --cmake-only` itself
+    "plain_build_for",        # corpus.py: session-cached `west build --cmake-only` per board
+    "_run_plain_build",       # corpus.py: the plain `west build --cmake-only` itself
     "_run_build",             # test_resolved_corpus.py: `west build-rig --cmake-only`
     "_run_build_rig",         # test_cmake_alone_entry.py: the west build-rig reference path
     "_build_and_freeze_dts",  # test_resolved_corpus.py: wraps _run_build
@@ -178,7 +197,7 @@ _FuncDef = Union[ast.FunctionDef, ast.AsyncFunctionDef]
 def _call_targets(node: ast.AST) -> Iterator[str]:
     """Every Call inside node, by its callee's bare identifier -- a build
     helper in this tree is always invoked unqualified or as
-    `conftest.<name>`, never reassigned to another name, so the trailing
+    `harness.<name>`/`corpus.<name>`, never reassigned to another name, so the trailing
     identifier (Name.id, or Attribute.attr for a dotted call) is enough to
     recognize it."""
     for child in ast.walk(node):
@@ -302,6 +321,21 @@ def _is_build_marked(fn: _FuncDef, module_marked: bool) -> bool:
     return module_marked or "build" in _mark_names(fn.decorator_list)
 
 
+def _collect_unmarked_build_tests(path: Path, offenders: List[str]) -> None:
+    """Append `<module>::<test>` for every test in `path` that reaches a
+    build and carries no build marker. Mutates the caller's list."""
+    tree = ast.parse(path.read_text(), filename=str(path))
+    defs = _defs_by_name(tree)
+    module_marked = _module_build_mark(tree)
+    memo: Dict[str, bool] = {}
+    for fn_name, fn in defs.items():
+        if not fn_name.startswith("test_"):
+            continue
+        if (_reaches_build_helper(fn_name, defs, memo)
+                and not _is_build_marked(fn, module_marked)):
+            offenders.append(f"{path.relative_to(RIGC_DIR)}::{fn_name}")
+
+
 def test_every_build_reaching_integration_test_is_marked_build() -> None:
     """The other half of the merged discipline: directory decides unit vs
     integration, but `build` survives as a marker because check.sh's
@@ -313,20 +347,12 @@ def test_every_build_reaching_integration_test_is_marked_build() -> None:
 
     See test_build_reaching_guard_detects_an_unmarked_build_test below for
     this guard's own negative control."""
-    offenders = []
-    for path in _python_files(TESTS_DIR / "integration"):
-        if not path.name.startswith("test_"):
-            continue
-        tree = ast.parse(path.read_text(), filename=str(path))
-        defs = _defs_by_name(tree)
-        module_marked = _module_build_mark(tree)
-        memo: Dict[str, bool] = {}
-        for fn_name, fn in defs.items():
-            if not fn_name.startswith("test_"):
+    offenders: List[str] = []
+    for layer in _INTEGRATION_DIRS:
+        for path in _python_files(TESTS_DIR / layer):
+            if not path.name.startswith("test_"):
                 continue
-            if (_reaches_build_helper(fn_name, defs, memo)
-                    and not _is_build_marked(fn, module_marked)):
-                offenders.append(f"{path.relative_to(RIGC_DIR)}::{fn_name}")
+            _collect_unmarked_build_tests(path, offenders)
     assert not offenders, (
         "integration tests that reach a west/cmake build but carry no "
         f"@pytest.mark.build: {offenders}")

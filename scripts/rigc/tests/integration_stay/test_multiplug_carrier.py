@@ -33,10 +33,10 @@ from textwrap import dedent
 
 import pytest
 
-from conftest import (FIXTURES_DIR, REPO_ROOT, SHIELD_DIR, WEST_EXE,
-                      WEST_TOPDIR, assert_fixture_local, plain_build_for,
-                      render_argv, run_expand, subprocess_timeout,
-                      write_rerun_script, zephyr_base)
+from corpus import SHIELD_DIR, plain_build_for, run_expand
+from harness import (FIXTURES_DIR, REPO_ROOT, WEST_EXE, WEST_TOPDIR,
+                     assert_fixture_local, render_argv, subprocess_timeout,
+                     write_rerun_script, zephyr_base)
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 

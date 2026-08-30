@@ -43,7 +43,7 @@ from __future__ import annotations
 import re
 from typing import Dict, List, Set
 
-from conftest import REPO_ROOT
+from harness import REPO_ROOT
 
 PROD_ROOT = REPO_ROOT / "scripts" / "rigc"
 API_DIR = REPO_ROOT / "doc" / "reference" / "api"

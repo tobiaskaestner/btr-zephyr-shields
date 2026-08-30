@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from conftest import FIXTURES_DIR, run_expand
+from harness import FIXTURES_DIR, run_expand
 
 _FIXTURE = (FIXTURES_DIR / "boards" / "rigs" /
            "shield-lazy-parse-preserves-priors")

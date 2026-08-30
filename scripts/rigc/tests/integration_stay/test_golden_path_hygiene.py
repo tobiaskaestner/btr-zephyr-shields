@@ -1,7 +1,7 @@
 """Corpus-level property: no frozen golden carries a machine-specific path.
 
 A `zephyr.dts` golden's provenance comments name the build directory the
-file was generated in. `conftest.normalize_dts_provenance` rewrites that
+file was generated in. `harness.normalize_dts_provenance` rewrites that
 to `<RIGC_BUILD>/…`, but its regex matches only pytest's DEFAULT basetemp
 shape (`../../tmp/pytest-of-<user>/pytest-<n>/<name>/build/rig/…`). A
 golden produced under ANY other build directory -- a hand-run
@@ -59,7 +59,7 @@ def test_no_golden_carries_a_machine_specific_path() -> None:
 
     assert not offenders, (
         "golden(s) carry a machine-specific path -- regenerate them under "
-        "pytest's DEFAULT basetemp so conftest.normalize_dts_provenance "
+        "pytest's DEFAULT basetemp so harness.normalize_dts_provenance "
         "rewrites the build dir to <RIGC_BUILD>, or normalize by hand:\n"
         + "\n".join(
             f"  {name}:{n}: {line}"

@@ -76,6 +76,14 @@ if [ -d scripts/rigc/tests/integration ]; then
     # full are different invocations of this same gate, so different files)
     # so scripts/timing_report.py has machine-readable per-test wall times to
     # diff against a baseline -- see that script's own docstring.
+    #
+    # Two directories, one suite: tests/integration/ holds the modules that
+    # read nothing outside scripts/rigc/ (these travel to bridle once the
+    # mechanics move out); tests/integration_stay/ holds the ones tethered
+    # to this repo's own boards/rigs/, boards/shields/, or boards/extend/
+    # content (these stay behind). Both run together here, sharing one pair
+    # of junit files -- the split is a source-layout concern, not a reason
+    # for the gate to report them as two suites.
     if [ -n "$CHECK_FAST" ]; then
         suite=fast
     else
@@ -83,10 +91,12 @@ if [ -d scripts/rigc/tests/integration ]; then
     fi
     frozen_status=0
     if [ -n "$CHECK_FAST" ]; then
-        "$PY" -m pytest -m "not build" scripts/rigc/tests/integration --durations=25 \
+        "$PY" -m pytest -m "not build" scripts/rigc/tests/integration \
+            scripts/rigc/tests/integration_stay --durations=25 \
             --junitxml=.reports/junit-fast.xml || frozen_status=$?
     else
-        "$PY" -m pytest scripts/rigc/tests/integration --durations=25 \
+        "$PY" -m pytest scripts/rigc/tests/integration \
+            scripts/rigc/tests/integration_stay --durations=25 \
             --junitxml=.reports/junit-full.xml || frozen_status=$?
     fi
     # Same render-then-re-raise shape as the rigc block above:

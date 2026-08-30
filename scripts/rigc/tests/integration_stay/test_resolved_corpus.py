@@ -38,22 +38,24 @@ from typing import List, Optional
 import pytest
 import yaml
 
-from conftest import (
+from corpus import (
     ACCEPT_CASES,
     ARD_DATALOGGER_FRDM_BOARD,
+    REJECT_CASES,
+    RIG_BOARD,
+    RigCase,
+    board_extra_defines,
+    plain_build_for,
+)
+from harness import (
     DTS_EQUIV,
     FIXTURES_DIR,
     GOLDENS_DIR,
     REFREEZE,
-    REJECT_CASES,
     REPO_ROOT,
-    RIG_BOARD,
-    RigCase,
     WEST_EXE,
     WEST_TOPDIR,
-    board_extra_defines,
     normalize_dts_provenance,
-    plain_build_for,
     render_argv,
     subprocess_timeout,
     zephyr_base,

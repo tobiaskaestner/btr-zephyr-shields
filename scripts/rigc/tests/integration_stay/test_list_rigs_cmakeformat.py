@@ -16,7 +16,7 @@ from __future__ import annotations
 import subprocess
 from pathlib import Path
 
-from conftest import REPO_ROOT, WEST_TOPDIR, subprocess_timeout
+from harness import REPO_ROOT, WEST_TOPDIR, subprocess_timeout
 
 
 def _cmake_list_escape(value: str) -> str:

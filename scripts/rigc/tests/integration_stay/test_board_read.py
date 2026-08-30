@@ -3,7 +3,7 @@ layer that projects a real board's own devicetree onto model.Board.
 
   * a real, PLAIN (no shield, no rig) west build --cmake-only per board
     must configure clean -- the safety net a rig-enabling board change must
-    never break. plain_build (session-cached via conftest.plain_build_for)
+    never break. plain_build (session-cached via corpus.plain_build_for)
     performs + asserts this.
 
   * the edt.pickle cross-check: the standalone edtlib.EDT this reader
@@ -45,7 +45,8 @@ from pathlib import Path
 
 import pytest
 
-from conftest import BOARD_DTS, BOARDS, REPO_ROOT, PlainBuild, plain_build_for
+from corpus import BOARD_DTS, BOARDS, PlainBuild, plain_build_for
+from harness import REPO_ROOT
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigc.board import census, edt_build, project, resolve  # noqa: E402
@@ -57,7 +58,7 @@ from rigc.diag import render  # noqa: E402
 @pytest.fixture(params=BOARDS, ids=BOARDS)
 def plain_build(request: "pytest.FixtureRequest",
                 tmp_path_factory: "pytest.TempPathFactory") -> PlainBuild:
-    """Per-board plain build, session-memoized by conftest.plain_build_for
+    """Per-board plain build, session-memoized by corpus.plain_build_for
     -- other test files (test_emitted_corpus.py) request the SAME cached
     build for their own rigs naming this board, rather than configuring it
     again."""

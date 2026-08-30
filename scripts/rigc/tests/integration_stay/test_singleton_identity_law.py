@@ -49,9 +49,9 @@ from typing import Dict, List, Optional, Set, Tuple
 
 import pytest
 
-from conftest import REPO_ROOT, RIG_EXPAND_COMPILE, zephyr_base
+from harness import REPO_ROOT, RIG_EXPAND_COMPILE, zephyr_base
 
-# This module carries no __init__.py (see conftest.py's own docstring on
+# This module carries no __init__.py (see harness.py's own docstring on
 # the frozen suite's import idiom) -- an in-process rigc import needs
 # scripts/ on sys.path explicitly, exactly like test_reference_shields.py
 # and test_board_read.py already do.
