@@ -2,6 +2,12 @@
 # Commit gate for the Bridge-A rewrite: mypy clean + pytest green.
 # Every commit must pass this (plus reviewer acceptance — see .claude/agents/).
 #
+# THIS SCRIPT TRAVELS with the transpiler (scripts/rigc/, doc/, cmake/) when
+# it migrates out to bridle: it must never name, check, or otherwise depend
+# on a path that stays behind with the hardware definitions. Deliberately
+# self-contained for that reason -- it does not reference, and after this
+# migration cannot see, whatever other gate a downstream repo layers on top.
+#
 # Usage:  ZEPHYR_BASE=<zephyr tree> scripts/check.sh
 #   CHECK_FAST=1   skip tests marked 'build' — NOTE: since THE FLIP this
 #                  includes the emitted golden comparisons too (pass 1 reads
@@ -77,13 +83,9 @@ if [ -d scripts/rigc/tests/integration ]; then
     # so scripts/timing_report.py has machine-readable per-test wall times to
     # diff against a baseline -- see that script's own docstring.
     #
-    # Two directories, one suite: tests/integration/ holds the modules that
-    # read nothing outside scripts/rigc/ (these travel to bridle once the
-    # mechanics move out); tests/integration_stay/ holds the ones tethered
-    # to this repo's own boards/rigs/, boards/shields/, or boards/extend/
-    # content (these stay behind). Both run together here, sharing one pair
-    # of junit files -- the split is a source-layout concern, not a reason
-    # for the gate to report them as two suites.
+    # ONLY tests/integration/: the modules that read nothing outside
+    # scripts/rigc/ itself -- the whole reason this script can travel with
+    # it. Nothing else lives under this suite's own tree any more.
     if [ -n "$CHECK_FAST" ]; then
         suite=fast
     else
@@ -92,11 +94,11 @@ if [ -d scripts/rigc/tests/integration ]; then
     frozen_status=0
     if [ -n "$CHECK_FAST" ]; then
         "$PY" -m pytest -m "not build" scripts/rigc/tests/integration \
-            scripts/rigc/tests/integration_stay --durations=25 \
+            --durations=25 \
             --junitxml=.reports/junit-fast.xml || frozen_status=$?
     else
         "$PY" -m pytest scripts/rigc/tests/integration \
-            scripts/rigc/tests/integration_stay --durations=25 \
+            --durations=25 \
             --junitxml=.reports/junit-full.xml || frozen_status=$?
     fi
     # Same render-then-re-raise shape as the rigc block above:
