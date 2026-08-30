@@ -71,11 +71,16 @@ _TEMPLATE_DIR = _FIXTURES_DIR / "boards" / "rigs" / "singleton-law-template"
 _BOARD_DTS = _FIXTURES_DIR / "boards" / "mainboards" / "singleton_law_board.dts"
 # edtlib's own board-side schema for the fixture board's socket nodes.
 # NOT the production dts/bindings/ tree -- a fixture copy of all four real
-# connector types, arduino-r3/mikrobus/grove byte-identical, i2c-port
-# patched with the one property (socket,i2c) its own production docstring
-# already implies every i2c-port socket needs but that binding has never
-# had to declare (no real board node ever carried this compatible before
-# this test -- see singleton-law-connectors/i2c-port.yaml's own comment).
+# connector types. i2c-port is deliberately patched with the one property
+# (socket,i2c) its own production docstring already implies every
+# i2c-port socket needs but that binding has never had to declare (no
+# real board node ever carried this compatible before this test -- see
+# singleton-law-connectors/i2c-port.yaml's own comment). mikrobus is
+# still genuinely byte-identical to production; arduino-r3 and grove are
+# NOT any more (production moved on under both -- see
+# singleton-law-connectors/i2c-port.yaml's own CORRECTION note for what
+# actually changed and why refreshing this directory's copies is a
+# separate, deliberate decision rather than a cleanup folded in here).
 _CONNECTOR_BINDINGS = _FIXTURES_DIR / "dts" / "singleton-law-connectors"
 _MODULE_INCLUDE = REPO_ROOT / "include"
 _BOARD_LABEL = "singleton_law_board"
