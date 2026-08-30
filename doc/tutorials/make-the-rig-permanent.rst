@@ -41,8 +41,8 @@ Build it by name:
 
 .. code-block:: console
 
-   $ west build-rig -b nucleo_f411re/stm32f411xe/rig --rig acme_bench \
-       btr-shields/samples/rigs/scenario-1
+   $ west build -b nucleo_f411re/stm32f411xe/rig \
+       btr-shields/samples/rigs/scenario-1 -- -DRIG=acme_bench
 
 .. note::
 
@@ -81,8 +81,8 @@ above, and the only place a board is ever named:
 
 .. code-block:: console
 
-   $ west build-rig -b nucleo_f411re/stm32f411xe/rig --rig acme_bench \
-       btr-shields/samples/rigs/scenario-1
+   $ west build -b nucleo_f411re/stm32f411xe/rig \
+       btr-shields/samples/rigs/scenario-1 -- -DRIG=acme_bench
 
 Point ``-b`` at another board carrying a Grove socket and the same two
 files build there, with no edit in between — because the board was never

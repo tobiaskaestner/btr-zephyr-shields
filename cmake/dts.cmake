@@ -82,7 +82,7 @@ get_filename_component(_RIG_BTR_ROOT "${CMAKE_CURRENT_LIST_DIR}/.." ABSOLUTE)
 # ---------------------------------------------------------------------------
 # Debuggability: render a command line copy-pasteably into a shell (zsh/bash),
 # for message(VERBOSE ...) below and for rerun-expand.sh. Activate VERBOSE
-# output with west build-rig ... -- -DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE
+# output with west build ... -- -DRIG=<name> -DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE
 # (reuses CMake's own log-level machinery — no new flag of our own).
 #
 # _rig_shell_quote_token: one argument, quoted ONLY if it actually needs

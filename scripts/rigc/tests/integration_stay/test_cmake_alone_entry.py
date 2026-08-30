@@ -1,30 +1,47 @@
 """cmake-alone rig entry: cmake -B <dir> -S <app> -DRIG=<name> -DBOARD=
-<target> with west absent entirely must configure a build equivalent to
-the west build-rig path. The rig and the board are INDEPENDENT
-coordinates: the rig names a topology, the invocation names the board,
-and neither is derived from the other.
+<target> with west absent entirely must configure clean. The rig and the
+board are INDEPENDENT coordinates: the rig names a topology, the
+invocation names the board, and neither is derived from the other.
 SHIELD is still derived from the rig's own instances (cmake/shields.cmake's
 fork).
 
 This file covers the properties exercised entirely through direct cmake
 invocations (no west subprocess at all):
 
-  * a fresh cmake-alone configure resolves the same board target, a
-    structurally-equivalent zephyr.dts, and the same rig provenance in
-    build_info.yml (modulo the build directory itself) as west build-rig
-    given the same two coordinates.
   * a rig with no -DBOARD is a configure-time FATAL_ERROR naming the rig
     and the missing flag -- and that is EVERY rig, since no corpus rig
     declares a board at all.
   * a promoted shield behaves identically on that point, with its own
     wording (a shield never had a board axis; a rig merely stopped having
     one), and the two messages stay distinguishable.
-  * a qualified rig target (name@rev/variant) resolves its own axes
-    across both entry points -- the RIG's revision/variant, orthogonal to
-    the BOARD's own @rev/qualifiers.
+  * a qualified rig target (name@rev/variant) is validated against the
+    rig's OWN declared axes at this entry point too.
   * SHIELD keeps its own exclusion: -DSHIELD alongside -DRIG on a fresh
     configure is a FATAL_ERROR (never a silent no-op); a plain --shield
     build (no RIG) is untouched.
+
+RETIRED, not merely trimmed, along with `west build-rig` itself (the
+command is gone -- Tobi's ruling was not to invent a replacement oracle
+for tests that existed only to check it): three tests that used
+`west build-rig --cmake-only` as a REFERENCE IMPLEMENTATION and asserted
+the bare `cmake -DRIG=` entry point configured an EQUIVALENT board
+target, rig provenance, and structurally-equivalent zephyr.dts --
+test_cmake_alone_entry_equivalent_to_build_rig (the base case),
+test_cmake_alone_qualified_target_resolves (a fully qualified
+name@rev/variant target), and test_cmake_alone_lotus_with_bridle_module_
+configures (the cross-module EXTRA_ZEPHYR_MODULES case). Those three were
+a genuine CROSS-CHECK between two independent entry points into the same
+cmake machinery, not dead weight: with `west build-rig` gone, there is
+only one entry point left, so there is nothing left for them to compare
+against, and inventing a second implementation purely to keep comparing
+would be exactly the replacement oracle the ruling forbids. Their OWN
+proof burden -- that the cmake-alone path resolves a real board target,
+threads EXTRA_ZEPHYR_MODULES correctly, and produces a real,
+structurally-valid zephyr.dts -- is retired WITH them, not reassigned:
+what remains in this file (and in test_resolved_corpus.py, which drives
+the same `-DRIG=` cmake path through a real `west build`) is what is
+still true to assert about the one surviving entry point, on its own
+terms, never framed as agreement with a reference that no longer exists.
 
 No rig-swap guard exists, and none is needed: a rig declares no board of
 its own, so swapping -DRIG in an existing build dir cannot change the
@@ -43,17 +60,16 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict
 
 import pytest
 import yaml
 
-from corpus import RIG_BOARD, board_extra_defines
+from corpus import RIG_BOARD
 from harness import (
     DTS_EQUIV,
     FIXTURES_DIR,
     REPO_ROOT,
-    WEST_EXE,
     WEST_TOPDIR,
     render_argv,
     subprocess_timeout,
@@ -69,28 +85,6 @@ _APP = "zephyr/samples/hello_world"
 # nucleo_datalogger (nucleo_f401re/stm32f401xe/rig, a board EXTENSION) is
 # this file's reference rig for the cmake-only entry tests.
 _RIG = "nucleo_datalogger"
-
-
-def _run_build_rig(rig_name: str, build_dir: Path,
-                    extra_defines: Optional[List[str]] = None,
-                    *, board: str) -> "subprocess.CompletedProcess[str]":
-    """The reference path: west build-rig --cmake-only for one rig — same
-    invocation shape as test_resolved_corpus.py's _run_build. extra_defines
-    is threaded after --, e.g. the lotus board's
-    -DEXTRA_ZEPHYR_MODULES=<bridle_root>.
-
-    `board` is KEYWORD-ONLY and REQUIRED, which is the point: no
-    rig declares one, so there is no such thing as "the board this rig
-    would have picked". Making it required means a future test cannot
-    quietly reintroduce the assumption by omitting it."""
-    cmd = [
-        WEST_EXE, "build-rig", "--rig", rig_name, "--board", board, _APP,
-        "--cmake-only", "-p", "always", "-d", str(build_dir),
-    ]
-    if extra_defines:
-        cmd += ["--", *extra_defines]
-    return subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=dict(os.environ),
-                           capture_output=True, text=True, timeout=subprocess_timeout(600))
 
 
 def _cmake_alone_env() -> Dict[str, str]:
@@ -150,59 +144,6 @@ def _run_cmake_alone(build_dir: Path, extra_defines: list) -> "subprocess.Comple
     cmd = _cmake_alone_argv(build_dir, extra_defines)
     return subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=env,
                            capture_output=True, text=True, timeout=subprocess_timeout(300))
-
-
-def test_cmake_alone_entry_equivalent_to_build_rig(tmp_path: Path) -> None:
-    """cmake -DRIG=<name> -DBOARD=<target> with west absent from PATH must
-    resolve the SAME board target, a structurally-equivalent zephyr.dts,
-    and the same rig provenance in build_info.yml (modulo the build
-    directory's own path) as west build-rig --rig <name>."""
-    reference_dir = tmp_path / "build-rig-reference"
-    result_ref = _run_build_rig(_RIG, reference_dir, board=RIG_BOARD[_RIG])
-    assert result_ref.returncode == 0, (
-        f"west build-rig --rig {_RIG} --cmake-only failed\n"
-        f"--- argv ---\n{render_argv(result_ref)}\n--- stdout ---\n{result_ref.stdout}\n--- stderr ---\n{result_ref.stderr}")
-
-    cmake_dir = tmp_path / "cmake-alone"
-    result_cmake = _run_cmake_alone(cmake_dir, [f"-DRIG={_RIG}", f"-DBOARD={RIG_BOARD[_RIG]}"])
-    assert result_cmake.returncode == 0, (
-        f"cmake -DRIG={_RIG} (west absent) failed to configure\n"
-        f"--- argv ---\n{render_argv(result_cmake)}\n--- stdout ---\n{result_cmake.stdout}\n--- stderr ---\n{result_cmake.stderr}")
-
-    with open(reference_dir / "build_info.yml") as f:
-        ref_info = yaml.safe_load(f)
-    with open(cmake_dir / "build_info.yml") as f:
-        cmake_info = yaml.safe_load(f)
-
-    assert cmake_info["cmake"]["board"] == ref_info["cmake"]["board"], (
-        "cmake-alone entry resolved a DIFFERENT board target than "
-        "west build-rig")
-
-    ref_rig = ref_info["cmake"]["vendor-specific"]["rig"]
-    cmake_rig = cmake_info["cmake"]["vendor-specific"]["rig"]
-    # out-dir is legitimately build-directory-specific; everything else
-    # (name/board/yml/board-dts/shields/shield-dirs/defconfig) names the
-    # SAME source-tree files regardless of entry point, so must match
-    # byte-for-byte.
-    for key in ("name", "board", "yml", "board-dts", "shields",
-                "shield-dirs", "defconfig"):
-        assert cmake_rig.get(key) == ref_rig.get(key), (
-            f"rig provenance {key!r} differs between cmake-alone and "
-            f"build-rig: {cmake_rig.get(key)!r} vs {ref_rig.get(key)!r}")
-
-    ref_dts = reference_dir / "zephyr" / "zephyr.dts"
-    cmake_dts = cmake_dir / "zephyr" / "zephyr.dts"
-    assert ref_dts.is_file(), f"no zephyr.dts at {ref_dts}"
-    assert cmake_dts.is_file(), f"no zephyr.dts at {cmake_dts}"
-
-    zb = zephyr_base()
-    check = subprocess.run(
-        [sys.executable, str(DTS_EQUIV), str(ref_dts), str(cmake_dts)],
-        env={**os.environ, "ZEPHYR_BASE": zb},
-        capture_output=True, text=True)
-    assert check.returncode == 0, (
-        "cmake-alone entry's zephyr.dts is not structurally equivalent to "
-        f"the build-rig reference (dts_equiv.py):\n--- argv ---\n{render_argv(check)}\n{check.stdout}\n{check.stderr}")
 
 
 _EXTRA_DTS_ROOT = str(FIXTURES_DIR / "extra_dts_root")
@@ -384,43 +325,6 @@ def test_cmake_alone_board_injection_is_read_not_ignored(tmp_path: Path) -> None
             == "frdm_k64f/mk64f12/rig")
 
 
-def test_cmake_alone_qualified_target_resolves(tmp_path: Path) -> None:
-    """End-to-end at the cmake-alone entry
-    point specifically (not just west build-rig): a FULLY qualified target
-    (name@rev/variant) must resolve to the SAME board and rig provenance
-    (including the SELECTED revision/variant themselves, and the applied
-    fragment list) as west build-rig with the identical target string --
-    same shape as test_cmake_alone_entry_equivalent_to_build_rig, but
-    proving the qualifier axes specifically survive both entry points."""
-    target = "pilot_variants@2/variant_b"
-    reference_dir = tmp_path / "build-rig-reference"
-    result_ref = _run_build_rig(target, reference_dir, board=RIG_BOARD["pilot_variants"])
-    assert result_ref.returncode == 0, (
-        f"west build-rig --rig {target} --cmake-only failed\n"
-        f"--- argv ---\n{render_argv(result_ref)}\n--- stdout ---\n{result_ref.stdout}\n--- stderr ---\n{result_ref.stderr}")
-
-    cmake_dir = tmp_path / "cmake-alone"
-    result_cmake = _run_cmake_alone(cmake_dir, [f"-DRIG={target}",
-                                 f'-DBOARD={RIG_BOARD["pilot_variants"]}'])
-    assert result_cmake.returncode == 0, (
-        f"cmake -DRIG={target} (west absent) failed to configure\n"
-        f"--- argv ---\n{render_argv(result_cmake)}\n--- stdout ---\n{result_cmake.stdout}\n--- stderr ---\n{result_cmake.stderr}")
-
-    with open(reference_dir / "build_info.yml") as f:
-        ref_info = yaml.safe_load(f)
-    with open(cmake_dir / "build_info.yml") as f:
-        cmake_info = yaml.safe_load(f)
-
-    ref_rig = ref_info["cmake"]["vendor-specific"]["rig"]
-    cmake_rig = cmake_info["cmake"]["vendor-specific"]["rig"]
-    for key in ("name", "board", "revision", "variant", "fragments"):
-        assert cmake_rig.get(key) == ref_rig.get(key), (
-            f"rig provenance {key!r} differs between cmake-alone and "
-            f"build-rig: {cmake_rig.get(key)!r} vs {ref_rig.get(key)!r}")
-    assert ref_rig["revision"] == "2"
-    assert ref_rig["variant"] == "variant_b"
-
-
 def test_cmake_alone_qualified_rig_target_against_undeclared_axis_rejected(
         tmp_path: Path) -> None:
     """Qualifiers RESOLVE — list_rigs.py's
@@ -510,56 +414,6 @@ def test_cmake_alone_lotus_needs_bridle_module(tmp_path: Path) -> None:
         f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
     combined = f"{render_argv(result)}\n" + result.stdout + result.stderr
     assert "seeeduino_lotus" in combined, combined
-
-
-def test_cmake_alone_lotus_with_bridle_module_configures(tmp_path: Path) -> None:
-    """cmake-alone, west-free, WITH -DEXTRA_ZEPHYR_MODULES=<bridle_root>
-    must configure clean and resolve the SAME cross-module extension target
-    as west build-rig with the identical define threaded (same shape as
-    test_cmake_alone_entry_equivalent_to_build_rig, a same-module board)."""
-    extra = board_extra_defines(RIG_BOARD["lotus_pwm"])
-    assert extra, "lotus_pwm's board must need EXTRA_ZEPHYR_MODULES (bridle)"
-
-    reference_dir = tmp_path / "build-rig-reference"
-    result_ref = _run_build_rig("lotus_pwm", reference_dir, extra, board=RIG_BOARD["lotus_pwm"])
-    assert result_ref.returncode == 0, (
-        f"west build-rig --rig lotus_pwm --cmake-only (with bridle module) "
-        f"failed\n--- argv ---\n{render_argv(result_ref)}\n--- stdout ---\n{result_ref.stdout}\n"
-        f"--- stderr ---\n{result_ref.stderr}")
-
-    cmake_dir = tmp_path / "cmake-alone"
-    result_cmake = _run_cmake_alone(cmake_dir, ["-DRIG=lotus_pwm",
-                                          f'-DBOARD={RIG_BOARD["lotus_pwm"]}', *extra])
-    assert result_cmake.returncode == 0, (
-        f"cmake -DRIG=lotus_pwm {' '.join(extra)} (west absent) "
-        f"failed to configure\n--- argv ---\n{render_argv(result_cmake)}\n--- stdout ---\n{result_cmake.stdout}\n"
-        f"--- stderr ---\n{result_cmake.stderr}")
-
-    with open(reference_dir / "build_info.yml") as f:
-        ref_info = yaml.safe_load(f)
-    with open(cmake_dir / "build_info.yml") as f:
-        cmake_info = yaml.safe_load(f)
-
-    assert cmake_info["cmake"]["board"] == ref_info["cmake"]["board"], (
-        "cmake-alone entry resolved a DIFFERENT board target than "
-        f"west build-rig: {cmake_info['cmake']['board']!r} vs "
-        f"{ref_info['cmake']['board']!r}")
-    assert ref_info["cmake"]["board"]["name"] == "seeeduino_lotus"
-    assert ref_info["cmake"]["board"]["qualifiers"] == "samd21g18a/rig"
-
-    ref_dts = reference_dir / "zephyr" / "zephyr.dts"
-    cmake_dts = cmake_dir / "zephyr" / "zephyr.dts"
-    assert ref_dts.is_file(), f"no zephyr.dts at {ref_dts}"
-    assert cmake_dts.is_file(), f"no zephyr.dts at {cmake_dts}"
-
-    zb = zephyr_base()
-    check = subprocess.run(
-        [sys.executable, str(DTS_EQUIV), str(ref_dts), str(cmake_dts)],
-        env={**os.environ, "ZEPHYR_BASE": zb},
-        capture_output=True, text=True)
-    assert check.returncode == 0, (
-        "cmake-alone lotus_pwm's zephyr.dts is not structurally equivalent "
-        f"to the build-rig reference (dts_equiv.py):\n--- argv ---\n{render_argv(check)}\n{check.stdout}\n{check.stderr}")
 
 
 # ---------------------------------------------------------- promoted shield

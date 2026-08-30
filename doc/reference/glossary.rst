@@ -10,7 +10,7 @@ Glossary
       :term:`rig metadata file` and the :term:`rig content file`. Neither
       names a board — a rig is a topology, and the board is the other half
       of the :term:`invocation coordinate`. It is built with
-      ``west build-rig -b <board> --rig <name> <app>``.
+      ``west build -b <board> <app> -- -DRIG=<name>``.
 
    connector type
       The contract a family of sockets shares — which :term:`position`\ s
@@ -78,7 +78,7 @@ Glossary
 
    invocation coordinate
       The pair naming what to build: a board and a rig, given
-      independently (``-b``/``--board`` and ``--rig``). The invocation is
+      independently (``-b``/``--board`` and ``-DRIG=``). The invocation is
       the *only* source of the board — no rig file declares one — so the
       same rig can be built against any board whose sockets satisfy it,
       and a rig build with no board given is a configure error.

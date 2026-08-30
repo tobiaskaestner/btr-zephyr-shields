@@ -11,7 +11,7 @@ anything — just to check the module works before building anything around
 it.
 
 **One new concept: a single module IS a rig.** A shield name is a legal
-``--rig`` argument, and it means "one of these, plugged in the obvious
+``-DRIG=`` target, and it means "one of these, plugged in the obvious
 place".
 
 Build it
@@ -19,8 +19,8 @@ Build it
 
 .. code-block:: console
 
-   $ west build-rig -b nucleo_f411re/stm32f411xe/rig --rig acme_grove_led \
-       btr-shields/samples/rigs/scenario-1
+   $ west build -b nucleo_f411re/stm32f411xe/rig \
+       btr-shields/samples/rigs/scenario-1 -- -DRIG=acme_grove_led
 
 No rig file was written. Two things made that work, and both are worth
 understanding because they are load-bearing everywhere else.
@@ -28,7 +28,7 @@ understanding because they are load-bearing everywhere else.
 The board is a separate argument
 ----------------------------------
 
-``-b`` and ``--rig`` are independent. That is the :term:`invocation
+``-b`` and ``-DRIG=`` are independent. That is the :term:`invocation
 coordinate`: a build is *a board times a rig*, not a rig that owns a board.
 
 It has to be that way here. A module has no board — an LED on a Grove

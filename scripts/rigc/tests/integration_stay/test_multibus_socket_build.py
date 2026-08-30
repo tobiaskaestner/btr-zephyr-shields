@@ -54,8 +54,9 @@ def _run(rig_yml: Path, out_dir: Path) -> "subprocess.CompletedProcess[str]":
 @pytest.mark.build
 def test_multibus_expand_and_build_round_trip(tmp_path: Path) -> None:
     """The expand+build round trip for the fixture connector. A REAL
-    `west build-rig` still cannot exercise THIS fixture connector type,
-    though not for the reason it once could not: cmake/dts.cmake's fork
+    rig build (`west build ... -- -DRIG=<name>`) still cannot exercise
+    THIS fixture connector type, though not for the reason it once could
+    not: cmake/dts.cmake's fork
     now threads --connector-dir once per real DTS_ROOT (mirroring
     --bindings-dir's own rule -- the migration-blocker fix this
     directory's own test_cmake_alone_entry.py::
@@ -67,8 +68,8 @@ def test_multibus_expand_and_build_round_trip(tmp_path: Path) -> None:
     declared DTS_ROOT (no module declares it, unlike btr-shields' own
     `dts_root: .`), so nothing arranges for cmake to pass it --
     registering a fixtures-only DTS_ROOT purely to reach one synthetic
-    connector type through a real `west build-rig` would be
-    disproportionate bring-up for what this test needs to prove, so it
+    connector type through a real rig build would be disproportionate
+    bring-up for what this test needs to prove, so it
     still takes the cheaper path below. What IS reachable, and what this
     test proves instead: the devicetree TEXT the expander emits for a
     multi-bus socket is genuine, toolchain-buildable devicetree, not

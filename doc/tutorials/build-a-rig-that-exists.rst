@@ -60,12 +60,16 @@ returns to why those are two files and not one.
 Build it
 ----------
 
-``west build-rig`` is ``west build`` with one extra flag:
+A rig is one thing added to an ordinary ``west build``: ``-DRIG=<name>``,
+passed through to CMake after ``--``. Nothing else about the command
+changes — which is also why the whole mechanism works with ``west``
+absent entirely, as a bare ``cmake`` invocation: the ``-D`` is CMake's,
+not west's.
 
 .. code-block:: console
 
-   $ west build-rig -b nucleo_f401re/stm32f401xe/rig --rig nucleo_datalogger \
-       btr-shields/samples/rigs/scenario-1 -p always
+   $ west build -b nucleo_f401re/stm32f401xe/rig \
+       btr-shields/samples/rigs/scenario-1 -p always -- -DRIG=nucleo_datalogger
 
 The board comes from ``-b``, exactly as in any Zephyr build. A rig names a
 topology — what is plugged where — and nothing else; it has no board of its

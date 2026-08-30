@@ -1,70 +1,47 @@
 Commands
 ==========
 
-Three command surfaces exist, and only the first two are meant for a
-person: ``west build-rig`` builds a rig, ``west rigs`` answers questions
-about rigs without building, and the :term:`expander` itself
-(``rigc``) is run *by* ``cmake`` during configure. Its argument list is
-documented here anyway, because a failing configure prints it and
-``build/rig/rerun-expand.sh`` re-runs it.
+Two things exist for a person: building a rig, and ``west rigs``, which
+answers questions about rigs without building. The :term:`expander` itself
+(``rigc``) is run *by* ``cmake`` during configure, never directly by a
+person — its argument list is documented here anyway, because a failing
+configure prints it and ``build/rig/rerun-expand.sh`` re-runs it.
 
 .. contents::
    :local:
    :depth: 1
 
 
-``west build-rig``
---------------------
-
-.. code-block:: console
-
-   $ west build-rig -b <board> --rig <target> <app-source-dir> [west build options]
-
-``west build`` with the whole ``west build`` argument list inherited, plus
-two flags of its own. It adds ``-DRIG=<target>`` to the cmake command line
-and runs the ordinary build.
-
-``--rig TARGET``
-   The rig to build: either a persisted rig, named by its ``rig.yml``
-   ``rig.name`` field, or a :term:`shield template` promoted to a rig of
-   one instance. Forwarded verbatim as ``-DRIG=<TARGET>``; see
-   `Promotion targets`_ for the grammar.
-
-``--zephyr-base DIR``
-   The Zephyr tree to build against. Defaults to ``$ZEPHYR_BASE``, else a
-   ``zephyr-rigs/`` or ``zephyr/`` checkout under the workspace. The
-   resolved tree is exported into the build's environment, so a shell
-   profile pointing ``ZEPHYR_BASE`` elsewhere cannot silently win.
-
-Three rules the inherited ``west build`` flags acquire here:
-
-- **The board is required, and comes from** ``-b``/``--board``. A rig
-  names a topology; no rig file declares a board, so there is nothing to
-  fall back to and a rig build without a board is a configure-time error
-  that says so.
-- **The application is required** — as the positional argument or via
-  ``-s``/``--source-dir``. This command never defaults it.
-- ``--shield`` **must not be given.** A rig's own instances are the sole
-  source of shields for a rig build; the combination is a fatal configure
-  error. A ``SHIELD`` still cached in a build directory from an earlier
-  non-rig configure trips it too — pristine the directory (``-p always``)
-  when switching one from ``--shield`` to ``--rig``.
-
-Without ``--rig``, this command is ``west build`` and nothing else.
-
-Building without ``west build-rig``
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-``--rig`` is a convenience for one ``-D``. Any ordinary Zephyr build
-becomes a rig build the same way:
+Building a rig
+----------------
 
 .. code-block:: console
 
    $ west build -b <board> <app-source-dir> -- -DRIG=<target>
 
-Everything below the west layer — target resolution, expansion,
-diagnostics — is driven from cmake, so the two forms configure
-identically.
+Building a rig is not a command of its own — it is an ordinary
+``west build`` (or a bare ``cmake -S ... -B ...``) invocation, one flag
+added. ``-DRIG=<target>`` resolves ``<target>`` — either a persisted rig,
+named by its ``rig.yml`` ``rig.name`` field, or a :term:`shield template`
+promoted to a rig of one instance (see `Promotion targets`_ for the
+grammar) — into a devicetree overlay during configure. Every other
+``west build``/cmake option works unchanged alongside it.
+
+Two rules this acquires:
+
+- **The board is required, and comes from** ``-b``/``--board`` (or
+  ``-DBOARD=`` for a bare ``cmake`` invocation). A rig names a topology;
+  no rig file declares a board, so there is nothing to fall back to and a
+  rig build without a board is a configure-time error that says so.
+- ``--shield`` **must not be given.** A rig's own instances are the sole
+  source of shields for a rig build; the combination is a fatal configure
+  error. A ``SHIELD`` still cached in a build directory from an earlier
+  non-rig configure trips it too — pristine the directory (``-p always``)
+  when switching one to ``-DRIG``.
+
+The ``$ZEPHYR_BASE`` a rig build resolves against, and everything else
+about the build, is whatever an ordinary ``west build``/``cmake``
+invocation would already use — nothing about ``-DRIG`` changes it.
 
 
 ``west rigs``
@@ -197,10 +174,10 @@ Socket exclusivity is enforced across the whole list.
 
 .. code-block:: console
 
-   $ west build-rig -b nucleo_f401re/stm32f401xe/rig \
-       --rig 'adafruit_winc1500:config.w_irq_jmp=D2' <app>
-   $ west build-rig -b mikroe_quail/stm32f427xx/rig \
-       --rig 'eth_click:socket=quail_sock1;temp_click:socket=quail_sock2' <app>
+   $ west build -b nucleo_f401re/stm32f401xe/rig <app> \
+       -- -DRIG='adafruit_winc1500:config.w_irq_jmp=D2'
+   $ west build -b mikroe_quail/stm32f427xx/rig <app> \
+       -- -DRIG='eth_click:socket=quail_sock1;temp_click:socket=quail_sock2'
 
 Both elements of that list name their socket because the board carries four
 mikroBUS sockets: with one candidate a socket is inferred, with four it has

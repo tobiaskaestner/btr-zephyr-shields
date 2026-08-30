@@ -137,8 +137,8 @@ def bridle_root() -> Path:
 
 def board_extra_defines(board: str) -> List[str]:
     """Per-board extra -D cmake defines every build path (plain build,
-    the resolved-corpus west build-rig, cmake-alone) must thread through
-    identically.
+    the resolved-corpus `west build --cmake-only -- -DRIG=`, cmake-alone)
+    must thread through identically.
 
     -DRIG_EXPAND_COMPILE=<value> (the differential-harness module knob)
     is threaded UNCONDITIONALLY, for every
@@ -172,9 +172,10 @@ class RigCase:
     `board` is this table's own answer to "what does this rig build
     against", not rig.yml's: no corpus rig.yml declares a board at all,
     so nothing here reads one back out of rig.yml — this field is the
-    injected value every corpus build (run_expand's --board, west
-    build-rig's -b) uses, the harness acting as the invocation supplies
-    it. RIG_BOARD must come back byte-unchanged in every golden."""
+    injected value every corpus build (run_expand's --board,
+    test_resolved_corpus.py's own `west build`'s -b) uses, the harness
+    acting as the invocation supplies it. RIG_BOARD must come back
+    byte-unchanged in every golden."""
 
     name: str
     board: str
@@ -276,8 +277,8 @@ ARD_DATALOGGER_FRDM_BOARD = "frdm_k64f/mk64f12/rig"
 # No corpus rig.yml declares a board: RIG_BOARD / RigCase.board /
 # ARD_DATALOGGER_FRDM_BOARD above are the harness's own answer -- the test
 # corpus table names each rig's board, the invocation (run_expand's
-# --board, west build-rig's -b) supplies it, and nothing reads it back out
-# of the rig's own metadata.
+# --board, test_resolved_corpus.py's own `west build`'s -b) supplies it,
+# and nothing reads it back out of the rig's own metadata.
 
 
 # ---------------------------------------------------------------- cached plain builds

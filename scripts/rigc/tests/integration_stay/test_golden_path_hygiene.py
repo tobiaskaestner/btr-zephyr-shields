@@ -5,7 +5,7 @@ file was generated in. `harness.normalize_dts_provenance` rewrites that
 to `<RIGC_BUILD>/…`, but its regex matches only pytest's DEFAULT basetemp
 shape (`../../tmp/pytest-of-<user>/pytest-<n>/<name>/build/rig/…`). A
 golden produced under ANY other build directory -- a hand-run
-`west build-rig -d`, a custom `--basetemp`, an agent's scratch dir --
+a hand-run `west build -d`, a custom `--basetemp`, an agent's scratch dir --
 keeps that directory's absolute path verbatim.
 
 Nothing else catches it. `dts_equiv.py` compares STRUCTURE and ignores

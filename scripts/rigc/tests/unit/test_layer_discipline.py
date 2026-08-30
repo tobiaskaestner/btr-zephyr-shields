@@ -160,13 +160,17 @@ def test_no_pytest_markers_under_tests_unit() -> None:
 # test_cmake_alone_entry.py rather than guessed: a blanket "calls
 # subprocess" heuristic would misclassify every fixture that calls
 # harness.run_expand, which is a subprocess too but only the plain
-# expander -- never a build. All six live on the stay side today: a build
+# expander -- never a build. All five live on the stay side today: a build
 # needs a real board, and every real board is a btr-shields extension.
+# `_run_build_rig` (test_cmake_alone_entry.py's own west-build-rig
+# reference path) retired along with `west build-rig` itself -- there is
+# no successor entry for it; `_run_build` below is NOT its replacement,
+# it already existed and already used the surviving cmake entry point by
+# construction (see that command's own retired docstring).
 _BUILD_HELPERS = frozenset({
     "plain_build_for",        # corpus.py: session-cached `west build --cmake-only` per board
     "_run_plain_build",       # corpus.py: the plain `west build --cmake-only` itself
-    "_run_build",             # test_resolved_corpus.py: `west build-rig --cmake-only`
-    "_run_build_rig",         # test_cmake_alone_entry.py: the west build-rig reference path
+    "_run_build",             # test_resolved_corpus.py: `west build --cmake-only -- -DRIG=`
     "_build_and_freeze_dts",  # test_resolved_corpus.py: wraps _run_build
     "_run_cmake_alone",       # test_cmake_alone_entry.py: a bare `cmake -S -B` configure
 })
@@ -187,7 +191,9 @@ _BUILD_COMMANDS = frozenset({"cmake", "WEST_EXE", "west"})
 #: The west subcommands that actually configure cmake -- an argv headed by
 #: "west"/WEST_EXE only counts as a build launch when elts[1] is one of
 #: these; every other west subcommand (a listing, a query) is not.
-_WEST_BUILD_SUBCOMMANDS = frozenset({"build", "build-rig"})
+#: "build-rig" retired along with the command it named -- `build` is the
+#: one surviving configuring subcommand a rig build ever launches now.
+_WEST_BUILD_SUBCOMMANDS = frozenset({"build"})
 
 #: ast.parse never yields an AsyncFunctionDef for a `def`, but the isinstance
 #: check in _defs_by_name asks for both, so the dict value type must too.
@@ -370,7 +376,6 @@ def test_the_build_helper_set_is_exactly_the_known_launchers() -> None:
         "plain_build_for",
         "_run_plain_build",
         "_run_build",
-        "_run_build_rig",
         "_build_and_freeze_dts",
         "_run_cmake_alone",
     }
@@ -383,8 +388,7 @@ def test_each_known_launcher_is_acted_on_by_the_reachability_walk() -> None:
     """One synthetic module per launcher, names spelled out rather than
     read from _BUILD_HELPERS for the same reason as above."""
     for helper in ("plain_build_for", "_run_plain_build", "_run_build",
-                   "_run_build_rig", "_build_and_freeze_dts",
-                   "_run_cmake_alone"):
+                   "_build_and_freeze_dts", "_run_cmake_alone"):
         tree = ast.parse(textwrap.dedent(f"""
             def {helper}(*args, **kwargs):
                 return None
@@ -462,7 +466,7 @@ def test_an_inline_west_launch_only_counts_as_a_build_for_a_configuring_subcomma
     unknown, never a build (it cannot configure anything by itself)."""
     configures = ast.parse(textwrap.dedent("""
         def test_configures_clean():
-            cmd = [WEST_EXE, "build-rig", "--rig", "x", "app"]
+            cmd = [WEST_EXE, "build", "-b", "x", "app"]
             subprocess.run(cmd, capture_output=True)
         """))
     defs = _defs_by_name(configures)

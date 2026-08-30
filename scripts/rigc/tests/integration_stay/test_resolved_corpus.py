@@ -1,5 +1,10 @@
-"""Resolved goldens: the real pass-2 zephyr.dts, via west build-rig
---cmake-only.
+"""Resolved goldens: the real pass-2 zephyr.dts, via
+`west build --cmake-only -- -DRIG=<name>` -- the surviving cmake entry
+point now that `west build-rig` is retired (Tobi's ruling: no replacement
+oracle for the tests that existed only to check that command; this file
+was never one of them -- it drives the SAME cmake machinery `west
+build-rig` used to, just spelling out the one `-D` that command used to
+add for you, see _run_build's own docstring).
 
 This is THE invariant that must hold regardless of how an emitted golden's
 exact text is produced: if a future change to the expander legitimately
@@ -8,10 +13,11 @@ the overlay), this file confirms whether the BUILT devicetree actually
 changed; the emitted golden then gets re-frozen with a justification note,
 using the resolved tree as the oracle that nothing else moved.
 
-For each ACCEPT rig: west build-rig --cmake-only must configure clean, and
-the produced zephyr.dts must be STRUCTURALLY EQUIVALENT (via
-scripts/dts_equiv.py, NOT a byte diff — labels/phandle numbers/ordering are
-irrelevant, see that script's docstring) to the frozen golden.
+For each ACCEPT rig: `west build --cmake-only -- -DRIG=<name>` must
+configure clean, and the produced zephyr.dts must be STRUCTURALLY
+EQUIVALENT (via scripts/dts_equiv.py, NOT a byte diff — labels/phandle
+numbers/ordering are irrelevant, see that script's docstring) to the
+frozen golden.
 
 For each REJECT rig: the same --cmake-only invocation must FAIL, and its
 output must contain the expected phys-* diagnostic category string — the
@@ -80,29 +86,34 @@ _APP = "zephyr/samples/hello_world"
 def _run_build(rig_name: str, build_dir: Path,
                 extra_defines: Optional[List[str]] = None,
                 board: Optional[str] = None) -> "subprocess.CompletedProcess[str]":
-    """west build-rig --cmake-only for one rig — a temp build dir; -p
-    always wipes it, so nothing durable may be read back from build_dir
-    beyond this one process's own output. extra_defines is threaded after
-    -- -- empty for every rig except the lotus ones, whose board needs
+    """west build --cmake-only for one rig, with -DRIG=<rig_name> threaded
+    after -- -- the surviving cmake entry point now that `west build-rig`
+    is retired. Equivalent BY CONSTRUCTION, not merely by intent: that
+    command's own (now-deleted) docstring described it as a thin subclass
+    of Zephyr's `build` adding exactly one thing, `--rig`, which forwarded
+    verbatim as `-DRIG=<name>` and touched nothing else -- so spelling
+    that one `-D` out by hand here is the identical invocation, one layer
+    of sugar removed, not a different code path to keep in sync. A temp
+    build dir; -p always wipes it, so nothing durable may be read back
+    from build_dir beyond this one process's own output. extra_defines is
+    threaded in the SAME -- block, after -DRIG=<rig_name> -- empty for
+    every rig except the lotus ones, whose board needs
     -DEXTRA_ZEPHYR_MODULES=<bridle_root>.
 
-    board threads west's own -b/--board (rig.py: "the board defaults to
-    the rig's own ... or pass -b/--board yourself to override it -- given
-    wins, whatever the rig declares"). No corpus rig declares one at
-    all, so every corpus call site passes this -- the harness
+    board threads west build's own -b/--board. No corpus rig declares one
+    at all, so every corpus call site passes this -- the harness
     IS the invocation supplying the board. Omitted
     (None) only for a fixture rig that still declares its own board
     (outside boards/rigs/, untouched by the census)."""
-    cmd = [
-        WEST_EXE, "build-rig", "--rig", rig_name,
-    ]
+    cmd = [WEST_EXE, "build"]
     if board is not None:
         cmd += ["-b", board]
     cmd += [
         _APP, "--cmake-only", "-p", "always", "-d", str(build_dir),
+        "--", f"-DRIG={rig_name}",
     ]
     if extra_defines:
-        cmd += ["--", *extra_defines]
+        cmd += extra_defines
     return subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=dict(os.environ),
                            capture_output=True, text=True,
                            timeout=subprocess_timeout(600))
@@ -114,7 +125,7 @@ def test_resolved_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
     extra = board_extra_defines(case.board)
     result = _run_build(case.name, build_dir, extra, board=case.board)
     assert result.returncode == 0, (
-        f"{case.name}: expected `west build-rig --cmake-only` to configure "
+        f"{case.name}: expected `west build --cmake-only` to configure "
         f"clean (an ACCEPT rig)\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}")
 
@@ -147,11 +158,11 @@ def _build_and_freeze_dts(rig_target: str, golden_name: str, board: str,
                           tmp_path: Path) -> Path:
     """Shared body for the pilot family's three NON-default qualified tuples
     (the bare tuple already rides test_resolved_accept_zephyr_dts via
-    ACCEPT_CASES's pilot_variants entry, above) -- west build-rig --rig
-    accepts a FULL qualified target string verbatim (rig.py forwards it,
-    zero rig knowledge), so no cmake/west-command change was needed for
-    this to work. Returns the build dir for callers that need to inspect
-    more than zephyr.dts (e.g. .config).
+    ACCEPT_CASES's pilot_variants entry, above) -- -DRIG= accepts a FULL
+    qualified target string verbatim (cmake/dts.cmake's own fork forwards
+    it, zero rig knowledge at the west/cmake layer), so no cmake change
+    was needed for this to work. Returns the build dir for callers that
+    need to inspect more than zephyr.dts (e.g. .config).
 
     board is required, not defaulted: no corpus rig declares one,
     so every qualified pilot/
@@ -163,7 +174,7 @@ def _build_and_freeze_dts(rig_target: str, golden_name: str, board: str,
     build_dir = tmp_path / "build"
     result = _run_build(rig_target, build_dir, board=board)
     assert result.returncode == 0, (
-        f"{rig_target}: expected `west build-rig --cmake-only` to configure "
+        f"{rig_target}: expected `west build --cmake-only` to configure "
         f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
 
     candidate = build_dir / "zephyr" / "zephyr.dts"
@@ -308,7 +319,7 @@ def test_resolved_pilot_build_info_provenance(tmp_path: Path) -> None:
     result = _run_build("pilot_variants@2/variant_b", build_dir,
                         board=RIG_BOARD["pilot_variants"])
     assert result.returncode == 0, (
-        f"pilot_variants@2/variant_b: expected `west build-rig --cmake-only` "
+        f"pilot_variants@2/variant_b: expected `west build --cmake-only` "
         f"to configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}")
 
@@ -339,7 +350,7 @@ def test_resolved_shield_revision_conf_collected(tmp_path: Path) -> None:
     result = _run_build("shield_rev_pilot", build_dir,
                         board=RIG_BOARD["shield_rev_pilot"])
     assert result.returncode == 0, (
-        f"shield_rev_pilot: expected `west build-rig --cmake-only` to "
+        f"shield_rev_pilot: expected `west build --cmake-only` to "
         f"configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}")
 
@@ -363,7 +374,7 @@ def test_resolved_reject_configure_fails(case: RigCase, tmp_path: Path) -> None:
     extra = board_extra_defines(case.board)
     result = _run_build(case.name, build_dir, extra, board=case.board)
     assert result.returncode != 0, (
-        f"{case.name}: expected `west build-rig --cmake-only` to FAIL (a "
+        f"{case.name}: expected `west build --cmake-only` to FAIL (a "
         f"REJECT rig) but it exited 0")
 
     combined = f"{render_argv(result)}\n" + result.stdout + result.stderr
@@ -396,7 +407,7 @@ def test_resolved_user_extra_conf_wins_over_rig(tmp_path: Path) -> None:
                         [f"-DEXTRA_CONF_FILE={user_conf}"],
                         board=RIG_BOARD["nucleo_mux_farm"])
     assert result.returncode == 0, (
-        f"nucleo_mux_farm: expected `west build-rig --cmake-only` with a "
+        f"nucleo_mux_farm: expected `west build --cmake-only` with a "
         f"user -DEXTRA_CONF_FILE to configure clean\n--- stdout ---\n"
         f"{result.stdout}\n--- stderr ---\n{result.stderr}")
 
@@ -426,7 +437,7 @@ def test_resolved_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
     extra = board_extra_defines(RIG_BOARD["lotus_pwm"])
     result = _run_build("lotus_pwm", build_dir, extra, board=RIG_BOARD["lotus_pwm"])
     assert result.returncode == 0, (
-        f"lotus_pwm: expected `west build-rig --cmake-only` to configure "
+        f"lotus_pwm: expected `west build --cmake-only` to configure "
         f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
 
     with open(build_dir / "zephyr" / "edt.pickle", "rb") as f:
@@ -468,7 +479,7 @@ def test_resolved_build_info_rig_provenance(tmp_path: Path) -> None:
     build_dir = tmp_path / "build"
     result = _run_build("frdm_eth_nest", build_dir, board=RIG_BOARD["frdm_eth_nest"])
     assert result.returncode == 0, (
-        f"frdm_eth_nest: expected `west build-rig --cmake-only` to configure "
+        f"frdm_eth_nest: expected `west build --cmake-only` to configure "
         f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
 
     with open(build_dir / "build_info.yml") as f:
@@ -518,7 +529,7 @@ def test_resolved_build_info_shield_dir_collision(tmp_path: Path) -> None:
     build_dir = tmp_path / "build"
     result = _run_build("nucleo_datalogger", build_dir, board=RIG_BOARD["nucleo_datalogger"])
     assert result.returncode == 0, (
-        f"nucleo_datalogger: expected `west build-rig --cmake-only` to "
+        f"nucleo_datalogger: expected `west build --cmake-only` to "
         f"configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}")
     assert "shield name 'adafruit_data_logger' is offered by" not in (
@@ -565,7 +576,7 @@ def test_resolved_rig_depends_provenance(tmp_path: Path) -> None:
     extra = board_extra_defines(RIG_BOARD["lotus_pwm"])
     result = _run_build("lotus_pwm", build_dir, extra, board=RIG_BOARD["lotus_pwm"])
     assert result.returncode == 0, (
-        f"lotus_pwm: expected `west build-rig --cmake-only` to configure "
+        f"lotus_pwm: expected `west build --cmake-only` to configure "
         f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
 
     context_cmake = (build_dir / "rig" / "context.cmake").read_text()
@@ -613,7 +624,7 @@ def test_resolved_ard_datalogger_dual_host_d10(tmp_path: Path) -> None:
     result = _run_build("ard_datalogger", nucleo_dir,
                         board=RIG_BOARD["ard_datalogger"])
     assert result.returncode == 0, (
-        f"ard_datalogger: expected `west build-rig --cmake-only` to "
+        f"ard_datalogger: expected `west build --cmake-only` to "
         f"configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}")
 
@@ -622,7 +633,7 @@ def test_resolved_ard_datalogger_dual_host_d10(tmp_path: Path) -> None:
                         board=ARD_DATALOGGER_FRDM_BOARD)
     assert result.returncode == 0, (
         f"ard_datalogger@{ARD_DATALOGGER_FRDM_BOARD}: expected `west "
-        f"build-rig --cmake-only` to configure clean\n--- argv ---\n"
+        f"build --cmake-only` to configure clean\n--- argv ---\n"
         f"{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}")
 
@@ -656,7 +667,7 @@ def test_resolved_ard_datalogger_dual_host_d10(tmp_path: Path) -> None:
 #
 # An empty rig (`instances: []`) must configure identically to a plain
 # board build. Written against TODAY's coordinate
-# (`west build-rig --rig <name>`).
+# (`west build --cmake-only -- -DRIG=<name>`).
 
 
 _EMPTY_RIG_BOARD = "nucleo_f401re/stm32f401xe/rig"
@@ -686,7 +697,7 @@ def test_resolved_empty_rig_equals_plain_board(
     # board) -- -DBOARD is the only source.
     result = _run_build("empty_rig", build_dir, extra, board=_EMPTY_RIG_BOARD)
     assert result.returncode == 0, (
-        f"empty_rig: expected `west build-rig --cmake-only` to configure "
+        f"empty_rig: expected `west build --cmake-only` to configure "
         f"clean (an empty rig is a valid, ACCEPT rig)\n--- argv ---\n"
         f"{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}")

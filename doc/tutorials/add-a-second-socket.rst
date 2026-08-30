@@ -79,8 +79,8 @@ so ``status`` lands on ``gpioa 10`` and ``fault`` on ``gpiob 5``.
 
 .. code-block:: console
 
-   $ west build-rig -b nucleo_f411re/stm32f411xe/rig --rig acme_bench \
-       btr-shields/samples/rigs/scenario-1
+   $ west build -b nucleo_f411re/stm32f411xe/rig \
+       btr-shields/samples/rigs/scenario-1 -- -DRIG=acme_bench
    $ cat build/rig/config-sheet.md
 
 .. code-block:: text
@@ -105,8 +105,8 @@ Grove socket. It does not any more:
 
 .. code-block:: console
 
-   $ west build-rig -b nucleo_f411re/stm32f411xe/rig --rig acme_grove_led \
-       btr-shields/samples/rigs/scenario-1
+   $ west build -b nucleo_f411re/stm32f411xe/rig \
+       btr-shields/samples/rigs/scenario-1 -- -DRIG=acme_grove_led
    error: instance 'acme_grove_led': shield 'acme_grove_led' plugs 'grove',
    which mates more than one socket of board
    'nucleo_f411re/stm32f411xe/rig' -- add an explicit socket: to pick one

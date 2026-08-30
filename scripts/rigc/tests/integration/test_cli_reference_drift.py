@@ -1,14 +1,18 @@
-"""Corpus-level property: doc/reference/commands.rst and the three real
+"""Corpus-level property: doc/reference/commands.rst and the two real
 argument parsers agree on what options exist, in BOTH directions.
 
-The three surfaces the page documents:
+The two surfaces the page documents (a rig build is no longer its own
+west command -- see below -- so it contributes no parser of its own to
+check here; the page's own prose mentions of `-b`/`--board` and `--shield`
+are Zephyr's `west build`/cmake flags, admitted via
+`_INHERITED_FROM_WEST_BUILD` below rather than declared by anything this
+repo owns):
 
   `rigc expand`          -- rigc.cli.build_parser(), the REAL parser,
                             imported and interrogated (it is importable
                             with no Zephyr tree present, which is the
                             whole reason cli.py keeps build_parser
                             public).
-  `west build-rig`       -- scripts/west_commands/rig.py
   `west rigs`            -- scripts/west_commands/rigs.py, plus the
                             options `list_rigs.add_args()` contributes to
                             it (that ONE function, not the whole module:
@@ -17,13 +21,12 @@ The three surfaces the page documents:
                             resolver cmake calls, which `west rigs` does
                             not expose and this page does not document)
 
-The two west surfaces are scanned as TEXT (a regex over `add_argument(`
-calls) rather than imported: `rigs.py` locates the Zephyr script tree at
-import time and `rig.py` subclasses upstream's own `west build` command,
-so importing either drags a whole Zephyr checkout into a test whose
+The west surface is scanned as TEXT (a regex over `add_argument(` calls)
+rather than imported: `rigs.py` locates the Zephyr script tree at import
+time, so importing it drags a whole Zephyr checkout into a test whose
 subject is a documentation page. The regex is crude in the same way
 test_dts_vocabulary_drift.py's literal scan is crude, and sufficient for
-the same reason: an option is declared exactly one way in these files.
+the same reason: an option is declared exactly one way in this file.
 
 Two directions, both checked:
 
@@ -66,8 +69,7 @@ sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigc.cli import build_parser  # noqa: E402
 
 DOC_PAGE = REPO_ROOT / "doc" / "reference" / "commands.rst"
-WEST_COMMANDS = (REPO_ROOT / "scripts" / "west_commands" / "rig.py",
-                 REPO_ROOT / "scripts" / "west_commands" / "rigs.py")
+WEST_COMMANDS = (REPO_ROOT / "scripts" / "west_commands" / "rigs.py",)
 LIST_RIGS = REPO_ROOT / "scripts" / "list_rigs.py"
 
 #: The one `list_rigs.py` function `west rigs` actually calls on its own
@@ -96,15 +98,19 @@ _DOC_CELL_RE = re.compile(r"^\s*\* - ``(--[a-z][a-z0-9-]*)")
 #: accepted a renamed entry, observed by mutating the page.
 _DOC_TERM_RE = re.compile(r"^``(--[a-z][a-z0-9-]*)")
 
-#: Options `west build-rig` INHERITS from upstream's `west build` parser
-#: (it subclasses that command), documented by Zephyr rather than here.
-#: The page names these where a rig build changes what they mean -- the
-#: board becoming mandatory, `--shield` becoming an error -- so the
-#: reverse check has to admit them without this repo declaring them.
+#: Zephyr's own `west build`/cmake flags, documented by Zephyr rather than
+#: here, that the page's prose still legitimately names: a rig build is
+#: `west build` (or a bare `cmake`) with one added `-DRIG=`, and the page
+#: says where that acquires a rule of its own -- the board becoming
+#: mandatory, `--shield` becoming a configure error -- without this repo
+#: declaring either flag itself (rigc.cli's OWN `--board`, for `rigc
+#: expand`'s standalone recipe, already covers that token in
+#: `_declared_options()` too; it stays listed here so the reverse check
+#: does not depend on which of the two reasons happens to cover it).
 #: Spelled out rather than pattern-matched: an unknown `--flag` on the
 #: page should have to be added HERE, deliberately, with this comment in
 #: view.
-_INHERITED_FROM_WEST_BUILD = {"--board", "--source-dir", "--shield", "--pristine"}
+_INHERITED_FROM_WEST_BUILD = {"--board", "--shield"}
 
 
 def _declared_options() -> Set[str]:
@@ -188,9 +194,9 @@ def test_commands_page_documents_something_at_all() -> None:
 
 
 def test_cli_reference_forward_every_option_is_documented() -> None:
-    """Every long option of `rigc expand`, `west build-rig` and
-    `west rigs` has its own entry on doc/reference/commands.rst -- not
-    merely a mention somewhere in its prose."""
+    """Every long option of `rigc expand` and `west rigs` has its own
+    entry on doc/reference/commands.rst -- not merely a mention somewhere
+    in its prose."""
     missing = sorted(_declared_options() - _documented_entries())
     assert not missing, (
         "option(s) declared by a real parser and absent from "

@@ -37,7 +37,8 @@ def _add_zephyr_scripts():
     # module code is identical across checkouts), so we just discover one —
     # the 'zephyr-rigs'/'zephyr' names are a heuristic, not a requirement. We
     # do NOT trust the ambient $ZEPHYR_BASE (a shell profile often points it at
-    # the plain tree), consistent with build-rig's resolution.
+    # the plain tree) -- the same reason do_run pins it explicitly below,
+    # rather than relying on whatever a shell profile happens to export.
     for cand in (_TOPDIR / 'zephyr-rigs', _TOPDIR / 'zephyr'):
         wc = cand / 'scripts' / 'west_commands'
         if (wc / 'zephyr_ext_common.py').is_file():
@@ -125,7 +126,7 @@ class Rigs(WestCommand):
                  promoted to one -- so "which boards can host this
                  shield?" is askable without a rig existing for it. A
                  promoted shield may carry the same ":<key>=<value>"
-                 assignments `west build-rig --rig` accepts, e.g.
+                 assignments a persisted rig's `-DRIG=<target>` accepts, e.g.
                  "<shield>:socket=<label>" -- which is what makes a shield
                  askable at all on a board carrying more than one socket
                  of its type. TARGET may also be a `;`-separated LIST of
@@ -366,8 +367,8 @@ class Rigs(WestCommand):
         --board-dts either, so pass-1 board reading never runs here)."""
         # rigc reads $ZEPHYR_BASE at call time (its own header/index
         # parsing needs zephyr's include dir); pin it to west's OWN
-        # resolution rather than trust the ambient shell, exactly as
-        # build-rig (rig.py) already does for the same reason.
+        # resolution rather than trust the ambient shell, the same reason
+        # _add_zephyr_scripts above does not trust it either.
         os.environ['ZEPHYR_BASE'] = str(ZEPHYR_BASE)
 
         # rigc lives beside list_rigs under _SCRIPTS, already on sys.path
