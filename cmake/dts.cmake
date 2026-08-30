@@ -219,6 +219,31 @@ foreach(_rig_dts_root_dir ${DTS_ROOT})
   endif()
 endforeach()
 
+# Connector-type dirs: the SAME <dts_root>/dts/bindings/connectors rule
+# registry.py's own BINDINGS default encodes, but threaded explicitly here
+# rather than left to that fallback. The connector-type registry
+# (registry.load_types, consulted by loader/shields.py's plug-matching) is
+# a DIFFERENT consumer from edtlib's own bindings scan above: a connector
+# type's unified binding is INSIDE a threaded --bindings-dir, so edtlib
+# can schema-validate a real board's socket node against it, but that
+# does not make the type itself visible to rigc's own registry, which
+# never runs through edtlib at all (registry.py reads the same YAML files
+# with a plain yaml.safe_load). Without --connector-dir here, the registry
+# silently falls back to its own module-root-relative default
+# (registry.BINDINGS = MODULE_ROOT/dts/bindings/connectors) -- MODULE_ROOT
+# being wherever rigc's OWN source happens to live, not this DTS_ROOT.
+# That default is correct only by coincidence, for as long as rigc's
+# source and the real connector types share one repository; every rig
+# build would otherwise fail with an "unknown connector type"
+# (lang-shield-type) diagnostic that names no missing --connector-dir at
+# all, far from this actual cause.
+set(_rig_connector_dir_args)
+foreach(_rig_dts_root_dir ${DTS_ROOT})
+  if(EXISTS "${_rig_dts_root_dir}/dts/bindings/connectors")
+    list(APPEND _rig_connector_dir_args --connector-dir "${_rig_dts_root_dir}/dts/bindings/connectors")
+  endif()
+endforeach()
+
 # Load the board's own devicetree
 _rig_resolve_board_dts(_rig_board_dts)
 
@@ -508,6 +533,7 @@ else()
     --board-dts "${_rig_board_dts}"
     ${_rig_include_dir_args}
     ${_rig_bindings_dir_args}
+    ${_rig_connector_dir_args}
     --out-dir "${_rig_out_dir}")
   # --revision/--variant carry the SELECTED axis (empty = not selected /
   # not declared), so the loader validates against rig.yml's own

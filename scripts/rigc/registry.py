@@ -16,7 +16,15 @@ declared inline in every unified binding, so the raw YAML dict already has
 them.
 
 Resolved ONCE at CLI entry and threaded down as a value -- the
-hardcoded BINDINGS default below is for direct API / test use only."""
+hardcoded BINDINGS default below is a DEV/TEST convenience only, never
+the production path: a real build always threads --connector-dir
+explicitly (cmake/dts.cmake mirrors DTS_ROOT/dts/bindings/connectors for
+every DTS_ROOT, the same rule this module's own default encodes), because
+the connector-type registry is a DIFFERENT consumer from edtlib's own
+bindings scan and cannot ride inside a threaded --bindings-dir. BINDINGS
+being wrong or absent is therefore only ever a standalone-invocation or
+workspace-layout problem, never a real build's -- see load_types' own
+docstring for what happens when it is."""
 from __future__ import annotations
 
 import glob
@@ -27,10 +35,17 @@ import yaml
 
 from .buskind import CS_POOL_PROP_RE as _CS_POOL_PROP_RE
 from .deps import Deps, touch, union
+from .diag import LoadError, error
 from .dtsio import MODULE_ROOT, parse_header_indices
 from .model import ConnectorType, Position
 
-#: The default connector-type root: every real connector's unified binding.
+#: The DEV/TEST fallback connector-type root (load_types' own default when
+#: connector_dirs is None) -- MODULE_ROOT-relative, i.e. wherever rigc's
+#: OWN source happens to live, which is this repo today but stops being
+#: true the day the transpiler moves and the real connector types do not
+#: move with it. Not the production path: cmake/dts.cmake always threads
+#: --connector-dir explicitly, so a real build never reaches this
+#: fallback at all. Direct API / test use only.
 BINDINGS = os.path.join(MODULE_ROOT, "dts", "bindings", "connectors")
 
 #: socket,<kind>-<role>-cs-pool -- a named bus's own CS pool default,
@@ -69,9 +84,36 @@ def load_types(connector_dirs: Optional[List[str]] = None,
     resolves each type's <type>.h against (deliberately the SAME list a
     caller threads as --include-dir for cpp).
 
+    connector_dirs=None (the default) falls back to [BINDINGS] -- a
+    dev/test convenience, not the production path (see BINDINGS' own
+    comment): a real build always threads --connector-dir explicitly. If
+    that fallback is taken AND BINDINGS itself does not exist, this
+    raises LoadError (lang-connector-root, unanchored, matching this
+    module's other infra-level failure -- lang-cpp in dtsio.py) naming
+    that directly, rather than silently returning an empty registry:
+    with no types at all, the FIRST symptom a caller would otherwise see
+    is loader/shields.py's own "unknown connector type" (lang-shield-type)
+    on the first shield it checks -- correct as far as it goes, but far
+    from the actual cause, and equally confusing whether zero shields or
+    every shield in the corpus trips it. An EXPLICITLY passed
+    connector_dirs that happens to not exist is NOT this case (see
+    test_load_types_empty_directory_yields_no_types) -- an empty registry
+    is exactly what a caller asking for zero roots means.
+
     Returns (types, deps) -- deps is every real file this call opened
     (dependency data is a returned value, never a mutable accumulator
     passed in and written to)."""
+    used_default = connector_dirs is None
+    if used_default and not os.path.isdir(BINDINGS):
+        raise LoadError(error(
+            "lang-connector-root",
+            "no --connector-dir was given and the built-in fallback "
+            f"({BINDINGS}) does not exist -- that fallback is a dev/test "
+            "convenience, not the production path (a real build always "
+            "threads --connector-dir explicitly, see cmake/dts.cmake); "
+            "either pass --connector-dir explicitly, or this is being run "
+            "from a workspace where rigc's own source no longer sits "
+            "alongside the real connector-type bindings it needs"))
     dirs = connector_dirs if connector_dirs is not None else [BINDINGS]
     types: Dict[str, ConnectorType] = {}
     deps: Deps = frozenset()

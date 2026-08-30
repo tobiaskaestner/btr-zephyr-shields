@@ -52,6 +52,7 @@ from corpus import RIG_BOARD, board_extra_defines
 from harness import (
     DTS_EQUIV,
     FIXTURES_DIR,
+    REPO_ROOT,
     WEST_EXE,
     WEST_TOPDIR,
     render_argv,
@@ -202,6 +203,58 @@ def test_cmake_alone_entry_equivalent_to_build_rig(tmp_path: Path) -> None:
     assert check.returncode == 0, (
         "cmake-alone entry's zephyr.dts is not structurally equivalent to "
         f"the build-rig reference (dts_equiv.py):\n--- argv ---\n{render_argv(check)}\n{check.stdout}\n{check.stderr}")
+
+
+_EXTRA_DTS_ROOT = str(FIXTURES_DIR / "extra_dts_root")
+
+
+def test_cmake_alone_threads_connector_dir_per_dts_root(tmp_path: Path) -> None:
+    """The migration blocker this suite closes: --connector-dir was the
+    ONE recipe input dts.cmake never threaded (unlike --include-dir,
+    --bindings-dir, --shield-dir, all derived from real Zephyr
+    module-aware variables already) -- so registry.load_types fell back
+    to its own MODULE_ROOT-relative default, which is only ever correct
+    by coincidence (see registry.py's own docstring). Proved at the
+    RECIPE level, the way test_layer_discipline.py's build-marker guard
+    already trusts: dts.cmake always writes rerun-expand.sh BEFORE
+    execute_process, carrying the real argv -- reading it needs no
+    successful expand, no fixture board, no board-root bring-up, just a
+    configure that gets far enough to reach the write.
+
+    -DDTS_ROOT=<fixture root> is UNIONED onto the module-derived DTS_ROOT
+    list (zephyr/cmake/modules/pre_dt.cmake's own "initial contents may
+    be populated here" contract for this variable), never a replacement
+    for it -- so this asserts BOTH entries land: the fixture root's own
+    dts/bindings/connectors (tests/fixtures/extra_dts_root/, a
+    believable minimal binding, never read by this test) AND btr-shields'
+    OWN dts/bindings/connectors (REPO_ROOT, from this module's own
+    `dts_root: .` declaration in zephyr/module.yml) -- proving this is a
+    per-DTS_ROOT loop, not a single hardcoded path that happens to work
+    once."""
+    build_dir = tmp_path / "connector-dir-recipe"
+    result = _run_cmake_alone(build_dir, [
+        f"-DRIG={_RIG}", f"-DBOARD={RIG_BOARD[_RIG]}",
+        f"-DDTS_ROOT={_EXTRA_DTS_ROOT}",
+    ])
+    assert result.returncode == 0, (
+        f"cmake -DRIG={_RIG} -DDTS_ROOT={_EXTRA_DTS_ROOT} failed to configure\n"
+        f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
+        f"--- stderr ---\n{result.stderr}")
+
+    rerun_script = build_dir / "rig" / "rerun-expand.sh"
+    assert rerun_script.is_file(), f"rerun-expand.sh was not written to {rerun_script}"
+    content = rerun_script.read_text()
+
+    fixture_connectors = f"{_EXTRA_DTS_ROOT}/dts/bindings/connectors"
+    module_connectors = f"{REPO_ROOT}/dts/bindings/connectors"
+    assert f"--connector-dir {fixture_connectors}" in content, (
+        f"the injected DTS_ROOT's own connectors dir is missing from "
+        f"rerun-expand.sh:\n{content}")
+    assert f"--connector-dir {module_connectors}" in content, (
+        f"btr-shields' OWN connectors dir (this module's dts_root: . "
+        f"declaration) is missing from rerun-expand.sh -- --connector-dir "
+        f"must be threaded PER DTS_ROOT, not only for an injected extra "
+        f"one:\n{content}")
 
 
 def test_cmake_alone_board_rig_both_given_configures_with_given_board(

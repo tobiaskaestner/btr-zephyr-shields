@@ -345,14 +345,6 @@ def _expand(args: argparse.Namespace) -> int:
     header_dirs = _abspath_dirs(args.include_dirs)
     board_dts = os.path.abspath(args.board_dts) if args.board_dts else None
 
-    # Resolved ONCE here and threaded down, replacing what would
-    # otherwise be a re-glob/re-parse per caller. types_deps rides
-    # RIG_DEPENDS below (every connector-type YAML and index header this
-    # run's registry actually read).
-    types, types_deps = load_types(
-        connector_dirs=connector_dirs, header_dirs=header_dirs
-    )
-
     # Wiped on entry so a previous run's intermediates can never be
     # mistaken for this run's; see the module docstring for the
     # workdir's location, naming and retention rules.
@@ -371,6 +363,20 @@ def _expand(args: argparse.Namespace) -> int:
     assert rig_path is not None  # argparse's mutually exclusive group guarantees one of rig/--promote
 
     try:
+        # Resolved here and threaded down, replacing what would otherwise
+        # be a re-glob/re-parse per caller. types_deps rides RIG_DEPENDS
+        # below (every connector-type YAML and index header this run's
+        # registry actually read). Inside this same try: load_types can
+        # itself raise LoadError now (lang-connector-root, registry.py's
+        # own docstring) when no --connector-dir was given AND its
+        # dev/test fallback does not exist either -- a standalone
+        # invocation missing the flag, or a workspace where rigc's
+        # source no longer sits next to the real connector types. That
+        # must reject cleanly through the SAME path as every other
+        # loader-stage failure, never as an uncaught exception.
+        types, types_deps = load_types(
+            connector_dirs=connector_dirs, header_dirs=header_dirs
+        )
         rig, diags, rig_deps = loader.load(
             rig_path,
             workdir,
@@ -382,9 +388,10 @@ def _expand(args: argparse.Namespace) -> int:
             include_dirs=header_dirs,
         )
     except LoadError as e:
-        # Backstop only (the registry load above): loader.load()
-        # converts its own LoadErrors to the normal return shape,
-        # priors included.
+        # The registry load above, or loader.load() itself -- the latter
+        # already converts its own LoadErrors to the normal return shape
+        # internally in the common case, so this is mostly a backstop for
+        # it, but the FIRST-line catch for the former.
         return _reject(list(e.diags))
     if rig is None or has_errors(diags):
         return _reject(diags)

@@ -54,17 +54,26 @@ def _run(rig_yml: Path, out_dir: Path) -> "subprocess.CompletedProcess[str]":
 @pytest.mark.build
 def test_multibus_expand_and_build_round_trip(tmp_path: Path) -> None:
     """The expand+build round trip for the fixture connector. A REAL
-    `west build-rig` cannot exercise this
-    fixture connector type at all: registry.load_types's connector_dirs
-    override is a standalone-CLI recipe argument (cli.py's own
-    --connector-dir), and cmake/dts.cmake's fork never threads it for a
-    real build -- pass 2 always resolves connector types from
-    dts/bindings/connectors alone, so shields.py would reject
-    "fixture-multibus" as an unknown connector type before the analyzer
-    ever ran. What IS reachable, and what this test proves instead: the
-    devicetree TEXT the expander emits for a multi-bus socket is genuine,
-    toolchain-buildable devicetree, not merely internally-consistent
-    Python state that happens to satisfy this suite's own dts_equiv.py.
+    `west build-rig` still cannot exercise THIS fixture connector type,
+    though not for the reason it once could not: cmake/dts.cmake's fork
+    now threads --connector-dir once per real DTS_ROOT (mirroring
+    --bindings-dir's own rule -- the migration-blocker fix this
+    directory's own test_cmake_alone_entry.py::
+    test_cmake_alone_threads_connector_dir_per_dts_root proves at the
+    recipe level), so registry.load_types is no longer pinned to
+    dts/bindings/connectors alone for a real build. What still keeps
+    "fixture-multibus" unreachable that way is narrower: its own
+    directory (tests/fixtures/dts/multibus-connectors/) is not itself a
+    declared DTS_ROOT (no module declares it, unlike btr-shields' own
+    `dts_root: .`), so nothing arranges for cmake to pass it --
+    registering a fixtures-only DTS_ROOT purely to reach one synthetic
+    connector type through a real `west build-rig` would be
+    disproportionate bring-up for what this test needs to prove, so it
+    still takes the cheaper path below. What IS reachable, and what this
+    test proves instead: the devicetree TEXT the expander emits for a
+    multi-bus socket is genuine, toolchain-buildable devicetree, not
+    merely internally-consistent Python state that happens to satisfy
+    this suite's own dts_equiv.py.
 
     Mechanism: run the expander exactly as the accept test in
     test_multibus_socket.py does
