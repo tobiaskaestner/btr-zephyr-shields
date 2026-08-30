@@ -54,6 +54,44 @@ long form is the one an option is identified by here.
 
 A pure file/text scan plus one in-process import -- no cmake, no
 toolchain, no `@pytest.mark.build`.
+
+A SECOND, narrower law lives here too: every `west <subcommand>` named
+ANYWHERE under doc/ (not just this page -- a tutorial teaches commands
+too) must be either a command THIS repo declares (`scripts/
+west-commands.yml`), or a real command of upstream west itself --
+`west build`, `west flash`, ... This is the guard the retirement of
+`west build-rig` showed was missing: four tutorial pages kept teaching
+it, and the checks above stayed green throughout, because they scan only
+commands.rst's own OPTIONS, never any page's SUBCOMMAND names. The
+failure mode this catches is specific -- a doc naming a subcommand this
+repo used to provide and no longer does, or a plain typo -- not "every
+west feature is documented here" (most of upstream west's own surface
+has no business appearing on this page at all).
+
+The known-real set is assembled from two sources, neither a hardcoded
+guess: west's own BUILTIN_COMMAND_GROUPS (a real pip dependency already
+-- scripts/west_commands/rigs.py imports `west.commands` -- interrogated
+by instantiating each command class and reading its own `.name`, exactly
+as `_expand_parser()` below interrogates rigc's own parser rather than
+re-deriving it from source text), and Zephyr's own
+`$ZEPHYR_BASE/scripts/west-commands.yml` (`build`, `flash`, `boards`,
+`shields`, ... -- the extension commands Zephyr itself contributes,
+read the same way this repo's own manifest is, never a spelled-out
+list that would silently fall behind whichever version of Zephyr this
+workspace pins).
+
+A mention counts only in the two shapes this doc set actually spells a
+runnable command in -- a `$ west <subcommand>` prompt line inside a
+`.. code-block:: console` block, or a `` ``west <subcommand>`` ``
+double-backtick inline literal -- never a bare "west" in running prose
+("a west workspace", "west's own manifest"), which is common and never a
+command name. Restricting to these two shapes is what keeps this narrow
+enough to hold: every REAL west-build-rig-shaped mention in this doc
+set's own history used one of them, and a whole-page "west\\s+\\w+" scan
+was tried and rejected here for exactly the reason `_INHERITED_FROM_
+WEST_BUILD` above exists for options -- "west workspace" alone would
+require an ever-growing allowlist of ordinary nouns rather than one of
+real commands.
 """
 from __future__ import annotations
 
@@ -61,9 +99,12 @@ import argparse
 import ast
 import re
 import sys
-from typing import Set
+from pathlib import Path
+from typing import Any, Dict, List, Set, cast
 
-from harness import REPO_ROOT
+import yaml
+
+from harness import REPO_ROOT, zephyr_base
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigc.cli import build_parser  # noqa: E402
@@ -212,3 +253,120 @@ def test_cli_reference_reverse_every_documented_option_is_real() -> None:
     assert not invented, (
         "doc/reference/commands.rst names option(s) no parser declares: "
         f"{invented}")
+
+
+# --------------------------------------------- west SUBCOMMAND vocabulary
+# The narrower law described at the top of this module's docstring: every
+# `west <subcommand>` named anywhere under doc/ is either declared by this
+# repo, or a real command of upstream west itself.
+
+#: A `west <subcommand>` invocation at a shell prompt inside a
+#: `.. code-block:: console` block -- this doc set's own convention for a
+#: runnable example.
+_DOC_WEST_PROMPT_RE = re.compile(r"^\s*\$\s+west\s+([a-z][a-z0-9_-]*)",
+                                 re.MULTILINE)
+
+#: The same, as a double-backtick inline literal -- this doc set's own
+#: convention for naming a command in running prose or a heading
+#: (`` ``west build`` ``, `` ``west rigs`` ``).
+_DOC_WEST_LITERAL_RE = re.compile(r"``west\s+([a-z][a-z0-9_-]*)")
+
+
+def _repo_declared_west_commands() -> Set[str]:
+    """Every subcommand name THIS repo's own scripts/west-commands.yml
+    declares -- `rigs`, today. Read the same way west itself reads it
+    (yaml, the `west-commands:` -> `commands:` -> `name:` shape), never
+    hardcoded, so a second command added here is picked up automatically."""
+    manifest = REPO_ROOT / "scripts" / "west-commands.yml"
+    data = yaml.safe_load(manifest.read_text())
+    return {cmd["name"]
+           for entry in data["west-commands"]
+           for cmd in entry["commands"]}
+
+
+def _upstream_west_builtin_commands() -> Set[str]:
+    """Every command name west's OWN package ships built in -- `init`,
+    `update`, `list`, `manifest`, ... Interrogated by instantiating each
+    class `west.app.main.BUILTIN_COMMAND_GROUPS` registers and reading its
+    real `.name`, rather than a spelled-out list: west is already a real
+    dependency of this codebase (scripts/west_commands/rigs.py imports
+    `west.commands`), and this import touches only the west PACKAGE, never
+    a Zephyr tree -- unlike importing rigs.py itself (see this module's
+    own docstring for why THAT import is avoided)."""
+    from west.app.main import BUILTIN_COMMAND_GROUPS
+    # west ships no stub for this module, and the dict LITERAL's own
+    # inferred type collapses its heterogeneous class lists to `object`
+    # (not iterable, so far as mypy is concerned) -- cast once, here,
+    # to the shape west's own __init__ already relies on (`for group,
+    # classes in BUILTIN_COMMAND_GROUPS.items(): [cls() for cls in
+    # classes]`) rather than let that untyped collapse leak into a
+    # `# type: ignore` at every call site.
+    groups = cast(Dict[str, List[Any]], BUILTIN_COMMAND_GROUPS)
+    return {cls().name for cls_list in groups.values() for cls in cls_list}
+
+
+def _upstream_west_extension_commands() -> Set[str]:
+    """Every command name Zephyr ITSELF contributes as a west extension --
+    `build`, `flash`, `boards`, `shields`, ... -- read from
+    `$ZEPHYR_BASE/scripts/west-commands.yml`, the identical manifest shape
+    `_repo_declared_west_commands()` reads for this repo's own one command.
+    Real data from the pinned Zephyr tree, never a spelled-out list that
+    would silently fall behind whichever version of Zephyr this workspace
+    pins."""
+    manifest = Path(zephyr_base()) / "scripts" / "west-commands.yml"
+    data = yaml.safe_load(manifest.read_text())
+    return {cmd["name"]
+           for entry in data["west-commands"]
+           for cmd in entry["commands"]}
+
+
+def _known_west_commands() -> Set[str]:
+    """The union of all three real sources: this repo's own, west's
+    builtins, and Zephyr's own extensions. A fresh set the caller owns."""
+    return (_repo_declared_west_commands()
+           | _upstream_west_builtin_commands()
+           | _upstream_west_extension_commands())
+
+
+def _doc_west_mentions() -> Set[str]:
+    """Every `west <subcommand>` mentioned anywhere under doc/, in either
+    of the two shapes this doc set actually spells a command in (a `$
+    west ...` prompt line, or a `` ``west ...`` `` inline literal) --
+    never a bare "west" in running prose, which names no subcommand at
+    all. A fresh set the caller owns."""
+    found: Set[str] = set()
+    for page in sorted((REPO_ROOT / "doc").rglob("*.rst")):
+        if "_build" in page.parts:
+            continue
+        text = page.read_text()
+        found.update(_DOC_WEST_PROMPT_RE.findall(text))
+        found.update(_DOC_WEST_LITERAL_RE.findall(text))
+    return found
+
+
+def test_doc_mentions_a_west_subcommand_at_all() -> None:
+    """The negative control: an empty doc/ tree, or a regex that matched
+    nothing, would make the check below trivially pass. This doc set
+    mentions `west build` and `west rigs` a couple dozen times between
+    them across the tutorials and the reference pages, so a floor of 2
+    (one for each) is already a real, non-vacuous assertion -- run the
+    mutation below; do not reason about it."""
+    mentions = _doc_west_mentions()
+    assert len(mentions) >= 2, (
+        f"doc/ mentions only {sorted(mentions)} west subcommand(s) in the "
+        "prompt/inline-literal shapes this scan looks for -- the regex is "
+        "very likely finding far fewer mentions than are actually there")
+
+
+def test_doc_never_names_a_retired_or_invented_west_subcommand() -> None:
+    """Every `west <subcommand>` named anywhere under doc/ is either
+    declared by this repo's own scripts/west-commands.yml, or a real
+    command of upstream west (built in, or contributed by Zephyr's own
+    extension manifest). This is the check that would have caught `west
+    build-rig` surviving in four tutorial pages after the command itself
+    was retired -- see this module's own docstring."""
+    invented = sorted(_doc_west_mentions() - _known_west_commands())
+    assert not invented, (
+        "doc/ names west subcommand(s) that are neither declared by this "
+        "repo's scripts/west-commands.yml nor a real command of upstream "
+        f"west: {invented}")

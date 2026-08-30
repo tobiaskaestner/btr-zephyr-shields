@@ -7,6 +7,7 @@ Facts to look up.
    :maxdepth: 1
 
    commands
+   diagnostics
    rig-file
    promotion
    shield-template
