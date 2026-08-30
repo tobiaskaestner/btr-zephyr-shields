@@ -1833,7 +1833,7 @@
 	};
 
 	/* node '/connector_mikrobus_1' defined in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:33 */
-	quail_sock1: connector_mikrobus_1 {
+	quail_sock1: mikrobus_1: connector_mikrobus_1 {
 		compatible = "socket,mikrobus";            /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:34 */
 		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:35 */
 		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:36 */
@@ -1857,7 +1857,7 @@
 	};
 
 	/* node '/connector_mikrobus_2' defined in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:55 */
-	quail_sock2: connector_mikrobus_2 {
+	quail_sock2: mikrobus_2: connector_mikrobus_2 {
 		compatible = "socket,mikrobus";            /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:56 */
 		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:57 */
 		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:58 */
@@ -1881,7 +1881,7 @@
 	};
 
 	/* node '/connector_mikrobus_3' defined in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:77 */
-	quail_sock3: connector_mikrobus_3 {
+	quail_sock3: mikrobus_3: connector_mikrobus_3 {
 		compatible = "socket,mikrobus";            /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:78 */
 		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:79 */
 		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:80 */
@@ -1905,7 +1905,7 @@
 	};
 
 	/* node '/connector_mikrobus_4' defined in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:99 */
-	quail_sock4: connector_mikrobus_4 {
+	quail_sock4: mikrobus_4: connector_mikrobus_4 {
 		compatible = "socket,mikrobus";            /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:100 */
 		#gpio-cells = < 0x2 >;                     /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:101 */
 		gpio-map-mask = < 0xffffffff 0xffffffc0 >; /* in btr-shields/boards/extend/mikroe/quail/mikrobus_sockets.dtsi:102 */
