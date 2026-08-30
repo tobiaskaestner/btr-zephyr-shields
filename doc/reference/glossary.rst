@@ -7,10 +7,13 @@ Glossary
    rig
       The set of modules plugged into a board's sockets, described as
       data. A rig is two files in ``boards/rigs/<name>/``: the
-      :term:`rig metadata file` and the :term:`rig content file`. Neither
-      names a board — a rig is a topology, and the board is the other half
-      of the :term:`invocation coordinate`. It is built with
-      ``west build -b <board> <app> -- -DRIG=<name>``.
+      :term:`rig metadata file` and the :term:`rig content file` (see
+      :doc:`rig-file` for what each one declares). Neither names a board
+      — a rig is a topology, and the board is the other half of the
+      :term:`invocation coordinate`. It is built with
+      ``west build -b <board> <app> -- -DRIG=<name>``. A single shield,
+      or a small list of them, can also become a rig with neither file
+      ever written — see :doc:`promotion`.
 
    connector type
       The contract a family of sockets shares — which :term:`position`\ s
@@ -46,22 +49,35 @@ Glossary
       ``boards/shields/<name>/<name>.shield``. Unlike a Zephyr shield
       overlay, a template is not applied directly — it is *instantiated*,
       so the same module can appear several times in one rig, on different
-      sockets, with different per-instance settings.
+      sockets, with different per-instance settings. A shield whose own
+      ``shield.yml`` declares ``template: true`` can also be built
+      directly as a rig of one instance, with no rig files of its own —
+      see :doc:`promotion`.
 
    instance
       One placement of a :term:`shield template` in a rig: a name, the
       shield it instantiates, and where it is plugged. Instances are what
       a :term:`rig content file` lists.
 
+   promoted shield
+      A single :term:`shield template` (or a small ``;``-separated list
+      of them) built directly as a rig of one instance per shield, with
+      neither a :term:`rig metadata file` nor a :term:`rig content file`
+      ever written to disk — the natural mapping "one shield is a rig of
+      one instance", desugared on the fly wherever a rig target is
+      accepted. Only a shield whose own ``shield.yml`` declares
+      ``template: true`` qualifies. Full grammar and refusals:
+      :doc:`promotion`.
+
    rig metadata file
       ``boards/rigs/<name>/rig.yml`` — the rig's identity and its axes
       (name, optional variants and revisions). Carries no hardware
-      description at all, and no board.
+      description at all, and no board. Full grammar: :doc:`rig-file`.
 
    rig content file
       ``boards/rigs/<name>/<name>.yml`` — the assembly itself:
       :term:`instance`\ s, wires, and any headers the rig's parameters need.
-      Named after the rig, and required.
+      Named after the rig, and required. Full grammar: :doc:`rig-file`.
 
    board extension
       A directory under ``boards/extend/`` that adds a ``rig`` variant to an

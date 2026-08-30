@@ -80,7 +80,7 @@ its own rigs are found with no path given.
    ``TARGET`` — mating, bus-subset exposure, alias-aware reference
    resolution and stackability, censused from board sources with no cmake
    configure. ``TARGET`` resolves against both namespaces (a rig, or a
-   promoted shield), so *"which boards can host this module?"* is askable
+   :term:`promoted shield`), so *"which boards can host this module?"* is askable
    before any rig exists for it:
 
    .. code-block:: console
@@ -132,45 +132,13 @@ Promotion targets
 -------------------
 
 A ``TARGET`` — the value of ``--rig``, ``-DRIG``, ``--boards-for`` and
-``--explain`` alike — is either the name of a persisted rig or a promoted
-shield with its assignments:
-
-.. code-block:: text
-
-   <target>     := <element>[;<element>...]
-   <element>    := <name>[@<revision>][/<variant>][:<assignment>...]
-   <assignment> := socket=<label>
-                 | socket.<slot>=<label>
-                 | config.<label>=<value>
-                 | <device>.<prop>=<value>
-
-The assignments apply to a **promoted shield only**, and are refused on a
-persisted rig — whose instances name their own in the rig content file:
-
-``socket=<label>``
-   Which board socket the shield plugs. Needed when the board carries more
-   than one socket the shield's plug mates. Accepted only for a shield with
-   exactly one plug, where naming the slot would say nothing.
-
-``socket.<slot>=<label>``
-   The same, per plug slot, for a shield that plugs several sockets at
-   once. Accepted only above one plug; ``<slot>`` is one of the shield's
-   own plug node names.
-
-``config.<label>=<value>``
-   Which position or address a strap or routing jumper is set to, named by
-   the config element's devicetree label. The value is spelled as a rig
-   file spells it: a position *name* (``D2``), an address (``0x77``).
-   Required for any element the expander cannot allocate on its own — a
-   routing jumper is nobody's default, and refusing it is what stops a
-   silent mis-wiring.
-
-``<device>.<prop>=<value>``
-   A shield parameter, named by the device's devicetree label.
-
-A ``;``-separated list promotes several shields into one rig of several
-instances, each element carrying its own revision and assignments.
-Socket exclusivity is enforced across the whole list.
+``--explain`` alike — is either the name of a persisted rig, or a
+**promoted shield**: a shield name (optionally a ``;``-separated list of
+them), each with its own optional revision and ``:``-separated
+assignments (``socket=``, ``socket.<slot>=``, ``config.<label>=``,
+``<device>.<prop>=``). See :doc:`promotion` for what a promotion target
+means, its full grammar, what it desugars to, and which forms are
+refused.
 
 .. code-block:: console
 

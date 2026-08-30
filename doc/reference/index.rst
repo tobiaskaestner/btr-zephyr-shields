@@ -7,6 +7,8 @@ Facts to look up.
    :maxdepth: 1
 
    commands
+   rig-file
+   promotion
    shield-template
    board-socket
    glossary
