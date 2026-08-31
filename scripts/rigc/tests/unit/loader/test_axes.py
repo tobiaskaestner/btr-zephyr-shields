@@ -158,9 +158,10 @@ def test_variant_mapping_entry_board_and_sockets_are_silently_ignored(
         tmp_path: Path) -> None:
     """rig.yml's grammar has no board:/sockets: keys -- a variant entry
     may still carry them (nothing rejects an unrecognized key here, same
-    as anywhere else in this grammar), but only name: is read:
-    `AxisDecl.boards`/`.sockets` stay at their frozen (model.py) empty
-    default regardless."""
+    as anywhere else in this grammar), but only name: is read, and they
+    reach nothing: AxisDecl has no field either one could land in. The
+    assertion is therefore that the entry parses to its NAME alone, with
+    no diagnostic -- ignored, neither rejected nor absorbed."""
     rig_v = _rig(tmp_path,
                 """\
         rig:
@@ -177,8 +178,6 @@ def test_variant_mapping_entry_board_and_sockets_are_silently_ignored(
     assert diags == []
     assert decl is not None
     assert decl.values == ["a", "b"]
-    assert decl.boards == {}
-    assert decl.sockets == {}
 
 
 # ------------------------------------------------------ revision: declaration

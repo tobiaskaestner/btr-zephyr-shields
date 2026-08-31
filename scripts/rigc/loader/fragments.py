@@ -1,7 +1,7 @@
 """The contributes-nothing check: a selected NON-DEFAULT axis value that
 contributes NOTHING -- the constructed-fragment-file contribution
-check. `AxisDecl.boards`/`.sockets` are never populated, so a variant's
-only way to contribute is the same fragment-file avenue a revision has.
+check. A variant declares nothing but its own name, so its only way to
+contribute is the same fragment-file avenue a revision has.
 
 PURE, deliberately: which files exist is probed by the CALLER -- the
 loader's IO phase, `_gather_content` -- and arrives here as a

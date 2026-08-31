@@ -409,19 +409,6 @@ class AxisDecl:
     revision axis (pinned to its pre-hwmv2 shape, which has no format:/
     exact: keys either).
 
-    boards/sockets are VESTIGIAL and always empty. They were to carry,
-    per declared value, the board a rig variant selects and its
-    abstract-socket map -- the shape claude/rig-metadata-content-split-
-    brief.md proposed. That shape never shipped: the board left rig.yml
-    entirely (claude/board-coordinate-s6-brief.md, "strict symmetry",
-    2026-08-06), and a dual-host rig now has its two boards share one
-    conventional socket alias instead, so no per-variant translation map
-    is needed at all. loader.axes never populates either field and
-    loader.fragments states the same; nothing reads them. They survive
-    only because removing a field is a code change and this is a
-    docstring -- treat them as scheduled for deletion, not as a shape to
-    start using.
-
     `format` (one of "letter"/"number"/"major.minor.patch"/"custom") and
     `exact` govern `loader.axes.resolve_axis_selection`'s revision-only
     behaviour (per-format id validation, nearest-lower match, the
@@ -431,8 +418,6 @@ class AxisDecl:
 
     values: list[str]
     default: Optional[str] = None
-    boards: dict[str, str] = field(default_factory=dict)
-    sockets: dict[str, dict[str, str]] = field(default_factory=dict)
     format: Optional[str] = None
     exact: bool = False
 

@@ -164,11 +164,11 @@ def parse_variant_decl(container_v: Val, key: str = "variants",
     a particular selection.
 
     Each list entry is either a bare name, or a mapping {name:} -- ONLY
-    name: is read off a mapping entry; `AxisDecl.boards`/`.sockets` stay
-    at their empty default for every variants: axis, since no entry key
-    populates them any more. A stray board:/sockets: key on an entry is
-    silently ignored, the same as an unrecognized key anywhere else in
-    this grammar.
+    name: is read off a mapping entry. A stray board:/sockets: key on an
+    entry is silently ignored, the same as an unrecognized key anywhere
+    else in this grammar: rig.yml has had no board:/sockets: grammar
+    since the board left it entirely, and nothing downstream has anywhere
+    to put such a value.
 
     Returns (decl, diagnostics): the parsed declaration, or None when the
     key is absent or its shape was rejected -- the diagnostics distinguish

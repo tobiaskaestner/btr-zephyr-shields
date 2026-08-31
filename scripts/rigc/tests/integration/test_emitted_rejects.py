@@ -966,8 +966,8 @@ def test_shield_plural_missing_name_golden(tmp_path: Path) -> None:
 
 # ---------------------------------------------------------------- board-per-variant
 
-# `AxisDecl.boards`/`.sockets` are never populated by any variants: entry:
-# a variant restating nothing simply contributes nothing, the case
+# A variants: entry declares nothing but its own name, so a variant
+# restating nothing simply contributes nothing -- the case
 # test_variant_no_fragment_golden covers.
 
 
