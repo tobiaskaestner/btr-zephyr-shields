@@ -48,6 +48,23 @@ fi
 # what the tests themselves need, resolved at runtime by
 # board.edt_build.ensure_devicetree_on_path(), never through this env var.
 
+# The stay-side UNIT tests: two census tests whose subject IS this
+# repository's own boards/shields/ corpus (see that module's docstring).
+# A separate, unmeasured invocation -- the coverage floor check.sh carries
+# is over the TRAVELLING unit suite alone, and folding these in would let a
+# tethered test prop up a figure that is meant to describe what migrates.
+if [ -d scripts/rigc/tests/unit_stay ]; then
+    echo "== pytest: rigc unit (stay-side) =="
+    mkdir -p .reports
+    unit_stay_status=0
+    "$PY" -m pytest scripts/rigc/tests/unit_stay --durations=25 \
+        --junitxml=.reports/junit-extended-unit.xml || unit_stay_status=$?
+    [ -f .reports/junit-extended-unit.xml ] && \
+        "$PY" scripts/junit_html.py .reports/junit-extended-unit.xml \
+            .reports/junit-extended-unit.html
+    [ "$unit_stay_status" -eq 0 ] || exit "$unit_stay_status"
+fi
+
 if [ -d scripts/rigc/tests/integration_stay ]; then
     echo "== pytest (stay-side) =="
     # .reports/ is gitignored and repo-local -- never a build -d dir, since

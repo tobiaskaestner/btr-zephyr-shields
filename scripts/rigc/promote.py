@@ -38,7 +38,7 @@ from pathlib import Path
 from .diag import SourceRef
 from .loader.library import load_shield_library
 from .loader.params import device_required_params
-from .model import Shield
+from .model import ConnectorType, Shield
 
 
 @dataclass(frozen=True)
@@ -62,6 +62,7 @@ class ShieldInfo:
 
 def discover_shields(
     shield_dirs: list[str] | None = None,
+    types: dict[str, ConnectorType] | None = None,
 ) -> dict[str, ShieldInfo]:
     """Every name `loader/library.py`'s own scan discovers, keyed by
     name -- every resolvable rig template (`lib.pending`) UNION every
@@ -75,6 +76,14 @@ def discover_shields(
     `lib.promotable` -- the same per-entry `template:` flag the scan
     already read off shield.yml -- rather than re-opening any file this
     module's own caller already paid to parse.
+
+    `types` is the connector-type registry every scanned shield's plug is
+    checked against; None falls back to `registry.load_types()`, whose own
+    default root is module-relative and therefore a dev/test convenience
+    only -- a caller running outside this module's own repository (a test
+    against vendored fixtures, or a downstream consumer) must pass one, or
+    the fallback raises. Threaded here for the same reason
+    `load_shield_library` already accepts it.
 
     `shield_dirs` defaults to the vendored shield library
     (`load_shield_library`'s own default), which is narrower than the rig
@@ -94,7 +103,9 @@ def discover_shields(
     orthogonal to the promotability question this function answers, and
     a caller that actually loads a rig (never this function alone) is
     what surfaces them. Returns a dict the caller owns."""
-    lib, _diags, _deps = load_shield_library("<rigc-promote-discovery-unused>", shield_dirs)
+    lib, _diags, _deps = load_shield_library(
+        "<rigc-promote-discovery-unused>", shield_dirs, types=types
+    )
     out: dict[str, ShieldInfo] = {}
     for name in set(lib.pending) | set(lib.ymls):
         has_yml = name in lib.ymls
@@ -587,6 +598,7 @@ def shield_is_multiplug(shield: Shield) -> bool:
 def resolve_for_promotion(
     name: str,
     shield_dirs: list[str] | None = None,
+    types: dict[str, ConnectorType] | None = None,
 ) -> Shield | None:
     """Resolve `name`'s own template -- the IO edge a promotion caller
     reaches for when it needs a fact `discover_shields`'s cheap scan does
@@ -604,12 +616,16 @@ def resolve_for_promotion(
     question cheaply and is not itself a diagnostic source. The caller
     owns the returned Shield.
 
+    `types` is threaded to the scan exactly as in `discover_shields`: None
+    takes `registry.load_types()`'s module-relative default, which only
+    resolves inside this module's own repository.
+
     Unlike `discover_shields`'s own inert placeholder workdir, this
     function actually PARSES the template (cpp + dtlib), so it needs a
     real scratch directory -- a fresh `TemporaryDirectory`, removed
     before this returns, so no workdir is left behind for a query."""
     with tempfile.TemporaryDirectory(prefix="rigc-promote-plug-count-") as workdir:
-        lib, _diags, _deps = load_shield_library(workdir, shield_dirs)
+        lib, _diags, _deps = load_shield_library(workdir, shield_dirs, types=types)
         shield, _diags2, _deps2 = lib.resolve(
             name, "promotion slot probe", SourceRef("<promote>", 0)
         )
@@ -791,6 +807,7 @@ def _split_list_element(element: str) -> tuple[str, str | None, str | None]:
 def parse_promotion_list(
     target: str,
     shield_dirs: list[str] | None = None,
+    types: dict[str, ConnectorType] | None = None,
 ) -> list[tuple[str, str | None, ParsedPromotionOpts]] | str:
     """Parse a `;`-separated `--promote` LIST target into one (name,
     revision, parsed opts) triple per element, in the given order.
@@ -814,7 +831,7 @@ def parse_promotion_list(
     elements: list[tuple[str, str | None, ParsedPromotionOpts]] = []
     for element in target.split(";"):
         shield_name, elem_revision, opt_text = _split_list_element(element)
-        resolved = resolve_for_promotion(shield_name, shield_dirs)
+        resolved = resolve_for_promotion(shield_name, shield_dirs, types)
         opts = parse_promotion_opts(opt_text, element, resolved)
         if isinstance(opts, str):
             return opts

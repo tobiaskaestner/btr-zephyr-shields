@@ -71,6 +71,7 @@ from .deps import union as deps_union
 from .diag import Diagnostic, LoadError, has_errors, render
 from .diag import error as diag_error
 from .emitter import context, emit, write_artifacts
+from .model import ConnectorType
 from .registry import load_types
 from .unimplemented import Unimplemented
 
@@ -272,6 +273,7 @@ def _materialize_promotion(
     args: argparse.Namespace,
     workdir: str,
     shield_dirs: list[str] | None,
+    types: dict[str, ConnectorType],
 ) -> tuple[str, str | None] | list[Diagnostic]:
     """--promote materializes promote.promote_shield's own two
     documents into THIS run's workdir and loads them by path --
@@ -289,8 +291,13 @@ def _materialize_promotion(
     `shield:` reference, and a promoted rig declares no revision axis
     of its own, so nothing is forwarded to loader.load as a rig-level
     selection. Reads args.promote/args.revision only; shield_dirs is
-    the caller's already-absolutized --shield-dir list, read-only. The
-    caller owns the returned path and diagnostics."""
+    the caller's already-absolutized --shield-dir list, and `types` the
+    registry the caller already built from --connector-dir/--include-dir.
+    Both are read-only, and `types` is NOT optional here on purpose: the
+    promotion path parses a shield template, and letting it fall back to
+    registry.load_types()'s module-relative default is exactly how an
+    explicit --connector-dir got ignored. The caller owns the returned
+    path and diagnostics."""
     # --promote's value is the promotion TARGET, not a bare
     # shield name: `<shield>[@rev][:<key>=<value>...]`, or a
     # `;`-separated LIST of such targets. cmake forwards list_rigs'
@@ -298,7 +305,7 @@ def _materialize_promotion(
     # one parser for the option grammar no matter how many options
     # -- or elements -- it grows.
     if ";" in args.promote:
-        elements = promote.parse_promotion_list(args.promote, shield_dirs)
+        elements = promote.parse_promotion_list(args.promote, shield_dirs, types)
         if isinstance(elements, str):
             return [diag_error("lang-promote-opts", elements)]
         promoted = promote.promote_shield_list(elements)
@@ -313,7 +320,7 @@ def _materialize_promotion(
         # this is the one entry point every OTHER caller's --promote
         # value already passes through -- duplicating the check here
         # would be a second authority for the same fact.
-        resolved = promote.resolve_for_promotion(shield_name, shield_dirs)
+        resolved = promote.resolve_for_promotion(shield_name, shield_dirs, types)
         opts = promote.parse_promotion_opts(opt_text or None, args.promote, resolved)
         if isinstance(opts, str):
             # No SourceRef: the offending text is argv, not a file,
@@ -362,14 +369,6 @@ def _expand(args: argparse.Namespace) -> int:
     os.makedirs(workdir)
     log.info("workdir: %s", workdir)
     revision = args.revision
-    if args.promote is not None:
-        result = _materialize_promotion(args, workdir, shield_dirs)
-        if isinstance(result, list):
-            return _reject(result)
-        rig_path, revision = result
-    assert (
-        rig_path is not None
-    )  # argparse's mutually exclusive group guarantees one of rig/--promote
 
     try:
         # Resolved here and threaded down, replacing what would otherwise
@@ -384,6 +383,22 @@ def _expand(args: argparse.Namespace) -> int:
         # must reject cleanly through the SAME path as every other
         # loader-stage failure, never as an uncaught exception.
         types, types_deps = load_types(connector_dirs=connector_dirs, header_dirs=header_dirs)
+        # Promotion is materialized INSIDE this try, and AFTER the registry
+        # exists, for one reason each. After: resolving a promotion target
+        # parses the shield template, which needs the connector types this
+        # run was given -- reaching load_types() a second time on its own
+        # would silently take the module-relative fallback and read
+        # production bindings straight past an explicit --connector-dir.
+        # Inside: a promotion that hits a bad connector root must then
+        # reject through the same LoadError path as every other
+        # loader-stage failure.
+        if args.promote is not None:
+            result = _materialize_promotion(args, workdir, shield_dirs, types)
+            if isinstance(result, list):
+                return _reject(result)
+            rig_path, revision = result
+        # argparse's mutually exclusive group guarantees one of rig/--promote
+        assert rig_path is not None
         rig, diags, rig_deps = loader.load(
             rig_path,
             workdir,

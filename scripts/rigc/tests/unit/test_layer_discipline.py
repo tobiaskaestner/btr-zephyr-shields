@@ -53,13 +53,43 @@ _META_MODULES = {"test_layer_discipline"}
 #: which is exactly the regression this constant exists to prevent.
 _INTEGRATION_DIRS = ("integration", "integration_stay")
 
+#: The unit LAYER's two directories, split by the SAME tether rule: unit/
+#: holds the tests that read nothing outside rigc/ and tests/fixtures/
+#: (threading `rigc.tests.roots`' vendored connector bindings and shield
+#: library rather than taking any module-relative fallback), so they travel;
+#: unit_stay/ holds the ones whose SUBJECT is this repo's own corpus -- the
+#: shield census and its mutation control -- which cannot travel and should
+#: not be rewritten against fixtures, since a fixture census asserts only
+#: that the fixtures are the fixtures.
+_UNIT_DIRS = ("unit", "unit_stay")
+
 #: Every directory a test module may live in, as the (top, layer) prefix of
 #: its rigc-relative path.
-_LAYER_DIRS = (("tests", "unit"),) + tuple(("tests", name) for name in _INTEGRATION_DIRS)
+_LAYER_DIRS = tuple(("tests", name) for name in _UNIT_DIRS + _INTEGRATION_DIRS)
 
 
 def _python_files(root: Path) -> list[Path]:
     return sorted(p for p in root.rglob("*.py") if "__pycache__" not in p.parts)
+
+
+def _unit_files() -> list[tuple[Path, Path]]:
+    """Every python file in the unit LAYER, as (path, path-relative-to-its-
+    own-unit-directory) pairs.
+
+    Both directories, always. A guard that walked only tests/unit/ would
+    stop covering anything moved to tests/unit_stay/ -- silently, since a
+    guard that inspects nothing passes. That is the regression
+    _INTEGRATION_DIRS' own comment describes, and this helper exists so the
+    unit side cannot repeat it: adding a third unit directory means editing
+    _UNIT_DIRS, and nothing else.
+    """
+    pairs = []
+    for name in _UNIT_DIRS:
+        root = TESTS_DIR / name
+        if not root.is_dir():
+            continue
+        pairs += [(p, p.relative_to(root)) for p in _python_files(root)]
+    return pairs
 
 
 def test_every_test_module_is_layer_classified() -> None:
@@ -71,9 +101,9 @@ def test_every_test_module_is_layer_classified() -> None:
         if rel.parts[:2] not in _LAYER_DIRS:
             offenders.append(str(rel))
     assert not offenders, (
-        "test modules outside tests/unit/, tests/integration/ and "
-        "tests/integration_stay/ (the directory IS the layer "
-        f"classification): {offenders}"
+        "test modules outside tests/{unit,unit_stay,integration,"
+        "integration_stay}/ (the directory IS the layer classification): "
+        f"{offenders}"
     )
 
 
@@ -101,11 +131,10 @@ def test_unit_test_modules_name_their_unit() -> None:
     here as a bare module."""
     units = _top_level_units()
     offenders = []
-    for path in _python_files(TESTS_DIR / "unit"):
+    for path, rel in _unit_files():
         if not path.name.startswith("test_"):
             continue
-        rel = path.relative_to(TESTS_DIR / "unit")
-        if len(rel.parts) == 1:  # directly under unit/
+        if len(rel.parts) == 1:  # directly under the unit directory
             subject = path.stem.removeprefix("test_")
             if subject not in units and path.stem not in _META_MODULES:
                 offenders.append(f"{rel}: no unit named '{subject}'")
@@ -122,7 +151,7 @@ def test_unit_test_modules_name_their_unit() -> None:
 
 def test_unit_modules_import_no_subprocess() -> None:
     offenders = []
-    for path in _python_files(TESTS_DIR / "unit"):
+    for path, _rel in _unit_files():
         tree = ast.parse(path.read_text(), filename=str(path))
         for node in ast.walk(tree):
             if isinstance(node, ast.Import):
@@ -147,7 +176,7 @@ def test_no_pytest_markers_under_tests_unit() -> None:
     directory already states, which is what made the two enforcement
     regimes contradict each other before they were split this way."""
     offenders = []
-    for path in _python_files(TESTS_DIR / "unit"):
+    for path, _rel in _unit_files():
         tree = ast.parse(path.read_text(), filename=str(path))
         for node in ast.walk(tree):
             if (

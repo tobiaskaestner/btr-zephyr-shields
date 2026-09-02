@@ -8,15 +8,11 @@ census tying discovery's own marker-file authority to shield.yml's
 
 from __future__ import annotations
 
-import hashlib
-import os
-import shutil
 import textwrap
 from pathlib import Path
 
 from rigc import loader
 from rigc.diag import has_errors
-from rigc.dtsio import MODULE_ROOT
 from rigc.model import Device, Shield
 from rigc.promote import (
     ParsedPromotionOpts,
@@ -32,7 +28,7 @@ from rigc.promote import (
     promote_shield_list,
     shield_declares_required_params,
 )
-from rigc.registry import load_types
+from rigc.tests.roots import fixture_types, shield_dirs
 
 # ---------------------------------------------------------------- promote_shield
 
@@ -163,76 +159,6 @@ def test_both_paths_error_names_both_offending_locations() -> None:
 # ---------------------------------------------------------------- discover_shields
 
 
-def test_discover_shields_finds_the_real_corpus_and_agrees_with_template_flag() -> None:
-    """Census: every discovered name (marker file present) whose
-    shield.yml declares `template: true` shows up as promotable, and
-    every one of today's 25 corpus shields does -- 15 one-per-folder plus
-    four plurality folders: lcd_char_1602/lcd_tft_24
-    (boards/shields/arduino_lcd/, named neither),
-    grove_sens_bme280/grove_sens_bmp280/grove_sens_dps310
-    (boards/shields/grove_sens/, named neither -- three shields, one
-    `.shield` per name, following arduino_lcd's own precedent),
-    grove_led/grove_pwm_led/grove_pwm_led_inv (boards/shields/grove_led/,
-    sharing the folder bridle's own grove_led/ keeps both LED kinds in --
-    the one plurality folder actually named after one of its own members;
-    grove_pwm_led_inv is NOT a bridle port and joins this same folder
-    rather than a new one, since it is grove_pwm_led's own
-    inverted-polarity sibling), and seeed_grove_base_v1/seeed_grove_base_v2
-    (boards/shields/grove/, named neither -- the `arduino_lcd` falsifier
-    shape again); can_span_click and mikrobus_span_adapter (the
-    multi-plug corpus shields) are two of the 15 -- DISCOVERABLE,
-    `template: true`, and genuinely promotable too, this census
-    predicate having no plurality concept at all.
-    Falsified by mutating a real shield.yml, not by editing this
-    assertion (see the mutation test below) -- this one just proves the
-    real tree is clean today."""
-    shields = discover_shields()
-    assert len(shields) == 25
-    for info in shields.values():
-        assert info.has_yml, f"{info.name}: discovered but no shield.yml"
-        assert info.template, f"{info.name}: shield.yml omits template: true"
-    assert shields["lcd_char_1602"].dir == shields["lcd_tft_24"].dir
-    assert os.path.basename(shields["lcd_char_1602"].dir) not in ("lcd_char_1602", "lcd_tft_24")
-
-
-def test_discover_shields_census_is_falsified_by_a_real_mutation(tmp_path: Path) -> None:
-    """Mutation-verified negative control: drop `template: true`
-    from a REAL shield.yml (i2c_sensor, copied first, hashed before
-    mutating, restored from the copy, verified against that hash) and
-    confirm exactly that one shield stops being promotable -- nothing
-    else about discovery changes."""
-    shield_yml = Path(MODULE_ROOT) / "boards" / "shields" / "i2c_sensor" / "shield.yml"
-    original = shield_yml.read_bytes()
-    backup = tmp_path / "shield.yml.orig"
-    backup.write_bytes(original)
-    original_hash = hashlib.sha256(original).hexdigest()
-    try:
-        mutated = original.decode().replace("template: true\n", "")
-        assert "template: true" not in mutated
-        shield_yml.write_bytes(mutated.encode())
-        _purge_pycache()
-        shields = discover_shields()
-        assert "i2c_sensor" in shields
-        assert shields["i2c_sensor"].has_yml
-        assert not shields["i2c_sensor"].template
-        for name, info in shields.items():
-            if name != "i2c_sensor":
-                assert info.template, f"{name}: collateral damage from the mutation"
-    finally:
-        restored = backup.read_bytes()
-        assert hashlib.sha256(restored).hexdigest() == original_hash
-        shield_yml.write_bytes(restored)
-        _purge_pycache()
-        assert shield_yml.read_bytes() == original
-
-
-def _purge_pycache() -> None:
-    shields_root = os.path.join(MODULE_ROOT, "boards", "shields")
-    for root, dirs, _files in os.walk(shields_root):
-        if "__pycache__" in dirs:
-            shutil.rmtree(os.path.join(root, "__pycache__"))
-
-
 def test_discover_shields_reports_a_legacy_shield_with_no_marker_file(tmp_path: Path) -> None:
     """A folder whose shield.yml declares a name but omits (or falses)
     `template:` is discoverable here even
@@ -250,7 +176,7 @@ def test_discover_shields_reports_a_legacy_shield_with_no_marker_file(tmp_path: 
           full_name: A classic Zephyr shield with metadata, never a template
         """)
     )
-    shields = discover_shields([str(root)])
+    shields = discover_shields([str(root)], types=fixture_types())
     assert shields["legacy_overlay_shield"].has_yml
     assert not shields["legacy_overlay_shield"].template
     err = check_promotable("legacy_overlay_shield", shields["legacy_overlay_shield"], variant=None)
@@ -276,7 +202,7 @@ def test_discover_shields_reports_two_plural_names_independently(tmp_path: Path)
         """)
     )
     (plural_dir / "promoted.shield").write_text("/* fixture */\n")
-    shields = discover_shields([str(root)])
+    shields = discover_shields([str(root)], types=fixture_types())
     assert shields["promoted"].template and shields["promoted"].has_yml
     assert not shields["sibling"].template
     assert shields["sibling"].has_yml
@@ -301,7 +227,7 @@ def test_discover_shields_reports_a_template_entry_whose_file_is_missing(tmp_pat
             template: true
         """)
     )
-    shields = discover_shields([str(root)])
+    shields = discover_shields([str(root)], types=fixture_types())
     assert shields["ghost_template"].template
     assert shields["ghost_template"].has_yml
     assert check_promotable("ghost_template", shields["ghost_template"], variant=None) is None
@@ -328,10 +254,14 @@ def test_promoted_shield_round_trips_through_the_loader_with_no_diagnostics(tmp_
     (rig_dir / "rig.yml").write_text(promoted.rig_yml)
     (rig_dir / promoted.content_name).write_text(promoted.content)
 
-    types, _deps = load_types()
+    types = fixture_types()
     workdir = tmp_path / "workdir"
     rig, diags, _load_deps = loader.load(
-        str(rig_dir / "rig.yml"), str(workdir), types=types, board="some_board"
+        str(rig_dir / "rig.yml"),
+        str(workdir),
+        shield_dirs=shield_dirs(),
+        types=types,
+        board="some_board",
     )
 
     assert not has_errors(diags)
@@ -397,10 +327,14 @@ def test_a_revved_promoted_shield_round_trips_to_the_named_revision(tmp_path: Pa
     (rig_dir / "rig.yml").write_text(promoted.rig_yml)
     (rig_dir / promoted.content_name).write_text(promoted.content)
 
-    types, _deps = load_types()
+    types = fixture_types()
     workdir = tmp_path / "workdir"
     rig, diags, _load_deps = loader.load(
-        str(rig_dir / "rig.yml"), str(workdir), types=types, board="some_board"
+        str(rig_dir / "rig.yml"),
+        str(workdir),
+        shield_dirs=shield_dirs(),
+        types=types,
+        board="some_board",
     )
 
     assert diags == []
@@ -488,9 +422,13 @@ def test_a_socketed_promoted_shield_round_trips_through_the_loader(tmp_path: Pat
     (rig_dir / "rig.yml").write_text(promoted.rig_yml)
     (rig_dir / promoted.content_name).write_text(promoted.content)
 
-    types, _deps = load_types()
+    types = fixture_types()
     rig, diags, _load_deps = loader.load(
-        str(rig_dir / "rig.yml"), str(tmp_path / "workdir"), types=types, board="some_board"
+        str(rig_dir / "rig.yml"),
+        str(tmp_path / "workdir"),
+        shield_dirs=shield_dirs(),
+        types=types,
+        board="some_board",
     )
 
     assert diags == []
@@ -645,9 +583,13 @@ def test_promote_shield_with_a_sockets_map_round_trips_through_the_loader(tmp_pa
     (rig_dir / "rig.yml").write_text(promoted.rig_yml)
     (rig_dir / promoted.content_name).write_text(promoted.content)
 
-    types, _deps = load_types()
+    types = fixture_types()
     rig, diags, _load_deps = loader.load(
-        str(rig_dir / "rig.yml"), str(tmp_path / "workdir"), types=types, board="some_board"
+        str(rig_dir / "rig.yml"),
+        str(tmp_path / "workdir"),
+        shield_dirs=shield_dirs(),
+        types=types,
+        board="some_board",
     )
 
     assert diags == [], diags
@@ -773,9 +715,13 @@ def test_a_param_carrying_promoted_shield_round_trips_and_satisfies_the_invarian
     (rig_dir / "rig.yml").write_text(promoted.rig_yml)
     (rig_dir / promoted.content_name).write_text(promoted.content)
 
-    types, _deps = load_types()
+    types = fixture_types()
     rig, diags, _load_deps = loader.load(
-        str(rig_dir / "rig.yml"), str(tmp_path / "workdir"), types=types, board="some_board"
+        str(rig_dir / "rig.yml"),
+        str(tmp_path / "workdir"),
+        shield_dirs=shield_dirs(),
+        types=types,
+        board="some_board",
     )
 
     assert diags == [], diags
@@ -795,9 +741,13 @@ def test_a_promoted_shield_missing_its_required_param_still_rejects(tmp_path: Pa
     (rig_dir / "rig.yml").write_text(promoted.rig_yml)
     (rig_dir / promoted.content_name).write_text(promoted.content)
 
-    types, _deps = load_types()
+    types = fixture_types()
     _rig, diags, _load_deps = loader.load(
-        str(rig_dir / "rig.yml"), str(tmp_path / "workdir"), types=types, board="some_board"
+        str(rig_dir / "rig.yml"),
+        str(tmp_path / "workdir"),
+        shield_dirs=shield_dirs(),
+        types=types,
+        board="some_board",
     )
 
     assert has_errors(diags)
@@ -881,9 +831,13 @@ def test_promote_shield_list_round_trips_through_the_loader(tmp_path: Path) -> N
     (rig_dir / "rig.yml").write_text(listed.rig_yml)
     (rig_dir / listed.content_name).write_text(listed.content)
 
-    types, _deps = load_types()
+    types = fixture_types()
     rig, diags, _load_deps = loader.load(
-        str(rig_dir / "rig.yml"), str(tmp_path / "workdir"), types=types, board="some_board"
+        str(rig_dir / "rig.yml"),
+        str(tmp_path / "workdir"),
+        shield_dirs=shield_dirs(),
+        types=types,
+        board="some_board",
     )
 
     assert diags == [], diags
@@ -1032,9 +986,13 @@ def test_a_config_carrying_promoted_shield_round_trips_through_the_loader(tmp_pa
     (rig_dir / "rig.yml").write_text(promoted.rig_yml)
     (rig_dir / promoted.content_name).write_text(promoted.content)
 
-    types, _deps = load_types()
+    types = fixture_types()
     rig, diags, _load_deps = loader.load(
-        str(rig_dir / "rig.yml"), str(tmp_path / "workdir"), types=types, board="some_board"
+        str(rig_dir / "rig.yml"),
+        str(tmp_path / "workdir"),
+        shield_dirs=shield_dirs(),
+        types=types,
+        board="some_board",
     )
 
     assert diags == [], diags
