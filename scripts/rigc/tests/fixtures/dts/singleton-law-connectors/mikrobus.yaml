@@ -63,8 +63,8 @@ gpio-cells:
 
 plug,bus-proxies: [i2c, spi, uart]
 plug,positions:
-  AN:  {function: analog}
+  AN: {function: analog}
   RST: {function: gpio}
-  CS:  {function: gpio}
+  CS: {function: gpio}
   PWM: {function: gpio, optional: true}
   INT: {function: gpio}

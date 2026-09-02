@@ -19,9 +19,9 @@
 #define DT_BINDINGS_CONNECTOR_GROVE_H_
 
 /* pin 1 (yellow) = SIG0, pin 2 (white) = SIG1, then VCC, GND */
-#define GROVE_SIG0	0
-#define GROVE_SIG1	1
-#define GROVE_VCC	2
-#define GROVE_GND	3
+#define GROVE_SIG0 0
+#define GROVE_SIG1 1
+#define GROVE_VCC  2
+#define GROVE_GND  3
 
 #endif

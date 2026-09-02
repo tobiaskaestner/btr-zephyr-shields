@@ -47,11 +47,15 @@ properties:
     description: UART controller reachable through this socket (absent = not offered)
   socket,stackable:
     type: boolean
-    description: present on every arduino-r3 socket (type-level fact) — stacking headers may mate N shields
+    description: >-
+      present on every arduino-r3 socket (type-level fact) — stacking headers
+      may mate N shields
   socket,cs-pool:
     type: array
     default: [16, 15, 14]
-    description: ordered chip-select candidate positions (D10, D9, D8) for expander CS-pool allocation
+    description: >-
+      ordered chip-select candidate positions (D10, D9, D8) for expander
+      CS-pool allocation
 
 gpio-cells:
   - pin

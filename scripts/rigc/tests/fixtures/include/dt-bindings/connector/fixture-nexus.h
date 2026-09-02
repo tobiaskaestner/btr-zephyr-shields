@@ -22,10 +22,10 @@
 #ifndef DT_BINDINGS_CONNECTOR_FIXTURE_NEXUS_H_
 #define DT_BINDINGS_CONNECTOR_FIXTURE_NEXUS_H_
 
-#define FIXTURE_POS0	0
-#define FIXTURE_POS1	1
-#define FIXTURE_D0	2
-#define FIXTURE_D1	3
-#define FIXTURE_CS	4
+#define FIXTURE_POS0 0
+#define FIXTURE_POS1 1
+#define FIXTURE_D0   2
+#define FIXTURE_D1   3
+#define FIXTURE_CS   4
 
 #endif

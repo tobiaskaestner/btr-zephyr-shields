@@ -86,7 +86,9 @@ properties:
     description: I2C controller reachable through this socket
   socket,stackable:
     type: boolean
-    description: present on every i2c-port socket (type-level fact) — an I2C bus may host many devices
+    description: >-
+      present on every i2c-port socket (type-level fact) — an I2C bus may
+      host many devices
   socket,cs-pool:
     type: array
     default: []
