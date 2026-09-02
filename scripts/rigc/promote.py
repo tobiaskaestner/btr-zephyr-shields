@@ -63,6 +63,7 @@ class ShieldInfo:
 def discover_shields(
     shield_dirs: list[str] | None = None,
     types: dict[str, ConnectorType] | None = None,
+    include_dirs: list[str] | None = None,
 ) -> dict[str, ShieldInfo]:
     """Every name `loader/library.py`'s own scan discovers, keyed by
     name -- every resolvable rig template (`lib.pending`) UNION every
@@ -104,7 +105,7 @@ def discover_shields(
     a caller that actually loads a rig (never this function alone) is
     what surfaces them. Returns a dict the caller owns."""
     lib, _diags, _deps = load_shield_library(
-        "<rigc-promote-discovery-unused>", shield_dirs, types=types
+        "<rigc-promote-discovery-unused>", shield_dirs, types=types, include_dirs=include_dirs
     )
     out: dict[str, ShieldInfo] = {}
     for name in set(lib.pending) | set(lib.ymls):
@@ -599,6 +600,7 @@ def resolve_for_promotion(
     name: str,
     shield_dirs: list[str] | None = None,
     types: dict[str, ConnectorType] | None = None,
+    include_dirs: list[str] | None = None,
 ) -> Shield | None:
     """Resolve `name`'s own template -- the IO edge a promotion caller
     reaches for when it needs a fact `discover_shields`'s cheap scan does
@@ -618,14 +620,19 @@ def resolve_for_promotion(
 
     `types` is threaded to the scan exactly as in `discover_shields`: None
     takes `registry.load_types()`'s module-relative default, which only
-    resolves inside this module's own repository.
+    resolves inside this module's own repository. `include_dirs` is the cpp
+    `-I` list the template's own `#include <dt-bindings/connector/...>`
+    resolves against -- this function actually preprocesses, so omitting it
+    does not fall back quietly, it fails cpp with a missing header.
 
     Unlike `discover_shields`'s own inert placeholder workdir, this
     function actually PARSES the template (cpp + dtlib), so it needs a
     real scratch directory -- a fresh `TemporaryDirectory`, removed
     before this returns, so no workdir is left behind for a query."""
     with tempfile.TemporaryDirectory(prefix="rigc-promote-plug-count-") as workdir:
-        lib, _diags, _deps = load_shield_library(workdir, shield_dirs, types=types)
+        lib, _diags, _deps = load_shield_library(
+            workdir, shield_dirs, types=types, include_dirs=include_dirs
+        )
         shield, _diags2, _deps2 = lib.resolve(
             name, "promotion slot probe", SourceRef("<promote>", 0)
         )
@@ -808,6 +815,7 @@ def parse_promotion_list(
     target: str,
     shield_dirs: list[str] | None = None,
     types: dict[str, ConnectorType] | None = None,
+    include_dirs: list[str] | None = None,
 ) -> list[tuple[str, str | None, ParsedPromotionOpts]] | str:
     """Parse a `;`-separated `--promote` LIST target into one (name,
     revision, parsed opts) triple per element, in the given order.
@@ -831,7 +839,7 @@ def parse_promotion_list(
     elements: list[tuple[str, str | None, ParsedPromotionOpts]] = []
     for element in target.split(";"):
         shield_name, elem_revision, opt_text = _split_list_element(element)
-        resolved = resolve_for_promotion(shield_name, shield_dirs, types)
+        resolved = resolve_for_promotion(shield_name, shield_dirs, types, include_dirs)
         opts = parse_promotion_opts(opt_text, element, resolved)
         if isinstance(opts, str):
             return opts

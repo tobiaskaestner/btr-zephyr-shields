@@ -153,6 +153,13 @@ def _run_promoted(
         str(board_dts),
         "--shield-dir",
         str(_SHIELD_DIR),
+        # Same rule as run_expand's callers: the connector registry and its
+        # headers are threaded, never left to cli.py's module-relative
+        # fallback -- promotion parses a shield template and needs both.
+        "--connector-dir",
+        str(_CONNECTOR_BINDINGS),
+        "--include-dir",
+        str(_CONNECTOR_INCLUDE),
         "--out-dir",
         str(out_dir),
     ]
@@ -359,6 +366,8 @@ def test_param_shield_no_includes_golden(tmp_path: Path) -> None:
         board=_BOARD,
         board_dts=_BOARD_DTS,
         shield_dirs=[fixture / "shields"],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, (
@@ -917,6 +926,8 @@ def test_shield_missing_fragment_golden(tmp_path: Path) -> None:
         board=_BOARD,
         board_dts=_BOARD_DTS,
         shield_dirs=[FIXTURES_DIR / "boards" / "rigs" / "shield-missing-fragment" / "shields"],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "a shield revision contributing nothing must be rejected"
@@ -956,6 +967,8 @@ def test_shield_revision_param_invariant_golden(tmp_path: Path) -> None:
         shield_dirs=[
             FIXTURES_DIR / "boards" / "rigs" / "shield-revision-param-invariant" / "shields"
         ],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, (
@@ -1025,6 +1038,8 @@ def test_shield_bad_revisions_block_golden(tmp_path: Path) -> None:
         board=_BOARD,
         board_dts=_BOARD_DTS,
         shield_dirs=[FIXTURES_DIR / "boards" / "rigs" / "shield-bad-revisions-block" / "shields"],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "a malformed shield.yml revisions: block must be rejected"
@@ -1060,6 +1075,8 @@ def test_shield_node_name_mismatch_golden(tmp_path: Path) -> None:
         board=_BOARD,
         board_dts=_BOARD_DTS,
         shield_dirs=[FIXTURES_DIR / "boards" / "rigs" / "shield-node-name-mismatch" / "shields"],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "a .shield node name not matching its folder must be rejected"
@@ -1090,6 +1107,8 @@ def test_shield_template_missing_file_golden(tmp_path: Path) -> None:
         board=_BOARD,
         board_dts=_BOARD_DTS,
         shield_dirs=[fixture / "shields"],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, (
@@ -1122,6 +1141,8 @@ def test_shield_plural_node_name_mismatch_golden(tmp_path: Path) -> None:
         board=_BOARD,
         board_dts=_BOARD_DTS,
         shield_dirs=[fixture / "shields"],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, (
@@ -1155,6 +1176,8 @@ def test_shield_plural_duplicate_name_golden(tmp_path: Path) -> None:
         board=_BOARD,
         board_dts=_BOARD_DTS,
         shield_dirs=[fixture / "shields"],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "a name repeated within one shields: list must be rejected"
@@ -1184,6 +1207,8 @@ def test_shield_plural_not_a_list_golden(tmp_path: Path) -> None:
         board=_BOARD,
         board_dts=_BOARD_DTS,
         shield_dirs=[fixture / "shields"],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "a shields: block that is not a list must be rejected"
@@ -1212,6 +1237,8 @@ def test_shield_plural_missing_name_golden(tmp_path: Path) -> None:
         board=_BOARD,
         board_dts=_BOARD_DTS,
         shield_dirs=[fixture / "shields"],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "a shields: entry with no name: must be rejected"
@@ -1357,6 +1384,8 @@ def test_shield_revisions_mapping_entry_golden(tmp_path: Path) -> None:
         shield_dirs=[
             FIXTURES_DIR / "boards" / "rigs" / "shield-revisions-mapping-entry" / "shields"
         ],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, (

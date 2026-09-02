@@ -274,6 +274,7 @@ def _materialize_promotion(
     workdir: str,
     shield_dirs: list[str] | None,
     types: dict[str, ConnectorType],
+    include_dirs: list[str] | None,
 ) -> tuple[str, str | None] | list[Diagnostic]:
     """--promote materializes promote.promote_shield's own two
     documents into THIS run's workdir and loads them by path --
@@ -292,8 +293,10 @@ def _materialize_promotion(
     of its own, so nothing is forwarded to loader.load as a rig-level
     selection. Reads args.promote/args.revision only; shield_dirs is
     the caller's already-absolutized --shield-dir list, and `types` the
-    registry the caller already built from --connector-dir/--include-dir.
-    Both are read-only, and `types` is NOT optional here on purpose: the
+    registry the caller already built from --connector-dir/--include-dir,
+    and `include_dirs` that same --include-dir list, which the template's
+    own cpp run needs directly. All three are read-only, and none is
+    optional here on purpose: the
     promotion path parses a shield template, and letting it fall back to
     registry.load_types()'s module-relative default is exactly how an
     explicit --connector-dir got ignored. The caller owns the returned
@@ -305,7 +308,7 @@ def _materialize_promotion(
     # one parser for the option grammar no matter how many options
     # -- or elements -- it grows.
     if ";" in args.promote:
-        elements = promote.parse_promotion_list(args.promote, shield_dirs, types)
+        elements = promote.parse_promotion_list(args.promote, shield_dirs, types, include_dirs)
         if isinstance(elements, str):
             return [diag_error("lang-promote-opts", elements)]
         promoted = promote.promote_shield_list(elements)
@@ -320,7 +323,7 @@ def _materialize_promotion(
         # this is the one entry point every OTHER caller's --promote
         # value already passes through -- duplicating the check here
         # would be a second authority for the same fact.
-        resolved = promote.resolve_for_promotion(shield_name, shield_dirs, types)
+        resolved = promote.resolve_for_promotion(shield_name, shield_dirs, types, include_dirs)
         opts = promote.parse_promotion_opts(opt_text or None, args.promote, resolved)
         if isinstance(opts, str):
             # No SourceRef: the offending text is argv, not a file,
@@ -393,7 +396,7 @@ def _expand(args: argparse.Namespace) -> int:
         # reject through the same LoadError path as every other
         # loader-stage failure.
         if args.promote is not None:
-            result = _materialize_promotion(args, workdir, shield_dirs, types)
+            result = _materialize_promotion(args, workdir, shield_dirs, types, header_dirs)
             if isinstance(result, list):
                 return _reject(result)
             rig_path, revision = result
