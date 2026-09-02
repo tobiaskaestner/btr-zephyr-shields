@@ -53,6 +53,19 @@ def shield_dirs() -> list[str]:
     return [str(SHIELD_DIR)]
 
 
+def include_dirs() -> list[str]:
+    """The vendored headers as cpp `-I` roots, for `load`'s `include_dirs`.
+
+    A shield template `#include`s its connector's position-index header by
+    the same `<dt-bindings/connector/...>` spelling a board does, so a test
+    that loads one needs this as well as `shield_dirs()`. Its own
+    module-relative fallback is the third of the three, and the least
+    obvious: omitting it does not raise, it fails cpp with a missing
+    include several frames down.
+    """
+    return [str(INCLUDE_DIR)]
+
+
 @functools.cache
 def fixture_types() -> dict[str, ConnectorType]:
     """The connector-type registry built from the vendored bindings.

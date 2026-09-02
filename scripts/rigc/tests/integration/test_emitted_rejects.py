@@ -107,6 +107,14 @@ from harness import (
 # names these fixture rigs already mate) -- never boards/shields/ or a
 # real board .dts.
 _SHIELD_DIR = FIXTURES_DIR / "boards" / "shields"
+# The connector-type registry and its position-index headers, vendored like
+# everything else this module reads. Threaded EXPLICITLY on every call for the
+# same reason shield_dirs is: cli.py's --connector-dir and --include-dir both
+# fall back to a module-relative default, so a call that omits them does not
+# fail -- it silently reads the production bindings next to rigc's own source,
+# and passes only in the repository those bindings live in.
+_CONNECTOR_BINDINGS = FIXTURES_DIR / "dts" / "unified-connectors"
+_CONNECTOR_INCLUDE = FIXTURES_DIR / "include"
 _BOARD = "emitted_rejects_board"
 _BOARD_DTS = FIXTURES_DIR / "boards" / "mainboards" / "emitted_rejects_board.dts"
 
@@ -161,9 +169,15 @@ def test_route_no_via_golden(tmp_path: Path) -> None:
     that path. Fast: the loader rejects before any board recipe is needed."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "route-no-via" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
-        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "route:{} without via: must be rejected"
@@ -183,9 +197,15 @@ def test_param_undeclared_golden(tmp_path: Path) -> None:
     recipe is needed."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-undeclared" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
-        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "an undeclared params: property must be rejected"
@@ -204,9 +224,15 @@ def test_param_required_golden(tmp_path: Path) -> None:
     be rejected, not left as a silently-inert missing property."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-required" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
-        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "an unassigned required parameter must be rejected"
@@ -224,9 +250,15 @@ def test_param_unknown_device_golden(tmp_path: Path) -> None:
     naming a device label the shield has no device for must be rejected."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-unknown-device" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
-        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "an unknown params: device label must be rejected"
@@ -263,7 +295,7 @@ def test_promoted_param_undeclared_golden(tmp_path: Path) -> None:
     what this test exists to demonstrate. The authored-fixture control
     above stays a clean single diagnostic; this one matches it."""
     out_dir = tmp_path / "out"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = _run_promoted(
         "grove_btn:gb_key.bogus_prop=INPUT_KEY_0:gb_key.zephyr,code=INPUT_KEY_0",
         out_dir,
@@ -290,9 +322,15 @@ def test_param_unresolvable_golden(tmp_path: Path) -> None:
     the fix."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-unresolvable" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
-        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "an unresolvable parameter token must be rejected"
@@ -344,13 +382,15 @@ def test_unknown_revision_golden(tmp_path: Path) -> None:
     is needed), like the other synthetic fixtures above."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "unknown-revision" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
         rig_yml,
         out_dir,
         board=_BOARD,
         board_dts=_BOARD_DTS,
         shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
         revision="99",
     )
 
@@ -369,13 +409,15 @@ def test_unknown_variant_golden(tmp_path: Path) -> None:
     declared variants: list."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "unknown-variant" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
         rig_yml,
         out_dir,
         board=_BOARD,
         board_dts=_BOARD_DTS,
         shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
         variant="nope",
     )
 
@@ -395,9 +437,15 @@ def test_no_default_variant_golden(tmp_path: Path) -> None:
     listing its values."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "no-default-variant" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
-        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "no selection + no default must be rejected"
@@ -418,9 +466,15 @@ def test_variant_revision_collision_golden(tmp_path: Path) -> None:
     invocation already triggers it."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "variant-revision-collision" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
-        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "a variant/revision id collision must be rejected"
@@ -444,13 +498,15 @@ def test_variant_no_fragment_golden(tmp_path: Path) -> None:
     and is accepted)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "variant-no-fragment" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
         rig_yml,
         out_dir,
         board=_BOARD,
         board_dts=_BOARD_DTS,
         shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
         variant="ghost",
     )
 
@@ -476,9 +532,15 @@ def test_widened_variant_revision_collision_golden(tmp_path: Path) -> None:
     two axes only construct TOGETHER rather than on either value alone."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "combined-fragment-collision" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
-        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "a combined-fragment stem collision must be rejected"
@@ -500,13 +562,15 @@ def test_no_such_axis_golden(tmp_path: Path) -> None:
     itself rather than implying a typo in an existing one."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "no-such-axis" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
         rig_yml,
         out_dir,
         board=_BOARD,
         board_dts=_BOARD_DTS,
         shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
         variant="anything",
     )
 
@@ -529,9 +593,15 @@ def test_empty_revisions_list_golden(tmp_path: Path) -> None:
     wording (see this file's own module docstring)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "empty-revisions-list" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
-        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "an empty revisions: list must be rejected"
@@ -557,9 +627,16 @@ def test_instances_delta_unknown_instance_golden(tmp_path: Path) -> None:
     the effective topology does not have (additions are never implicit)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "instances-delta-unknown-instance" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
-        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR], variant="b"
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
+        variant="b",
     )
 
     assert result.returncode != 0, "instances: naming an unknown instance must be rejected"
@@ -577,9 +654,16 @@ def test_add_instances_already_exists_golden(tmp_path: Path) -> None:
     already exists."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "add-instances-already-exists" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
-        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR], variant="b"
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
+        variant="b",
     )
 
     assert result.returncode != 0, "add-instances: naming an existing instance must be rejected"
@@ -599,13 +683,15 @@ def test_remove_instance_drift_golden(tmp_path: Path) -> None:
     variant that already removed it, so drift cannot hide."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "remove-instance-drift" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
         rig_yml,
         out_dir,
         board=_BOARD,
         board_dts=_BOARD_DTS,
         shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
         variant="b",
         revision="2",
     )
@@ -628,9 +714,16 @@ def test_remove_wire_missing_golden(tmp_path: Path) -> None:
     endpoint)."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "remove-wire-missing" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
-        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR], variant="b"
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
+        variant="b",
     )
 
     assert result.returncode != 0, "remove-wires: naming a nonexistent pair must be rejected"
@@ -651,9 +744,16 @@ def test_restate_check_golden(tmp_path: Path) -> None:
     otherwise silently revert to the shield's authored default."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "restate-check" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
-        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, variant="b", shield_dirs=[_SHIELD_DIR]
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        variant="b",
+        shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "an un-restated optional parameter must be rejected"
@@ -674,7 +774,7 @@ def test_revision_crosses_variant_golden(tmp_path: Path) -> None:
     unavoidable by construction, so the error must name the variant."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "revision-crosses-variant" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
         rig_yml,
         out_dir,
@@ -683,6 +783,8 @@ def test_revision_crosses_variant_golden(tmp_path: Path) -> None:
         variant="hpm",
         revision="2",
         shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "a revision crossing a variant's shield swap must be rejected"
@@ -707,13 +809,15 @@ def test_dotted_revision_no_fragment_golden(tmp_path: Path) -> None:
     normalization happened, not just that the check still works."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "dotted-revision-no-fragment" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
         rig_yml,
         out_dir,
         board=_BOARD,
         board_dts=_BOARD_DTS,
         shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
         revision="1.5",
     )
 
@@ -742,9 +846,15 @@ def test_shield_undeclared_revision_golden(tmp_path: Path) -> None:
     other synthetic fixtures above."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-undeclared-revision" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
-        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "an undeclared shield revision must be rejected"
@@ -766,9 +876,15 @@ def test_shield_no_revisions_declared_golden(tmp_path: Path) -> None:
     revisions: block."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-no-revisions-declared" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
-        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, (
@@ -865,9 +981,15 @@ def test_missing_content_file_golden(tmp_path: Path) -> None:
     parsed from the folder and is therefore not obvious from the layout."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "missing-content-file" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
+    assert_fixture_local([_BOARD_DTS, _SHIELD_DIR, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE])
     result = run_expand(
-        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
     )
 
     assert result.returncode != 0, "a missing content file must be rejected"
@@ -1143,6 +1265,7 @@ def test_unmapped_socket_golden(tmp_path: Path) -> None:
         bindings_dirs=bindings_dirs,
         include_dirs=include_dirs,
         shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
     )
 
     assert result.returncode != 0, (
@@ -1185,7 +1308,13 @@ def test_no_board_declared_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "no-board-declared" / "rig.yml"
     assert_fixture_local([_SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, shield_dirs=[_SHIELD_DIR])
+    result = run_expand(
+        rig_yml,
+        out_dir,
+        shield_dirs=[_SHIELD_DIR],
+        connector_dirs=[_CONNECTOR_BINDINGS],
+        include_dirs=[_CONNECTOR_INCLUDE],
+    )
 
     assert result.returncode != 0, "a rig with no board injected at all must be rejected"
     assert "[phys-board]" in result.stderr, result.stderr

@@ -28,7 +28,7 @@ from rigc.promote import (
     promote_shield_list,
     shield_declares_required_params,
 )
-from rigc.tests.roots import fixture_types, shield_dirs
+from rigc.tests.roots import fixture_types, include_dirs, shield_dirs
 
 # ---------------------------------------------------------------- promote_shield
 
@@ -260,6 +260,7 @@ def test_promoted_shield_round_trips_through_the_loader_with_no_diagnostics(tmp_
         str(rig_dir / "rig.yml"),
         str(workdir),
         shield_dirs=shield_dirs(),
+        include_dirs=include_dirs(),
         types=types,
         board="some_board",
     )
@@ -333,6 +334,7 @@ def test_a_revved_promoted_shield_round_trips_to_the_named_revision(tmp_path: Pa
         str(rig_dir / "rig.yml"),
         str(workdir),
         shield_dirs=shield_dirs(),
+        include_dirs=include_dirs(),
         types=types,
         board="some_board",
     )
@@ -427,6 +429,7 @@ def test_a_socketed_promoted_shield_round_trips_through_the_loader(tmp_path: Pat
         str(rig_dir / "rig.yml"),
         str(tmp_path / "workdir"),
         shield_dirs=shield_dirs(),
+        include_dirs=include_dirs(),
         types=types,
         board="some_board",
     )
@@ -588,6 +591,7 @@ def test_promote_shield_with_a_sockets_map_round_trips_through_the_loader(tmp_pa
         str(rig_dir / "rig.yml"),
         str(tmp_path / "workdir"),
         shield_dirs=shield_dirs(),
+        include_dirs=include_dirs(),
         types=types,
         board="some_board",
     )
@@ -720,6 +724,7 @@ def test_a_param_carrying_promoted_shield_round_trips_and_satisfies_the_invarian
         str(rig_dir / "rig.yml"),
         str(tmp_path / "workdir"),
         shield_dirs=shield_dirs(),
+        include_dirs=include_dirs(),
         types=types,
         board="some_board",
     )
@@ -746,6 +751,7 @@ def test_a_promoted_shield_missing_its_required_param_still_rejects(tmp_path: Pa
         str(rig_dir / "rig.yml"),
         str(tmp_path / "workdir"),
         shield_dirs=shield_dirs(),
+        include_dirs=include_dirs(),
         types=types,
         board="some_board",
     )
@@ -836,6 +842,7 @@ def test_promote_shield_list_round_trips_through_the_loader(tmp_path: Path) -> N
         str(rig_dir / "rig.yml"),
         str(tmp_path / "workdir"),
         shield_dirs=shield_dirs(),
+        include_dirs=include_dirs(),
         types=types,
         board="some_board",
     )
@@ -991,6 +998,7 @@ def test_a_config_carrying_promoted_shield_round_trips_through_the_loader(tmp_pa
         str(rig_dir / "rig.yml"),
         str(tmp_path / "workdir"),
         shield_dirs=shield_dirs(),
+        include_dirs=include_dirs(),
         types=types,
         board="some_board",
     )

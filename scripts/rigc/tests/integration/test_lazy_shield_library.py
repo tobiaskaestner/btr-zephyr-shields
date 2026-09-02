@@ -41,6 +41,8 @@ def test_broken_referenced_shield_preserves_earlier_diagnostics(tmp_path: Path) 
         out_dir,
         board="nucleo_f401re/stm32f401xe/rig",
         shield_dirs=[_FIXTURE / "shields"],
+        connector_dirs=[FIXTURES_DIR / "dts" / "unified-connectors"],
+        include_dirs=[FIXTURES_DIR / "include"],
     )
 
     assert result.returncode != 0, "a shield template that fails to preprocess must reject the rig"
