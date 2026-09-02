@@ -47,6 +47,7 @@ instance of the same guard, because a shield revision resolved LAZILY,
 mid-topology (`ShieldLibrary.resolve`), can still raise LoadError from
 inside that one phase call, same as the library scan already does in
 library.py."""
+
 from __future__ import annotations
 
 import logging
@@ -79,7 +80,8 @@ def _missing_content_diag(rig_name: str, path: str, src: SourceRef) -> Diagnosti
     return error(
         "lang-content",
         f"rig '{rig_name}': no content file found -- expected {anchor_path(path)}",
-        (src,))
+        (src,),
+    )
 
 
 # ---------------------------------------------------------------- phase 1
@@ -99,9 +101,12 @@ class MetadataResult:
     binding: SocketBinding = field(default_factory=SocketBinding)
 
 
-def _resolve_metadata(doc: Val, revision: str | None, variant: str | None,
-                      board: str | None = None,
-                      ) -> tuple[MetadataResult, list[Diagnostic]]:
+def _resolve_metadata(
+    doc: Val,
+    revision: str | None,
+    variant: str | None,
+    board: str | None = None,
+) -> tuple[MetadataResult, list[Diagnostic]]:
     """The rig shell and its qualifier axes (declaration, collision,
     resolution). Entirely cpp-free -- reads `doc`'s own parsed YAML tree
     alone, so a synthetic Val tree exercises every branch here with no
@@ -134,18 +139,26 @@ def _resolve_metadata(doc: Val, revision: str | None, variant: str | None,
     diags += axes.check_axis_collision(rig.name, variants, revisions, rig_v.src)
 
     rig.revision_requested = revision
-    rig.revision, d = axes.resolve_axis(rig.name, "revision", "revision",
-                                        revisions, revision, rig_v.src)
+    rig.revision, d = axes.resolve_axis(
+        rig.name, "revision", "revision", revisions, revision, rig_v.src
+    )
     diags += d
-    rig.variant, d = axes.resolve_axis(rig.name, "variant", "variants",
-                                       variants, variant, rig_v.src)
+    rig.variant, d = axes.resolve_axis(
+        rig.name, "variant", "variants", variants, variant, rig_v.src
+    )
     diags += d
-    log.debug("rig '%s': selected revision=%r variant=%r",
-             rig.name, rig.revision, rig.variant)
-    if (rig.revision is not None and rig.revision_requested is not None
-            and rig.revision != rig.revision_requested):
-        log.info("rig '%s': revision requested %r resolved to %r",
-                 rig.name, rig.revision_requested, rig.revision)
+    log.debug("rig '%s': selected revision=%r variant=%r", rig.name, rig.revision, rig.variant)
+    if (
+        rig.revision is not None
+        and rig.revision_requested is not None
+        and rig.revision != rig.revision_requested
+    ):
+        log.info(
+            "rig '%s': revision requested %r resolved to %r",
+            rig.name,
+            rig.revision_requested,
+            rig.revision,
+        )
 
     rig.board = binding.resolve_board(board)
     sock_binding = SocketBinding()
@@ -177,8 +190,10 @@ class ContentResult:
     deltas: Deltas
 
 
-def _gather_content(rig: Rig, rig_dir: str,
-                    ) -> tuple[ContentResult | None, list[Diagnostic], Deps]:
+def _gather_content(
+    rig: Rig,
+    rig_dir: str,
+) -> tuple[ContentResult | None, list[Diagnostic], Deps]:
     """The rig's REQUIRED content file, its two qualifier delta
     fragments (looked up by the constructed stems `loader.axes` builds,
     never `${RIG}` literally), and the contributes-nothing check (a
@@ -197,7 +212,7 @@ def _gather_content(rig: Rig, rig_dir: str,
     Returns (result, diagnostics, deps): deps names the content file
     itself and whichever of the two qualifier delta fragments actually
     exist -- the RIG_DEPENDS handoff's own closure over this phase."""
-    assert rig.src is not None   # phase 1 always sets it before returning a Rig
+    assert rig.src is not None  # phase 1 always sets it before returning a Rig
     diags: list[Diagnostic] = []
     deps: Deps = frozenset()
     content_path = os.path.join(rig_dir, content_file_name(rig.name))
@@ -229,35 +244,45 @@ def _gather_content(rig: Rig, rig_dir: str,
         # source both the probes and the message text share.
         variant_overlay = variant_defconfig = revision_defconfig = False
         if rig.variant is not None:
-            overlay, defconfig, _ = fragments.variant_contribution_names(
-                rig.name, rig.variant)
+            overlay, defconfig, _ = fragments.variant_contribution_names(rig.name, rig.variant)
             variant_overlay = os.path.isfile(os.path.join(rig_dir, overlay))
             variant_defconfig = os.path.isfile(os.path.join(rig_dir, defconfig))
         if rig.revision is not None:
-            defconfig, _ = fragments.revision_contribution_names(
-                rig.name, rig.revision)
+            defconfig, _ = fragments.revision_contribution_names(rig.name, rig.revision)
             revision_defconfig = os.path.isfile(os.path.join(rig_dir, defconfig))
         diags += fragments.check_fragment_presence(
-            rig, rig.src, fragments.FragmentPresence(
+            rig,
+            rig.src,
+            fragments.FragmentPresence(
                 variant_delta=variant_delta_v is not None,
                 variant_overlay=variant_overlay,
                 variant_defconfig=variant_defconfig,
                 revision_delta=revision_delta_v is not None,
-                revision_defconfig=revision_defconfig))
+                revision_defconfig=revision_defconfig,
+            ),
+        )
 
-    return ContentResult(
-        content_v=content_v,
-        deltas=Deltas(variant_v=variant_delta_v, revision_v=revision_delta_v)
-        ), diags, deps
+    return (
+        ContentResult(
+            content_v=content_v,
+            deltas=Deltas(variant_v=variant_delta_v, revision_v=revision_delta_v),
+        ),
+        diags,
+        deps,
+    )
 
 
 # ---------------------------------------------------------------- phase 3
 
 
-def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
-                    content: ContentResult, workdir: str,
-                    include_dirs: list[str] | None,
-                    ) -> tuple[Topology, list[Diagnostic], Deps]:
+def _build_topology(
+    rig: Rig,
+    sock_binding: SocketBinding,
+    lib: ShieldLibrary,
+    content: ContentResult,
+    workdir: str,
+    include_dirs: list[str] | None,
+) -> tuple[Topology, list[Diagnostic], Deps]:
     """Stage 0 (the base content's instances:/wires:, order preserved,
     the per-stage invariant checked per instance as it is parsed), then
     the variant delta stage, then the revision delta stage -- each
@@ -283,14 +308,14 @@ def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
     deps: Deps = frozenset()
     try:
         content_map = as_mapping(
-            content.content_v, f"content document {content.content_v.src.file}")
+            content.content_v, f"content document {content.content_v.src.file}"
+        )
 
         topology = Topology()
         insts_v, d = require(content.content_v, "instances", "content")
         diags += d
-        for item in (insts_v.value if insts_v is not None else []):
-            inst, d, idep = parse_instance(item, sock_binding, lib, rig.name,
-                                           workdir, include_dirs)
+        for item in insts_v.value if insts_v is not None else []:
+            inst, d, idep = parse_instance(item, sock_binding, lib, rig.name, workdir, include_dirs)
             diags += d
             deps = union(deps, idep)
             if inst is not None:
@@ -299,7 +324,7 @@ def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
                 diags += check_param_invariant([inst])
 
         wires_v = content_map.get("wires")
-        for item in (wires_v.value if wires_v is not None else []):
+        for item in wires_v.value if wires_v is not None else []:
             wire, d = parse_wire(item, topology.effective)
             diags += d
             if wire is not None:
@@ -307,11 +332,19 @@ def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
 
         # Stage 1: variant delta.
         if content.deltas.variant_v is not None:
-            assert rig.variant is not None    # a delta only loads for a selected axis
+            assert rig.variant is not None  # a delta only loads for a selected axis
             topology, d, idep = apply_delta(
-                content.deltas.variant_v, "variant", rig.variant, topology,
-                sock_binding, lib, rig.variant, rig.name,
-                workdir, include_dirs)
+                content.deltas.variant_v,
+                "variant",
+                rig.variant,
+                topology,
+                sock_binding,
+                lib,
+                rig.variant,
+                rig.name,
+                workdir,
+                include_dirs,
+            )
             diags += d
             deps = union(deps, idep)
             diags += check_param_invariant(topology.instances())
@@ -319,11 +352,19 @@ def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
         # Stage 2: revision delta -- ONE family-wide stream, applied AFTER
         # the variant.
         if content.deltas.revision_v is not None:
-            assert rig.revision is not None   # a delta only loads for a selected axis
+            assert rig.revision is not None  # a delta only loads for a selected axis
             topology, d, idep = apply_delta(
-                content.deltas.revision_v, "revision", rig.revision, topology,
-                sock_binding, lib, rig.variant, rig.name,
-                workdir, include_dirs)
+                content.deltas.revision_v,
+                "revision",
+                rig.revision,
+                topology,
+                sock_binding,
+                lib,
+                rig.variant,
+                rig.name,
+                workdir,
+                include_dirs,
+            )
             diags += d
             deps = union(deps, idep)
             diags += check_param_invariant(topology.instances())
@@ -336,14 +377,16 @@ def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
 # ---------------------------------------------------------------- load()
 
 
-def load(rig_path: str, workdir: str,
-        shield_dirs: list[str] | None = None,
-        revision: str | None = None,
-        variant: str | None = None,
-        board: str | None = None,
-        types: dict[str, ConnectorType] | None = None,
-        include_dirs: list[str] | None = None,
-        ) -> tuple[Rig | None, list[Diagnostic], Deps]:
+def load(
+    rig_path: str,
+    workdir: str,
+    shield_dirs: list[str] | None = None,
+    revision: str | None = None,
+    variant: str | None = None,
+    board: str | None = None,
+    types: dict[str, ConnectorType] | None = None,
+    include_dirs: list[str] | None = None,
+) -> tuple[Rig | None, list[Diagnostic], Deps]:
     """Load rig_path (absolute) as far as rigc's loader reaches, returning
     the built Rig (best-effort; None only when nothing further could be
     attempted at all) alongside every diagnostic found. Loading CONTINUES
@@ -383,7 +426,8 @@ def load(rig_path: str, workdir: str,
     deps: Deps = frozenset()
     try:
         lib, diags, lib_deps = load_shield_library(
-            workdir, shield_dirs, types=types, include_dirs=include_dirs)
+            workdir, shield_dirs, types=types, include_dirs=include_dirs
+        )
         deps = union(deps, lib_deps)
 
         deps = union(deps, touch(rig_path))
@@ -405,8 +449,7 @@ def load(rig_path: str, workdir: str,
             return None, diags, deps
 
         log.info("load(): building topology")
-        topology, d, tdeps = _build_topology(
-            rig, sock_binding, lib, content, workdir, include_dirs)
+        topology, d, tdeps = _build_topology(rig, sock_binding, lib, content, workdir, include_dirs)
         diags += d
         deps = union(deps, tdeps)
 
@@ -415,10 +458,15 @@ def load(rig_path: str, workdir: str,
         for inst in rig.instances:
             socket_desc = ", ".join(
                 f"{slot}={ref if ref is not None else '(inferred)'}"
-                for slot, ref in inst.sockets.items())
-            log.info("rig '%s': instance '%s' requires shield '%s', "
-                     "mated to socket '%s'",
-                     rig.name, inst.name, inst.shield.name, socket_desc)
+                for slot, ref in inst.sockets.items()
+            )
+            log.info(
+                "rig '%s': instance '%s' requires shield '%s', mated to socket '%s'",
+                rig.name,
+                inst.name,
+                inst.shield.name,
+                socket_desc,
+            )
         return rig, diags, deps
     except LoadError as e:
         return None, diags + list(e.diags), deps

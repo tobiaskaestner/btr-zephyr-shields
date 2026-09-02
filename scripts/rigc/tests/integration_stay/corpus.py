@@ -37,6 +37,7 @@ normalization, the freeze/assert primitives) from harness.py rather than
 duplicating it. expectations.yml is deliberately never read here — it is
 emitted but never gated (see claude/hw-expectations/).
 """
+
 from __future__ import annotations
 
 import dataclasses
@@ -84,11 +85,10 @@ def rig_dir(name: str) -> Path:
     across many parametrized cases in one session) -- callers must not
     mutate the returned Path in place, though Path is immutable in the
     ways this module ever uses it."""
-    matches = [d for d in sorted(RIGS_DIR.rglob(name))
-              if d.is_dir() and (d / "rig.yml").is_file()]
+    matches = [d for d in sorted(RIGS_DIR.rglob(name)) if d.is_dir() and (d / "rig.yml").is_file()]
     assert len(matches) == 1, (
-        f"expected exactly one rig directory named {name!r} under "
-        f"{RIGS_DIR}, found {matches}")
+        f"expected exactly one rig directory named {name!r} under {RIGS_DIR}, found {matches}"
+    )
     return matches[0]
 
 
@@ -106,16 +106,11 @@ def rig_dir(name: str) -> Path:
 # -DEXTRA_ZEPHYR_MODULES=<bridle_root()> (see board_extra_defines
 # below), or the board does not exist at all.
 BOARD_DTS: dict[str, str] = {
-    "nucleo_f401re/stm32f401xe/rig":
-        "boards/extend/st/nucleo_f401re/nucleo_f401re_stm32f401xe_rig.dts",
-    "mikroe_quail/stm32f427xx/rig":
-        "boards/extend/mikroe/quail/mikroe_quail_stm32f427xx_rig.dts",
-    "frdm_k64f/mk64f12/rig":
-        "boards/extend/nxp/frdm_k64f/frdm_k64f_mk64f12_rig.dts",
-    "seeeduino_lotus/samd21g18a/rig":
-        "boards/extend/seeed/seeeduino_lotus/seeeduino_lotus_samd21g18a_rig.dts",
-    "m5stack_nanoc6/esp32c6/hpcore/rig":
-        "boards/extend/m5stack/m5stack_nanoc6/m5stack_nanoc6_esp32c6_hpcore_rig.dts",
+    "nucleo_f401re/stm32f401xe/rig": "boards/extend/st/nucleo_f401re/nucleo_f401re_stm32f401xe_rig.dts",
+    "mikroe_quail/stm32f427xx/rig": "boards/extend/mikroe/quail/mikroe_quail_stm32f427xx_rig.dts",
+    "frdm_k64f/mk64f12/rig": "boards/extend/nxp/frdm_k64f/frdm_k64f_mk64f12_rig.dts",
+    "seeeduino_lotus/samd21g18a/rig": "boards/extend/seeed/seeeduino_lotus/seeeduino_lotus_samd21g18a_rig.dts",
+    "m5stack_nanoc6/esp32c6/hpcore/rig": "boards/extend/m5stack/m5stack_nanoc6/m5stack_nanoc6_esp32c6_hpcore_rig.dts",
 }
 BOARDS: list[str] = list(BOARD_DTS)
 
@@ -137,7 +132,8 @@ def bridle_root() -> Path:
         pytest.fail(
             f"bridle module not found at {root} -- lotus rig builds need "
             f"-DEXTRA_ZEPHYR_MODULES=<west-topdir>/bridle; is the bridle "
-            f"checkout missing from this workspace?")
+            f"checkout missing from this workspace?"
+        )
     return root
 
 
@@ -186,7 +182,7 @@ class RigCase:
     name: str
     board: str
     accept: bool
-    category: str | None = None   # expected phys-* code, reject rigs only
+    category: str | None = None  # expected phys-* code, reject rigs only
 
 
 # The full corpus of rigs this suite freezes goldens for, with the board
@@ -299,6 +295,7 @@ class PlainBuild:
     cmake/dts.cmake's pre_dt.cmake mirror a second time in Python.
     Session-memoized by board (see plain_build_for) — every rig naming the
     same board reuses ONE configure."""
+
     board: str
     build_dir: Path
 
@@ -332,16 +329,31 @@ def _run_plain_build(board: str, build_dir: Path) -> subprocess.CompletedProcess
     zb = zephyr_base()
     env = dict(os.environ)
     env["ZEPHYR_BASE"] = zb
-    cmd = [WEST_EXE, "build", "--cmake-only", "-b", board, _PLAIN_BUILD_APP,
-           "-p", "always", "-d", str(build_dir)]
+    cmd = [
+        WEST_EXE,
+        "build",
+        "--cmake-only",
+        "-b",
+        board,
+        _PLAIN_BUILD_APP,
+        "-p",
+        "always",
+        "-d",
+        str(build_dir),
+    ]
     extra = board_extra_defines(board)
     if extra:
         cmd += ["--", *extra]
     _LOGGER.info("plain build argv: %s", shlex.join(cmd))
     write_rerun_script(build_dir, WEST_TOPDIR, cmd, env)
-    return subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=env,
-                           capture_output=True, text=True,
-                           timeout=subprocess_timeout(600))
+    return subprocess.run(
+        cmd,
+        cwd=str(WEST_TOPDIR),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=subprocess_timeout(600),
+    )
 
 
 def plain_build_for(board: str, tmp_path_factory: pytest.TempPathFactory) -> PlainBuild:
@@ -360,22 +372,25 @@ def plain_build_for(board: str, tmp_path_factory: pytest.TempPathFactory) -> Pla
             f"{board}: plain `west build --cmake-only` (no shield, no rig) "
             f"must configure clean\n--- argv ---\n{render_argv(result)}\n"
             f"--- stdout ---\n"
-            f"{result.stdout}\n--- stderr ---\n{result.stderr}")
+            f"{result.stdout}\n--- stderr ---\n{result.stderr}"
+        )
         _plain_build_cache[board] = PlainBuild(board=board, build_dir=build_dir)
     return _plain_build_cache[board]
 
 
-def run_expand(rig_yml: Path, out_dir: Path,
-               shield_dirs: list[Path] | None = None,
-               board: str | None = None,
-               board_dts: Path | None = None,
-               build_info: Path | None = None,
-               bindings_dirs: list[Path] | None = None,
-               include_dirs: list[Path] | None = None,
-               revision: str | None = None,
-               variant: str | None = None,
-               connector_dirs: list[Path] | None = None,
-               ) -> subprocess.CompletedProcess[str]:
+def run_expand(
+    rig_yml: Path,
+    out_dir: Path,
+    shield_dirs: list[Path] | None = None,
+    board: str | None = None,
+    board_dts: Path | None = None,
+    build_info: Path | None = None,
+    bindings_dirs: list[Path] | None = None,
+    include_dirs: list[Path] | None = None,
+    revision: str | None = None,
+    variant: str | None = None,
+    connector_dirs: list[Path] | None = None,
+) -> subprocess.CompletedProcess[str]:
     """harness.run_expand, with the repo-shield tether restored: when
     shield_dirs is None this defaults to [SHIELD_DIR] rather than harness's
     own no-default -- this default IS the corpus tether that keeps every
@@ -386,7 +401,15 @@ def run_expand(rig_yml: Path, out_dir: Path,
     definitions rather than travelling with the mechanics."""
     dirs = shield_dirs if shield_dirs is not None else [SHIELD_DIR]
     return _harness_run_expand(
-        rig_yml, out_dir, shield_dirs=dirs, board=board, board_dts=board_dts,
-        build_info=build_info, bindings_dirs=bindings_dirs,
-        include_dirs=include_dirs, revision=revision, variant=variant,
-        connector_dirs=connector_dirs)
+        rig_yml,
+        out_dir,
+        shield_dirs=dirs,
+        board=board,
+        board_dts=board_dts,
+        build_info=build_info,
+        bindings_dirs=bindings_dirs,
+        include_dirs=include_dirs,
+        revision=revision,
+        variant=variant,
+        connector_dirs=connector_dirs,
+    )

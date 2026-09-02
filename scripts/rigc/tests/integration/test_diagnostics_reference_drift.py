@@ -44,6 +44,7 @@ matching the convention this project's other reference pages already use
 for the same purpose (test_dts_vocabulary_drift.py's property tokens,
 test_cli_reference_drift.py's `--options`).
 """
+
 from __future__ import annotations
 
 import re
@@ -100,7 +101,8 @@ def test_diagnostics_page_documents_something_at_all() -> None:
     documented = _documented_codes()
     assert len(documented) >= 40, (
         f"doc/reference/diagnostics.rst gives an entry to only "
-        f"{len(documented)} code(s): {sorted(documented)}")
+        f"{len(documented)} code(s): {sorted(documented)}"
+    )
 
 
 def test_diagnostics_forward_every_raised_code_is_documented() -> None:
@@ -114,11 +116,12 @@ def test_diagnostics_forward_every_raised_code_is_documented() -> None:
         f"only {len(code)} code(s) found in scripts/rigc/'s own "
         "production source -- the literal scan is finding far fewer "
         "than the known 44, so it is very likely broken rather than the "
-        "catalogue having shrunk")
+        "catalogue having shrunk"
+    )
     missing = sorted(code - _documented_codes())
     assert not missing, (
-        "code(s) raised by scripts/rigc/ with no entry on "
-        f"doc/reference/diagnostics.rst: {missing}")
+        f"code(s) raised by scripts/rigc/ with no entry on doc/reference/diagnostics.rst: {missing}"
+    )
 
 
 def test_diagnostics_reverse_every_documented_code_is_real() -> None:
@@ -130,4 +133,5 @@ def test_diagnostics_reverse_every_documented_code_is_real() -> None:
     invented = sorted(_documented_codes() - _code_literals())
     assert not invented, (
         "doc/reference/diagnostics.rst documents code(s) no production "
-        f"call site raises: {invented}")
+        f"call site raises: {invented}"
+    )

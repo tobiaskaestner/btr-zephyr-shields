@@ -43,6 +43,7 @@ only" -- a property of the DATA, not of which caller (`owner_kind`)
 passed it, so the function needs no shield/rig branching and the day
 that schema changes, nothing here does either.
 """
+
 from __future__ import annotations
 
 import re
@@ -153,9 +154,11 @@ def _nearest_lower(fmt: str, declared: list[str], candidate: str) -> str | None:
     return best
 
 
-def parse_variant_decl(container_v: Val, key: str = "variants",
-                       owner: str = "rig",
-                       ) -> tuple[AxisDecl | None, list[Diagnostic]]:
+def parse_variant_decl(
+    container_v: Val,
+    key: str = "variants",
+    owner: str = "rig",
+) -> tuple[AxisDecl | None, list[Diagnostic]]:
     """A rig's `variants:` declaration block: {default:, list: []}.
     Absent key -> no axis declared (None, no diagnostics). `list:` must be
     non-empty and `default:` (if given) must be one of its own members --
@@ -179,7 +182,7 @@ def parse_variant_decl(container_v: Val, key: str = "variants",
     axis_map = axis_v.value if isinstance(axis_v.value, dict) else {}
     list_v = axis_map.get("list")
     values: list[str] = []
-    for item_v in (list_v.value if list_v is not None else []):
+    for item_v in list_v.value if list_v is not None else []:
         if isinstance(item_v.value, dict):
             name_v, d = require(item_v, "name", f"{owner} {key} entry")
             diags += d
@@ -189,26 +192,30 @@ def parse_variant_decl(container_v: Val, key: str = "variants",
         else:
             values.append(str(item_v.value))
     if not values:
-        diags.append(error(
-            "lang-schema", f"{owner} {key}: 'list' must be a non-empty list",
-            (axis_v.src,)))
+        diags.append(
+            error("lang-schema", f"{owner} {key}: 'list' must be a non-empty list", (axis_v.src,))
+        )
         return None, diags
     default_v = axis_map.get("default")
     if default_v is None:
         return AxisDecl(values=values), diags
     default = str(default_v.value)
     if default not in values:
-        diags.append(error(
-            "lang-schema",
-            f"{owner} {key}: default '{default}' is not one of the declared "
-            f"values ({', '.join(values)})",
-            (default_v.src,)))
+        diags.append(
+            error(
+                "lang-schema",
+                f"{owner} {key}: default '{default}' is not one of the declared "
+                f"values ({', '.join(values)})",
+                (default_v.src,),
+            )
+        )
         return None, diags
     return AxisDecl(values=values, default=default), diags
 
 
-def _parse_revision_entries(list_v: Val | None, fmt: str, key: str,
-                            owner: str) -> tuple[list[str], list[Diagnostic]]:
+def _parse_revision_entries(
+    list_v: Val | None, fmt: str, key: str, owner: str
+) -> tuple[list[str], list[Diagnostic]]:
     """Each `revisions:` list entry: a mapping {name:} whose name: is a
     quoted string matching `fmt`'s own pattern. An unquoted numeric-
     looking id is rejected rather than coerced (it is exactly the value
@@ -221,41 +228,52 @@ def _parse_revision_entries(list_v: Val | None, fmt: str, key: str,
     check, in list order."""
     diags: list[Diagnostic] = []
     values: list[str] = []
-    for item_v in (list_v.value if list_v is not None else []):
+    for item_v in list_v.value if list_v is not None else []:
         if not isinstance(item_v.value, dict):
-            diags.append(error(
-                "lang-schema",
-                f"{owner} {key}: a revisions: entry must be a mapping "
-                "{name:} -- this axis takes no bare scalar entries",
-                (item_v.src,)))
+            diags.append(
+                error(
+                    "lang-schema",
+                    f"{owner} {key}: a revisions: entry must be a mapping "
+                    "{name:} -- this axis takes no bare scalar entries",
+                    (item_v.src,),
+                )
+            )
             continue
         name_v, d = require(item_v, "name", f"{owner} {key} entry")
         diags += d
         if name_v is None:
             continue
         if not isinstance(name_v.value, str):
-            diags.append(error(
-                "lang-schema",
-                f"{owner} {key}: revision id {name_v.value!r} must be a "
-                "quoted string -- an unquoted id can parse as a YAML "
-                "number and silently change value",
-                (name_v.src,)))
+            diags.append(
+                error(
+                    "lang-schema",
+                    f"{owner} {key}: revision id {name_v.value!r} must be a "
+                    "quoted string -- an unquoted id can parse as a YAML "
+                    "number and silently change value",
+                    (name_v.src,),
+                )
+            )
             continue
         name = name_v.value
         if not _format_matches(fmt, name):
-            diags.append(error(
-                "lang-schema",
-                f"{owner} {key}: revision '{name}' does not match format "
-                f"{fmt!r} (expected {_FORMAT_DESCRIPTIONS[fmt]})",
-                (name_v.src,)))
+            diags.append(
+                error(
+                    "lang-schema",
+                    f"{owner} {key}: revision '{name}' does not match format "
+                    f"{fmt!r} (expected {_FORMAT_DESCRIPTIONS[fmt]})",
+                    (name_v.src,),
+                )
+            )
             continue
         values.append(name)
     return values, diags
 
 
-def parse_revision_decl(container_v: Val, key: str = "revision",
-                        owner: str = "rig",
-                        ) -> tuple[AxisDecl | None, list[Diagnostic]]:
+def parse_revision_decl(
+    container_v: Val,
+    key: str = "revision",
+    owner: str = "rig",
+) -> tuple[AxisDecl | None, list[Diagnostic]]:
     """A rig.yml `revision:` declaration block (singular key): upstream's
     own board.yml shape -- `format:` (required, one of letter/number/
     major.minor.patch/custom), `default:`, optional `exact:`, and a
@@ -289,29 +307,35 @@ def parse_revision_decl(container_v: Val, key: str = "revision",
 
     format_v = axis_map.get("format")
     if format_v is None:
-        diags.append(error(
-            "lang-schema",
-            f"{owner} {key}: 'format' is required -- one of "
-            f"{', '.join(_ALL_REVISION_FORMATS)}",
-            (axis_v.src,)))
+        diags.append(
+            error(
+                "lang-schema",
+                f"{owner} {key}: 'format' is required -- one of {', '.join(_ALL_REVISION_FORMATS)}",
+                (axis_v.src,),
+            )
+        )
         return None, diags
     fmt = format_v.value
     if not isinstance(fmt, str) or fmt not in _ALL_REVISION_FORMATS:
-        diags.append(error(
-            "lang-schema",
-            f"{owner} {key}: 'format' must be one of "
-            f"{', '.join(_ALL_REVISION_FORMATS)} (got {fmt!r})",
-            (format_v.src,)))
+        diags.append(
+            error(
+                "lang-schema",
+                f"{owner} {key}: 'format' must be one of "
+                f"{', '.join(_ALL_REVISION_FORMATS)} (got {fmt!r})",
+                (format_v.src,),
+            )
+        )
         return None, diags
 
     list_v = axis_map.get("revisions")
     values, entry_diags = _parse_revision_entries(list_v, fmt, key, owner)
     diags += entry_diags
     if not values:
-        diags.append(error(
-            "lang-schema",
-            f"{owner} {key}: 'revisions' must be a non-empty list",
-            (axis_v.src,)))
+        diags.append(
+            error(
+                "lang-schema", f"{owner} {key}: 'revisions' must be a non-empty list", (axis_v.src,)
+            )
+        )
         return None, diags
 
     exact_v = axis_map.get("exact")
@@ -321,25 +345,31 @@ def parse_revision_decl(container_v: Val, key: str = "revision",
     if default_v is None:
         return AxisDecl(values=values, format=fmt, exact=exact), diags
     if not isinstance(default_v.value, str):
-        diags.append(error(
-            "lang-schema",
-            f"{owner} {key}: 'default' must be a quoted string",
-            (default_v.src,)))
+        diags.append(
+            error(
+                "lang-schema", f"{owner} {key}: 'default' must be a quoted string", (default_v.src,)
+            )
+        )
         return None, diags
     default = default_v.value
     if default not in values:
-        diags.append(error(
-            "lang-schema",
-            f"{owner} {key}: default '{default}' is not one of the declared "
-            f"revisions ({', '.join(values)})",
-            (default_v.src,)))
+        diags.append(
+            error(
+                "lang-schema",
+                f"{owner} {key}: default '{default}' is not one of the declared "
+                f"revisions ({', '.join(values)})",
+                (default_v.src,),
+            )
+        )
         return None, diags
     return AxisDecl(values=values, default=default, format=fmt, exact=exact), diags
 
 
-def parse_legacy_revision_decl(container_v: Val, key: str = "revisions",
-                               owner: str = "rig",
-                               ) -> tuple[AxisDecl | None, list[Diagnostic]]:
+def parse_legacy_revision_decl(
+    container_v: Val,
+    key: str = "revisions",
+    owner: str = "rig",
+) -> tuple[AxisDecl | None, list[Diagnostic]]:
     """shield.yml's `revisions:` declaration, kept in its PRE-hwmv2 shape
     (`{default:, list: []}`, bare scalar ids only) -- NOT the hwmv2
     `revision:` block `parse_revision_decl` gives rig.yml.
@@ -371,37 +401,43 @@ def parse_legacy_revision_decl(container_v: Val, key: str = "revisions",
     axis_map = axis_v.value if isinstance(axis_v.value, dict) else {}
     list_v = axis_map.get("list")
     values: list[str] = []
-    for item_v in (list_v.value if list_v is not None else []):
+    for item_v in list_v.value if list_v is not None else []:
         if isinstance(item_v.value, dict):
-            diags.append(error(
-                "lang-schema",
-                f"{owner} {key}: a mapping entry (name:) is legal only in "
-                "a rig's variants: list -- this axis takes bare names",
-                (item_v.src,)))
+            diags.append(
+                error(
+                    "lang-schema",
+                    f"{owner} {key}: a mapping entry (name:) is legal only in "
+                    "a rig's variants: list -- this axis takes bare names",
+                    (item_v.src,),
+                )
+            )
             continue
         values.append(str(item_v.value))
     if not values:
-        diags.append(error(
-            "lang-schema", f"{owner} {key}: 'list' must be a non-empty list",
-            (axis_v.src,)))
+        diags.append(
+            error("lang-schema", f"{owner} {key}: 'list' must be a non-empty list", (axis_v.src,))
+        )
         return None, diags
     default_v = axis_map.get("default")
     if default_v is None:
         return AxisDecl(values=values), diags
     default = str(default_v.value)
     if default not in values:
-        diags.append(error(
-            "lang-schema",
-            f"{owner} {key}: default '{default}' is not one of the declared "
-            f"values ({', '.join(values)})",
-            (default_v.src,)))
+        diags.append(
+            error(
+                "lang-schema",
+                f"{owner} {key}: default '{default}' is not one of the declared "
+                f"values ({', '.join(values)})",
+                (default_v.src,),
+            )
+        )
         return None, diags
     return AxisDecl(values=values, default=default), diags
 
 
-def check_axis_collision(rig_name: str, variants: AxisDecl | None,
-                         revisions: AxisDecl | None,
-                         src: SourceRef) -> list[Diagnostic]:
+def check_axis_collision(
+    rig_name: str, variants: AxisDecl | None, revisions: AxisDecl | None, src: SourceRef
+) -> list[Diagnostic]:
     """The fragment-stem collision check: no two distinct (variant,
     revision) SELECTIONS may construct the same fragment stem.
     Enumerates every stem the declared axes could ever construct -- each
@@ -424,27 +460,34 @@ def check_axis_collision(rig_name: str, variants: AxisDecl | None,
         note(f"{rig_name}_{normalize_revision(r)}", f"revision '{r}'")
     for v in variant_values:
         for r in revision_values:
-            note(f"{rig_name}_{v}_{normalize_revision(r)}",
-                 f"variant '{v}' + revision '{r}'")
+            note(f"{rig_name}_{v}_{normalize_revision(r)}", f"variant '{v}' + revision '{r}'")
 
     diags: list[Diagnostic] = []
     for stem in sorted(origins):
         stem_origins = origins[stem]
         if len(stem_origins) > 1:
-            diags.append(error(
-                "lang-variant",
-                f"rig '{rig_name}': {' and '.join(stem_origins)} all "
-                f"construct the same fragment stem '{stem}' -- the "
-                "constructed filenames would be ambiguous about which "
-                "selection a fragment belongs to",
-                (src,)))
+            diags.append(
+                error(
+                    "lang-variant",
+                    f"rig '{rig_name}': {' and '.join(stem_origins)} all "
+                    f"construct the same fragment stem '{stem}' -- the "
+                    "constructed filenames would be ambiguous about which "
+                    "selection a fragment belongs to",
+                    (src,),
+                )
+            )
     return diags
 
 
-def _resolve_revision_selection(owner_kind: str, owner_name: str,
-                                axis_kind: str, code: str, decl: AxisDecl,
-                                selected: str | None, src: SourceRef,
-                                ) -> tuple[str | None, list[Diagnostic]]:
+def _resolve_revision_selection(
+    owner_kind: str,
+    owner_name: str,
+    axis_kind: str,
+    code: str,
+    decl: AxisDecl,
+    selected: str | None,
+    src: SourceRef,
+) -> tuple[str | None, list[Diagnostic]]:
     """The hwmv2 revision-resolution machinery (extensions.cmake:1048
     family), reached only once `decl.format is not None`: `format:
     custom` is rejected loudly the moment the axis is used at all, even
@@ -464,49 +507,66 @@ def _resolve_revision_selection(owner_kind: str, owner_name: str,
     `decl` is read-only."""
     if decl.format not in _REVISION_PATTERNS:
         supported = ", ".join(_REVISION_PATTERNS)
-        return None, [error(
-            code,
-            f"{owner_kind} '{owner_name}' declares revision format "
-            f"{decl.format!r} -- rigc supports {supported} only "
-            "(format: custom is not implemented)",
-            (src,))]
+        return None, [
+            error(
+                code,
+                f"{owner_kind} '{owner_name}' declares revision format "
+                f"{decl.format!r} -- rigc supports {supported} only "
+                "(format: custom is not implemented)",
+                (src,),
+            )
+        ]
 
     if selected is None:
         if decl.default is not None:
             return decl.default, []
-        return None, [error(
-            code,
-            f"{owner_kind} '{owner_name}': no {axis_kind} selected, and "
-            f"this {owner_kind} declares no default {axis_kind} -- choose "
-            f"one of: {', '.join(decl.values)}",
-            (src,))]
+        return None, [
+            error(
+                code,
+                f"{owner_kind} '{owner_name}': no {axis_kind} selected, and "
+                f"this {owner_kind} declares no default {axis_kind} -- choose "
+                f"one of: {', '.join(decl.values)}",
+                (src,),
+            )
+        ]
 
-    assert decl.format is not None    # narrowed by the check above
+    assert decl.format is not None  # narrowed by the check above
     candidate = _zero_append(decl.format, selected)
     if not _format_matches(decl.format, candidate):
-        return None, [error(
-            code,
-            f"{owner_kind} '{owner_name}': revision '{selected}' does "
-            f"not match this axis's declared format {decl.format!r} -- "
-            f"expected {_FORMAT_DESCRIPTIONS[decl.format]}",
-            (src,))]
+        return None, [
+            error(
+                code,
+                f"{owner_kind} '{owner_name}': revision '{selected}' does "
+                f"not match this axis's declared format {decl.format!r} -- "
+                f"expected {_FORMAT_DESCRIPTIONS[decl.format]}",
+                (src,),
+            )
+        ]
     if candidate in decl.values:
         return candidate, []
     if not decl.exact:
         lower = _nearest_lower(decl.format, decl.values, candidate)
         if lower is not None:
             return lower, []
-    return None, [error(
-        code,
-        f"{owner_kind} '{owner_name}': revision '{candidate}' is not "
-        f"declared -- known revisions: {', '.join(decl.values)}",
-        (src,))]
+    return None, [
+        error(
+            code,
+            f"{owner_kind} '{owner_name}': revision '{candidate}' is not "
+            f"declared -- known revisions: {', '.join(decl.values)}",
+            (src,),
+        )
+    ]
 
 
-def resolve_axis_selection(owner_kind: str, owner_name: str, axis_kind: str,
-                           decl_key: str, decl: AxisDecl | None,
-                           selected: str | None, src: SourceRef,
-                           ) -> tuple[str | None, list[Diagnostic]]:
+def resolve_axis_selection(
+    owner_kind: str,
+    owner_name: str,
+    axis_kind: str,
+    decl_key: str,
+    decl: AxisDecl | None,
+    selected: str | None,
+    src: SourceRef,
+) -> tuple[str | None, list[Diagnostic]]:
     """The shared decision a qualifier-axis resolution makes, over values
     -- shared by a rig's own axis resolution (`resolve_axis`, below) and
     `ShieldLibrary.resolve` (`loader/library.py`).
@@ -568,39 +628,54 @@ def resolve_axis_selection(owner_kind: str, owner_name: str, axis_kind: str,
     if hwmv2:
         assert decl is not None
         return _resolve_revision_selection(
-            owner_kind, owner_name, axis_kind, code, decl, selected, src)
+            owner_kind, owner_name, axis_kind, code, decl, selected, src
+        )
 
     if selected is not None:
         if decl is None:
-            return None, [error(
-                code,
-                f"{owner_kind} '{owner_name}' names a {axis_kind} "
-                f"({selected!r}), but this {owner_kind} declares no "
-                f"{decl_key}: at all",
-                (src,))]
+            return None, [
+                error(
+                    code,
+                    f"{owner_kind} '{owner_name}' names a {axis_kind} "
+                    f"({selected!r}), but this {owner_kind} declares no "
+                    f"{decl_key}: at all",
+                    (src,),
+                )
+            ]
         if selected not in decl.values:
-            return None, [error(
-                code,
-                f"{owner_kind} '{owner_name}': {axis_kind} '{selected}' "
-                f"is not declared -- known {axis_kind}s: "
-                f"{', '.join(decl.values)}",
-                (src,))]
+            return None, [
+                error(
+                    code,
+                    f"{owner_kind} '{owner_name}': {axis_kind} '{selected}' "
+                    f"is not declared -- known {axis_kind}s: "
+                    f"{', '.join(decl.values)}",
+                    (src,),
+                )
+            ]
         return selected, []
     if decl is None:
         return None, []
     if decl.default is not None:
         return decl.default, []
-    return None, [error(
-        code,
-        f"{owner_kind} '{owner_name}': no {axis_kind} selected, and this "
-        f"{owner_kind} declares no default {axis_kind} -- choose one of: "
-        f"{', '.join(decl.values)}",
-        (src,))]
+    return None, [
+        error(
+            code,
+            f"{owner_kind} '{owner_name}': no {axis_kind} selected, and this "
+            f"{owner_kind} declares no default {axis_kind} -- choose one of: "
+            f"{', '.join(decl.values)}",
+            (src,),
+        )
+    ]
 
 
-def resolve_axis(rig_name: str, axis_kind: str, decl_key: str,
-                 decl: AxisDecl | None, selected: str | None,
-                 src: SourceRef) -> tuple[str | None, list[Diagnostic]]:
+def resolve_axis(
+    rig_name: str,
+    axis_kind: str,
+    decl_key: str,
+    decl: AxisDecl | None,
+    selected: str | None,
+    src: SourceRef,
+) -> tuple[str | None, list[Diagnostic]]:
     """Resolve ONE of a rig's own qualifier axes (`revision` or
     `variant`) to its final RESOLVED value -- the rig-owned instance of
     `resolve_axis_selection`'s shared decision (`owner_kind="rig"`). For
@@ -613,5 +688,4 @@ def resolve_axis(rig_name: str, axis_kind: str, decl_key: str,
     either legitimately (no axis declared and nothing selected) or
     after a reported failure -- an error in the list is what
     distinguishes them."""
-    return resolve_axis_selection("rig", rig_name, axis_kind, decl_key,
-                                  decl, selected, src)
+    return resolve_axis_selection("rig", rig_name, axis_kind, decl_key, decl, selected, src)

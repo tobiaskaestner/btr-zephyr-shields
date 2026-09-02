@@ -6,11 +6,13 @@ The stable contracts: SocketBinding's own lookup-else-identity semantics
 trivial rule -- the injected board, or "". Nothing in rig.yml's own
 grammar can produce a `board:`/`sockets:` value for this function to
 read, so there is nothing here to reject."""
+
 from __future__ import annotations
 
 from rigc.loader.binding import SocketBinding, resolve_board
 
 # ------------------------------------------------------------ SocketBinding
+
 
 def test_binding_maps_a_known_name() -> None:
     binding = SocketBinding({"ard": "nucleo_ard"})
@@ -28,6 +30,7 @@ def test_empty_binding_is_pure_identity() -> None:
 
 
 # --------------------------------------------------------------- resolve_board
+
 
 def test_no_injection_returns_the_empty_string() -> None:
     """Legal, not an error: a rig's topology never needed a board to

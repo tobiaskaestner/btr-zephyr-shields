@@ -17,6 +17,7 @@ cross-wire under Python's plain `from conftest import ...` idiom (both
 directories carry no __init__.py, so sys.modules["conftest"] is
 first-wins across them).
 """
+
 from __future__ import annotations
 
 import difflib
@@ -39,7 +40,7 @@ _LOGGER = logging.getLogger(__name__)
 # exactly this depth for diag.anchor_path()'s "scripts/<module>/"-relative
 # rendering to reproduce every frozen anchor line byte-for-byte).
 TESTS_DIR = Path(__file__).resolve().parent.parent
-REPO_ROOT = TESTS_DIR.parents[2]   # scripts/rigc/tests -> btr-shields
+REPO_ROOT = TESTS_DIR.parents[2]  # scripts/rigc/tests -> btr-shields
 GOLDENS_DIR = TESTS_DIR / "goldens"
 FIXTURES_DIR = TESTS_DIR / "fixtures"
 DTS_EQUIV = REPO_ROOT / "scripts" / "dts_equiv.py"
@@ -63,9 +64,11 @@ def assert_fixture_local(paths: list[Path | str]) -> None:
     for p in paths:
         resolved = Path(p).resolve()
         assert str(resolved) == str(FIXTURES_DIR) or str(resolved).startswith(
-            str(FIXTURES_DIR) + os.sep), (
+            str(FIXTURES_DIR) + os.sep
+        ), (
             f"{resolved} is outside {FIXTURES_DIR} -- a test asserting "
-            "hermeticity must reference only its own fixture-tree paths")
+            "hermeticity must reference only its own fixture-tree paths"
+        )
 
 
 def _find_west_topdir(start: Path) -> Path:
@@ -134,7 +137,8 @@ _WORKDIR_RE = re.compile(r"/[^\s]*rigc-generated")
 # all. (?:\.\./)+ (not a fixed count) tolerates whatever depth WEST_TOPDIR
 # sits at under the filesystem root on a given machine.
 _DTS_BUILD_PROVENANCE_RE = re.compile(
-    r"(?:\.\./)+tmp/pytest-of-[^/\s]+/pytest-\d+/[^/\s]+/build/(rig/[^:\s*]+):(\d+)")
+    r"(?:\.\./)+tmp/pytest-of-[^/\s]+/pytest-\d+/[^/\s]+/build/(rig/[^:\s*]+):(\d+)"
+)
 
 
 def normalize_dts_provenance(text: str) -> str:
@@ -153,7 +157,8 @@ def zephyr_base() -> str:
     if not value:
         pytest.fail(
             "ZEPHYR_BASE is not set — export it (the zephyr-rigs tree), the "
-            "same way scripts/check.sh requires.")
+            "same way scripts/check.sh requires."
+        )
     return value
 
 
@@ -189,8 +194,7 @@ def render_argv(result: subprocess.CompletedProcess[str]) -> str:
     return shlex.join(str(part) for part in result.args)
 
 
-def write_rerun_script(script_dir: Path, cwd: Path, cmd: list[str],
-                       env: dict[str, str]) -> Path:
+def write_rerun_script(script_dir: Path, cwd: Path, cmd: list[str], env: dict[str, str]) -> Path:
     """Write an executable rerun.sh into script_dir: a standalone re-run of
     this exact subprocess invocation, mirroring cmake/dts.cmake's own
     rerun-expand.sh (shebang, set -e, the env-then-argv shape) -- written
@@ -238,8 +242,13 @@ def write_rerun_script(script_dir: Path, cwd: Path, cmd: list[str],
 # lotus_buttons -- emitter._needed_param_includes) -- assert_absent_or_
 # refreeze covers the "correctly absent" case for every other corpus rig,
 # the same way it already does for rig-gen.conf.
-EMITTED_FILES = ("rig-gen.overlay", "rig-gen-includes.dtsi", "context.cmake",
-                 "config-sheet.md", "rig-gen.conf")
+EMITTED_FILES = (
+    "rig-gen.overlay",
+    "rig-gen-includes.dtsi",
+    "context.cmake",
+    "config-sheet.md",
+    "rig-gen.conf",
+)
 
 
 def freeze_or_assert(golden_path: Path, content: str) -> None:
@@ -274,7 +283,8 @@ def freeze_or_assert(golden_path: Path, content: str) -> None:
         pytest.fail(
             f"golden missing: {golden_path}\n"
             f"(run with RIGC_REFREEZE=1 to create it, then inspect + "
-            f"commit deliberately)")
+            f"commit deliberately)"
+        )
     expected = golden_path.read_text()
     if golden_path.name == "context.cmake":
         mismatch = compare_context_cmake(expected, content)
@@ -291,16 +301,23 @@ def freeze_or_assert(golden_path: Path, content: str) -> None:
         if mismatch is not None:
             pytest.fail(f"golden mismatch: {golden_path}\n{mismatch}")
         return
-    if (golden_path.name == "rig-gen.overlay"
-            and not overlay_is_byte_compared(golden_path.parent.name)):
+    if golden_path.name == "rig-gen.overlay" and not overlay_is_byte_compared(
+        golden_path.parent.name
+    ):
         mismatch = compare_overlay(expected, content)
         if mismatch is not None:
             pytest.fail(f"golden mismatch: {golden_path}\n{mismatch}")
         return
     if expected != content:
-        diff = "\n".join(difflib.unified_diff(
-            expected.splitlines(), content.splitlines(),
-            fromfile=str(golden_path), tofile="<observed>", lineterm=""))
+        diff = "\n".join(
+            difflib.unified_diff(
+                expected.splitlines(),
+                content.splitlines(),
+                fromfile=str(golden_path),
+                tofile="<observed>",
+                lineterm="",
+            )
+        )
         pytest.fail(f"golden mismatch: {golden_path}\n{diff}")
 
 
@@ -314,7 +331,8 @@ def assert_absent_or_refreeze(golden_path: Path) -> None:
             golden_path.unlink()
         return
     assert not golden_path.is_file(), (
-        f"golden {golden_path} exists but this run produced no such file")
+        f"golden {golden_path} exists but this run produced no such file"
+    )
 
 
 # This directory carries no __init__.py (the frozen suite's own modules
@@ -335,17 +353,19 @@ from rigc.tests.compare import (  # noqa: E402
 )
 
 
-def run_expand(rig_yml: Path, out_dir: Path,
-               shield_dirs: list[Path] | None = None,
-               board: str | None = None,
-               board_dts: Path | None = None,
-               build_info: Path | None = None,
-               bindings_dirs: list[Path] | None = None,
-               include_dirs: list[Path] | None = None,
-               revision: str | None = None,
-               variant: str | None = None,
-               connector_dirs: list[Path] | None = None,
-               ) -> subprocess.CompletedProcess[str]:
+def run_expand(
+    rig_yml: Path,
+    out_dir: Path,
+    shield_dirs: list[Path] | None = None,
+    board: str | None = None,
+    board_dts: Path | None = None,
+    build_info: Path | None = None,
+    bindings_dirs: list[Path] | None = None,
+    include_dirs: list[Path] | None = None,
+    revision: str | None = None,
+    variant: str | None = None,
+    connector_dirs: list[Path] | None = None,
+) -> subprocess.CompletedProcess[str]:
     """Run python -m <RIG_EXPAND_COMPILE> expand exactly as dts.cmake does
     (modulo the recipe form: dts.cmake passes --include-dir/--bindings-dir
     explicitly;
@@ -420,6 +440,11 @@ def run_expand(rig_yml: Path, out_dir: Path,
     cmd += ["--out-dir", str(out_dir)]
     _LOGGER.info("expand argv: %s", shlex.join(cmd))
     write_rerun_script(out_dir, REPO_ROOT, cmd, env)
-    return subprocess.run(cmd, env=env, cwd=str(REPO_ROOT),
-                           capture_output=True, text=True,
-                           timeout=subprocess_timeout(120))
+    return subprocess.run(
+        cmd,
+        env=env,
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=subprocess_timeout(120),
+    )

@@ -39,6 +39,7 @@ extension is expected to declare. It is a census-style test: falsified
 by mutating the WORLD it observes (dropping a label from a real board
 file), never by editing its own assertion.
 """
+
 from __future__ import annotations
 
 import textwrap
@@ -64,8 +65,8 @@ def _edt():
     assert_fixture_local([_BOARD_DTS, _BINDINGS_DIR])
     ensure_devicetree_on_path()
     from devicetree import edtlib
-    return edtlib.EDT(str(_BOARD_DTS), [str(_BINDINGS_DIR)],
-                      default_prop_types=True)
+
+    return edtlib.EDT(str(_BOARD_DTS), [str(_BINDINGS_DIR)], default_prop_types=True)
 
 
 def _socket():
@@ -202,7 +203,8 @@ def test_bare_socket_has_no_bus_pwm_or_adc_entries() -> None:
 def _multibus_edt(tmp_path: Path):
     binding_dir = tmp_path / "bindings"
     binding_dir.mkdir()
-    (binding_dir / "socket-fixture-multibus.yaml").write_text(textwrap.dedent("""\
+    (binding_dir / "socket-fixture-multibus.yaml").write_text(
+        textwrap.dedent("""\
         description: purpose-built fixture binding for the multi-bus widening tests
         compatible: "socket,fixture-multibus"
         properties:
@@ -224,9 +226,11 @@ def _multibus_edt(tmp_path: Path):
             type: array
           socket,spi-motors-cs-pool:
             type: array
-        """))
+        """)
+    )
     dts_path = tmp_path / "multibus.dts"
-    dts_path.write_text(textwrap.dedent("""\
+    dts_path.write_text(
+        textwrap.dedent("""\
         /dts-v1/;
         / {
             #address-cells = <1>;
@@ -260,14 +264,15 @@ def _multibus_edt(tmp_path: Path):
                 socket,spi-motors-cs-pool = <11>;
             };
         };
-        """))
+        """)
+    )
     ensure_devicetree_on_path()
     from devicetree import edtlib
+
     return edtlib.EDT(str(dts_path), [str(binding_dir)], default_prop_types=True)
 
 
-def test_project_edt_widens_named_bus_properties_to_qualified_keys(
-        tmp_path: Path) -> None:
+def test_project_edt_widens_named_bus_properties_to_qualified_keys(tmp_path: Path) -> None:
     board = project.project_edt(_multibus_edt(tmp_path), "multibus-board")
     socket = board.sockets["multibus_socket"]
     assert set(socket.buses) == {"spi-sensors", "spi-motors"}
@@ -306,7 +311,8 @@ def test_adc_map_resolves_position_to_controller_and_channel() -> None:
 def _multi_adc_edt(tmp_path: Path):
     binding_dir = tmp_path / "bindings"
     binding_dir.mkdir()
-    (binding_dir / "socket-fixture-multiadc.yaml").write_text(textwrap.dedent("""\
+    (binding_dir / "socket-fixture-multiadc.yaml").write_text(
+        textwrap.dedent("""\
         description: purpose-built fixture binding for the multi-parent ADC test
         compatible: "socket,fixture-multiadc"
         properties:
@@ -320,9 +326,11 @@ def _multi_adc_edt(tmp_path: Path):
             type: array
           io-channel-map-pass-thru:
             type: array
-        """))
+        """)
+    )
     dts_path = tmp_path / "multiadc.dts"
-    dts_path.write_text(textwrap.dedent("""\
+    dts_path.write_text(
+        textwrap.dedent("""\
         /dts-v1/;
         / {
             #address-cells = <1>;
@@ -350,14 +358,15 @@ def _multi_adc_edt(tmp_path: Path):
                                  <3 &adc_b 15>;
             };
         };
-        """))
+        """)
+    )
     ensure_devicetree_on_path()
     from devicetree import edtlib
+
     return edtlib.EDT(str(dts_path), [str(binding_dir)], default_prop_types=True)
 
 
-def test_adc_map_resolves_each_position_against_its_own_row_parent(
-        tmp_path: Path) -> None:
+def test_adc_map_resolves_each_position_against_its_own_row_parent(tmp_path: Path) -> None:
     """Confirms rigc handles a multi-parent io-channel-map: positions 0/1
     resolve through adc_a, positions 2/3 through
     adc_b -- ALL FOUR from the ONE socket's ONE io-channel-map, never one
@@ -370,8 +379,7 @@ def test_adc_map_resolves_each_position_against_its_own_row_parent(
     assert socket.adc_map[3] == ("adc_b", 15)
 
 
-def test_adc_map_multi_parent_channel_count_is_the_single_row_read(
-        tmp_path: Path) -> None:
+def test_adc_map_multi_parent_channel_count_is_the_single_row_read(tmp_path: Path) -> None:
     """adc_cells stays the ONE declared count (1) regardless of how many
     DISTINCT controllers the map's rows name -- _project_channel_map reads
     cells per row but this socket's rows all agree, so the returned count
@@ -398,7 +406,8 @@ def test_adc_map_multi_parent_channel_count_is_the_single_row_read(
 def _multi_pwm_edt(tmp_path: Path):
     binding_dir = tmp_path / "bindings"
     binding_dir.mkdir()
-    (binding_dir / "socket-fixture-multipwm.yaml").write_text(textwrap.dedent("""\
+    (binding_dir / "socket-fixture-multipwm.yaml").write_text(
+        textwrap.dedent("""\
         description: purpose-built fixture binding for the multi-parent PWM test
         compatible: "socket,fixture-multipwm"
         properties:
@@ -412,9 +421,11 @@ def _multi_pwm_edt(tmp_path: Path):
             type: array
           pwm-map-pass-thru:
             type: array
-        """))
+        """)
+    )
     dts_path = tmp_path / "multipwm.dts"
-    dts_path.write_text(textwrap.dedent("""\
+    dts_path.write_text(
+        textwrap.dedent("""\
         /dts-v1/;
         / {
             #address-cells = <1>;
@@ -442,14 +453,15 @@ def _multi_pwm_edt(tmp_path: Path):
                           <3 0 0 &tim_b 3 0 0>;
             };
         };
-        """))
+        """)
+    )
     ensure_devicetree_on_path()
     from devicetree import edtlib
+
     return edtlib.EDT(str(dts_path), [str(binding_dir)], default_prop_types=True)
 
 
-def test_pwm_map_resolves_each_position_against_its_own_row_parent(
-        tmp_path: Path) -> None:
+def test_pwm_map_resolves_each_position_against_its_own_row_parent(tmp_path: Path) -> None:
     """Confirms rigc handles a multi-parent pwm-map, the 3-cell
     (channel, period, flags) shape rather than ADC's
     1-cell one: positions 0/1 resolve through tim_a, positions 2/3
@@ -463,8 +475,7 @@ def test_pwm_map_resolves_each_position_against_its_own_row_parent(
     assert socket.pwm_map[3] == ("tim_b", 3)
 
 
-def test_pwm_map_multi_parent_channel_count_is_the_single_row_read(
-        tmp_path: Path) -> None:
+def test_pwm_map_multi_parent_channel_count_is_the_single_row_read(tmp_path: Path) -> None:
     """pwm_cells stays the ONE declared count (3) regardless of how many
     DISTINCT controllers the map's rows name."""
     board = project.project_edt(_multi_pwm_edt(tmp_path), "multipwm-board")
@@ -520,7 +531,8 @@ def test_bare_socket_has_no_pwm_or_adc_cells() -> None:
 def _three_cell_pwm_edt(tmp_path: Path):
     binding_dir = tmp_path / "bindings"
     binding_dir.mkdir()
-    (binding_dir / "socket-fixture-3cell.yaml").write_text(textwrap.dedent("""\
+    (binding_dir / "socket-fixture-3cell.yaml").write_text(
+        textwrap.dedent("""\
         description: purpose-built fixture binding for the 3-cell-PWM-parent diagnostic test
         compatible: "socket,fixture-3cell"
         properties:
@@ -542,9 +554,11 @@ def _three_cell_pwm_edt(tmp_path: Path):
             type: array
           pwm-map-pass-thru:
             type: array
-        """))
+        """)
+    )
     dts_path = tmp_path / "three_cell_pwm.dts"
-    dts_path.write_text(textwrap.dedent("""\
+    dts_path.write_text(
+        textwrap.dedent("""\
         /dts-v1/;
         / {
             #address-cells = <1>;
@@ -575,9 +589,11 @@ def _three_cell_pwm_edt(tmp_path: Path):
                 pwm-map = <0 0 &pwm3 0 0 0>;
             };
         };
-        """))
+        """)
+    )
     ensure_devicetree_on_path()
     from devicetree import edtlib
+
     return edtlib.EDT(str(dts_path), [str(binding_dir)], default_prop_types=True)
 
 
@@ -591,13 +607,12 @@ def test_three_cell_pwm_parent_raises_loaderror_not_valueerror(tmp_path: Path) -
     (diag,) = excinfo.value.diags
     assert diag.code == "phys-board"
     assert "three_cell_socket" in diag.message
-    assert "pwm3" in diag.message   # the controller's DEFINING label
+    assert "pwm3" in diag.message  # the controller's DEFINING label
     assert "<2>" in diag.message and "<3>" in diag.message
     assert "must equal" in diag.message
 
 
-def test_three_cell_pwm_parent_names_both_cell_counts_and_the_controller(
-        tmp_path: Path) -> None:
+def test_three_cell_pwm_parent_names_both_cell_counts_and_the_controller(tmp_path: Path) -> None:
     """A 3-cell PWM parent is the COMMON case upstream (both twister
     boards' own st,stm32-pwm/nxp,ftm-pwm are 3-cell), so this mismatch
     diagnostic is user-facing, not a rare-guard afterthought -- it must
@@ -618,7 +633,8 @@ def _self_consistent_pwm_edt(tmp_path: Path, cells: int):
     "not supported yet" wording; only {2, 3} are accepted."""
     binding_dir = tmp_path / "bindings"
     binding_dir.mkdir()
-    (binding_dir / "socket-fixture-ncell.yaml").write_text(textwrap.dedent("""\
+    (binding_dir / "socket-fixture-ncell.yaml").write_text(
+        textwrap.dedent("""\
         description: purpose-built fixture binding for the self-consistent N-cell PWM test
         compatible: "socket,fixture-ncell"
         properties:
@@ -632,11 +648,13 @@ def _self_consistent_pwm_edt(tmp_path: Path, cells: int):
             type: int
           pwm-map:
             type: compound
-        """))
+        """)
+    )
     dts_path = tmp_path / "ncell_pwm.dts"
     child_words = " ".join(["0"] * cells)
     parent_words = " ".join(["0"] * cells)
-    dts_path.write_text(textwrap.dedent(f"""\
+    dts_path.write_text(
+        textwrap.dedent(f"""\
         /dts-v1/;
         / {{
             #address-cells = <1>;
@@ -663,17 +681,18 @@ def _self_consistent_pwm_edt(tmp_path: Path, cells: int):
                 pwm-map = <{child_words} &pwmn {parent_words}>;
             }};
         }};
-        """))
+        """)
+    )
     ensure_devicetree_on_path()
     from devicetree import edtlib
+
     return edtlib.EDT(str(dts_path), [str(binding_dir)], default_prop_types=True)
 
 
 def test_three_cell_pwm_self_consistent_is_accepted(tmp_path: Path) -> None:
     """A socket and its parent BOTH declaring #pwm-cells = <3> resolves
     cleanly -- no LoadError, pwm_cells carries the real count 3."""
-    board = project.project_edt(
-        _self_consistent_pwm_edt(tmp_path, 3), "ncell-board")
+    board = project.project_edt(_self_consistent_pwm_edt(tmp_path, 3), "ncell-board")
     socket = board.sockets["ncell_socket"]
     assert socket.pwm_cells == 3
     assert socket.pwm_map[0] == ("pwmn", 0)
@@ -703,7 +722,8 @@ def _self_consistent_adc_edt(tmp_path: Path, cells: int):
     cell, unlike PWM's wider {2, 3}."""
     binding_dir = tmp_path / "bindings"
     binding_dir.mkdir()
-    (binding_dir / "socket-fixture-adc-ncell.yaml").write_text(textwrap.dedent("""\
+    (binding_dir / "socket-fixture-adc-ncell.yaml").write_text(
+        textwrap.dedent("""\
         description: purpose-built fixture binding for the ADC cell-count test
         compatible: "socket,fixture-adc-ncell"
         properties:
@@ -717,11 +737,13 @@ def _self_consistent_adc_edt(tmp_path: Path, cells: int):
             type: int
           io-channel-map:
             type: compound
-        """))
+        """)
+    )
     dts_path = tmp_path / "ncell_adc.dts"
     child_words = " ".join(["0"] * (cells - 1))
     parent_words = " ".join(["0"] * (cells - 1))
-    dts_path.write_text(textwrap.dedent(f"""\
+    dts_path.write_text(
+        textwrap.dedent(f"""\
         /dts-v1/;
         / {{
             #address-cells = <1>;
@@ -748,17 +770,18 @@ def _self_consistent_adc_edt(tmp_path: Path, cells: int):
                 io-channel-map = <0{(' ' + child_words) if child_words else ''} &adcn 0{(' ' + parent_words) if parent_words else ''}>;
             }};
         }};
-        """))
+        """)
+    )
     ensure_devicetree_on_path()
     from devicetree import edtlib
+
     return edtlib.EDT(str(dts_path), [str(binding_dir)], default_prop_types=True)
 
 
 def test_adc_one_cell_self_consistent_is_still_accepted(tmp_path: Path) -> None:
     """ADC's own accept case, unchanged by this slice: a 1-cell socket
     and parent resolve cleanly."""
-    board = project.project_edt(
-        _self_consistent_adc_edt(tmp_path, 1), "ncell-adc-board")
+    board = project.project_edt(_self_consistent_adc_edt(tmp_path, 1), "ncell-adc-board")
     socket = board.sockets["ncell_adc_socket"]
     assert socket.adc_cells == 1
     assert socket.adc_map[0] == ("adcn", 0)
@@ -832,8 +855,9 @@ def _conventional_label_offenders(text: str) -> list[str]:
     offenders = []
     for node in scan_socket_nodes("<test>", text):
         type_name = node.type_name.replace("-", "_")
-        if not any(label == type_name or label.startswith(type_name + "_")
-                  for label in node.labels):
+        if not any(
+            label == type_name or label.startswith(type_name + "_") for label in node.labels
+        ):
             offenders.append(node.labels[0] if node.labels else "<unlabeled>")
     return offenders
 
@@ -873,4 +897,5 @@ def test_every_board_rig_extension_socket_carries_its_type_convention_label() ->
     assert not offenders, (
         "socket,* node(s) with no label matching their connector type's "
         "naming convention ('<type>' singleton or '<type>_<silkscreen>' "
-        f"family): {offenders}")
+        f"family): {offenders}"
+    )

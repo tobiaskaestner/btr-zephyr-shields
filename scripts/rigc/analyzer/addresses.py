@@ -25,6 +25,7 @@ the core, in the same single ordered pass as everything else, rather
 than by the wrapper up front -- it must interleave with same-address
 conflicts and free-domain exhaustion in exactly the members' own
 discovery order, which only a single shared pass can guarantee."""
+
 from __future__ import annotations
 
 import logging
@@ -68,8 +69,8 @@ class AddressMember:
 class AddressPlacement:
     identity: str
     address: int
-    state: int | None       # the strap state claimed (pinned/free); None for fixed
-    kind: str                  # "fixed" | "pinned" | "free"
+    state: int | None  # the strap state claimed (pinned/free); None for fixed
+    kind: str  # "fixed" | "pinned" | "free"
 
 
 @dataclass(frozen=True)
@@ -90,8 +91,9 @@ class AddressProblem:
     occupied: tuple[tuple[int, str], ...] = ()
 
 
-def allocate_scope_addresses(members: Sequence[AddressMember],
-                             ) -> tuple[list[AddressPlacement], list[AddressProblem]]:
+def allocate_scope_addresses(
+    members: Sequence[AddressMember],
+) -> tuple[list[AddressPlacement], list[AddressProblem]]:
     """The address-allocation contract: given a scope's members in
     allocation order, each already carrying its own address(es), assign
     every member an address -- or report why not. Members are processed
@@ -105,8 +107,9 @@ def allocate_scope_addresses(members: Sequence[AddressMember],
 
     def claim(address: int, state: int | None, kind: str, identity: str) -> None:
         if address in taken:
-            problems.append(AddressProblem(
-                "conflict", identity, address=address, first=taken[address]))
+            problems.append(
+                AddressProblem("conflict", identity, address=address, first=taken[address])
+            )
             return
         taken[address] = identity
         placements.append(AddressPlacement(identity, address, state, kind))
@@ -124,8 +127,9 @@ def allocate_scope_addresses(members: Sequence[AddressMember],
         else:
             pick = next(((a, s) for a, s in m.free if a not in taken), None)
             if pick is None:
-                problems.append(AddressProblem(
-                    "exhausted", m.identity, occupied=tuple(sorted(taken.items()))))
+                problems.append(
+                    AddressProblem("exhausted", m.identity, occupied=tuple(sorted(taken.items())))
+                )
                 continue
             claim(pick[0], pick[1], "free", m.identity)
     return placements, problems
@@ -133,13 +137,17 @@ def allocate_scope_addresses(members: Sequence[AddressMember],
 
 @dataclass
 class AddressAllocation:
-    addr: dict[tuple[str, str], int] = field(default_factory=dict)         # (inst, dev) -> address
-    straps: list[tuple[Instance, Strap, int, int]] = field(default_factory=list)   # (inst, strap, state, addr)
-    bus_label: dict[str, str] = field(default_factory=dict)                # bus path -> label
+    addr: dict[tuple[str, str], int] = field(default_factory=dict)  # (inst, dev) -> address
+    straps: list[tuple[Instance, Strap, int, int]] = field(
+        default_factory=list
+    )  # (inst, strap, state, addr)
+    bus_label: dict[str, str] = field(default_factory=dict)  # bus path -> label
 
 
-def allocate_addresses(rig: Rig, sockets: Sockets,
-                       ) -> tuple[AddressAllocation, list[Diagnostic]]:
+def allocate_addresses(
+    rig: Rig,
+    sockets: Sockets,
+) -> tuple[AddressAllocation, list[Diagnostic]]:
     diags: list[Diagnostic] = []
     result = AddressAllocation()
     scopes: dict[str, list[tuple[Instance, Device, BoardSocket]]] = {}
@@ -159,8 +167,11 @@ def allocate_addresses(rig: Rig, sockets: Sockets,
     return result, diags
 
 
-def _address_member(kind: str, inst: Instance, dev: Device,
-                    ) -> tuple[AddressMember, Strap | None] | None:
+def _address_member(
+    kind: str,
+    inst: Instance,
+    dev: Device,
+) -> tuple[AddressMember, Strap | None] | None:
     """Build one member's `AddressMember` plus the strap its domain comes
     from (None for a fixed member, which has no domain to consult), or
     None to skip the member entirely -- a "free" member with no
@@ -174,32 +185,37 @@ def _address_member(kind: str, inst: Instance, dev: Device,
         assert dev.addr_from is not None
         strap = inst.shield.straps[dev.addr_from]
         want = inst.straps[dev.addr_from]
-        return AddressMember(identity=identity,
-                             pin=(want, tuple(strap.domain))), strap
+        return AddressMember(identity=identity, pin=(want, tuple(strap.domain))), strap
     free_strap = inst.shield.straps.get(dev.addr_from) if dev.addr_from else None
     if free_strap is None:
         return None
     return AddressMember(identity=identity, free=tuple(free_strap.domain)), free_strap
 
 
-def _how(identity: str, by_identity: dict[str, _ScopeMember],
-        kind_of: dict[str, str], strap_of: dict[str, Strap]) -> str:
+def _how(
+    identity: str,
+    by_identity: dict[str, _ScopeMember],
+    kind_of: dict[str, str],
+    strap_of: dict[str, Strap],
+) -> str:
     """How one member came to hold its address, for a conflict/exhaustion
     diagnostic's own two-sided listing."""
     inst, dev, _socket = by_identity[identity]
     kind = kind_of[identity]
     if kind == "fixed":
-        return (f"address domain {{{dev.reg:#04x}}}, fixed by copper "
-                "(no address-select)")
+        return f"address domain {{{dev.reg:#04x}}}, fixed by copper (no address-select)"
     if kind == "pinned":
         return f"pinned via rig (strap '{strap_of[identity].name}')"
     return f"allocated (strap '{strap_of[identity].name}')"
 
 
-def _address_problem_diagnostics(bus_label: str, problems: list[AddressProblem],
-                                 by_identity: dict[str, _ScopeMember],
-                                 kind_of: dict[str, str],
-                                 strap_of: dict[str, Strap]) -> list[Diagnostic]:
+def _address_problem_diagnostics(
+    bus_label: str,
+    problems: list[AddressProblem],
+    by_identity: dict[str, _ScopeMember],
+    kind_of: dict[str, str],
+    strap_of: dict[str, Strap],
+) -> list[Diagnostic]:
     """Translate the core's problems (already in discovery order) into
     this pass's own diagnostics -- the only place strap names, device
     labels, and bus labels enter the picture."""
@@ -207,49 +223,60 @@ def _address_problem_diagnostics(bus_label: str, problems: list[AddressProblem],
     for problem in problems:
         inst, dev, socket = by_identity[problem.identity]
         if problem.kind == "out-of-domain":
-            assert dev.addr_from is not None   # only a pinned member reaches here
+            assert dev.addr_from is not None  # only a pinned member reaches here
             strap = strap_of[problem.identity]
             want = inst.straps[dev.addr_from]
-            diags.append(error(
-                "phys-pin",
-                f"instance '{inst.name}': pinned address {want:#04x} is not in the "
-                f"domain of strap '{strap.name}' "
-                f"({{{', '.join(f'{a:#04x}' for a, _ in strap.domain)}}}) — "
-                "the copper cannot select it",
-                tuple(x for x in (inst.strap_refs.get(dev.addr_from), strap.src) if x)))
+            diags.append(
+                error(
+                    "phys-pin",
+                    f"instance '{inst.name}': pinned address {want:#04x} is not in the "
+                    f"domain of strap '{strap.name}' "
+                    f"({{{', '.join(f'{a:#04x}' for a, _ in strap.domain)}}}) — "
+                    "the copper cannot select it",
+                    tuple(x for x in (inst.strap_refs.get(dev.addr_from), strap.src) if x),
+                )
+            )
         elif problem.kind == "conflict":
-            assert problem.first is not None   # the core always sets it for a conflict
+            assert problem.first is not None  # the core always sets it for a conflict
             o_inst, o_dev, o_socket = by_identity[problem.first]
-            diags.append(error(
-                "phys-addr",
-                f"I2C address {problem.address:#04x} is required twice on bus "
-                f"&{bus_label} (one address space per scope):\n"
-                f"- {o_inst.name} (socket {o_socket.label}): {o_dev.name} — "
-                f"{_how(problem.first, by_identity, kind_of, strap_of)}\n"
-                f"- {inst.name} (socket {socket.label}): {dev.name} — "
-                f"{_how(problem.identity, by_identity, kind_of, strap_of)}\n"
-                "two devices cannot share one address on one bus. This topology is "
-                "not realizable as assembled: use a second I2C bus, put one device "
-                "behind an I2C mux (scope creation), or drop one instance.",
-                tuple(x for x in (o_dev.src, o_inst.src, dev.src, inst.src) if x)))
+            diags.append(
+                error(
+                    "phys-addr",
+                    f"I2C address {problem.address:#04x} is required twice on bus "
+                    f"&{bus_label} (one address space per scope):\n"
+                    f"- {o_inst.name} (socket {o_socket.label}): {o_dev.name} — "
+                    f"{_how(problem.first, by_identity, kind_of, strap_of)}\n"
+                    f"- {inst.name} (socket {socket.label}): {dev.name} — "
+                    f"{_how(problem.identity, by_identity, kind_of, strap_of)}\n"
+                    "two devices cannot share one address on one bus. This topology is "
+                    "not realizable as assembled: use a second I2C bus, put one device "
+                    "behind an I2C mux (scope creation), or drop one instance.",
+                    tuple(x for x in (o_dev.src, o_inst.src, dev.src, inst.src) if x),
+                )
+            )
         else:  # "exhausted"
             strap = strap_of[problem.identity]
-            diags.append(error(
-                "phys-addr",
-                f"address domain of '{inst.name}/{dev.name}' is exhausted on bus "
-                f"&{bus_label}: every selectable address "
-                f"{{{', '.join(f'{a:#04x}' for a, _ in strap.domain)}}} is already "
-                "taken by:\n"
-                + "\n".join(
-                    f"- {by_identity[occ_id][0].name}: {by_identity[occ_id][1].name} "
-                    f"at {a:#04x}"
-                    for a, occ_id in problem.occupied),
-                tuple(x for x in (dev.src, inst.src) if x)))
+            diags.append(
+                error(
+                    "phys-addr",
+                    f"address domain of '{inst.name}/{dev.name}' is exhausted on bus "
+                    f"&{bus_label}: every selectable address "
+                    f"{{{', '.join(f'{a:#04x}' for a, _ in strap.domain)}}} is already "
+                    "taken by:\n"
+                    + "\n".join(
+                        f"- {by_identity[occ_id][0].name}: {by_identity[occ_id][1].name} "
+                        f"at {a:#04x}"
+                        for a, occ_id in problem.occupied
+                    ),
+                    tuple(x for x in (dev.src, inst.src) if x),
+                )
+            )
     return diags
 
 
-def _allocate_scope(bus_path: str, members: list[_ScopeMember],
-                    result: AddressAllocation) -> list[Diagnostic]:
+def _allocate_scope(
+    bus_path: str, members: list[_ScopeMember], result: AddressAllocation
+) -> list[Diagnostic]:
     """Build this scope's `AddressMember` list in allocation order
     (fixed, then pinned, then free -- three separately-sorted groups,
     concatenated), call the value-shaped core, and translate its
@@ -272,8 +299,7 @@ def _allocate_scope(bus_path: str, members: list[_ScopeMember],
             free_scope.append((inst, dev, socket))
 
     address_members: list[AddressMember] = []
-    for group, kind in ((fixed_scope, "fixed"), (pinned_scope, "pinned"),
-                       (free_scope, "free")):
+    for group, kind in ((fixed_scope, "fixed"), (pinned_scope, "pinned"), (free_scope, "free")):
         for inst, dev, socket in sorted(group, key=lambda m: allocation_key(m[0], m[1], m[2])):
             built = _address_member(kind, inst, dev)
             if built is None:
@@ -291,12 +317,16 @@ def _allocate_scope(bus_path: str, members: list[_ScopeMember],
     for placement in placements:
         inst, dev, _socket = by_identity[placement.identity]
         result.addr[(inst.name, dev.name)] = placement.address
-        log.debug("instance '%s': device '%s' allocated address %#04x (%s)",
-                 inst.name, dev.name, placement.address, placement.kind)
+        log.debug(
+            "instance '%s': device '%s' allocated address %#04x (%s)",
+            inst.name,
+            dev.name,
+            placement.address,
+            placement.kind,
+        )
         if placement.kind != "fixed":
-            assert placement.state is not None   # only a bare "fixed" claim omits it
+            assert placement.state is not None  # only a bare "fixed" claim omits it
             strap = strap_of[placement.identity]
-            result.straps.append(
-                (inst, strap, placement.state, placement.address))
+            result.straps.append((inst, strap, placement.state, placement.address))
 
     return diags

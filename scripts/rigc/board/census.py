@@ -60,6 +60,7 @@ frdm` answers frdm alone. That is CORRECT under today's coordinate (the
 rig's content already commits to one board's labels); it is exactly the
 portability gap that content migration to conventional labels and strict
 board/rig symmetry exist to open up."""
+
 from __future__ import annotations
 
 import glob
@@ -93,8 +94,7 @@ _BUS_PROP_RE = re.compile(r'\bsocket,((?:i2c|spi|uart)(?:-\w+)?)\s*=')
 #: file never defines (lotus's `adc0: &adc {};`, which this pattern simply
 #: never matches: no compatible property to find inside "{}"), so this
 #: never needs a real dtlib parse.
-_SOCKET_NODE_RE = re.compile(
-    r"(?P<labels>(?:\w+\s*:\s*)+)(?P<name>\w+)\s*\{(?P<body>[^{}]*)\}")
+_SOCKET_NODE_RE = re.compile(r"(?P<labels>(?:\w+\s*:\s*)+)(?P<name>\w+)\s*\{(?P<body>[^{}]*)\}")
 _COMPAT_RE = re.compile(r'compatible\s*=\s*"socket,([\w-]+)"')
 
 
@@ -132,13 +132,17 @@ def scan_socket_nodes(filename: str, text: str) -> Iterator[SocketNode]:
         compat = _COMPAT_RE.search(m.group("body"))
         if compat is None:
             continue
-        labels = [lbl.strip() for lbl in m.group("labels").split(":")
-                 if lbl.strip()]
+        labels = [lbl.strip() for lbl in m.group("labels").split(":") if lbl.strip()]
         buses = [bm.group(1) for bm in _BUS_PROP_RE.finditer(m.group("body"))]
         line = text.count("\n", 0, m.start()) + 1
-        yield SocketNode(labels=labels, name=m.group("name"),
-                         type_name=compat.group(1), buses=buses,
-                         filename=filename, line=line)
+        yield SocketNode(
+            labels=labels,
+            name=m.group("name"),
+            type_name=compat.group(1),
+            buses=buses,
+            filename=filename,
+            line=line,
+        )
 
 
 @dataclass(frozen=True)
@@ -195,8 +199,10 @@ def board_targets(board_yml_text: str) -> tuple[str | None, list[str]]:
     return (extend if targets else None), targets
 
 
-def census_board(board_yml_text: str, fragments: list[tuple[str, str]],
-                 ) -> list[CensusBoard]:
+def census_board(
+    board_yml_text: str,
+    fragments: list[tuple[str, str]],
+) -> list[CensusBoard]:
     """Pure over text values: `board_yml_text` is one
     board.yml's raw YAML; `fragments` is [(filename, text), ...] for every
     *.dts/*.dtsi the caller found directly beside it (census_boards' own
@@ -234,9 +240,13 @@ def census_board(board_yml_text: str, fragments: list[tuple[str, str]],
             # placeholder forward, never inspecting it further.
             buses = {kind: BusRef(label="", path="") for kind in node.buses}
             sockets[label] = BoardSocket(
-                label=label, path=f"/{node.name}", type_name=node.type_name,
-                gpio_map={}, buses=buses,
-                src=SourceRef(node.filename, node.line, label))
+                label=label,
+                path=f"/{node.name}",
+                type_name=node.type_name,
+                gpio_map={},
+                buses=buses,
+                src=SourceRef(node.filename, node.line, label),
+            )
             for alias in node.labels[1:]:
                 aliases[alias] = label
 
@@ -298,8 +308,9 @@ class BoardVerdict:
     diags: list[Diagnostic] = field(default_factory=list)
 
 
-def boards_for(rig: Rig, types: dict[str, ConnectorType],
-               boards: list[CensusBoard]) -> list[BoardVerdict]:
+def boards_for(
+    rig: Rig, types: dict[str, ConnectorType], boards: list[CensusBoard]
+) -> list[BoardVerdict]:
     """Runs `resolve_sockets(rig, cb.board, types)` for every `cb` in
     `boards` -- pure over its arguments (rig, types and every
     CensusBoard.board are read-only to this call). Returns one
@@ -313,7 +324,5 @@ def boards_for(rig: Rig, types: dict[str, ConnectorType],
     verdicts = []
     for cb in boards:
         _resolution, diags = resolve_sockets(rig, cb.board, types)
-        verdicts.append(BoardVerdict(target=cb.target,
-                                     conforms=not has_errors(diags),
-                                     diags=diags))
+        verdicts.append(BoardVerdict(target=cb.target, conforms=not has_errors(diags), diags=diags))
     return verdicts

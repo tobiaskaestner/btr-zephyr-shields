@@ -21,6 +21,7 @@ socket is known. Skip-don't-abort is structural here: an instance whose
 socket never resolves is simply absent from the returned map, and every
 later pass already skips a missing entry rather than aborting.
 """
+
 from __future__ import annotations
 
 import logging
@@ -65,10 +66,14 @@ def subset_gaps(needed: set[str], offered: Iterable[str]) -> list[str]:
     return sorted(needed - set(offered))
 
 
-def _compose_buses(socket_label: str, carrier_name: str, exposed: ExposedSocket,
-                   parents: dict[str, BoardSocket], inst_src: SourceRef | None,
-                   is_plural: bool,
-                   ) -> tuple[dict[str, BusRef], list[Diagnostic], list[ScopeEntry]]:
+def _compose_buses(
+    socket_label: str,
+    carrier_name: str,
+    exposed: ExposedSocket,
+    parents: dict[str, BoardSocket],
+    inst_src: SourceRef | None,
+    is_plural: bool,
+) -> tuple[dict[str, BusRef], list[Diagnostic], list[ScopeEntry]]:
     """The bus half of `compose_socket`'s composition, lifted out: a
     pass-through bus resolves through the named parent's controller of
     the same KIND, never an exact-name match; a scope-creating bus
@@ -80,7 +85,7 @@ def _compose_buses(socket_label: str, carrier_name: str, exposed: ExposedSocket,
     scope_entries: list[ScopeEntry] = []
     buses: dict[str, BusRef] = {}
     for kind, marker in exposed.buses.items():
-        if marker[0] == "plug":                          # pass-through
+        if marker[0] == "plug":  # pass-through
             slot = marker[1]
             parent = parents[slot]
             kind_query = bus_kind_of(kind) or kind
@@ -88,41 +93,51 @@ def _compose_buses(socket_label: str, carrier_name: str, exposed: ExposedSocket,
             slot_note = f" (slot '{slot}')" if is_plural else ""
             refs = tuple(x for x in (exposed.src, parent.src, inst_src) if x)
             if len(candidates) > 1:
-                diags.append(error(
-                    "phys-ambiguous-bus",
-                    f"carrier '{carrier_name}' passes {kind.upper()} through socket "
-                    f"'{exposed.name}' from parent socket '{parent.label}'{slot_note}, "
-                    f"which offers more than one {kind_query.upper()} bus "
-                    f"({', '.join(candidates)}) -- ambiguous pass-through is not "
-                    "supported yet",
-                    refs))
+                diags.append(
+                    error(
+                        "phys-ambiguous-bus",
+                        f"carrier '{carrier_name}' passes {kind.upper()} through socket "
+                        f"'{exposed.name}' from parent socket '{parent.label}'{slot_note}, "
+                        f"which offers more than one {kind_query.upper()} bus "
+                        f"({', '.join(candidates)}) -- ambiguous pass-through is not "
+                        "supported yet",
+                        refs,
+                    )
+                )
             elif len(candidates) == 1:
                 parent_bus = parent.buses[candidates[0]]
                 buses[kind] = BusRef(
-                    label=parent_bus.label, path=parent_bus.path,
-                    cs_pool=exposed.cs_pool.get(kind))
+                    label=parent_bus.label, path=parent_bus.path, cs_pool=exposed.cs_pool.get(kind)
+                )
             else:
-                diags.append(error(
-                    "phys-subset",
-                    f"carrier '{carrier_name}' passes {kind.upper()} through socket "
-                    f"'{exposed.name}', but its parent socket '{parent.label}'{slot_note} "
-                    f"offers no socket,{kind} (pass-through needs the parent to provide it)",
-                    refs))
-        else:                                           # new scope: ("scope", dev-label)
+                diags.append(
+                    error(
+                        "phys-subset",
+                        f"carrier '{carrier_name}' passes {kind.upper()} through socket "
+                        f"'{exposed.name}', but its parent socket '{parent.label}'{slot_note} "
+                        f"offers no socket,{kind} (pass-through needs the parent to provide it)",
+                        refs,
+                    )
+                )
+        else:  # new scope: ("scope", dev-label)
             # A scope-creating exposed socket carries a shield,channel --
             # it is what selects which downstream bus this composition
             # creates -- so it is never None once this branch is reached.
             assert exposed.channel is not None
             root = f"{carrier_name}_{marker[1]}"
-            scope_path = socket_label                    # per (carrier, channel); shared by co-plugged modules
+            scope_path = socket_label  # per (carrier, channel); shared by co-plugged modules
             buses[kind] = BusRef(label=f"{root}_ch{exposed.channel}", path=scope_path)
             scope_entries.append((scope_path, (root, exposed.channel)))
     return buses, diags, scope_entries
 
 
-def compose_socket(socket_label: str, carrier_name: str, exposed: ExposedSocket,
-                   parents: dict[str, BoardSocket], inst_src: SourceRef | None,
-                   ) -> tuple[BoardSocket, list[Diagnostic], list[ScopeEntry]]:
+def compose_socket(
+    socket_label: str,
+    carrier_name: str,
+    exposed: ExposedSocket,
+    parents: dict[str, BoardSocket],
+    inst_src: SourceRef | None,
+) -> tuple[BoardSocket, list[Diagnostic], list[ScopeEntry]]:
     """Pass-through composition over one or more named parents: exposed
     positions resolve to the NAMED parent's SoC pins, exposed buses to
     the named parent's controllers -- each gpio-map row and each
@@ -160,16 +175,31 @@ def compose_socket(socket_label: str, carrier_name: str, exposed: ExposedSocket,
         # else: parent fragment doesn't route it -> stays socket-local (net key)
 
     pwm_map, pwm_nexus_rows, pwm_cells, d = _compose_channel_map(
-        "pwm", exposed.pwm_map, exposed.pwm_cells, carrier_name, exposed,
-        parents, inst_src, is_plural)
+        "pwm",
+        exposed.pwm_map,
+        exposed.pwm_cells,
+        carrier_name,
+        exposed,
+        parents,
+        inst_src,
+        is_plural,
+    )
     diags += d
     adc_map, adc_nexus_rows, adc_cells, d = _compose_channel_map(
-        "adc", exposed.adc_map, exposed.adc_cells, carrier_name, exposed,
-        parents, inst_src, is_plural)
+        "adc",
+        exposed.adc_map,
+        exposed.adc_cells,
+        carrier_name,
+        exposed,
+        parents,
+        inst_src,
+        is_plural,
+    )
     diags += d
 
     buses, d, bus_scope_entries = _compose_buses(
-        socket_label, carrier_name, exposed, parents, inst_src, is_plural)
+        socket_label, carrier_name, exposed, parents, inst_src, is_plural
+    )
     diags += d
     scope_entries += bus_scope_entries
 
@@ -186,23 +216,37 @@ def compose_socket(socket_label: str, carrier_name: str, exposed: ExposedSocket,
         path = socket_label
 
     socket = BoardSocket(
-        label=socket_label, path=path,
-        type_name=exposed.type_name, gpio_map=gpio_map, buses=buses,
-        pwm_map=pwm_map, pwm_cells=pwm_cells,
-        adc_map=adc_map, adc_cells=adc_cells,
+        label=socket_label,
+        path=path,
+        type_name=exposed.type_name,
+        gpio_map=gpio_map,
+        buses=buses,
+        pwm_map=pwm_map,
+        pwm_cells=pwm_cells,
+        adc_map=adc_map,
+        adc_cells=adc_cells,
         src=exposed.src,
-        nexus_label=f"{carrier_name}_{exposed.name}", nexus_rows=nexus_rows,
-        pwm_nexus_rows=pwm_nexus_rows, adc_nexus_rows=adc_nexus_rows,
-        parents=dict(parents))
+        nexus_label=f"{carrier_name}_{exposed.name}",
+        nexus_rows=nexus_rows,
+        pwm_nexus_rows=pwm_nexus_rows,
+        adc_nexus_rows=adc_nexus_rows,
+        parents=dict(parents),
+    )
     return socket, diags, scope_entries
 
 
-def _require_matching_cells(fn: str, prop: str, exposed_map: dict[int, tuple[str, int, int]],
-                            declared_cells: int | None, carrier_name: str,
-                            exposed: ExposedSocket, parents: dict[str, BoardSocket],
-                            inst_src: SourceRef | None, is_plural: bool,
-                            parent_cells_of: Callable[[BoardSocket], int | None],
-                            ) -> tuple[set[str], list[Diagnostic]]:
+def _require_matching_cells(
+    fn: str,
+    prop: str,
+    exposed_map: dict[int, tuple[str, int, int]],
+    declared_cells: int | None,
+    carrier_name: str,
+    exposed: ExposedSocket,
+    parents: dict[str, BoardSocket],
+    inst_src: SourceRef | None,
+    is_plural: bool,
+    parent_cells_of: Callable[[BoardSocket], int | None],
+) -> tuple[set[str], list[Diagnostic]]:
     """The require-and-check rule (see `_compose_channel_map`'s own
     docstring), lifted out: each distinct slot a row draws from must
     declare the same #<prop>-cells as the carrier itself, checked ONCE
@@ -220,24 +264,30 @@ def _require_matching_cells(fn: str, prop: str, exposed_map: dict[int, tuple[str
         bad_slots.add(slot)
         slot_note = f" (slot '{slot}')" if is_plural else ""
         refs = tuple(x for x in (exposed.src, parent.src, inst_src) if x)
-        diags.append(error(
-            "phys-subset",
-            f"carrier '{carrier_name}' declares #{prop}-cells = <{declared_cells}> "
-            f"on exposed socket '{exposed.name}', but its parent socket "
-            f"'{parent.label}'{slot_note} declares #{prop}-cells = "
-            f"<{parent_cells}> -- a carrier does not get to choose its own "
-            "cell count, it inherits whatever the board it lands on declares",
-            refs))
+        diags.append(
+            error(
+                "phys-subset",
+                f"carrier '{carrier_name}' declares #{prop}-cells = <{declared_cells}> "
+                f"on exposed socket '{exposed.name}', but its parent socket "
+                f"'{parent.label}'{slot_note} declares #{prop}-cells = "
+                f"<{parent_cells}> -- a carrier does not get to choose its own "
+                "cell count, it inherits whatever the board it lands on declares",
+                refs,
+            )
+        )
     return bad_slots, diags
 
 
-def _compose_channel_map(fn: str, exposed_map: dict[int, tuple[str, int, int]],
-                         declared_cells: int | None, carrier_name: str,
-                         exposed: ExposedSocket, parents: dict[str, BoardSocket],
-                         inst_src: SourceRef | None, is_plural: bool,
-                         ) -> tuple[dict[int, tuple[str, int]],
-                                    list[tuple[int, str, int]], int | None,
-                                    list[Diagnostic]]:
+def _compose_channel_map(
+    fn: str,
+    exposed_map: dict[int, tuple[str, int, int]],
+    declared_cells: int | None,
+    carrier_name: str,
+    exposed: ExposedSocket,
+    parents: dict[str, BoardSocket],
+    inst_src: SourceRef | None,
+    is_plural: bool,
+) -> tuple[dict[int, tuple[str, int]], list[tuple[int, str, int]], int | None, list[Diagnostic]]:
     """The pwm/adc twin of `compose_socket`'s own gpio_map loop above,
     factored out because PWM and ADC need IDENTICAL treatment -- a
     branch handling one function while leaving a silent hole for the
@@ -272,8 +322,17 @@ def _compose_channel_map(fn: str, exposed_map: dict[int, tuple[str, int, int]],
     parent_cells_of = (lambda p: p.pwm_cells) if fn == "pwm" else (lambda p: p.adc_cells)
 
     bad_slots, d = _require_matching_cells(
-        fn, prop, exposed_map, declared_cells, carrier_name, exposed, parents,
-        inst_src, is_plural, parent_cells_of)
+        fn,
+        prop,
+        exposed_map,
+        declared_cells,
+        carrier_name,
+        exposed,
+        parents,
+        inst_src,
+        is_plural,
+        parent_cells_of,
+    )
     diags += d
 
     composed: dict[int, tuple[str, int]] = {}
@@ -286,13 +345,16 @@ def _compose_channel_map(fn: str, exposed_map: dict[int, tuple[str, int, int]],
         if parent_pos not in parent_map:
             slot_note = f" (slot '{slot}')" if is_plural else ""
             refs = tuple(x for x in (exposed.src, parent.src, inst_src) if x)
-            diags.append(error(
-                "phys-subset",
-                f"carrier '{carrier_name}' passes {fn.upper()} through socket "
-                f"'{exposed.name}' at position {pos}, but its parent socket "
-                f"'{parent.label}'{slot_note} does not route it there (no "
-                f"{prop}-map entry at parent position {parent_pos})",
-                refs))
+            diags.append(
+                error(
+                    "phys-subset",
+                    f"carrier '{carrier_name}' passes {fn.upper()} through socket "
+                    f"'{exposed.name}' at position {pos}, but its parent socket "
+                    f"'{parent.label}'{slot_note} does not route it there (no "
+                    f"{prop}-map entry at parent position {parent_pos})",
+                    refs,
+                )
+            )
             continue
         composed[pos] = parent_map[parent_pos]
         nexus_rows.append((pos, parent.nexus_label or parent.label, parent_pos))
@@ -330,8 +392,9 @@ class _ResolveState:
     scopes: dict[str, tuple[str, int]] = field(default_factory=dict)
 
 
-def _infer_socket(state: _ResolveState, inst: Instance, slot: str,
-                  plug_type: str) -> BoardSocket | None:
+def _infer_socket(
+    state: _ResolveState, inst: Instance, slot: str, plug_type: str
+) -> BoardSocket | None:
     """Socket inference, per slot: `mating_ok` run in REVERSE across
     every board socket for THIS slot's own connector type, keeping the
     candidates instead of a boolean -- board sockets only, never a
@@ -347,37 +410,45 @@ def _infer_socket(state: _ResolveState, inst: Instance, slot: str,
     own."""
     board = state.board
     subject = _subject(inst, slot)
-    candidates = [s for s in board.sockets.values()
-                 if mating_ok(plug_type, s.type_name)]
+    candidates = [s for s in board.sockets.values() if mating_ok(plug_type, s.type_name)]
     if not candidates:
-        state.diags.append(error(
-            "phys-socket",
-            f"{subject}: shield '{inst.shield.name}' plugs "
-            f"'{plug_type}', but no socket of board "
-            f"'{board.name}' offers a matching type -- add an explicit "
-            "socket: to a socket of a different type, or use a "
-            "different board\n"
-            f"sockets of {board.name}: "
-            + ", ".join(f"{s.label} ({s.type_name})"
-                        for s in board.sockets.values()),
-            (inst.src,) if inst.src else ()))
+        state.diags.append(
+            error(
+                "phys-socket",
+                f"{subject}: shield '{inst.shield.name}' plugs "
+                f"'{plug_type}', but no socket of board "
+                f"'{board.name}' offers a matching type -- add an explicit "
+                "socket: to a socket of a different type, or use a "
+                "different board\n"
+                f"sockets of {board.name}: "
+                + ", ".join(f"{s.label} ({s.type_name})" for s in board.sockets.values()),
+                (inst.src,) if inst.src else (),
+            )
+        )
         return None
     if len(candidates) > 1:
-        state.diags.append(error(
-            "phys-socket",
-            f"{subject}: shield '{inst.shield.name}' plugs "
-            f"'{plug_type}', which mates more than one socket "
-            f"of board '{board.name}' -- add an explicit socket: to "
-            "pick one\n"
-            "candidates: " + ", ".join(s.label for s in candidates),
-            (inst.src,) if inst.src else ()))
+        state.diags.append(
+            error(
+                "phys-socket",
+                f"{subject}: shield '{inst.shield.name}' plugs "
+                f"'{plug_type}', which mates more than one socket "
+                f"of board '{board.name}' -- add an explicit socket: to "
+                "pick one\n"
+                "candidates: " + ", ".join(s.label for s in candidates),
+                (inst.src,) if inst.src else (),
+            )
+        )
         return None
     return candidates[0]
 
 
-def _resolve_carrier_socket(state: _ResolveState, inst: Instance, subject: str,
-                            ref: str, stack: tuple[str, ...],
-                            ) -> BoardSocket | None:
+def _resolve_carrier_socket(
+    state: _ResolveState,
+    inst: Instance,
+    subject: str,
+    ref: str,
+    stack: tuple[str, ...],
+) -> BoardSocket | None:
     """The carrier-exported-socket branch of `_resolve_one`
     ("<carrier instance>.<exposed socket>"): a carrier's exposed socket
     may draw from ANY of its own plugs -- resolve EVERY slot the
@@ -386,19 +457,25 @@ def _resolve_carrier_socket(state: _ResolveState, inst: Instance, subject: str,
     fails the whole composition (skip-don't-abort)."""
     carrier_name, _, exp_name = ref.partition(".")
     if inst.name in stack or carrier_name in stack:
-        state.diags.append(error(
-            "phys-socket",
-            f"{subject}: socket nesting is cyclic ({ref})",
-            (inst.src,) if inst.src else ()))
+        state.diags.append(
+            error(
+                "phys-socket",
+                f"{subject}: socket nesting is cyclic ({ref})",
+                (inst.src,) if inst.src else (),
+            )
+        )
         return None
     carrier = state.by_name.get(carrier_name)
     if carrier is None:
-        state.diags.append(error(
-            "phys-socket",
-            f"{subject}: socket '{ref}' names no instance "
-            f"'{carrier_name}' in this rig\n"
-            f"instances: {', '.join(sorted(state.by_name))}",
-            (inst.src,) if inst.src else ()))
+        state.diags.append(
+            error(
+                "phys-socket",
+                f"{subject}: socket '{ref}' names no instance "
+                f"'{carrier_name}' in this rig\n"
+                f"instances: {', '.join(sorted(state.by_name))}",
+                (inst.src,) if inst.src else (),
+            )
+        )
         return None
     parents: dict[str, BoardSocket] = {}
     for carrier_slot in carrier.shield.plugs:
@@ -411,25 +488,27 @@ def _resolve_carrier_socket(state: _ResolveState, inst: Instance, subject: str,
     # differs from its own label does not resolve.
     exposed = carrier.shield.exposed_socket(exp_name)
     if exposed is None:
-        state.diags.append(error(
-            "phys-socket",
-            f"{subject}: carrier '{carrier_name}' (shield "
-            f"'{carrier.shield.name}') exposes no socket '{exp_name}'\n"
-            "exposed sockets: "
-            + (', '.join(sorted(e.label for e in carrier.shield.exposes.values()))
-               or 'none'),
-            tuple(x for x in (inst.src, carrier.src) if x)))
+        state.diags.append(
+            error(
+                "phys-socket",
+                f"{subject}: carrier '{carrier_name}' (shield "
+                f"'{carrier.shield.name}') exposes no socket '{exp_name}'\n"
+                "exposed sockets: "
+                + (', '.join(sorted(e.label for e in carrier.shield.exposes.values())) or 'none'),
+                tuple(x for x in (inst.src, carrier.src) if x),
+            )
+        )
         return None
-    socket, d, scope_entries = compose_socket(
-        ref, carrier.name, exposed, parents, inst.src)
+    socket, d, scope_entries = compose_socket(ref, carrier.name, exposed, parents, inst.src)
     state.diags.extend(d)
     for path, entry in scope_entries:
         state.scopes[path] = entry
     return socket
 
 
-def _resolve_one(state: _ResolveState, inst: Instance, slot: str,
-                 stack: tuple[str, ...]) -> BoardSocket | None:
+def _resolve_one(
+    state: _ResolveState, inst: Instance, slot: str, stack: tuple[str, ...]
+) -> BoardSocket | None:
     board = state.board
     cached = state.sockets.get(inst.name, {}).get(slot)
     if cached is not None:
@@ -437,28 +516,31 @@ def _resolve_one(state: _ResolveState, inst: Instance, slot: str,
     subject = _subject(inst, slot)
     ref = inst.sockets.get(slot)
     plug_type = inst.shield.plugs[slot]
-    if ref is None:                                      # inferred board socket
+    if ref is None:  # inferred board socket
         socket = _infer_socket(state, inst, slot, plug_type)
-    elif "." not in ref:                                # board socket
+    elif "." not in ref:  # board socket
         socket = board.resolve(ref)
         if socket is None:
-            state.diags.append(error(
-                "phys-socket",
-                f"{subject}: board '{board.name}' has no socket "
-                f"'{ref}'\n"
-                f"sockets of {board.name}: "
-                + ", ".join(f"{s.label} ({s.type_name})"
-                            for s in board.sockets.values()),
-                (inst.src,) if inst.src else ()))
-    else:                                                # carrier-exported socket
+            state.diags.append(
+                error(
+                    "phys-socket",
+                    f"{subject}: board '{board.name}' has no socket "
+                    f"'{ref}'\n"
+                    f"sockets of {board.name}: "
+                    + ", ".join(f"{s.label} ({s.type_name})" for s in board.sockets.values()),
+                    (inst.src,) if inst.src else (),
+                )
+            )
+    else:  # carrier-exported socket
         socket = _resolve_carrier_socket(state, inst, subject, ref, stack)
     if socket is not None:
         state.sockets.setdefault(inst.name, {})[slot] = socket
     return socket
 
 
-def _mating_diagnostic(inst: Instance, slot: str, plug_type: str,
-                       socket: BoardSocket) -> Diagnostic | None:
+def _mating_diagnostic(
+    inst: Instance, slot: str, plug_type: str, socket: BoardSocket
+) -> Diagnostic | None:
     """Per slot: the socket this slot resolved to must actually
     mate the shield's own plug type. Returns the phys-mating finding, or
     None when it mates."""
@@ -469,11 +551,13 @@ def _mating_diagnostic(inst: Instance, slot: str, plug_type: str,
         f"{_subject(inst, slot)}: shield '{inst.shield.name}' plugs "
         f"'{plug_type}' but socket '{socket.label}' is a "
         f"'{socket.type_name}' socket — the connectors do not mate",
-        tuple(x for x in (inst.src, socket.src) if x))
+        tuple(x for x in (inst.src, socket.src) if x),
+    )
 
 
-def _subset_exposure_diagnostics(inst: Instance, slot: str,
-                                 socket: BoardSocket) -> list[Diagnostic]:
+def _subset_exposure_diagnostics(
+    inst: Instance, slot: str, socket: BoardSocket
+) -> list[Diagnostic]:
     """Per slot: which of the buses this slot's devices actually
     use are not among the ones its resolved socket exposes -- a bus
     needed only by ANOTHER slot must never be demanded of this one's
@@ -481,18 +565,22 @@ def _subset_exposure_diagnostics(inst: Instance, slot: str,
     used = {d.bus for d in inst.shield.devices if d.bus and d.plug == slot}
     diags: list[Diagnostic] = []
     for bus in subset_gaps(used, socket.buses):
-        diags.append(error(
-            "phys-subset",
-            f"{_subject(inst, slot)}: shield '{inst.shield.name}' needs the "
-            f"socket's {bus.upper()} but '{socket.label}' does not expose "
-            f"socket,{bus} (subset exposure is declared by absence)",
-            tuple(x for x in (inst.src, socket.src) if x)))
+        diags.append(
+            error(
+                "phys-subset",
+                f"{_subject(inst, slot)}: shield '{inst.shield.name}' needs the "
+                f"socket's {bus.upper()} but '{socket.label}' does not expose "
+                f"socket,{bus} (subset exposure is declared by absence)",
+                tuple(x for x in (inst.src, socket.src) if x),
+            )
+        )
     return diags
 
 
-def _distinct_slot_diagnostics(inst: Instance,
-                               resolved_slots: dict[str, BoardSocket],
-                               ) -> list[Diagnostic]:
+def _distinct_slot_diagnostics(
+    inst: Instance,
+    resolved_slots: dict[str, BoardSocket],
+) -> list[Diagnostic]:
     """Distinct slots of ONE instance must resolve to DISTINCT physical
     sockets -- one physical connector cannot take two plugs at
     once, checked regardless of the per-slot mating outcome (the
@@ -510,18 +598,22 @@ def _distinct_slot_diagnostics(inst: Instance,
         by_label.setdefault(socket.label, []).append(slot)
     for label, slots in sorted(by_label.items()):
         if len(slots) > 1:
-            diags.append(error(
-                "phys-socket",
-                f"instance '{inst.name}': slots "
-                f"{', '.join(repr(s) for s in sorted(slots))} both "
-                f"resolve to physical socket '{label}' — one "
-                "physical connector cannot take two plugs at once",
-                (inst.src,) if inst.src else ()))
+            diags.append(
+                error(
+                    "phys-socket",
+                    f"instance '{inst.name}': slots "
+                    f"{', '.join(repr(s) for s in sorted(slots))} both "
+                    f"resolve to physical socket '{label}' — one "
+                    "physical connector cannot take two plugs at once",
+                    (inst.src,) if inst.src else (),
+                )
+            )
     return diags
 
 
-def _stackability_diagnostics(per_socket: dict[str, list[tuple[Instance, BoardSocket]]],
-                              types: dict[str, ConnectorType]) -> list[Diagnostic]:
+def _stackability_diagnostics(
+    per_socket: dict[str, list[tuple[Instance, BoardSocket]]], types: dict[str, ConnectorType]
+) -> list[Diagnostic]:
     """The stackability sweep (final pass, over sorted RESOLVED socket
     labels): more than one instance mating a socket of a non-stackable
     connector type is refused."""
@@ -531,17 +623,23 @@ def _stackability_diagnostics(per_socket: dict[str, list[tuple[Instance, BoardSo
             continue
         ctype = types[entries[0][1].type_name]
         if not ctype.stackable:
-            diags.append(error(
-                "phys-mating",
-                f"{len(entries)} instances mate socket '{label}' but connector type "
-                f"'{ctype.name}' takes exactly one module (not stackable): "
-                + ", ".join(inst.name for inst, _socket in entries),
-                tuple(inst.src for inst, _socket in entries if inst.src)))
+            diags.append(
+                error(
+                    "phys-mating",
+                    f"{len(entries)} instances mate socket '{label}' but connector type "
+                    f"'{ctype.name}' takes exactly one module (not stackable): "
+                    + ", ".join(inst.name for inst, _socket in entries),
+                    tuple(inst.src for inst, _socket in entries if inst.src),
+                )
+            )
     return diags
 
 
-def resolve_sockets(rig: Rig, board: Board, types: dict[str, ConnectorType],
-                    ) -> tuple[SocketResolution, list[Diagnostic]]:
+def resolve_sockets(
+    rig: Rig,
+    board: Board,
+    types: dict[str, ConnectorType],
+) -> tuple[SocketResolution, list[Diagnostic]]:
     """The pass, PER SLOT: inference, mating, and subset exposure each
     run once per (instance, slot), independently (no bipartite matching
     between two slots of one instance). Returns the resolution (sockets
@@ -570,8 +668,13 @@ def resolve_sockets(rig: Rig, board: Board, types: dict[str, ConnectorType],
             socket = _resolve_one(state, inst, slot, ())
             if socket is None:
                 continue
-            log.debug("instance '%s': slot '%s': resolved socket '%s' (%s)",
-                     inst.name, slot, socket.label, socket.type_name)
+            log.debug(
+                "instance '%s': slot '%s': resolved socket '%s' (%s)",
+                inst.name,
+                slot,
+                socket.label,
+                socket.type_name,
+            )
             resolved_slots[slot] = socket
             mating_diag = _mating_diagnostic(inst, slot, plug_type, socket)
             if mating_diag is not None:

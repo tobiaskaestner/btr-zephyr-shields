@@ -23,6 +23,7 @@ test_mikrobus_span_adapter_build_round_trip and
 test_mikrobus_span_adapter_cross_plug_cs_and_nexus (the @pytest.mark.build
 tests) are the only tests in this module that launch a real toolchain.
 """
+
 from __future__ import annotations
 
 import os
@@ -48,8 +49,9 @@ from harness import (
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 _QUAIL_BOARD = "mikroe_quail/stm32f427xx/rig"
-_QUAIL_BOARD_DTS = (REPO_ROOT / "boards" / "extend" / "mikroe" / "quail"
-                    / "mikroe_quail_stm32f427xx_rig.dts")
+_QUAIL_BOARD_DTS = (
+    REPO_ROOT / "boards" / "extend" / "mikroe" / "quail" / "mikroe_quail_stm32f427xx_rig.dts"
+)
 
 # ---------------------------------------------------------------- combined-SPI negative control
 
@@ -65,23 +67,33 @@ _CARRIER_SHIELDS = FIXTURES_DIR / "boards" / "rigs" / "multiplug-carrier-sockets
 _MULTIBUS_SHIELDS = FIXTURES_DIR / "boards" / "rigs" / "multibus-sockets" / "shields"
 _CARRIER_BOARD_DTS = FIXTURES_DIR / "boards" / "mainboards" / "multiplug_carrier_board.dts"
 _ACCEPT_RIG = FIXTURES_DIR / "boards" / "rigs" / "multiplug-carrier-sockets" / "rig.yml"
-_REJECT_RIG = (FIXTURES_DIR / "boards" / "rigs" / "multiplug-carrier-sockets-reject"
-               / "rig.yml")
+_REJECT_RIG = FIXTURES_DIR / "boards" / "rigs" / "multiplug-carrier-sockets-reject" / "rig.yml"
 
 
-def _run_carrier_fixture(rig_yml: Path, out_dir: Path,
-                         ) -> subprocess.CompletedProcess[str]:
-    assert_fixture_local([_CARRIER_BOARD_DTS, _CARRIER_CONNECTOR_BINDINGS,
-                          _MULTIBUS_CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE,
-                          _CARRIER_SHIELDS, _MULTIBUS_SHIELDS])
+def _run_carrier_fixture(
+    rig_yml: Path,
+    out_dir: Path,
+) -> subprocess.CompletedProcess[str]:
+    assert_fixture_local(
+        [
+            _CARRIER_BOARD_DTS,
+            _CARRIER_CONNECTOR_BINDINGS,
+            _MULTIBUS_CONNECTOR_BINDINGS,
+            _CONNECTOR_INCLUDE,
+            _CARRIER_SHIELDS,
+            _MULTIBUS_SHIELDS,
+        ]
+    )
     return run_expand(
-        rig_yml, out_dir,
+        rig_yml,
+        out_dir,
         board="multiplug_carrier_fixture_board",
         shield_dirs=[_CARRIER_SHIELDS, _MULTIBUS_SHIELDS],
         board_dts=_CARRIER_BOARD_DTS,
         bindings_dirs=[_CARRIER_CONNECTOR_BINDINGS, _MULTIBUS_CONNECTOR_BINDINGS],
         include_dirs=[_CONNECTOR_INCLUDE],
-        connector_dirs=[_CARRIER_CONNECTOR_BINDINGS, _MULTIBUS_CONNECTOR_BINDINGS])
+        connector_dirs=[_CARRIER_CONNECTOR_BINDINGS, _MULTIBUS_CONNECTOR_BINDINGS],
+    )
 
 
 def test_combined_spi_accept_both_devices_land_at_cs_index_zero(tmp_path: Path) -> None:
@@ -101,7 +113,8 @@ def test_combined_spi_accept_both_devices_land_at_cs_index_zero(tmp_path: Path) 
     result = _run_carrier_fixture(_ACCEPT_RIG, out_dir)
 
     assert result.returncode == 0, (
-        f"multiplug_carrier_sockets: expected accept\n--- stderr ---\n{result.stderr}")
+        f"multiplug_carrier_sockets: expected accept\n--- stderr ---\n{result.stderr}"
+    )
 
     overlay = (out_dir / "rig-gen.overlay").read_text()
     assert "&fx_left_spi {" in overlay
@@ -119,7 +132,8 @@ def test_combined_spi_accept_both_devices_land_at_cs_index_zero(tmp_path: Path) 
 
 
 def test_combined_spi_reject_parent_lacking_spi_is_slot_qualified_phys_subset(
-        tmp_path: Path) -> None:
+    tmp_path: Path,
+) -> None:
     """Reject case: the right plug resolves to fx_right_no_spi,
     which never wires socket,spi at all -- the carrier is plural, so the
     phys-subset finding names the parent's own SLOT, never just its
@@ -127,8 +141,7 @@ def test_combined_spi_reject_parent_lacking_spi_is_slot_qualified_phys_subset(
     out_dir = tmp_path / "out"
     result = _run_carrier_fixture(_REJECT_RIG, out_dir)
 
-    assert result.returncode != 0, (
-        "multiplug_carrier_sockets_reject: expected reject (phys-subset)")
+    assert result.returncode != 0, "multiplug_carrier_sockets_reject: expected reject (phys-subset)"
     assert "phys-subset" in result.stderr
     assert "slot 'right'" in result.stderr
     assert "fx_right_no_spi" in result.stderr
@@ -137,14 +150,16 @@ def test_combined_spi_reject_parent_lacking_spi_is_slot_qualified_phys_subset(
 # ---------------------------------------------------------------- the real corpus example
 
 
-def _run_mikrobus_span_adapter(out_dir: Path,
-                               tmp_path_factory: pytest.TempPathFactory,
-                               ) -> subprocess.CompletedProcess[str]:
+def _run_mikrobus_span_adapter(
+    out_dir: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> subprocess.CompletedProcess[str]:
     plain_build = plain_build_for(_QUAIL_BOARD, tmp_path_factory)
     rig_dir = out_dir.parent / "rig"
     rig_dir.mkdir(exist_ok=True)
     (rig_dir / "rig.yml").write_text("rig:\n  name: eth_span_probe\n")
-    (rig_dir / "eth_span_probe.yml").write_text(dedent("""\
+    (rig_dir / "eth_span_probe.yml").write_text(
+        dedent("""\
         instances:
           - name: span
             shield: mikrobus_span_adapter
@@ -154,17 +169,21 @@ def _run_mikrobus_span_adapter(out_dir: Path,
           - name: eth_mod
             shield: eth_click
             socket: span.combined
-        """))
+        """)
+    )
     return run_expand(
-        rig_dir / "rig.yml", out_dir,
+        rig_dir / "rig.yml",
+        out_dir,
         board=_QUAIL_BOARD,
         board_dts=_QUAIL_BOARD_DTS,
-        build_info=plain_build.build_info)
+        build_info=plain_build.build_info,
+    )
 
 
 @pytest.mark.build
 def test_mikrobus_span_adapter_cross_plug_cs_and_nexus(
-        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
+    tmp_path: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
     """Marked build (test_layer_discipline.py's own static rule): reaches
     plain_build_for's cached real `west build --cmake-only` of quail
     (memoized per board for the whole session, shared with
@@ -183,8 +202,8 @@ def test_mikrobus_span_adapter_cross_plug_cs_and_nexus(
     result = _run_mikrobus_span_adapter(out_dir, tmp_path_factory)
 
     assert result.returncode == 0, (
-        f"mikrobus_span_adapter on quail: expected accept\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"mikrobus_span_adapter on quail: expected accept\n--- stderr ---\n{result.stderr}"
+    )
 
     overlay = (out_dir / "rig-gen.overlay").read_text()
 
@@ -214,7 +233,8 @@ def test_mikrobus_span_adapter_cross_plug_cs_and_nexus(
 
 @pytest.mark.build
 def test_mikrobus_span_adapter_build_round_trip(
-        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
+    tmp_path: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
     """The expand+build round trip for the real corpus example -- quail is
     a REAL, already-supported board (no fixture-board substitution
     needed), mirroring test_can_span_click_build_round_trip's own shape:
@@ -229,28 +249,42 @@ def test_mikrobus_span_adapter_build_round_trip(
     out_dir = tmp_path / "expand-out"
     expand_result = _run_mikrobus_span_adapter(out_dir, tmp_path_factory)
     assert expand_result.returncode == 0, (
-        f"mikrobus_span_adapter on quail: expected accept\n"
-        f"--- stderr ---\n{expand_result.stderr}")
+        f"mikrobus_span_adapter on quail: expected accept\n--- stderr ---\n{expand_result.stderr}"
+    )
 
     zb = zephyr_base()
     env = dict(os.environ)
     env["ZEPHYR_BASE"] = zb
     build_dir = tmp_path / "build"
     cmd = [
-        WEST_EXE, "build", "-b", _QUAIL_BOARD,
-        "zephyr/samples/hello_world", "--cmake-only", "-p", "always",
-        "-d", str(build_dir), "--",
+        WEST_EXE,
+        "build",
+        "-b",
+        _QUAIL_BOARD,
+        "zephyr/samples/hello_world",
+        "--cmake-only",
+        "-p",
+        "always",
+        "-d",
+        str(build_dir),
+        "--",
         f"-DEXTRA_DTC_OVERLAY_FILE={out_dir / 'rig-gen.overlay'}",
     ]
     write_rerun_script(build_dir, WEST_TOPDIR, cmd, env)
-    result = subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=env,
-                            capture_output=True, text=True,
-                            timeout=subprocess_timeout(600))
+    result = subprocess.run(
+        cmd,
+        cwd=str(WEST_TOPDIR),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=subprocess_timeout(600),
+    )
     assert result.returncode == 0, (
         "mikrobus_span_adapter: expected quail's own board.dts + "
         "rig-gen.overlay to configure clean against a real toolchain\n"
         f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"--- stderr ---\n{result.stderr}"
+    )
 
     zephyr_dts = (build_dir / "zephyr" / "zephyr.dts").read_text()
     spi1_ctrl = zephyr_dts.split("spi1:")[1].split("\n\t};")[0]
@@ -288,16 +322,14 @@ def test_mikrobus_span_adapter_is_now_promotable_with_explicit_slot_options() ->
     assert resolved is not None
     assert shield_is_multiplug(resolved) is True
 
-    assert check_promotable("mikrobus_span_adapter",
-                            shields["mikrobus_span_adapter"], None) is None
+    assert check_promotable("mikrobus_span_adapter", shields["mikrobus_span_adapter"], None) is None
 
-    bare = parse_promotion_opts("socket=quail_sock2", "mikrobus_span_adapter",
-                                resolved)
+    bare = parse_promotion_opts("socket=quail_sock2", "mikrobus_span_adapter", resolved)
     assert isinstance(bare, str)
     assert "plugs 2 sockets" in bare
 
     optioned = parse_promotion_opts(
-        "socket.left=quail_sock2:socket.right=quail_sock3",
-        "mikrobus_span_adapter", resolved)
+        "socket.left=quail_sock2:socket.right=quail_sock3", "mikrobus_span_adapter", resolved
+    )
     assert not isinstance(optioned, str)
     assert optioned.sockets == {"left": "quail_sock2", "right": "quail_sock3"}

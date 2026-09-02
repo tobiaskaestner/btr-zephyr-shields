@@ -4,6 +4,7 @@ index header (fixtures are purpose-built, never a copy of a real
 connector type). No cpp/subprocess anywhere in this path --
 `load_types`/`parse_header_indices` are pure file I/O.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -14,8 +15,9 @@ from rigc.model import ConnectorType
 from rigc.registry import load_types
 
 
-def _write_type(root: Path, name: str, *, positions: dict, bus_proxies=(),
-                stackable=True, cs_pool=()) -> None:
+def _write_type(
+    root: Path, name: str, *, positions: dict, bus_proxies=(), stackable=True, cs_pool=()
+) -> None:
     yaml_dir = root / "connectors"
     yaml_dir.mkdir(parents=True, exist_ok=True)
     header_dir = root / "include" / "dt-bindings" / "connector"
@@ -31,8 +33,7 @@ def _write_type(root: Path, name: str, *, positions: dict, bus_proxies=(),
         "compatible": f"socket,{name}",
         "properties": properties,
         "plug,bus-proxies": list(bus_proxies),
-        "plug,positions": {
-            pname: {"function": func} for pname, func in positions.items()},
+        "plug,positions": {pname: {"function": func} for pname, func in positions.items()},
     }
     (yaml_dir / f"{name}.yaml").write_text(yaml.safe_dump(binding))
 
@@ -48,16 +49,22 @@ def _write_type(root: Path, name: str, *, positions: dict, bus_proxies=(),
     defines += [f"#define {prefix}{pname}\t{i}" for i, pname in enumerate(positions)]
     (header_dir / f"{name}.h").write_text(
         f"#ifndef DT_BINDINGS_CONNECTOR_{name.upper()}_H_\n"
-        f"#define DT_BINDINGS_CONNECTOR_{name.upper()}_H_\n"
-        + "\n".join(defines) + "\n#endif\n")
+        f"#define DT_BINDINGS_CONNECTOR_{name.upper()}_H_\n" + "\n".join(defines) + "\n#endif\n"
+    )
 
 
 def test_load_types_assembles_one_synthetic_type(tmp_path: Path) -> None:
-    _write_type(tmp_path, "fixture_type", positions={"SIG0": "gpio", "SIG1": "gpio"},
-               bus_proxies=["i2c"], stackable=True, cs_pool=[0])
+    _write_type(
+        tmp_path,
+        "fixture_type",
+        positions={"SIG0": "gpio", "SIG1": "gpio"},
+        bus_proxies=["i2c"],
+        stackable=True,
+        cs_pool=[0],
+    )
     types, deps = load_types(
-        connector_dirs=[str(tmp_path / "connectors")],
-        header_dirs=[str(tmp_path / "include")])
+        connector_dirs=[str(tmp_path / "connectors")], header_dirs=[str(tmp_path / "include")]
+    )
     assert set(types) == {"fixture_type"}
     ctype = types["fixture_type"]
     assert isinstance(ctype, ConnectorType)
@@ -75,11 +82,12 @@ def test_load_types_assembles_one_synthetic_type(tmp_path: Path) -> None:
 def test_load_types_records_every_file_it_opened_as_deps(tmp_path: Path) -> None:
     _write_type(tmp_path, "fixture_type", positions={"SIG0": "gpio"})
     types, deps = load_types(
-        connector_dirs=[str(tmp_path / "connectors")],
-        header_dirs=[str(tmp_path / "include")])
+        connector_dirs=[str(tmp_path / "connectors")], header_dirs=[str(tmp_path / "include")]
+    )
     yaml_path = str((tmp_path / "connectors" / "fixture_type.yaml").resolve())
-    header_path = str((tmp_path / "include" / "dt-bindings" / "connector"
-                       / "fixture_type.h").resolve())
+    header_path = str(
+        (tmp_path / "include" / "dt-bindings" / "connector" / "fixture_type.h").resolve()
+    )
     assert yaml_path in deps
     assert header_path in deps
 
@@ -93,8 +101,8 @@ def test_load_types_empty_directory_yields_no_types(tmp_path: Path) -> None:
 def test_load_types_posname_falls_back_for_an_unknown_index(tmp_path: Path) -> None:
     _write_type(tmp_path, "fixture_type", positions={"SIG0": "gpio"})
     types, _ = load_types(
-        connector_dirs=[str(tmp_path / "connectors")],
-        header_dirs=[str(tmp_path / "include")])
+        connector_dirs=[str(tmp_path / "connectors")], header_dirs=[str(tmp_path / "include")]
+    )
     ctype = types["fixture_type"]
     assert ctype.posname(0) == "SIG0"
     assert ctype.posname(99) == "position 99"
@@ -103,8 +111,8 @@ def test_load_types_posname_falls_back_for_an_unknown_index(tmp_path: Path) -> N
 def test_load_types_stackable_false_when_key_absent(tmp_path: Path) -> None:
     _write_type(tmp_path, "fixture_type", positions={}, stackable=False)
     types, _ = load_types(
-        connector_dirs=[str(tmp_path / "connectors")],
-        header_dirs=[str(tmp_path / "include")])
+        connector_dirs=[str(tmp_path / "connectors")], header_dirs=[str(tmp_path / "include")]
+    )
     assert types["fixture_type"].stackable is False
 
 
@@ -130,10 +138,9 @@ def test_load_types_widens_cs_pool_per_named_bus(tmp_path: Path) -> None:
     (header_dir / "fixture_multibus.h").write_text(
         "#ifndef DT_BINDINGS_CONNECTOR_FIXTURE_MULTIBUS_H_\n"
         "#define DT_BINDINGS_CONNECTOR_FIXTURE_MULTIBUS_H_\n"
-        "#endif\n")
+        "#endif\n"
+    )
 
-    types, _ = load_types(
-        connector_dirs=[str(yaml_dir)], header_dirs=[str(tmp_path / "include")])
+    types, _ = load_types(connector_dirs=[str(yaml_dir)], header_dirs=[str(tmp_path / "include")])
 
-    assert types["fixture_multibus"].cs_pool == {
-        "spi-sensors": [10], "spi-motors": [11]}
+    assert types["fixture_multibus"].cs_pool == {"spi-sensors": [10], "spi-motors": [11]}

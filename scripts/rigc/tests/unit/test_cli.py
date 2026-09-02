@@ -17,6 +17,7 @@ subprocess call and a hermeticity violation both, so every call site
 supplies one (`glob.glob` on a directory that does not exist just returns
 `[]`, no error -- the directory need not exist, only be named).
 """
+
 from __future__ import annotations
 
 import argparse
@@ -39,17 +40,15 @@ def _no_shields(tmp_path: Path) -> list[str]:
     would let the unit suite read production connector bindings and
     headers. A unit test touches NO production data."""
     empty = tmp_path / "no_library_here"
-    return ["--shield-dir", str(empty),
-            "--connector-dir", str(empty),
-            "--include-dir", str(empty)]
+    return ["--shield-dir", str(empty), "--connector-dir", str(empty), "--include-dir", str(empty)]
 
 
 def _parse(extra: list[str]) -> argparse.Namespace:
-    return build_parser().parse_args(
-        ["expand", "rig.yml", "--out-dir", "out", *extra])
+    return build_parser().parse_args(["expand", "rig.yml", "--out-dir", "out", *extra])
 
 
 # --------------------------------------------------------- the argv surface
+
 
 def test_positional_rig_and_out_dir() -> None:
     args = _parse([])
@@ -75,10 +74,12 @@ def test_defaults_are_none() -> None:
 
 # ------------------------------------------- --promote / positional exclusion
 
+
 def test_promote_and_positional_rig_are_mutually_exclusive() -> None:
     with pytest.raises(SystemExit) as e:
         build_parser().parse_args(
-            ["expand", "rig.yml", "--promote", "some_shield", "--out-dir", "out"])
+            ["expand", "rig.yml", "--promote", "some_shield", "--out-dir", "out"]
+        )
     assert e.value.code == 2
 
 
@@ -90,16 +91,33 @@ def test_neither_rig_nor_promote_given_is_a_usage_error() -> None:
 
 def test_promote_alone_parses() -> None:
     args = build_parser().parse_args(
-        ["expand", "--promote", "adafruit_data_logger", "--out-dir", "out"])
+        ["expand", "--promote", "adafruit_data_logger", "--out-dir", "out"]
+    )
     assert args.rig is None
     assert args.promote == "adafruit_data_logger"
 
 
 def test_repeatable_options_accumulate_in_order() -> None:
-    args = _parse(["--shield-dir", "s1", "--shield-dir", "s2",
-                   "--bindings-dir", "b1", "--bindings-dir", "b2",
-                   "--include-dir", "i1", "--include-dir", "i2",
-                   "--connector-dir", "c1", "--connector-dir", "c2"])
+    args = _parse(
+        [
+            "--shield-dir",
+            "s1",
+            "--shield-dir",
+            "s2",
+            "--bindings-dir",
+            "b1",
+            "--bindings-dir",
+            "b2",
+            "--include-dir",
+            "i1",
+            "--include-dir",
+            "i2",
+            "--connector-dir",
+            "c1",
+            "--connector-dir",
+            "c2",
+        ]
+    )
     assert args.shield_dirs == ["s1", "s2"]
     assert args.bindings_dirs == ["b1", "b2"]
     assert args.include_dirs == ["i1", "i2"]
@@ -107,9 +125,20 @@ def test_repeatable_options_accumulate_in_order() -> None:
 
 
 def test_single_valued_options() -> None:
-    args = _parse(["--board", "some_board/soc/rig", "--board-dts", "b.dts",
-                   "--build-info", "bi.yml", "--revision", "2",
-                   "--variant", "b"])
+    args = _parse(
+        [
+            "--board",
+            "some_board/soc/rig",
+            "--board-dts",
+            "b.dts",
+            "--build-info",
+            "bi.yml",
+            "--revision",
+            "2",
+            "--variant",
+            "b",
+        ]
+    )
     assert args.board == "some_board/soc/rig"
     assert args.board_dts == "b.dts"
     assert args.build_info == "bi.yml"
@@ -152,8 +181,15 @@ def test_unknown_command_is_a_usage_error() -> None:
 def test_main_is_callable_in_process(tmp_path: Path) -> None:
     """main(argv) -> int -- returns rather than raises for every
     non-usage outcome (here: an unimplemented path, exit code 3)."""
-    ret = main(["expand", str(tmp_path / "no-such-rig.yml"),
-                "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path)])
+    ret = main(
+        [
+            "expand",
+            str(tmp_path / "no-such-rig.yml"),
+            "--out-dir",
+            str(tmp_path / "out"),
+            *_no_shields(tmp_path),
+        ]
+    )
     assert isinstance(ret, int)
     assert ret == 3
 
@@ -174,19 +210,32 @@ def test_board_reading_options_are_now_live(tmp_path: Path) -> None:
         dedent("""\
         rig:
           name: r
-        """))
-    (tmp_path / "r.yml").write_text(dedent("""\
+        """)
+    )
+    (tmp_path / "r.yml").write_text(
+        dedent("""\
         instances: []
-        """))
-    ret = main(["expand", str(tmp_path / "rig.yml"),
-               "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path),
-               "--board", "some_board/soc/rig",
-               "--board-dts", str(tmp_path / "no-such-board.dts")])
+        """)
+    )
+    ret = main(
+        [
+            "expand",
+            str(tmp_path / "rig.yml"),
+            "--out-dir",
+            str(tmp_path / "out"),
+            *_no_shields(tmp_path),
+            "--board",
+            "some_board/soc/rig",
+            "--board-dts",
+            str(tmp_path / "no-such-board.dts"),
+        ]
+    )
     assert ret == 1
 
 
 def test_board_option_reaches_load_board_with_the_given_name(
-        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     """--board threads straight to `rig.board` -- proven the same way as
     the option above (a --board-dts that does not exist forces a
     phys-board rejection), but checking that the GIVEN name is what
@@ -196,21 +245,34 @@ def test_board_option_reaches_load_board_with_the_given_name(
         dedent("""\
         rig:
           name: r
-        """))
-    (tmp_path / "r.yml").write_text(dedent("""\
+        """)
+    )
+    (tmp_path / "r.yml").write_text(
+        dedent("""\
         instances: []
-        """))
-    ret = main(["expand", str(tmp_path / "rig.yml"),
-               "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path),
-               "--board", "given_board/soc/rig",
-               "--board-dts", str(tmp_path / "no-such-board.dts")])
+        """)
+    )
+    ret = main(
+        [
+            "expand",
+            str(tmp_path / "rig.yml"),
+            "--out-dir",
+            str(tmp_path / "out"),
+            *_no_shields(tmp_path),
+            "--board",
+            "given_board/soc/rig",
+            "--board-dts",
+            str(tmp_path / "no-such-board.dts"),
+        ]
+    )
     assert ret == 1
     err = capsys.readouterr().err
     assert "given_board/soc/rig" in err
 
 
 def test_board_option_absent_is_a_clean_phys_board_reject(
-        tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
     """The negative control: omitting --board, with no board: declaration
     in rig.yml to fall back to, must still be a clean phys-board
     rejection -- never a crash, and never load_board's own confusing
@@ -221,13 +283,24 @@ def test_board_option_absent_is_a_clean_phys_board_reject(
         dedent("""\
         rig:
           name: r
-        """))
-    (tmp_path / "r.yml").write_text(dedent("""\
+        """)
+    )
+    (tmp_path / "r.yml").write_text(
+        dedent("""\
         instances: []
-        """))
-    ret = main(["expand", str(tmp_path / "rig.yml"),
-               "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path),
-               "--board-dts", str(tmp_path / "no-such-board.dts")])
+        """)
+    )
+    ret = main(
+        [
+            "expand",
+            str(tmp_path / "rig.yml"),
+            "--out-dir",
+            str(tmp_path / "out"),
+            *_no_shields(tmp_path),
+            "--board-dts",
+            str(tmp_path / "no-such-board.dts"),
+        ]
+    )
     assert ret == 1
     err = capsys.readouterr().err
     assert "[phys-board]" in err
@@ -243,43 +316,66 @@ def test_recipe_resolved_lazily(tmp_path: Path) -> None:
     docstring at the _resolve_recipe call site). `open()`-ing a
     nonexistent --build-info path must never surface as an unhandled
     FileNotFoundError -- a traceback is never an acceptable outcome."""
-    ret = main(["expand", str(tmp_path / "no-such-rig.yml"),
-               "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path),
-               "--build-info", str(tmp_path / "no-such-build-info.yml")])
+    ret = main(
+        [
+            "expand",
+            str(tmp_path / "no-such-rig.yml"),
+            "--out-dir",
+            str(tmp_path / "out"),
+            *_no_shields(tmp_path),
+            "--build-info",
+            str(tmp_path / "no-such-build-info.yml"),
+        ]
+    )
     assert ret == 3
 
 
 # ------------------------------------------------- loud, distinct refusals
 
+
 def _run(capsys: pytest.CaptureFixture[str], argv: list[str]) -> tuple[int, str]:
     ret = main(argv)
     captured = capsys.readouterr()
-    assert captured.out == ""          # diagnostics and refusals: stderr only
+    assert captured.out == ""  # diagnostics and refusals: stderr only
     return ret, captured.err
 
 
-def test_unreadable_rig_refuses(tmp_path: Path,
-                                capsys: pytest.CaptureFixture[str]) -> None:
-    ret, err = _run(capsys, ["expand", str(tmp_path / "absent.yml"),
-                             "--out-dir", str(tmp_path / "out"),
-                             *_no_shields(tmp_path)])
+def test_unreadable_rig_refuses(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    ret, err = _run(
+        capsys,
+        [
+            "expand",
+            str(tmp_path / "absent.yml"),
+            "--out-dir",
+            str(tmp_path / "out"),
+            *_no_shields(tmp_path),
+        ],
+    )
     assert ret == 3
     assert err.startswith("rigc: not implemented: ")
     assert len(err.splitlines()) == 1  # one line -- never a traceback
 
 
-def test_out_of_scope_feature_refuses(tmp_path: Path,
-                                      capsys: pytest.CaptureFixture[str]) -> None:
+def test_out_of_scope_feature_refuses(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     """params:/config: are fully implemented -- a YAML parse failure is
     the capability that stays Unimplemented: no frozen golden covers
     lang-parse wording, so Unimplemented remains the deliberate,
     always-acceptable choice."""
-    (tmp_path / "rig.yml").write_text(dedent("""\
+    (tmp_path / "rig.yml").write_text(
+        dedent("""\
         rig: [this is not, valid: yaml
-        """))
-    ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
-                             "--out-dir", str(tmp_path / "out"),
-                             *_no_shields(tmp_path)])
+        """)
+    )
+    ret, err = _run(
+        capsys,
+        [
+            "expand",
+            str(tmp_path / "rig.yml"),
+            "--out-dir",
+            str(tmp_path / "out"),
+            *_no_shields(tmp_path),
+        ],
+    )
     assert ret == 3
     assert err.startswith("rigc: not implemented: ")
 
@@ -295,10 +391,13 @@ def _write_zero_instance_rig(tmp_path: Path) -> None:
         dedent("""\
         rig:
           name: r
-        """))
-    (tmp_path / "r.yml").write_text(dedent("""\
+        """)
+    )
+    (tmp_path / "r.yml").write_text(
+        dedent("""\
         instances: []
-        """))
+        """)
+    )
 
 
 def _stub_board_reading(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -315,8 +414,8 @@ def _stub_board_reading(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_accept_path_now_accepts_and_writes_artifacts(
-        tmp_path: Path, capsys: pytest.CaptureFixture[str],
-        monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
     """Input the loader/analyzer find nothing wrong with exits 0 and
     writes the rig artifacts + context.cmake -- proving the full accept
     path (emit, context.render, the one writer) without a subprocess."""
@@ -324,17 +423,24 @@ def test_accept_path_now_accepts_and_writes_artifacts(
     _stub_board_reading(monkeypatch)
 
     out_dir = tmp_path / "out"
-    ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
-                             "--out-dir", str(out_dir),
-                             *_no_shields(tmp_path),
-                             "--board", "some_board/soc/rig"])
+    ret, err = _run(
+        capsys,
+        [
+            "expand",
+            str(tmp_path / "rig.yml"),
+            "--out-dir",
+            str(out_dir),
+            *_no_shields(tmp_path),
+            "--board",
+            "some_board/soc/rig",
+        ],
+    )
     assert ret == 0
-    assert err == ""     # no diagnostics at all -- not even a warning
-    for fname in ("rig-gen.overlay", "config-sheet.md", "expectations.yml",
-                 "context.cmake"):
+    assert err == ""  # no diagnostics at all -- not even a warning
+    for fname in ("rig-gen.overlay", "config-sheet.md", "expectations.yml", "context.cmake"):
         assert (out_dir / fname).is_file(), fname
     assert not (out_dir / "rig-gen-includes.dtsi").exists()  # no params: at all
-    assert not (out_dir / "rig-gen.conf").exists()           # never emitted
+    assert not (out_dir / "rig-gen.conf").exists()  # never emitted
 
     context_text = (out_dir / "context.cmake").read_text()
     assert 'set(RIG_NAME "r")' in context_text
@@ -343,6 +449,7 @@ def test_accept_path_now_accepts_and_writes_artifacts(
 
 
 # ----------------------------------------------------------- the workdir
+
 
 def _workdir_of(out_dir: Path) -> Path:
     """Where cli.py puts its workdir for a given --out-dir. Derived from
@@ -356,8 +463,8 @@ def _workdir_of(out_dir: Path) -> Path:
 
 
 def test_accept_path_keeps_the_workdir(
-        tmp_path: Path, capsys: pytest.CaptureFixture[str],
-        monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
     """An ACCEPTED run is the one that produces an overlay somebody
     later doubts, so its intermediates -- the shield
     `.dts` the loader wrote, the cpp-preprocessed `.pre` of each, a
@@ -371,10 +478,18 @@ def test_accept_path_keeps_the_workdir(
     _stub_board_reading(monkeypatch)
 
     out_dir = tmp_path / "out"
-    ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
-                             "--out-dir", str(out_dir),
-                             *_no_shields(tmp_path),
-                             "--board", "some_board/soc/rig"])
+    ret, err = _run(
+        capsys,
+        [
+            "expand",
+            str(tmp_path / "rig.yml"),
+            "--out-dir",
+            str(out_dir),
+            *_no_shields(tmp_path),
+            "--board",
+            "some_board/soc/rig",
+        ],
+    )
 
     assert ret == 0
     assert _workdir_of(out_dir).is_dir()
@@ -382,8 +497,8 @@ def test_accept_path_keeps_the_workdir(
 
 
 def test_reject_path_keeps_the_workdir(
-        tmp_path: Path, capsys: pytest.CaptureFixture[str],
-        monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
     """The other exit, kept for the same reason: a rejected board-dts is
     real evidence a cpp failure's own rendered diagnostic points at
     (e.g. `param-missing-header`, which embeds this very path inside
@@ -396,19 +511,28 @@ def test_reject_path_keeps_the_workdir(
     _write_zero_instance_rig(tmp_path)
     out_dir = tmp_path / "out"
 
-    ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
-                             "--out-dir", str(out_dir),
-                             *_no_shields(tmp_path),
-                             "--board", "some_board/soc/rig",
-                             "--board-dts", str(tmp_path / "no-such-board.dts")])
+    ret, err = _run(
+        capsys,
+        [
+            "expand",
+            str(tmp_path / "rig.yml"),
+            "--out-dir",
+            str(out_dir),
+            *_no_shields(tmp_path),
+            "--board",
+            "some_board/soc/rig",
+            "--board-dts",
+            str(tmp_path / "no-such-board.dts"),
+        ],
+    )
 
     assert ret == 1
     assert _workdir_of(out_dir).is_dir()
 
 
 def test_entry_wipe_clears_a_previous_runs_workdir(
-        tmp_path: Path, capsys: pytest.CaptureFixture[str],
-        monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
     """The one deletion `_expand` still does, and the negative control
     for the two retention tests above: "keep the workdir" must not decay
     into "accumulate every run's intermediates in one directory".
@@ -427,21 +551,30 @@ def test_entry_wipe_clears_a_previous_runs_workdir(
     stale.parent.mkdir(parents=True)
     stale.write_text("/* the run before this one */\n")
 
-    ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
-                             "--out-dir", str(out_dir),
-                             *_no_shields(tmp_path),
-                             "--board", "some_board/soc/rig"])
+    ret, err = _run(
+        capsys,
+        [
+            "expand",
+            str(tmp_path / "rig.yml"),
+            "--out-dir",
+            str(out_dir),
+            *_no_shields(tmp_path),
+            "--board",
+            "some_board/soc/rig",
+        ],
+    )
 
     assert ret == 0
-    assert _workdir_of(out_dir).is_dir()      # kept, per the ruling
-    assert not stale.exists()                 # but not this run's content
+    assert _workdir_of(out_dir).is_dir()  # kept, per the ruling
+    assert not stale.exists()  # but not this run's content
 
 
 # --------------------------------------------------------------- --promote
 
+
 def test_promote_writes_promote_shields_own_documents_verbatim(
-        tmp_path: Path, capsys: pytest.CaptureFixture[str],
-        monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
     """There is exactly ONE desugaring: --promote's materialized
     rig.yml/content pair is byte-identical to promote.promote_shield's
     own return, for the exact name/filename it chose. No --board is
@@ -453,9 +586,17 @@ def test_promote_writes_promote_shields_own_documents_verbatim(
     from rigc.promote import promote_shield
 
     out_dir = tmp_path / "out"
-    ret, err = _run(capsys, ["expand", "--promote", "adafruit_data_logger",
-                            "--out-dir", str(out_dir),
-                            *_no_shields(tmp_path)])
+    ret, err = _run(
+        capsys,
+        [
+            "expand",
+            "--promote",
+            "adafruit_data_logger",
+            "--out-dir",
+            str(out_dir),
+            *_no_shields(tmp_path),
+        ],
+    )
 
     assert ret == 1
     workdir = _workdir_of(out_dir)
@@ -465,8 +606,8 @@ def test_promote_writes_promote_shields_own_documents_verbatim(
 
 
 def test_promote_with_revision_bakes_the_shields_own_revision(
-        tmp_path: Path, capsys: pytest.CaptureFixture[str],
-        monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
     """--revision alongside --promote means the SHIELD's own revision --
     baked into the synthesized content file's `shield:` reference, never
     forwarded to loader.load as a rig-level axis selection (a promoted
@@ -475,10 +616,19 @@ def test_promote_with_revision_bakes_the_shields_own_revision(
     from rigc.promote import promote_shield
 
     out_dir = tmp_path / "out"
-    ret, err = _run(capsys, ["expand", "--promote", "i2c_sensor",
-                            "--revision", "2",
-                            "--out-dir", str(out_dir),
-                            *_no_shields(tmp_path)])
+    ret, err = _run(
+        capsys,
+        [
+            "expand",
+            "--promote",
+            "i2c_sensor",
+            "--revision",
+            "2",
+            "--out-dir",
+            str(out_dir),
+            *_no_shields(tmp_path),
+        ],
+    )
 
     assert ret == 1
     workdir = _workdir_of(out_dir)
@@ -489,8 +639,8 @@ def test_promote_with_revision_bakes_the_shields_own_revision(
 
 
 def test_promote_with_a_dotted_config_opt_writes_a_config_block_verbatim(
-        tmp_path: Path, capsys: pytest.CaptureFixture[str],
-        monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], monkeypatch: pytest.MonkeyPatch
+) -> None:
     """The end-to-end `--promote <shield>:config.<label>=<value>` path,
     threaded through cli.py's own `--promote` branch
     (args.promote.partition(":") -> parse_promotion_opts ->
@@ -505,9 +655,17 @@ def test_promote_with_a_dotted_config_opt_writes_a_config_block_verbatim(
     from rigc.promote import promote_shield
 
     out_dir = tmp_path / "out"
-    ret, err = _run(capsys, [
-        "expand", "--promote", "adafruit_winc1500:config.w_irq_jmp=D2",
-        "--out-dir", str(out_dir), *_no_shields(tmp_path)])
+    ret, err = _run(
+        capsys,
+        [
+            "expand",
+            "--promote",
+            "adafruit_winc1500:config.w_irq_jmp=D2",
+            "--out-dir",
+            str(out_dir),
+            *_no_shields(tmp_path),
+        ],
+    )
 
     assert ret == 1
     workdir = _workdir_of(out_dir)
@@ -519,10 +677,13 @@ def test_promote_with_a_dotted_config_opt_writes_a_config_block_verbatim(
 
 # --------------------------------------------------------------- logging
 
+
 def test_stderr_carries_only_renderer_bytes_when_rigc_log_is_unset(
-        tmp_path: Path, capsys: pytest.CaptureFixture[str],
-        caplog: pytest.LogCaptureFixture,
-        monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+    caplog: pytest.LogCaptureFixture,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The stderr-purity discipline test: with RIGC_LOG unset, the package
     root's NullHandler (rigc/__init__.py) is the only handler on the
     `rigc` tree, so a full main() run over a REJECTING input puts ONLY
@@ -535,9 +696,16 @@ def test_stderr_carries_only_renderer_bytes_when_rigc_log_is_unset(
     caplog.set_level(logging.DEBUG, logger="rigc")
 
     (tmp_path / "rig.yml").write_text("not-rig: {}\n")
-    ret, err = _run(capsys, ["expand", str(tmp_path / "rig.yml"),
-                            "--out-dir", str(tmp_path / "out"),
-                            *_no_shields(tmp_path)])
+    ret, err = _run(
+        capsys,
+        [
+            "expand",
+            str(tmp_path / "rig.yml"),
+            "--out-dir",
+            str(tmp_path / "out"),
+            *_no_shields(tmp_path),
+        ],
+    )
 
     assert ret == 1
     assert "error[lang-schema]" in err
@@ -553,20 +721,30 @@ def test_stderr_carries_only_renderer_bytes_when_rigc_log_is_unset(
 
 
 def test_rigc_log_env_attaches_a_real_stderr_handler(
-        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     """RIGC_LOG=<level> is one way a real handler reaches the `rigc`
     logger tree (the other is -v/-vv, see below) -- read fresh at the top
     of every main() call (not at import time), so this is observable
     without a subprocess."""
     monkeypatch.setenv("RIGC_LOG", "debug")
 
-    main(["expand", str(tmp_path / "no-such-rig.yml"),
-         "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path)])
+    main(
+        [
+            "expand",
+            str(tmp_path / "no-such-rig.yml"),
+            "--out-dir",
+            str(tmp_path / "out"),
+            *_no_shields(tmp_path),
+        ]
+    )
 
     root = logging.getLogger("rigc")
-    real_handlers = [h for h in root.handlers
-                     if isinstance(h, logging.StreamHandler)
-                     and not isinstance(h, logging.NullHandler)]
+    real_handlers = [
+        h
+        for h in root.handlers
+        if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.NullHandler)
+    ]
     assert len(real_handlers) == 1
     assert root.getEffectiveLevel() == logging.DEBUG
 
@@ -579,48 +757,65 @@ def test_rigc_log_env_attaches_a_real_stderr_handler(
 
 
 def _assert_verbose_flag_attaches_a_real_stderr_handler(
-        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-        flag: str, level: int) -> None:
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, flag: str, level: int
+) -> None:
     """-v/-vv reach `_configure_logging` the same way RIGC_LOG does, with
     no environment variable involved at all. A plain helper, not a
     parametrized test -- tests/unit/ bans pytest markers outright
     (test_layer_discipline.py), directory-classified only."""
     monkeypatch.delenv("RIGC_LOG", raising=False)
 
-    main(["expand", str(tmp_path / "no-such-rig.yml"),
-         "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path), flag])
+    main(
+        [
+            "expand",
+            str(tmp_path / "no-such-rig.yml"),
+            "--out-dir",
+            str(tmp_path / "out"),
+            *_no_shields(tmp_path),
+            flag,
+        ]
+    )
 
     root = logging.getLogger("rigc")
-    real_handlers = [h for h in root.handlers
-                     if isinstance(h, logging.StreamHandler)
-                     and not isinstance(h, logging.NullHandler)]
+    real_handlers = [
+        h
+        for h in root.handlers
+        if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.NullHandler)
+    ]
     assert len(real_handlers) == 1
     assert root.getEffectiveLevel() == level
 
-    _configure_logging()   # same deterministic cleanup as the test above
+    _configure_logging()  # same deterministic cleanup as the test above
 
 
 def test_dash_v_attaches_a_real_stderr_handler_at_info(
-        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    _assert_verbose_flag_attaches_a_real_stderr_handler(
-        tmp_path, monkeypatch, "-v", logging.INFO)
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _assert_verbose_flag_attaches_a_real_stderr_handler(tmp_path, monkeypatch, "-v", logging.INFO)
 
 
 def test_dash_vv_attaches_a_real_stderr_handler_at_debug(
-        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    _assert_verbose_flag_attaches_a_real_stderr_handler(
-        tmp_path, monkeypatch, "-vv", logging.DEBUG)
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _assert_verbose_flag_attaches_a_real_stderr_handler(tmp_path, monkeypatch, "-vv", logging.DEBUG)
 
 
-def test_verbose_flag_overrides_rigc_log(
-        tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_verbose_flag_overrides_rigc_log(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """The CLI flag is the more explicit, per-invocation request, so it
     wins when both are present -- here RIGC_LOG asks for DEBUG but -v
     (INFO) is what the run actually gets."""
     monkeypatch.setenv("RIGC_LOG", "debug")
 
-    main(["expand", str(tmp_path / "no-such-rig.yml"),
-         "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path), "-v"])
+    main(
+        [
+            "expand",
+            str(tmp_path / "no-such-rig.yml"),
+            "--out-dir",
+            str(tmp_path / "out"),
+            *_no_shields(tmp_path),
+            "-v",
+        ]
+    )
 
     assert logging.getLogger("rigc").getEffectiveLevel() == logging.INFO
 
@@ -629,18 +824,26 @@ def test_verbose_flag_overrides_rigc_log(
 
 
 def test_log_format_carries_a_timestamp_and_the_emitting_function(
-        tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
-        capsys: pytest.CaptureFixture[str]) -> None:
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     """Every enabled record must be traceable to WHEN it fired and WHICH
     function emitted it -- both are missing from a plain level+name
     format and neither is recoverable after the fact."""
     monkeypatch.delenv("RIGC_LOG", raising=False)
 
-    main(["expand", str(tmp_path / "no-such-rig.yml"),
-         "--out-dir", str(tmp_path / "out"), *_no_shields(tmp_path), "-v"])
+    main(
+        [
+            "expand",
+            str(tmp_path / "no-such-rig.yml"),
+            "--out-dir",
+            str(tmp_path / "out"),
+            *_no_shields(tmp_path),
+            "-v",
+        ]
+    )
 
     err = capsys.readouterr().err
-    assert "rigc.cli:main" in err   # module:function
+    assert "rigc.cli:main" in err  # module:function
     assert re.search(r"\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}", err)
 
     _configure_logging()

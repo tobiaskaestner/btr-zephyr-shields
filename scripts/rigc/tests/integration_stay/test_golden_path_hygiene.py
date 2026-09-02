@@ -19,6 +19,7 @@ lives here beside the other corpus-level laws rather than in a
 `test_<module>.py` mirroring a production unit -- the same reason
 `test_singleton_identity_law.py` is not named after a module either.
 """
+
 from pathlib import Path
 
 GOLDENS_DIR = Path(__file__).resolve().parents[1] / "goldens"
@@ -28,10 +29,10 @@ GOLDENS_DIR = Path(__file__).resolve().parents[1] / "goldens"
 #: placeholders; a repo-relative path (`btr-shields/boards/…`,
 #: `zephyr/dts/…`) is legitimate provenance and stays.
 _FORBIDDEN = (
-    "/tmp/",            # any throwaway build dir, however it was made
-    "pytest-of-",       # an unnormalized pytest basetemp
-    "/home/",           # a home-directory absolute path
-    "scratchpad",       # an agent scratch dir
+    "/tmp/",  # any throwaway build dir, however it was made
+    "pytest-of-",  # an unnormalized pytest basetemp
+    "/home/",  # a home-directory absolute path
+    "scratchpad",  # an agent scratch dir
 )
 
 
@@ -63,4 +64,6 @@ def test_no_golden_carries_a_machine_specific_path() -> None:
         + "\n".join(
             f"  {name}:{n}: {line}"
             for name, hits in sorted(offenders.items())
-            for n, line in hits[:3]))
+            for n, line in hits[:3]
+        )
+    )

@@ -15,10 +15,17 @@ right before the analyzer runs); `project.load_board`/`project_edt` are
 its edtlib-side counterpart, callable directly against an already-built
 EDT (the unit tests' path, no cpp). `census.census_boards`/`boards_for`
 serve the `--boards-for` query and never touch a real devicetree."""
+
 from .census import boards_for, census_boards
 from .edt_build import BuildRecipe, recipe_from_build_info
 from .project import project_edt
 from .resolve import load_board
 
-__all__ = ["BuildRecipe", "boards_for", "census_boards", "load_board",
-          "project_edt", "recipe_from_build_info"]
+__all__ = [
+    "BuildRecipe",
+    "boards_for",
+    "census_boards",
+    "load_board",
+    "project_edt",
+    "recipe_from_build_info",
+]

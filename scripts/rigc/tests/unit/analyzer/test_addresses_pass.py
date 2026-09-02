@@ -7,6 +7,7 @@ value-shaped, without a scenario, in test_addresses.py; this module's
 subject is the WIRING -- so it necessarily needs a minimal constructed
 Rig/Instance/Shield/BoardSocket scope, the same shape test_cs_pass.py
 already uses for its own pass."""
+
 from __future__ import annotations
 
 from rigc.analyzer.addresses import allocate_addresses
@@ -14,8 +15,13 @@ from rigc.model import BoardSocket, BusRef, Device, Instance, Rig, Shield, Strap
 
 
 def _socket(path: str = "/i2c1") -> BoardSocket:
-    return BoardSocket(label="sock", path=path, type_name="t", gpio_map={},
-                      buses={"i2c": BusRef(label="i2c1", path=path)})
+    return BoardSocket(
+        label="sock",
+        path=path,
+        type_name="t",
+        gpio_map={},
+        buses={"i2c": BusRef(label="i2c1", path=path)},
+    )
 
 
 def _shield(straps=None) -> Shield:
@@ -23,8 +29,16 @@ def _shield(straps=None) -> Shield:
 
 
 def _dev(name: str, reg=None, addr_from=None) -> Device:
-    return Device(name=name, label=name, compatible=None, bus="i2c",
-                 group=None, reg=reg, addr_from=addr_from, cs_position=None)
+    return Device(
+        name=name,
+        label=name,
+        compatible=None,
+        bus="i2c",
+        group=None,
+        reg=reg,
+        addr_from=addr_from,
+        cs_position=None,
+    )
 
 
 def _inst(name: str, shield: Shield, straps=None) -> Instance:
@@ -44,24 +58,22 @@ def test_fixed_address_is_claimed_verbatim() -> None:
 
 
 def test_two_fixed_addresses_on_one_bus_collide() -> None:
-    a = _dev("a", reg=0x5f)
-    b = _dev("b", reg=0x5f)
+    a = _dev("a", reg=0x5F)
+    b = _dev("b", reg=0x5F)
     inst_a = _inst("i1", _shield())
     inst_a.shield.devices.append(a)
     inst_b = _inst("i2", _shield())
     inst_b.shield.devices.append(b)
     rig = Rig(name="r", instances=[inst_a, inst_b])
 
-    _result, diags = allocate_addresses(
-        rig, {"i1": {"plug": _socket()}, "i2": {"plug": _socket()}})
+    _result, diags = allocate_addresses(rig, {"i1": {"plug": _socket()}, "i2": {"plug": _socket()}})
 
     assert len(diags) == 1
     assert diags[0].code == "phys-addr"
 
 
 def test_pinned_address_resolves_through_the_strap_domain() -> None:
-    strap = Strap(name="addr", label="addr", domain=[(0x10, 0), (0x11, 1)],
-                 sheet_label="")
+    strap = Strap(name="addr", label="addr", domain=[(0x10, 0), (0x11, 1)], sheet_label="")
     shield = _shield(straps={"addr": strap})
     dev = _dev("sensor", addr_from="addr")
     inst = _inst("i1", shield, straps={"addr": 0x11})
@@ -90,11 +102,10 @@ def test_pinned_address_outside_the_strap_domain_is_phys_pin() -> None:
 
 
 def test_free_allocation_picks_first_unclaimed_domain_address() -> None:
-    strap = Strap(name="addr", label="addr", domain=[(0x10, 0), (0x11, 1)],
-                 sheet_label="")
+    strap = Strap(name="addr", label="addr", domain=[(0x10, 0), (0x11, 1)], sheet_label="")
     shield = _shield(straps={"addr": strap})
     dev = _dev("sensor", addr_from="addr")
-    inst = _inst("i1", shield)         # no config: -- free allocation
+    inst = _inst("i1", shield)  # no config: -- free allocation
     inst.shield.devices.append(dev)
     rig = Rig(name="r", instances=[inst])
 
@@ -115,8 +126,7 @@ def test_free_allocation_exhaustion_is_phys_addr() -> None:
     inst_b.shield.devices.append(free)
     rig = Rig(name="r", instances=[inst_a, inst_b])
 
-    _result, diags = allocate_addresses(
-        rig, {"i1": {"plug": _socket()}, "i2": {"plug": _socket()}})
+    _result, diags = allocate_addresses(rig, {"i1": {"plug": _socket()}, "i2": {"plug": _socket()}})
 
     assert len(diags) == 1
     assert diags[0].code == "phys-addr"
@@ -136,7 +146,8 @@ def test_allocation_is_scoped_per_bus_not_shared_globally() -> None:
     rig = Rig(name="r", instances=[inst_a, inst_b])
 
     result, diags = allocate_addresses(
-        rig, {"i1": {"plug": _socket(path="/i2c1")}, "i2": {"plug": _socket(path="/i2c2")}})
+        rig, {"i1": {"plug": _socket(path="/i2c1")}, "i2": {"plug": _socket(path="/i2c2")}}
+    )
 
     assert diags == []
     assert result.addr[("i1", "a")] == 0x50
@@ -158,8 +169,12 @@ def test_a_mux_channel_is_a_new_scope() -> None:
     rig = Rig(name="r", instances=[inst_a, inst_b])
 
     result, diags = allocate_addresses(
-        rig, {"sensor_a": {"plug": _socket(path="/mux_1/ch0")},
-             "sensor_b": {"plug": _socket(path="/mux_1/ch1")}})
+        rig,
+        {
+            "sensor_a": {"plug": _socket(path="/mux_1/ch0")},
+            "sensor_b": {"plug": _socket(path="/mux_1/ch1")},
+        },
+    )
 
     assert diags == []
     assert result.addr == {("sensor_a", "a"): 0x48, ("sensor_b", "b"): 0x48}

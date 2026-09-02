@@ -18,6 +18,7 @@ the only test in this module that launches a real toolchain -- see its
 own docstring for why quail (a REAL, already-supported board) needs no
 fixture-board substitution the way multibus's own build test did.
 """
+
 from __future__ import annotations
 
 import os
@@ -44,8 +45,9 @@ from harness import (
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
 _QUAIL_BOARD = "mikroe_quail/stm32f427xx/rig"
-_QUAIL_BOARD_DTS = (REPO_ROOT / "boards" / "extend" / "mikroe" / "quail"
-                    / "mikroe_quail_stm32f427xx_rig.dts")
+_QUAIL_BOARD_DTS = (
+    REPO_ROOT / "boards" / "extend" / "mikroe" / "quail" / "mikroe_quail_stm32f427xx_rig.dts"
+)
 
 _CONNECTOR_BINDINGS = FIXTURES_DIR / "dts" / "multiplug-connectors"
 _CONNECTOR_INCLUDE = FIXTURES_DIR / "include"
@@ -56,18 +58,23 @@ _BOARD_B_NO_I2C = FIXTURES_DIR / "boards" / "mainboards" / "multiplug_board_b_no
 _INFERENCE_RIG = FIXTURES_DIR / "boards" / "rigs" / "multiplug-sockets" / "rig.yml"
 
 
-def _run_fixture(rig_yml: Path, out_dir: Path, board: str, board_dts: Path,
-                 ) -> subprocess.CompletedProcess[str]:
-    assert_fixture_local([board_dts, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE,
-                          _MP_SHIELDS])
+def _run_fixture(
+    rig_yml: Path,
+    out_dir: Path,
+    board: str,
+    board_dts: Path,
+) -> subprocess.CompletedProcess[str]:
+    assert_fixture_local([board_dts, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE, _MP_SHIELDS])
     return run_expand(
-        rig_yml, out_dir,
+        rig_yml,
+        out_dir,
         board=board,
         shield_dirs=[_MP_SHIELDS],
         board_dts=board_dts,
         bindings_dirs=[_CONNECTOR_BINDINGS],
         include_dirs=[_CONNECTOR_INCLUDE],
-        connector_dirs=[_CONNECTOR_BINDINGS])
+        connector_dirs=[_CONNECTOR_BINDINGS],
+    )
 
 
 def _write_rig(tmp_path: Path, name: str, content: str) -> Path:
@@ -91,11 +98,11 @@ def test_per_slot_inference_accepts_with_no_sockets_at_all(tmp_path: Path) -> No
     "b" plugs fixture-mp-b) resolve by per-slot inference -- the fixture
     board offers exactly one candidate of each type."""
     out_dir = tmp_path / "out"
-    result = _run_fixture(_INFERENCE_RIG, out_dir, "multiplug_fixture_board",
-                          _BOARD_ONE_OF_EACH)
+    result = _run_fixture(_INFERENCE_RIG, out_dir, "multiplug_fixture_board", _BOARD_ONE_OF_EACH)
 
     assert result.returncode == 0, (
-        f"multiplug_sockets: expected accept\n--- stderr ---\n{result.stderr}")
+        f"multiplug_sockets: expected accept\n--- stderr ---\n{result.stderr}"
+    )
     overlay = (out_dir / "rig-gen.overlay").read_text()
     assert "&multiplug_i2c_b {" in overlay
     assert "sensor_b@10" in overlay
@@ -106,8 +113,7 @@ def test_per_slot_inference_ambiguity_is_slot_qualified(tmp_path: Path) -> None:
     per slot, never a tie-break; slot "b" (one candidate) is unaffected,
     so only ONE diagnostic names slot "a"."""
     out_dir = tmp_path / "out"
-    result = _run_fixture(_INFERENCE_RIG, out_dir, "multiplug_fixture_board_2a",
-                          _BOARD_TWO_OF_A)
+    result = _run_fixture(_INFERENCE_RIG, out_dir, "multiplug_fixture_board_2a", _BOARD_TWO_OF_A)
 
     assert result.returncode != 0, "expected reject (phys-socket ambiguity)"
     assert "phys-socket" in result.stderr
@@ -126,10 +132,8 @@ def test_per_slot_subset_accept_pair(tmp_path: Path) -> None:
     so the subset half of the contract is pinned independently of
     whatever the inference test happens to assert."""
     out_dir = tmp_path / "out"
-    result = _run_fixture(_INFERENCE_RIG, out_dir, "multiplug_fixture_board",
-                          _BOARD_ONE_OF_EACH)
-    assert result.returncode == 0, (
-        f"expected accept\n--- stderr ---\n{result.stderr}")
+    result = _run_fixture(_INFERENCE_RIG, out_dir, "multiplug_fixture_board", _BOARD_ONE_OF_EACH)
+    assert result.returncode == 0, f"expected accept\n--- stderr ---\n{result.stderr}"
 
 
 def test_per_slot_subset_reject_names_the_right_slot_never_the_other(tmp_path: Path) -> None:
@@ -140,8 +144,9 @@ def test_per_slot_subset_reject_names_the_right_slot_never_the_other(tmp_path: P
     could leak into "a"'s own check -- the mutation-sensitive property
     this pins."""
     out_dir = tmp_path / "out"
-    result = _run_fixture(_INFERENCE_RIG, out_dir, "multiplug_fixture_board_no_i2c",
-                          _BOARD_B_NO_I2C)
+    result = _run_fixture(
+        _INFERENCE_RIG, out_dir, "multiplug_fixture_board_no_i2c", _BOARD_B_NO_I2C
+    )
 
     assert result.returncode != 0, "expected reject (phys-subset)"
     assert "phys-subset" in result.stderr
@@ -158,17 +163,20 @@ def test_two_slots_resolving_to_one_physical_socket_is_refused(tmp_path: Path) -
     explicitly named to the SAME physical socket label -- one physical
     connector cannot take two plugs at once, a loud phys-socket error
     naming both slots, independent of the type's own stackability."""
-    rig_yml = _write_rig(tmp_path, "mp_dup", """\
+    rig_yml = _write_rig(
+        tmp_path,
+        "mp_dup",
+        """\
         instances:
           - name: dup_inst
             shield: fixture_multiplug_same_type
             sockets:
               x: fx_a
               y: fx_a
-        """)
+        """,
+    )
     out_dir = tmp_path / "out"
-    result = _run_fixture(rig_yml, out_dir, "multiplug_fixture_board",
-                          _BOARD_ONE_OF_EACH)
+    result = _run_fixture(rig_yml, out_dir, "multiplug_fixture_board", _BOARD_ONE_OF_EACH)
 
     assert result.returncode != 0, "expected reject (phys-socket, one socket two plugs)"
     assert "phys-socket" in result.stderr
@@ -180,15 +188,18 @@ def test_two_slots_resolving_to_one_physical_socket_is_refused(tmp_path: Path) -
 
 
 def test_socket_on_a_plural_instance_is_rejected(tmp_path: Path) -> None:
-    rig_yml = _write_rig(tmp_path, "mp_socket_on_plural", """\
+    rig_yml = _write_rig(
+        tmp_path,
+        "mp_socket_on_plural",
+        """\
         instances:
           - name: bridge_inst
             shield: fixture_multiplug_bridge
             socket: fx_a
-        """)
+        """,
+    )
     out_dir = tmp_path / "out"
-    result = _run_fixture(rig_yml, out_dir, "multiplug_fixture_board",
-                          _BOARD_ONE_OF_EACH)
+    result = _run_fixture(rig_yml, out_dir, "multiplug_fixture_board", _BOARD_ONE_OF_EACH)
 
     assert result.returncode != 0
     assert "lang-instance-socket" in result.stderr
@@ -197,16 +208,19 @@ def test_socket_on_a_plural_instance_is_rejected(tmp_path: Path) -> None:
 
 
 def test_sockets_on_a_single_plug_instance_is_rejected(tmp_path: Path) -> None:
-    rig_yml = _write_rig(tmp_path, "mp_sockets_on_single", """\
+    rig_yml = _write_rig(
+        tmp_path,
+        "mp_sockets_on_single",
+        """\
         instances:
           - name: single_inst
             shield: fixture_singleplug_a
             sockets:
               x: fx_a
-        """)
+        """,
+    )
     out_dir = tmp_path / "out"
-    result = _run_fixture(rig_yml, out_dir, "multiplug_fixture_board",
-                          _BOARD_ONE_OF_EACH)
+    result = _run_fixture(rig_yml, out_dir, "multiplug_fixture_board", _BOARD_ONE_OF_EACH)
 
     assert result.returncode != 0
     assert "lang-instance-socket" in result.stderr
@@ -215,17 +229,20 @@ def test_sockets_on_a_single_plug_instance_is_rejected(tmp_path: Path) -> None:
 
 
 def test_both_socket_and_sockets_keys_is_rejected(tmp_path: Path) -> None:
-    rig_yml = _write_rig(tmp_path, "mp_both_keys", """\
+    rig_yml = _write_rig(
+        tmp_path,
+        "mp_both_keys",
+        """\
         instances:
           - name: bridge_inst
             shield: fixture_multiplug_bridge
             socket: fx_a
             sockets:
               a: fx_a
-        """)
+        """,
+    )
     out_dir = tmp_path / "out"
-    result = _run_fixture(rig_yml, out_dir, "multiplug_fixture_board",
-                          _BOARD_ONE_OF_EACH)
+    result = _run_fixture(rig_yml, out_dir, "multiplug_fixture_board", _BOARD_ONE_OF_EACH)
 
     assert result.returncode != 0
     assert "lang-instance-socket" in result.stderr
@@ -233,16 +250,19 @@ def test_both_socket_and_sockets_keys_is_rejected(tmp_path: Path) -> None:
 
 
 def test_sockets_unknown_slot_is_rejected(tmp_path: Path) -> None:
-    rig_yml = _write_rig(tmp_path, "mp_unknown_slot", """\
+    rig_yml = _write_rig(
+        tmp_path,
+        "mp_unknown_slot",
+        """\
         instances:
           - name: bridge_inst
             shield: fixture_multiplug_bridge
             sockets:
               bogus: fx_a
-        """)
+        """,
+    )
     out_dir = tmp_path / "out"
-    result = _run_fixture(rig_yml, out_dir, "multiplug_fixture_board",
-                          _BOARD_ONE_OF_EACH)
+    result = _run_fixture(rig_yml, out_dir, "multiplug_fixture_board", _BOARD_ONE_OF_EACH)
 
     assert result.returncode != 0
     assert "lang-instance-socket" in result.stderr
@@ -253,30 +273,37 @@ def test_sockets_unknown_slot_is_rejected(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- the real corpus example
 
 
-def _run_can_span_click(out_dir: Path, tmp_path_factory: pytest.TempPathFactory,
-                        ) -> subprocess.CompletedProcess[str]:
+def _run_can_span_click(
+    out_dir: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> subprocess.CompletedProcess[str]:
     plain_build = plain_build_for(_QUAIL_BOARD, tmp_path_factory)
     rig_dir = out_dir.parent / "rig"
     rig_dir.mkdir(exist_ok=True)
     (rig_dir / "rig.yml").write_text("rig:\n  name: can_span_probe\n")
-    (rig_dir / "can_span_probe.yml").write_text(dedent("""\
+    (rig_dir / "can_span_probe.yml").write_text(
+        dedent("""\
         instances:
           - name: canspan
             shield: can_span_click
             sockets:
               left: quail_sock2
               right: quail_sock3
-        """))
+        """)
+    )
     return run_expand(
-        rig_dir / "rig.yml", out_dir,
+        rig_dir / "rig.yml",
+        out_dir,
         board=_QUAIL_BOARD,
         board_dts=_QUAIL_BOARD_DTS,
-        build_info=plain_build.build_info)
+        build_info=plain_build.build_info,
+    )
 
 
 @pytest.mark.build
 def test_can_span_click_cross_plug_cs_and_nexus(
-        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
+    tmp_path: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
     """Marked build (test_layer_discipline.py's own static rule): this
     reaches `plain_build_for`, the cached-plain-build pattern's own real
     `west build --cmake-only` (memoized per board for the whole session,
@@ -300,7 +327,8 @@ def test_can_span_click_cross_plug_cs_and_nexus(
     result = _run_can_span_click(out_dir, tmp_path_factory)
 
     assert result.returncode == 0, (
-        f"can_span_click on quail: expected accept\n--- stderr ---\n{result.stderr}")
+        f"can_span_click on quail: expected accept\n--- stderr ---\n{result.stderr}"
+    )
 
     overlay = (out_dir / "rig-gen.overlay").read_text()
 
@@ -327,8 +355,9 @@ def test_can_span_click_cross_plug_cs_and_nexus(
 
 
 def _run_can_span_click_shared_controller(
-        out_dir: Path, tmp_path_factory: pytest.TempPathFactory,
-        ) -> subprocess.CompletedProcess[str]:
+    out_dir: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> subprocess.CompletedProcess[str]:
     """Same shield, same helper shape as `_run_can_span_click`, but the two
     slots land on quail_sock1/quail_sock2 -- the shared-controller variant
     (both wire socket,spi = &spi1, mikrobus_sockets.dtsi:50,72), rather than
@@ -337,24 +366,29 @@ def _run_can_span_click_shared_controller(
     rig_dir = out_dir.parent / "rig"
     rig_dir.mkdir(exist_ok=True)
     (rig_dir / "rig.yml").write_text("rig:\n  name: can_span_shared_probe\n")
-    (rig_dir / "can_span_shared_probe.yml").write_text(dedent("""\
+    (rig_dir / "can_span_shared_probe.yml").write_text(
+        dedent("""\
         instances:
           - name: canspan
             shield: can_span_click
             sockets:
               left: quail_sock1
               right: quail_sock2
-        """))
+        """)
+    )
     return run_expand(
-        rig_dir / "rig.yml", out_dir,
+        rig_dir / "rig.yml",
+        out_dir,
         board=_QUAIL_BOARD,
         board_dts=_QUAIL_BOARD_DTS,
-        build_info=plain_build.build_info)
+        build_info=plain_build.build_info,
+    )
 
 
 @pytest.mark.build
 def test_can_span_click_shared_controller_two_slot_contract(
-        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
+    tmp_path: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
     """Marked build for the same reason as test_can_span_click_cross_plug_
     cs_and_nexus above: reaches plain_build_for (memoized per board, so this
     shares quail's ONE cached plain configure with every other test in this
@@ -379,7 +413,8 @@ def test_can_span_click_shared_controller_two_slot_contract(
 
     assert result.returncode == 0, (
         f"can_span_click (shared controller) on quail: expected accept\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"--- stderr ---\n{result.stderr}"
+    )
 
     overlay = (out_dir / "rig-gen.overlay").read_text()
 
@@ -399,8 +434,9 @@ def test_can_span_click_shared_controller_two_slot_contract(
     # entry through quail_sock1's own nexus (LEFT/can0's own socket), one
     # through quail_sock2's (RIGHT/log_flash's own socket) -- sharing the
     # SAME controller does not collapse them into one net.
-    assert ("cs-gpios = <&quail_sock1 2 1 /* ACTIVE_LOW */>, "
-           "<&quail_sock2 2 1 /* ACTIVE_LOW */>;") in spi1_block
+    assert (
+        "cs-gpios = <&quail_sock1 2 1 /* ACTIVE_LOW */>, <&quail_sock2 2 1 /* ACTIVE_LOW */>;"
+    ) in spi1_block
 
     # can0 (LEFT) and log_flash (RIGHT) each claim their OWN cs-gpios
     # entry -- reg/cs index 0 and 1 respectively, not the same index
@@ -442,7 +478,7 @@ def test_can_span_click_is_now_promotable_with_explicit_slot_options() -> None:
 
     shields = discover_shields([str(SHIELD_DIR)])
     assert "can_span_click" in shields
-    assert shields["can_span_click"].template is True   # discoverable, has the flag
+    assert shields["can_span_click"].template is True  # discoverable, has the flag
 
     resolved = resolve_for_promotion("can_span_click", [str(SHIELD_DIR)])
     assert resolved is not None
@@ -450,21 +486,19 @@ def test_can_span_click_is_now_promotable_with_explicit_slot_options() -> None:
 
     # The plug-count gate is gone: check_promotable no longer refuses a
     # multi-plug shield at all.
-    assert check_promotable("can_span_click", shields["can_span_click"],
-                            None) is None
+    assert check_promotable("can_span_click", shields["can_span_click"], None) is None
 
     # A bare socket= is still refused -- not by check_promotable any
     # more, but by parse_promotion_opts's own plural-shield sentence.
-    bare = parse_promotion_opts("socket=quail_sock2", "can_span_click",
-                                resolved)
+    bare = parse_promotion_opts("socket=quail_sock2", "can_span_click", resolved)
     assert isinstance(bare, str)
     assert "plugs 2 sockets" in bare
     assert "socket.<slot>=" in bare
 
     # The slot-optioned form parses clean.
     optioned = parse_promotion_opts(
-        "socket.left=quail_sock2:socket.right=quail_sock3",
-        "can_span_click", resolved)
+        "socket.left=quail_sock2:socket.right=quail_sock3", "can_span_click", resolved
+    )
     assert not isinstance(optioned, str)
     assert optioned.sockets == {"left": "quail_sock2", "right": "quail_sock3"}
 
@@ -474,7 +508,8 @@ def test_can_span_click_is_now_promotable_with_explicit_slot_options() -> None:
 
 @pytest.mark.build
 def test_can_span_click_build_round_trip(
-        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
+    tmp_path: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
     """The expand+build round trip for the real corpus example. Unlike
     test_multibus_socket's own build test, quail is a REAL, already-
     supported board (no fixture-board substitution needed): the
@@ -492,27 +527,42 @@ def test_can_span_click_build_round_trip(
     out_dir = tmp_path / "expand-out"
     expand_result = _run_can_span_click(out_dir, tmp_path_factory)
     assert expand_result.returncode == 0, (
-        f"can_span_click on quail: expected accept\n--- stderr ---\n{expand_result.stderr}")
+        f"can_span_click on quail: expected accept\n--- stderr ---\n{expand_result.stderr}"
+    )
 
     zb = zephyr_base()
     env = dict(os.environ)
     env["ZEPHYR_BASE"] = zb
     build_dir = tmp_path / "build"
     cmd = [
-        WEST_EXE, "build", "-b", _QUAIL_BOARD,
-        "zephyr/samples/hello_world", "--cmake-only", "-p", "always",
-        "-d", str(build_dir), "--",
+        WEST_EXE,
+        "build",
+        "-b",
+        _QUAIL_BOARD,
+        "zephyr/samples/hello_world",
+        "--cmake-only",
+        "-p",
+        "always",
+        "-d",
+        str(build_dir),
+        "--",
         f"-DEXTRA_DTC_OVERLAY_FILE={out_dir / 'rig-gen.overlay'}",
     ]
     write_rerun_script(build_dir, WEST_TOPDIR, cmd, env)
-    result = subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=env,
-                            capture_output=True, text=True,
-                            timeout=subprocess_timeout(600))
+    result = subprocess.run(
+        cmd,
+        cwd=str(WEST_TOPDIR),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=subprocess_timeout(600),
+    )
     assert result.returncode == 0, (
         "can_span_click: expected quail's own board.dts + rig-gen.overlay "
         "to configure clean against a real toolchain\n"
         f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"--- stderr ---\n{result.stderr}"
+    )
 
     zephyr_dts = (build_dir / "zephyr" / "zephyr.dts").read_text()
     # Non-vacuous: the CAN device must actually land nested under spi1
@@ -533,8 +583,9 @@ def test_can_span_click_build_round_trip(
 
 
 def _run_can_span_click_promoted(
-        out_dir: Path, tmp_path_factory: pytest.TempPathFactory,
-        ) -> subprocess.CompletedProcess[str]:
+    out_dir: Path,
+    tmp_path_factory: pytest.TempPathFactory,
+) -> subprocess.CompletedProcess[str]:
     """The --promote counterpart of _run_can_span_click: the SAME two
     board sockets (quail_sock2/quail_sock3), named via the slot-optioned
     promotion grammar instead of a
@@ -548,22 +599,38 @@ def _run_can_span_click_promoted(
     env = dict(os.environ)
     env["ZEPHYR_BASE"] = zb
     env["PYTHONPATH"] = str(REPO_ROOT / "scripts")
-    cmd = [sys.executable, "-m", RIG_EXPAND_COMPILE, "expand",
-          "--promote",
-          "can_span_click:socket.left=quail_sock2:socket.right=quail_sock3",
-          "--shield-dir", str(SHIELD_DIR),
-          "--board", _QUAIL_BOARD,
-          "--board-dts", str(_QUAIL_BOARD_DTS),
-          "--build-info", str(plain_build.build_info),
-          "--out-dir", str(out_dir)]
-    return subprocess.run(cmd, cwd=str(REPO_ROOT), env=env,
-                          capture_output=True, text=True,
-                          timeout=subprocess_timeout(120))
+    cmd = [
+        sys.executable,
+        "-m",
+        RIG_EXPAND_COMPILE,
+        "expand",
+        "--promote",
+        "can_span_click:socket.left=quail_sock2:socket.right=quail_sock3",
+        "--shield-dir",
+        str(SHIELD_DIR),
+        "--board",
+        _QUAIL_BOARD,
+        "--board-dts",
+        str(_QUAIL_BOARD_DTS),
+        "--build-info",
+        str(plain_build.build_info),
+        "--out-dir",
+        str(out_dir),
+    ]
+    return subprocess.run(
+        cmd,
+        cwd=str(REPO_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=subprocess_timeout(120),
+    )
 
 
 @pytest.mark.build
 def test_can_span_click_promoted_round_trip_matches_the_persisted_cross_plug_facts(
-        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
+    tmp_path: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
     """The
     promoted form of can_span_click, given the ONLY spelling its own
     four-candidate-per-slot ambiguity leaves it (explicit
@@ -581,8 +648,8 @@ def test_can_span_click_promoted_round_trip_matches_the_persisted_cross_plug_fac
     result = _run_can_span_click_promoted(out_dir, tmp_path_factory)
 
     assert result.returncode == 0, (
-        f"promoted can_span_click on quail: expected accept\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"promoted can_span_click on quail: expected accept\n--- stderr ---\n{result.stderr}"
+    )
 
     overlay = (out_dir / "rig-gen.overlay").read_text()
 
@@ -608,8 +675,7 @@ def test_can_span_click_promoted_round_trip_matches_the_persisted_cross_plug_fac
     assert "can_span_click/log_flash: CS index 0" in sheet
 
 
-def test_can_span_click_promotion_refuses_a_bare_socket_naming_the_slots(
-        tmp_path: Path) -> None:
+def test_can_span_click_promotion_refuses_a_bare_socket_naming_the_slots(tmp_path: Path) -> None:
     """The negative control for the test above: a bare socket= (the
     single-plug spelling) is refused for THIS shield with its own
     sentence, naming both real slots -- proving the promoted round trip
@@ -620,13 +686,28 @@ def test_can_span_click_promotion_refuses_a_bare_socket_naming_the_slots(
     env["ZEPHYR_BASE"] = zephyr_base()
     env["PYTHONPATH"] = str(REPO_ROOT / "scripts")
     result = subprocess.run(
-        [sys.executable, "-m", RIG_EXPAND_COMPILE, "expand",
-         "--promote", "can_span_click:socket=quail_sock2",
-         "--shield-dir", str(SHIELD_DIR),
-         "--board", _QUAIL_BOARD, "--board-dts", str(_QUAIL_BOARD_DTS),
-         "--out-dir", str(tmp_path / "out")],
-        cwd=str(REPO_ROOT), env=env, capture_output=True, text=True,
-        timeout=subprocess_timeout(60))
+        [
+            sys.executable,
+            "-m",
+            RIG_EXPAND_COMPILE,
+            "expand",
+            "--promote",
+            "can_span_click:socket=quail_sock2",
+            "--shield-dir",
+            str(SHIELD_DIR),
+            "--board",
+            _QUAIL_BOARD,
+            "--board-dts",
+            str(_QUAIL_BOARD_DTS),
+            "--out-dir",
+            str(tmp_path / "out"),
+        ],
+        cwd=str(REPO_ROOT),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=subprocess_timeout(60),
+    )
     assert result.returncode != 0
     assert "plugs 2 sockets" in result.stderr
     assert "socket.<slot>=" in result.stderr

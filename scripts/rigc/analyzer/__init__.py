@@ -23,6 +23,7 @@ resolved by mutating `wire.route` in place on the rig's own Wire
 objects, which this codebase's passes never do to a value they were
 handed.
 """
+
 from __future__ import annotations
 
 import logging
@@ -59,23 +60,39 @@ class Solved:
     # `for_bus_device`/`for_slot`/`slots_of`, never a bare per-instance
     # dict lookup of this map's own two levels.
     sockets: dict[str, dict[str, BoardSocket]] = field(default_factory=dict)
-    addr: dict[tuple[str, str], int] = field(default_factory=dict)         # (inst, dev) -> address
-    straps: list[tuple[Instance, Strap, int, int]] = field(default_factory=list)   # (inst, strap, state, addr)
-    cs: dict[tuple[str, str], tuple[int, int]] = field(default_factory=dict)       # (inst, dev) -> (index, position)
-    cs_gpios: dict[str, list[tuple[BoardSocket, int]]] = field(default_factory=dict)  # bus path -> [(socket, pos)]
-    bus_label: dict[str, str] = field(default_factory=dict)                # bus path -> label
-    nets: Nets = field(default_factory=dict)                               # net key -> [NetClaim]
-    positions: dict[tuple[str, str, str], int] = field(default_factory=dict)       # (inst, dev, prop) -> resolved position
+    addr: dict[tuple[str, str], int] = field(default_factory=dict)  # (inst, dev) -> address
+    straps: list[tuple[Instance, Strap, int, int]] = field(
+        default_factory=list
+    )  # (inst, strap, state, addr)
+    cs: dict[tuple[str, str], tuple[int, int]] = field(
+        default_factory=dict
+    )  # (inst, dev) -> (index, position)
+    cs_gpios: dict[str, list[tuple[BoardSocket, int]]] = field(
+        default_factory=dict
+    )  # bus path -> [(socket, pos)]
+    bus_label: dict[str, str] = field(default_factory=dict)  # bus path -> label
+    nets: Nets = field(default_factory=dict)  # net key -> [NetClaim]
+    positions: dict[tuple[str, str, str], int] = field(
+        default_factory=dict
+    )  # (inst, dev, prop) -> resolved position
     jumpers_set: list[tuple[Instance, Jumper, int | None, int]] = field(default_factory=list)
-    channels: dict[tuple[str, str, str], ChannelResolution] = \
-        field(default_factory=dict)                                        # (inst, dev, prop) -> resolved channel claim
-    controllers: dict[str, str] = field(default_factory=dict)              # ctrl label -> function (timer/adc to enable)
-    scopes: dict[str, tuple[str, int]] = field(default_factory=dict)       # scope bus path -> (mux output label, channel)
-    wires: list[Wire] = field(default_factory=list)                        # route-resolved (see module docstring)
+    channels: dict[tuple[str, str, str], ChannelResolution] = field(
+        default_factory=dict
+    )  # (inst, dev, prop) -> resolved channel claim
+    controllers: dict[str, str] = field(
+        default_factory=dict
+    )  # ctrl label -> function (timer/adc to enable)
+    scopes: dict[str, tuple[str, int]] = field(
+        default_factory=dict
+    )  # scope bus path -> (mux output label, channel)
+    wires: list[Wire] = field(default_factory=list)  # route-resolved (see module docstring)
 
 
-def analyze(rig: Rig, board: Board, types: dict[str, ConnectorType],
-           ) -> tuple[Solved, list[Diagnostic]]:
+def analyze(
+    rig: Rig,
+    board: Board,
+    types: dict[str, ConnectorType],
+) -> tuple[Solved, list[Diagnostic]]:
     """Run every pass over `rig` against the already-loaded `board`,
     composing their pieces into one Solved value. Board resolution itself
     (board.load_board) happens BEFORE this is ever called -- its own

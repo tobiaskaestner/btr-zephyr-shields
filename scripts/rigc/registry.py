@@ -25,6 +25,7 @@ bindings scan and cannot ride inside a threaded --bindings-dir. BINDINGS
 being wrong or absent is therefore only ever a standalone-invocation or
 workspace-layout problem, never a real build's -- see load_types' own
 docstring for what happens when it is."""
+
 from __future__ import annotations
 
 import glob
@@ -75,9 +76,10 @@ def _socket_facts(binding: dict) -> tuple[bool, dict[str, list[int]]]:
     return bool(stackable), cs_pool
 
 
-def load_types(connector_dirs: list[str] | None = None,
-              header_dirs: list[str] | None = None,
-              ) -> tuple[dict[str, ConnectorType], Deps]:
+def load_types(
+    connector_dirs: list[str] | None = None,
+    header_dirs: list[str] | None = None,
+) -> tuple[dict[str, ConnectorType], Deps]:
     """Assemble every connector type found under connector_dirs (default:
     [BINDINGS]). header_dirs is the search list parse_header_indices
     resolves each type's <type>.h against (deliberately the SAME list a
@@ -104,15 +106,18 @@ def load_types(connector_dirs: list[str] | None = None,
     passed in and written to)."""
     used_default = connector_dirs is None
     if used_default and not os.path.isdir(BINDINGS):
-        raise LoadError(error(
-            "lang-connector-root",
-            "no --connector-dir was given and the built-in fallback "
-            f"({BINDINGS}) does not exist -- that fallback is a dev/test "
-            "convenience, not the production path (a real build always "
-            "threads --connector-dir explicitly, see cmake/dts.cmake); "
-            "either pass --connector-dir explicitly, or this is being run "
-            "from a workspace where rigc's own source no longer sits "
-            "alongside the real connector-type bindings it needs"))
+        raise LoadError(
+            error(
+                "lang-connector-root",
+                "no --connector-dir was given and the built-in fallback "
+                f"({BINDINGS}) does not exist -- that fallback is a dev/test "
+                "convenience, not the production path (a real build always "
+                "threads --connector-dir explicitly, see cmake/dts.cmake); "
+                "either pass --connector-dir explicitly, or this is being run "
+                "from a workspace where rigc's own source no longer sits "
+                "alongside the real connector-type bindings it needs",
+            )
+        )
     dirs = connector_dirs if connector_dirs is not None else [BINDINGS]
     types: dict[str, ConnectorType] = {}
     deps: Deps = frozenset()
@@ -133,11 +138,14 @@ def load_types(connector_dirs: list[str] | None = None,
                     raise KeyError(
                         f"unified binding for '{name}' names position "
                         f"'{pname}' which is not in "
-                        f"dt-bindings/connector/{name}.h")
+                        f"dt-bindings/connector/{name}.h"
+                    )
                 positions[pname] = Position(
-                    name=pname, index=indices[pname],
+                    name=pname,
+                    index=indices[pname],
                     function=meta.get("function", "gpio"),
-                    optional=bool(meta.get("optional", False)))
+                    optional=bool(meta.get("optional", False)),
+                )
 
             types[name] = ConnectorType(
                 name=name,

@@ -1,6 +1,7 @@
 """Unit: analyzer.socketmap -- the one accessor family every downstream
 pass and emitter module reaches a per-slot socket through. Each function
 is a pure lookup over hand-built values; no Rig/Board/dtlib needed."""
+
 from __future__ import annotations
 
 from rigc.analyzer.socketmap import for_bus_device, for_ref, for_slot, slots_of
@@ -8,8 +9,7 @@ from rigc.model import BoardSocket, Device, FunctionRef, Instance, Shield
 
 
 def _socket(label: str) -> BoardSocket:
-    return BoardSocket(label=label, path=f"/{label}", type_name="t",
-                      gpio_map={}, buses={})
+    return BoardSocket(label=label, path=f"/{label}", type_name="t", gpio_map={}, buses={})
 
 
 def _inst(sockets: dict, plugs: dict) -> Instance:
@@ -39,7 +39,7 @@ def test_for_slot_returns_none_for_an_unresolved_instance_entirely() -> None:
 
 def test_slots_of_lists_only_resolved_slots_in_authoring_order() -> None:
     left, right = _socket("l"), _socket("r")
-    resolved = {"i1": {"right": right}}   # "left" never resolved
+    resolved = {"i1": {"right": right}}  # "left" never resolved
     inst = _inst({"left": "x", "right": "y"}, {"left": "t1", "right": "t2"})
     assert slots_of(resolved, inst) == ["right"]
 
@@ -53,7 +53,7 @@ def test_slots_of_preserves_shield_plugs_authoring_order_not_dict_order_of_resol
     """The order comes from Shield.plugs (authoring order), never from
     whatever order happened to land in the resolution map."""
     a, b = _socket("a"), _socket("b")
-    resolved = {"i1": {"second": b, "first": a}}   # resolved out of order
+    resolved = {"i1": {"second": b, "first": a}}  # resolved out of order
     inst = _inst({"first": "x", "second": "y"}, {"first": "t1", "second": "t2"})
     assert slots_of(resolved, inst) == ["first", "second"]
 
@@ -65,8 +65,13 @@ def test_for_ref_resolves_through_the_refs_own_plug() -> None:
     left, right = _socket("l"), _socket("r")
     resolved = {"i1": {"left": left, "right": right}}
     inst = _inst({"left": "x", "right": "y"}, {"left": "t1", "right": "t2"})
-    ref = FunctionRef(prop="int-gpios", position=0, flags=0, src=None,  # type: ignore[arg-type]
-                 plug="right")
+    ref = FunctionRef(
+        prop="int-gpios",
+        position=0,
+        flags=0,
+        src=None,  # type: ignore[arg-type]
+        plug="right",
+    )
 
     assert for_ref(resolved, inst, ref) is right
 
@@ -78,8 +83,13 @@ def test_for_ref_a_cross_plug_reference_ignores_the_devices_own_bus_slot() -> No
     resolved = {"i1": {"left": left, "right": right}}
     inst = _inst({"left": "x", "right": "y"}, {"left": "t1", "right": "t2"})
     # A device "sitting" on the left plug's bus, but its own ref names right.
-    ref = FunctionRef(prop="int-gpios", position=0, flags=0, src=None,  # type: ignore[arg-type]
-                 plug="right")
+    ref = FunctionRef(
+        prop="int-gpios",
+        position=0,
+        flags=0,
+        src=None,  # type: ignore[arg-type]
+        plug="right",
+    )
 
     assert for_ref(resolved, inst, ref) is right
     assert for_ref(resolved, inst, ref) is not left
@@ -87,8 +97,13 @@ def test_for_ref_a_cross_plug_reference_ignores_the_devices_own_bus_slot() -> No
 
 def test_for_ref_returns_none_when_that_slot_never_resolved() -> None:
     inst = _inst({"plug": None}, {"plug": "t"})
-    ref = FunctionRef(prop="int-gpios", position=0, flags=0, src=None,  # type: ignore[arg-type]
-                 plug="plug")
+    ref = FunctionRef(
+        prop="int-gpios",
+        position=0,
+        flags=0,
+        src=None,  # type: ignore[arg-type]
+        plug="plug",
+    )
     assert for_ref({}, inst, ref) is None
 
 
@@ -97,7 +112,7 @@ def test_for_ref_single_form_default_plug_resolves() -> None:
     resolved = {"i1": {"plug": sock}}
     inst = _inst({"plug": "s1"}, {"plug": "t"})
     ref = FunctionRef(prop="int-gpios", position=0, flags=0, src=None)  # type: ignore[arg-type]
-    assert ref.plug == "plug"           # the dataclass default
+    assert ref.plug == "plug"  # the dataclass default
     assert for_ref(resolved, inst, ref) is sock
 
 
@@ -108,16 +123,34 @@ def test_for_bus_device_resolves_through_the_devices_own_plug() -> None:
     left, right = _socket("l"), _socket("r")
     resolved = {"i1": {"left": left, "right": right}}
     inst = _inst({"left": "x", "right": "y"}, {"left": "t1", "right": "t2"})
-    dev = Device(name="d", label="d", compatible=None, bus="i2c", group=None,
-                reg=None, addr_from=None, cs_position=None, plug="right")
+    dev = Device(
+        name="d",
+        label="d",
+        compatible=None,
+        bus="i2c",
+        group=None,
+        reg=None,
+        addr_from=None,
+        cs_position=None,
+        plug="right",
+    )
 
     assert for_bus_device(resolved, inst, dev) is right
 
 
 def test_for_bus_device_returns_none_when_that_slot_never_resolved() -> None:
     inst = _inst({"plug": None}, {"plug": "t"})
-    dev = Device(name="d", label="d", compatible=None, bus="i2c", group=None,
-                reg=None, addr_from=None, cs_position=None, plug="plug")
+    dev = Device(
+        name="d",
+        label="d",
+        compatible=None,
+        bus="i2c",
+        group=None,
+        reg=None,
+        addr_from=None,
+        cs_position=None,
+        plug="plug",
+    )
     assert for_bus_device({}, inst, dev) is None
 
 
@@ -127,7 +160,16 @@ def test_for_bus_device_asserts_on_a_plain_group_device() -> None:
     import pytest
 
     inst = _inst({"plug": "x"}, {"plug": "t"})
-    dev = Device(name="d", label="d", compatible=None, bus=None, group="gpio",
-                reg=None, addr_from=None, cs_position=None, plug=None)
+    dev = Device(
+        name="d",
+        label="d",
+        compatible=None,
+        bus=None,
+        group="gpio",
+        reg=None,
+        addr_from=None,
+        cs_position=None,
+        plug=None,
+    )
     with pytest.raises(AssertionError):
         for_bus_device({}, inst, dev)

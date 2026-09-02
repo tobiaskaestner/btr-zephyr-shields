@@ -14,6 +14,7 @@ diagnostic code fires -- is what must survive a rewrite. The
 `resolve_axis_selection` section below is the one place that DOES assert
 full message text (see its own header comment).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -45,6 +46,7 @@ def _rig(tmp_path: Path, text: str) -> Val:
 
 # -------------------------------------------------------- normalization
 
+
 def test_normalize_revision_replaces_dots_with_underscores() -> None:
     assert normalize_revision("1.2") == "1_2"
 
@@ -75,37 +77,46 @@ def test_variant_fragment_stem_is_never_normalized() -> None:
 
 # ------------------------------------------------------ variants: declaration
 
+
 def test_absent_variants_key_declares_nothing(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
-        """)
+        """,
+    )
     decl, diags = parse_variant_decl(rig_v, "variants")
     assert decl is None
     assert diags == []
 
 
-def test_bare_scalar_variant_list_declares_values_with_no_metadata(
-        tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, """\
+def test_bare_scalar_variant_list_declares_values_with_no_metadata(tmp_path: Path) -> None:
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           variants:
             default: a
             list: [a, b]
-        """)
+        """,
+    )
     decl, diags = parse_variant_decl(rig_v, "variants")
     assert diags == []
     assert decl == AxisDecl(values=["a", "b"], default="a")
 
 
 def test_variant_no_default_leaves_default_none(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           variants:
             list: [a, b]
-        """)
+        """,
+    )
     decl, diags = parse_variant_decl(rig_v, "variants")
     assert diags == []
     assert decl is not None
@@ -114,13 +125,16 @@ def test_variant_no_default_leaves_default_none(tmp_path: Path) -> None:
 
 
 def test_variant_default_not_a_member_is_rejected(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           variants:
             default: c
             list: [a, b]
-        """)
+        """,
+    )
     decl, diags = parse_variant_decl(rig_v, "variants")
     assert decl is None
     assert len(diags) == 1
@@ -130,14 +144,17 @@ def test_variant_default_not_a_member_is_rejected(tmp_path: Path) -> None:
 def test_variant_mapping_entry_missing_name_is_rejected(tmp_path: Path) -> None:
     """The malformed entry is skipped, not silently accepted -- the
     well-formed remainder ('b') still constitutes a valid axis."""
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           variants:
             list:
               - board: b/s/rig
               - b
-        """)
+        """,
+    )
     decl, diags = parse_variant_decl(rig_v, "variants")
     assert len(diags) == 1
     assert diags[0].code == "lang-schema"
@@ -146,12 +163,15 @@ def test_variant_mapping_entry_missing_name_is_rejected(tmp_path: Path) -> None:
 
 
 def test_variant_empty_list_is_rejected(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           variants:
             list: []
-        """)
+        """,
+    )
     decl, diags = parse_variant_decl(rig_v, "variants")
     assert decl is None
     assert len(diags) == 1
@@ -159,16 +179,16 @@ def test_variant_empty_list_is_rejected(tmp_path: Path) -> None:
     assert diags[0].message == "rig variants: 'list' must be a non-empty list"
 
 
-def test_variant_mapping_entry_board_and_sockets_are_silently_ignored(
-        tmp_path: Path) -> None:
+def test_variant_mapping_entry_board_and_sockets_are_silently_ignored(tmp_path: Path) -> None:
     """rig.yml's grammar has no board:/sockets: keys -- a variant entry
     may still carry them (nothing rejects an unrecognized key here, same
     as anywhere else in this grammar), but only name: is read, and they
     reach nothing: AxisDecl has no field either one could land in. The
     assertion is therefore that the entry parses to its NAME alone, with
     no diagnostic -- ignored, neither rejected nor absorbed."""
-    rig_v = _rig(tmp_path,
-                """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           variants:
@@ -178,7 +198,8 @@ def test_variant_mapping_entry_board_and_sockets_are_silently_ignored(
                 board: b1/s/rig
                 sockets: {ard: nucleo_ard}
               - b
-        """)
+        """,
+    )
     decl, diags = parse_variant_decl(rig_v, "variants")
     assert diags == []
     assert decl is not None
@@ -187,19 +208,24 @@ def test_variant_mapping_entry_board_and_sockets_are_silently_ignored(
 
 # ------------------------------------------------------ revision: declaration
 
+
 def test_absent_revision_key_declares_nothing(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
-        """)
+        """,
+    )
     decl, diags = parse_revision_decl(rig_v, "revision")
     assert decl is None
     assert diags == []
 
 
-def test_revision_mapping_list_declares_values_and_format(
-        tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, """\
+def test_revision_mapping_list_declares_values_and_format(tmp_path: Path) -> None:
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           revision:
@@ -208,14 +234,17 @@ def test_revision_mapping_list_declares_values_and_format(
             revisions:
               - name: "1"
               - name: "2"
-        """)
+        """,
+    )
     decl, diags = parse_revision_decl(rig_v, "revision")
     assert diags == []
     assert decl == AxisDecl(values=["1", "2"], default="1", format="number")
 
 
 def test_revision_no_default_leaves_default_none(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           revision:
@@ -223,7 +252,8 @@ def test_revision_no_default_leaves_default_none(tmp_path: Path) -> None:
             revisions:
               - name: "1"
               - name: "2"
-        """)
+        """,
+    )
     decl, diags = parse_revision_decl(rig_v, "revision")
     assert diags == []
     assert decl is not None
@@ -232,13 +262,16 @@ def test_revision_no_default_leaves_default_none(tmp_path: Path) -> None:
 
 
 def test_revision_format_is_required(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           revision:
             revisions:
               - name: "1"
-        """)
+        """,
+    )
     decl, diags = parse_revision_decl(rig_v, "revision")
     assert decl is None
     assert len(diags) == 1
@@ -247,14 +280,17 @@ def test_revision_format_is_required(tmp_path: Path) -> None:
 
 
 def test_revision_unknown_format_is_rejected(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           revision:
             format: hex
             revisions:
               - name: "1"
-        """)
+        """,
+    )
     decl, diags = parse_revision_decl(rig_v, "revision")
     assert decl is None
     assert len(diags) == 1
@@ -265,14 +301,17 @@ def test_revision_custom_format_is_a_legal_declaration(tmp_path: Path) -> None:
     """format: custom is valid upstream YAML -- parse_revision_decl
     accepts it; only resolve_axis_selection rejects it (once the axis is
     actually used), see the resolution tests below."""
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           revision:
             format: custom
             revisions:
               - name: "anything"
-        """)
+        """,
+    )
     decl, diags = parse_revision_decl(rig_v, "revision")
     assert diags == []
     assert decl is not None
@@ -280,7 +319,9 @@ def test_revision_custom_format_is_a_legal_declaration(tmp_path: Path) -> None:
 
 
 def test_revision_default_not_a_member_is_rejected(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           revision:
@@ -289,7 +330,8 @@ def test_revision_default_not_a_member_is_rejected(tmp_path: Path) -> None:
             revisions:
               - name: "1"
               - name: "2"
-        """)
+        """,
+    )
     decl, diags = parse_revision_decl(rig_v, "revision")
     assert decl is None
     assert len(diags) == 1
@@ -301,13 +343,16 @@ def test_revision_empty_list_is_rejected(tmp_path: Path) -> None:
     against this module's own general policy above: a code-only
     assertion would let this wording drift unnoticed. The golden
     fixture empty-revisions-list pins the same message."""
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           revision:
             format: number
             revisions: []
-        """)
+        """,
+    )
     decl, diags = parse_revision_decl(rig_v, "revision")
     assert decl is None
     assert len(diags) == 1
@@ -319,7 +364,9 @@ def test_revision_bare_scalar_entry_is_rejected(tmp_path: Path) -> None:
     """Upstream's shape is mapping entries with name: -- a bare scalar
     entry is rejected, per entry, with the well-formed remainder still
     constituting a valid (partial) axis."""
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           revision:
@@ -327,7 +374,8 @@ def test_revision_bare_scalar_entry_is_rejected(tmp_path: Path) -> None:
             revisions:
               - "1"
               - name: "2"
-        """)
+        """,
+    )
     decl, diags = parse_revision_decl(rig_v, "revision")
     assert len(diags) == 1
     assert diags[0].code == "lang-schema"
@@ -336,7 +384,9 @@ def test_revision_bare_scalar_entry_is_rejected(tmp_path: Path) -> None:
 
 
 def test_revision_mapping_entry_missing_name_is_rejected(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           revision:
@@ -344,7 +394,8 @@ def test_revision_mapping_entry_missing_name_is_rejected(tmp_path: Path) -> None
             revisions:
               - full_name: not a name key
               - name: "2"
-        """)
+        """,
+    )
     decl, diags = parse_revision_decl(rig_v, "revision")
     assert len(diags) == 1
     assert diags[0].code == "lang-schema"
@@ -353,7 +404,9 @@ def test_revision_mapping_entry_missing_name_is_rejected(tmp_path: Path) -> None
 
 
 def test_revision_default_must_be_a_quoted_string(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           revision:
@@ -361,7 +414,8 @@ def test_revision_default_must_be_a_quoted_string(tmp_path: Path) -> None:
             default: 1
             revisions:
               - name: "1"
-        """)
+        """,
+    )
     decl, diags = parse_revision_decl(rig_v, "revision")
     assert decl is None
     assert len(diags) == 1
@@ -372,7 +426,9 @@ def test_revision_default_must_be_a_quoted_string(tmp_path: Path) -> None:
 def test_revision_id_must_be_a_string(tmp_path: Path) -> None:
     """A non-string revision id is a lang-schema REJECTION, never a
     coercion -- upstream's own `name: {type: string}`."""
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           revision:
@@ -380,7 +436,8 @@ def test_revision_id_must_be_a_string(tmp_path: Path) -> None:
             revisions:
               - name: 1
               - name: "2"
-        """)
+        """,
+    )
     decl, diags = parse_revision_decl(rig_v, "revision")
     assert len(diags) == 1
     assert diags[0].code == "lang-schema"
@@ -388,13 +445,14 @@ def test_revision_id_must_be_a_string(tmp_path: Path) -> None:
     assert decl.values == ["2"]
 
 
-def test_revision_declared_id_validated_against_its_own_format(
-        tmp_path: Path) -> None:
+def test_revision_declared_id_validated_against_its_own_format(tmp_path: Path) -> None:
     """board-schema.yaml's own conditional block validates declared
     names per format independently of any selection -- a declared name
     that does not match format: is a defect of the FILE (lang-schema),
     reported per entry."""
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           revision:
@@ -402,7 +460,8 @@ def test_revision_declared_id_validated_against_its_own_format(
             revisions:
               - name: "1"
               - name: "1.5"
-        """)
+        """,
+    )
     decl, diags = parse_revision_decl(rig_v, "revision")
     assert len(diags) == 1
     assert diags[0].code == "lang-schema"
@@ -411,14 +470,17 @@ def test_revision_declared_id_validated_against_its_own_format(
 
 
 def test_revision_exact_flag_defaults_false(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           revision:
             format: number
             revisions:
               - name: "1"
-        """)
+        """,
+    )
     decl, diags = parse_revision_decl(rig_v, "revision")
     assert diags == []
     assert decl is not None
@@ -426,7 +488,9 @@ def test_revision_exact_flag_defaults_false(tmp_path: Path) -> None:
 
 
 def test_revision_exact_flag_parses_true(tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, """\
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           revision:
@@ -434,16 +498,18 @@ def test_revision_exact_flag_parses_true(tmp_path: Path) -> None:
             exact: true
             revisions:
               - name: "1"
-        """)
+        """,
+    )
     decl, diags = parse_revision_decl(rig_v, "revision")
     assert diags == []
     assert decl is not None
     assert decl.exact is True
 
 
-def test_revision_letter_format_accepts_declared_letters(
-        tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, """\
+def test_revision_letter_format_accepts_declared_letters(tmp_path: Path) -> None:
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           revision:
@@ -452,15 +518,17 @@ def test_revision_letter_format_accepts_declared_letters(
             revisions:
               - name: "A"
               - name: "B"
-        """)
+        """,
+    )
     decl, diags = parse_revision_decl(rig_v, "revision")
     assert diags == []
     assert decl == AxisDecl(values=["A", "B"], default="A", format="letter")
 
 
-def test_revision_major_minor_patch_format_accepts_declared_triples(
-        tmp_path: Path) -> None:
-    rig_v = _rig(tmp_path, """\
+def test_revision_major_minor_patch_format_accepts_declared_triples(tmp_path: Path) -> None:
+    rig_v = _rig(
+        tmp_path,
+        """\
         rig:
           name: r
           revision:
@@ -469,11 +537,11 @@ def test_revision_major_minor_patch_format_accepts_declared_triples(
             revisions:
               - name: "1.0.0"
               - name: "1.5.0"
-        """)
+        """,
+    )
     decl, diags = parse_revision_decl(rig_v, "revision")
     assert diags == []
-    assert decl == AxisDecl(values=["1.0.0", "1.5.0"], default="1.0.0",
-                            format="major.minor.patch")
+    assert decl == AxisDecl(values=["1.0.0", "1.5.0"], default="1.0.0", format="major.minor.patch")
 
 
 # -------------------------------------------------------------- resolution
@@ -483,6 +551,7 @@ def test_revision_major_minor_patch_format_accepts_declared_triples(
 # revision AxisDecl constructed here carries format="number" -- a real
 # revision decl always does (parse_revision_decl requires it), and
 # resolve_axis_selection checks it unconditionally for a revision axis.
+
 
 def test_resolve_selected_member_of_declared_axis() -> None:
     decl = AxisDecl(values=["1", "2"], default="1", format="number")
@@ -543,6 +612,7 @@ def test_revision_kind_uses_lang_rev_code() -> None:
 
 # ---------------------------------------- hwmv2 semantics: per-format, nearest-lower
 
+
 def test_number_format_rejects_a_malformed_requested_id() -> None:
     decl = AxisDecl(values=["1", "2"], default="1", format="number")
     value, diags = resolve_axis("r", "revision", "revision", decl, "1a", _SRC)
@@ -566,8 +636,7 @@ def test_letter_format_accepts_a_declared_member() -> None:
 
 
 def test_major_minor_patch_rejects_a_malformed_requested_id() -> None:
-    decl = AxisDecl(values=["1.0.0"], default="1.0.0",
-                    format="major.minor.patch")
+    decl = AxisDecl(values=["1.0.0"], default="1.0.0", format="major.minor.patch")
     value, diags = resolve_axis("r", "revision", "revision", decl, "1.a.0", _SRC)
     assert value is None
     assert diags[0].code == "lang-rev"
@@ -577,8 +646,7 @@ def test_major_minor_patch_zero_appends_before_matching() -> None:
     """hwmv2's own loose typing (extensions.cmake:1092-1103): a requested
     '1' resolves against a declared '1.0.0' -- the zero-append happens to
     the REQUESTED value only; declared names are never rewritten."""
-    decl = AxisDecl(values=["1.0.0", "1.5.0"], default="1.0.0",
-                    format="major.minor.patch")
+    decl = AxisDecl(values=["1.0.0", "1.5.0"], default="1.0.0", format="major.minor.patch")
     value, diags = resolve_axis("r", "revision", "revision", decl, "1", _SRC)
     assert value == "1.0.0"
     assert diags == []
@@ -597,8 +665,7 @@ def test_nearest_lower_match_resolves_an_undeclared_revision_down() -> None:
 
 
 def test_nearest_lower_match_per_format_major_minor_patch() -> None:
-    decl = AxisDecl(values=["1.0.0", "2.0.0"], default="1.0.0",
-                    format="major.minor.patch")
+    decl = AxisDecl(values=["1.0.0", "2.0.0"], default="1.0.0", format="major.minor.patch")
     value, diags = resolve_axis("r", "revision", "revision", decl, "1.9.9", _SRC)
     assert value == "1.0.0"
     assert diags == []
@@ -630,8 +697,7 @@ def test_exact_true_disables_nearest_lower() -> None:
     value, diags = resolve_axis("r", "revision", "revision", decl, "99", _SRC)
     assert value is None
     assert diags[0].code == "lang-rev"
-    assert diags[0].message == (
-        "rig 'r': revision '99' is not declared -- known revisions: 1, 2")
+    assert diags[0].message == ("rig 'r': revision '99' is not declared -- known revisions: 1, 2")
 
 
 def test_exact_true_still_accepts_a_declared_member() -> None:
@@ -675,60 +741,55 @@ def test_format_custom_is_rejected_even_for_a_selected_value() -> None:
 # would fail here even though the shape-only tests elsewhere would still
 # pass.
 
+
 def test_shared_decision_rig_selected_against_undeclared_axis_wording() -> None:
-    value, diags = resolve_axis_selection(
-        "rig", "r", "revision", "revision", None, "9", _SRC)
+    value, diags = resolve_axis_selection("rig", "r", "revision", "revision", None, "9", _SRC)
     assert value is None
     assert len(diags) == 1
     assert diags[0].code == "lang-rev"
     assert diags[0].message == (
-        "rig 'r' names a revision ('9'), but this rig declares no "
-        "revision: at all")
+        "rig 'r' names a revision ('9'), but this rig declares no revision: at all"
+    )
 
 
 def test_shared_decision_rig_selected_not_a_member_wording() -> None:
     decl = AxisDecl(values=["1", "2"], default="1", format="number", exact=True)
-    value, diags = resolve_axis_selection(
-        "rig", "r", "revision", "revision", decl, "9", _SRC)
+    value, diags = resolve_axis_selection("rig", "r", "revision", "revision", decl, "9", _SRC)
     assert value is None
-    assert diags[0].message == (
-        "rig 'r': revision '9' is not declared -- known revisions: 1, 2")
+    assert diags[0].message == ("rig 'r': revision '9' is not declared -- known revisions: 1, 2")
 
 
 def test_shared_decision_rig_no_default_wording() -> None:
     decl = AxisDecl(values=["1", "2"], format="number")
-    value, diags = resolve_axis_selection(
-        "rig", "r", "revision", "revision", decl, None, _SRC)
+    value, diags = resolve_axis_selection("rig", "r", "revision", "revision", decl, None, _SRC)
     assert value is None
     assert diags[0].message == (
         "rig 'r': no revision selected, and this rig declares no default "
-        "revision -- choose one of: 1, 2")
+        "revision -- choose one of: 1, 2"
+    )
 
 
 def test_shared_decision_rig_variant_wording_pluralizes_variants() -> None:
     """The rig side exercises BOTH axis kinds through the same function --
     'variant'/'variants' must come out, not a 'revision' left over from
     the other caller's defaults."""
-    value, diags = resolve_axis_selection(
-        "rig", "r", "variant", "variants", None, "x", _SRC)
+    value, diags = resolve_axis_selection("rig", "r", "variant", "variants", None, "x", _SRC)
     assert value is None
     assert diags[0].code == "lang-variant"
     assert diags[0].message == (
-        "rig 'r' names a variant ('x'), but this rig declares no "
-        "variants: at all")
+        "rig 'r' names a variant ('x'), but this rig declares no variants: at all"
+    )
 
 
 def test_shared_decision_rig_bare_target_takes_default() -> None:
     decl = AxisDecl(values=["1", "2"], default="1", format="number")
-    value, diags = resolve_axis_selection(
-        "rig", "r", "revision", "revision", decl, None, _SRC)
+    value, diags = resolve_axis_selection("rig", "r", "revision", "revision", decl, None, _SRC)
     assert value == "1"
     assert diags == []
 
 
 def test_shared_decision_rig_no_axis_no_selection_is_silent() -> None:
-    value, diags = resolve_axis_selection(
-        "rig", "r", "revision", "revision", None, None, _SRC)
+    value, diags = resolve_axis_selection("rig", "r", "revision", "revision", None, None, _SRC)
     assert value is None
     assert diags == []
 
@@ -738,14 +799,13 @@ def test_shared_decision_shield_selected_against_undeclared_axis_wording() -> No
     key ShieldLibrary.resolve passes -- a shield's own axis keeps ITS
     pre-hwmv2 shape permanently (parse_legacy_revision_decl's own
     docstring), unlike a rig's now-singular "revision"."""
-    value, diags = resolve_axis_selection(
-        "shield", "fx", "revision", "revisions", None, "1", _SRC)
+    value, diags = resolve_axis_selection("shield", "fx", "revision", "revisions", None, "1", _SRC)
     assert value is None
     assert len(diags) == 1
     assert diags[0].code == "lang-rev"
     assert diags[0].message == (
-        "shield 'fx' names a revision ('1'), but this shield declares no "
-        "revisions: at all")
+        "shield 'fx' names a revision ('1'), but this shield declares no revisions: at all"
+    )
 
 
 def test_shared_decision_shield_selected_not_a_member_wording() -> None:
@@ -753,35 +813,32 @@ def test_shared_decision_shield_selected_not_a_member_wording() -> None:
     is the ordinary exact-membership rejection, not a nearest-lower
     near-miss."""
     decl = AxisDecl(values=["1", "2"], default="1")
-    value, diags = resolve_axis_selection(
-        "shield", "fx", "revision", "revisions", decl, "99", _SRC)
+    value, diags = resolve_axis_selection("shield", "fx", "revision", "revisions", decl, "99", _SRC)
     assert value is None
     assert diags[0].message == (
-        "shield 'fx': revision '99' is not declared -- known revisions: "
-        "1, 2")
+        "shield 'fx': revision '99' is not declared -- known revisions: 1, 2"
+    )
 
 
 def test_shared_decision_shield_no_default_wording() -> None:
     decl = AxisDecl(values=["1", "2"])
-    value, diags = resolve_axis_selection(
-        "shield", "fx", "revision", "revisions", decl, None, _SRC)
+    value, diags = resolve_axis_selection("shield", "fx", "revision", "revisions", decl, None, _SRC)
     assert value is None
     assert diags[0].message == (
         "shield 'fx': no revision selected, and this shield declares no "
-        "default revision -- choose one of: 1, 2")
+        "default revision -- choose one of: 1, 2"
+    )
 
 
 def test_shared_decision_shield_bare_target_takes_default() -> None:
     decl = AxisDecl(values=["1", "2"], default="1")
-    value, diags = resolve_axis_selection(
-        "shield", "fx", "revision", "revisions", decl, None, _SRC)
+    value, diags = resolve_axis_selection("shield", "fx", "revision", "revisions", decl, None, _SRC)
     assert value == "1"
     assert diags == []
 
 
 def test_shared_decision_shield_no_axis_no_selection_is_silent() -> None:
-    value, diags = resolve_axis_selection(
-        "shield", "fx", "revision", "revisions", None, None, _SRC)
+    value, diags = resolve_axis_selection("shield", "fx", "revision", "revisions", None, None, _SRC)
     assert value is None
     assert diags == []
 
@@ -794,13 +851,13 @@ def test_shared_decision_shield_nearest_lower_is_owner_agnostic_in_the_shared_fu
     owner-kind branching: nearest-lower already works for ANY owner
     whose decl carries format:, rig or shield alike."""
     decl = AxisDecl(values=["1", "2"], default="1", format="number")
-    value, diags = resolve_axis_selection(
-        "shield", "fx", "revision", "revisions", decl, "99", _SRC)
+    value, diags = resolve_axis_selection("shield", "fx", "revision", "revisions", decl, "99", _SRC)
     assert value == "2"
     assert diags == []
 
 
 # --------------------------------------------------- fragment-stem collision
+
 
 def test_no_collision_when_axes_share_no_stem() -> None:
     variants = AxisDecl(values=["a"], default="a")

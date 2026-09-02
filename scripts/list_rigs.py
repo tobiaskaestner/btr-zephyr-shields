@@ -103,8 +103,11 @@ def _revision_axis_shape(rig_data):
     block = rig_data.get('revision')
     if not isinstance(block, dict):
         return None
-    names = [str(item['name']) for item in (block.get('revisions') or [])
-             if isinstance(item, dict) and item.get('name') is not None]
+    names = [
+        str(item['name'])
+        for item in (block.get('revisions') or [])
+        if isinstance(item, dict) and item.get('name') is not None
+    ]
     return {'default': block.get('default'), 'list': names}
 
 
@@ -113,8 +116,10 @@ def variant_names(variants):
     take -- a scalar, or a {name:} mapping. Display/reporting code that
     only wants the declared NAMES (west rigs' own variants= column) uses
     this rather than assuming every entry is already a bare string."""
-    return [item.get('name') if isinstance(item, dict) else item
-            for item in (variants or {}).get('list') or []]
+    return [
+        item.get('name') if isinstance(item, dict) else item
+        for item in (variants or {}).get('list') or []
+    ]
 
 
 def find_rigs(args):
@@ -138,9 +143,12 @@ def _load_rig(rig_dir, rig_yml):
     # target's default for filename construction, per
     # resolve_rig_target below; shape validation, and the separate
     # content file's own existence, are the rigc loader's job).
-    return Rig(name=name, dir=rig_dir,
-               revisions=_revision_axis_shape(rig_data),
-               variants=rig_data.get('variants'))
+    return Rig(
+        name=name,
+        dir=rig_dir,
+        revisions=_revision_axis_shape(rig_data),
+        variants=rig_data.get('variants'),
+    )
 
 
 def _find_rigs_under(directory, ret):
@@ -193,8 +201,9 @@ def parse_rig_target(target):
     """
     m = _RIG_TARGET_RE.match(target)
     if not m:
-        sys.exit(f"ERROR: invalid rig target syntax: {target!r} "
-                  f"(expected name[@rev][/variant][:opts])")
+        sys.exit(
+            f"ERROR: invalid rig target syntax: {target!r} (expected name[@rev][/variant][:opts])"
+        )
     name = m.group(1)
     revision = m.group(2)[1:] if m.group(2) else None
     variant = m.group(4)
@@ -220,14 +229,18 @@ def _resolve_axis(rig_name, axis_kind, decl_key, declared, selected):
     shape, so this is a no-op there."""
     if selected is not None:
         if declared is None:
-            sys.exit(f"ERROR: rig '{rig_name}' names a {axis_kind} "
-                      f"({selected!r}), but this rig declares no "
-                      f"{decl_key}: at all.")
+            sys.exit(
+                f"ERROR: rig '{rig_name}' names a {axis_kind} "
+                f"({selected!r}), but this rig declares no "
+                f"{decl_key}: at all."
+            )
         values = [str(v) for v in variant_names(declared)]
         if selected not in values:
-            sys.exit(f"ERROR: rig '{rig_name}': {axis_kind} '{selected}' is "
-                      f"not declared -- known {axis_kind}s: "
-                      f"{', '.join(values) or '(none)'}")
+            sys.exit(
+                f"ERROR: rig '{rig_name}': {axis_kind} '{selected}' is "
+                f"not declared -- known {axis_kind}s: "
+                f"{', '.join(values) or '(none)'}"
+            )
         return selected
     if declared is None:
         return None
@@ -235,9 +248,11 @@ def _resolve_axis(rig_name, axis_kind, decl_key, declared, selected):
     if default is not None:
         return str(default)
     values = [str(v) for v in variant_names(declared)]
-    sys.exit(f"ERROR: rig '{rig_name}' names no {axis_kind}, and this rig "
-              f"declares no default {axis_kind} -- choose one of: "
-              f"{', '.join(values) or '(none)'}")
+    sys.exit(
+        f"ERROR: rig '{rig_name}' names no {axis_kind}, and this rig "
+        f"declares no default {axis_kind} -- choose one of: "
+        f"{', '.join(values) or '(none)'}"
+    )
 
 
 def resolve_rig_target(target, args):
@@ -285,16 +300,15 @@ def resolve_rig_target(target, args):
                     f"and promotion options ({opts!r}) apply only to a "
                     f"promoted shield -- a rig has its own instances, "
                     f"each already naming its own socket in the rig's "
-                    f"content file.")
+                    f"content file."
+                )
             resolved_revision = _resolve_axis(
-                rig.name, 'revision', 'revision', rig.revisions, revision)
-            resolved_variant = _resolve_axis(
-                rig.name, 'variant', 'variants', rig.variants, variant)
-            return replace(rig, revision=resolved_revision,
-                           variant=resolved_variant)
+                rig.name, 'revision', 'revision', rig.revisions, revision
+            )
+            resolved_variant = _resolve_axis(rig.name, 'variant', 'variants', rig.variants, variant)
+            return replace(rig, revision=resolved_revision, variant=resolved_variant)
     available = ', '.join(r.name for r in rigs) or '(none)'
-    sys.exit(f"ERROR: -DRIG={target} does not resolve to a rig.\n"
-              f"  available rigs: {available}")
+    sys.exit(f"ERROR: -DRIG={target} does not resolve to a rig.\n  available rigs: {available}")
 
 
 @dataclass(frozen=True)
@@ -326,6 +340,7 @@ class PromotedTarget:
     promoted_shield` is what caught that, which is exactly why it pins
     the whole line rather than just the key under test.
     """
+
     name: str
     revision: str | None = None
     opts: str | None = None
@@ -370,6 +385,7 @@ class PromotedListTarget:
     `{REVISION}=NOTFOUND`, `{VARIANT}=NOTFOUND` -- a list promotion has
     no revision/variant axis of its own to select (each element's own
     `@rev`, if any, already travels inside `raw`)."""
+
     name: str
     raw: str
 
@@ -464,8 +480,7 @@ def resolve_target(target, args):
     name, revision, variant, opts = parse_rig_target(target)
     rigs = find_rigs(args)
     rig = next((r for r in rigs if r.name == name), None)
-    shield_dirs = [str(Path(root) / 'boards' / 'shields')
-                  for root in args.board_roots]
+    shield_dirs = [str(Path(root) / 'boards' / 'shields') for root in args.board_roots]
     shields = promote.discover_shields(shield_dirs)
 
     if rig is not None and name in shields:
@@ -515,8 +530,7 @@ def _resolve_list_target(target, args):
     from rigc import promote
 
     rigs_by_name = {r.name: r for r in find_rigs(args)}
-    shield_dirs = [str(Path(root) / 'boards' / 'shields')
-                  for root in args.board_roots]
+    shield_dirs = [str(Path(root) / 'boards' / 'shields') for root in args.board_roots]
     shields = promote.discover_shields(shield_dirs)
 
     names = []
@@ -553,28 +567,41 @@ def parse_args():
 
 
 def add_args(parser):
-    parser.add_argument("--board-root", dest='board_roots', default=[],
-                         type=Path, action='append',
-                         help='add a board root, may be given more than once')
-    parser.add_argument("--rig", dest='rig', default=None,
-                         help='resolve a single rig target '
-                              '(name[@rev][/variant][:opts]) instead of listing '
-                              'every rig; prints via --cmakeformat if given, '
-                              'else just the resolved name')
+    parser.add_argument(
+        "--board-root",
+        dest='board_roots',
+        default=[],
+        type=Path,
+        action='append',
+        help='add a board root, may be given more than once',
+    )
+    parser.add_argument(
+        "--rig",
+        dest='rig',
+        default=None,
+        help='resolve a single rig target '
+        '(name[@rev][/variant][:opts]) instead of listing '
+        'every rig; prints via --cmakeformat if given, '
+        'else just the resolved name',
+    )
 
 
 def add_args_formatting(parser):
-    parser.add_argument("--json", action='store_true',
-                         help='''output list of rigs in JSON format''')
-    parser.add_argument("--cmakeformat", default=None,
-                         help='CMake format string for --rig (mirrors '
-                              "list_boards.py's --board query mode); "
-                              'available keys: {NAME}, {DIR}, {BOARD}, '
-                              '{REVISION}, {VARIANT}, {PROMOTED} (the '
-                              'shield name when --rig resolved as a '
-                              'promoted shield, the raw `;`-joined '
-                              'target when it resolved as a promoted '
-                              'list, NOTFOUND otherwise)')
+    parser.add_argument(
+        "--json", action='store_true', help='''output list of rigs in JSON format'''
+    )
+    parser.add_argument(
+        "--cmakeformat",
+        default=None,
+        help='CMake format string for --rig (mirrors '
+        "list_boards.py's --board query mode); "
+        'available keys: {NAME}, {DIR}, {BOARD}, '
+        '{REVISION}, {VARIANT}, {PROMOTED} (the '
+        'shield name when --rig resolved as a '
+        'promoted shield, the raw `;`-joined '
+        'target when it resolved as a promoted '
+        'list, NOTFOUND otherwise)',
+    )
 
 
 def dump_rigs(rigs, args):
@@ -584,9 +611,18 @@ def dump_rigs(rigs, args):
     there is nothing left to read into it."""
     if args.json:
         print(
-            json.dumps([{'dir': rig.dir.as_posix(), 'name': rig.name,
-                         'board': None, 'revisions': rig.revisions,
-                         'variants': rig.variants} for rig in rigs])
+            json.dumps(
+                [
+                    {
+                        'dir': rig.dir.as_posix(),
+                        'name': rig.name,
+                        'board': None,
+                        'revisions': rig.revisions,
+                        'variants': rig.variants,
+                    }
+                    for rig in rigs
+                ]
+            )
         )
     else:
         for rig in rigs:
@@ -613,8 +649,10 @@ def dump_rig_target(resolved, args):
     ever escaped (`_cmake_list_escape`) -- its raw text legitimately
     carries a `;`, which every other field/branch here never does."""
     if args.cmakeformat is not None:
+
         def notfound(x):
             return x or 'NOTFOUND'
+
         if isinstance(resolved, PromotedListTarget):
             info = args.cmakeformat.format(
                 NAME='NAME;' + resolved.name,

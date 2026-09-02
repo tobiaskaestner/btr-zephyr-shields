@@ -6,6 +6,7 @@ deliberately excluded -- it is emitted but never gated").
 **Reads `solved.wires`, never `rig.wires`** -- same reasoning as
 sheet.py's Wires section.
 """
+
 from __future__ import annotations
 
 from ..analyzer import Solved
@@ -14,8 +15,11 @@ from ..model import Device, Instance, Rig
 from . import GEN
 
 
-def _find_instance_device(rig: Rig, inst_name: str, dev_name: str,
-                          ) -> tuple[Instance | None, Device | None]:
+def _find_instance_device(
+    rig: Rig,
+    inst_name: str,
+    dev_name: str,
+) -> tuple[Instance | None, Device | None]:
     """The Instance/Device objects (inst_name, dev_name) name, recovered by
     name since Solved.addr/Solved.cs key by plain strings, never the
     objects themselves. Either may be None when `rig` carries no matching
@@ -43,28 +47,40 @@ def _bus_name(rig: Rig, inst_name: str, dev_name: str, default: str) -> str:
 def render_expectations(rig: Rig, s: Solved) -> str:
     """expectations.yml's full text. rig/s are read-only; returns a fresh
     string the caller owns."""
-    out = [f"# {GEN}",
-           "# test expectations stub: what a runtime harness must observe",
-           f"rig: {rig.name}", f"board: {rig.board}", "expect:"]
+    out = [
+        f"# {GEN}",
+        "# test expectations stub: what a runtime harness must observe",
+        f"rig: {rig.name}",
+        f"board: {rig.board}",
+        "expect:",
+    ]
     for (inst_name, dev_name), addr in sorted(s.addr.items()):
         inst, dev = _find_instance_device(rig, inst_name, dev_name)
-        socket = for_bus_device(s.sockets, inst, dev) \
-            if inst is not None and dev is not None else None
+        socket = (
+            for_bus_device(s.sockets, inst, dev) if inst is not None and dev is not None else None
+        )
         bus = dev.bus if dev is not None and dev.bus is not None else "i2c"
         socket_label = socket.buses[bus].label if socket is not None else "?"
-        out.append(f"  - {{instance: {inst_name}, device: {dev_name}, "
-                   f"bus: {socket_label}, address: {addr:#04x}, "
-                   "check: probe}")
+        out.append(
+            f"  - {{instance: {inst_name}, device: {dev_name}, "
+            f"bus: {socket_label}, address: {addr:#04x}, "
+            "check: probe}"
+        )
     for (inst_name, dev_name), (index, _pos) in sorted(s.cs.items()):
         inst, dev = _find_instance_device(rig, inst_name, dev_name)
-        socket = for_bus_device(s.sockets, inst, dev) \
-            if inst is not None and dev is not None else None
+        socket = (
+            for_bus_device(s.sockets, inst, dev) if inst is not None and dev is not None else None
+        )
         bus = dev.bus if dev is not None and dev.bus is not None else "spi"
         socket_label = socket.buses[bus].label if socket is not None else "?"
-        out.append(f"  - {{instance: {inst_name}, device: {dev_name}, "
-                   f"bus: {socket_label}, cs-index: {index}, "
-                   "check: probe}")
+        out.append(
+            f"  - {{instance: {inst_name}, device: {dev_name}, "
+            f"bus: {socket_label}, cs-index: {index}, "
+            "check: probe}"
+        )
     for w in s.wires:
-        out.append(f"  - {{signal: {w.frm.instance_name}.{w.frm.node} -> "
-                   f"{w.to.instance_name}.{w.to.node}, check: manual}}")
+        out.append(
+            f"  - {{signal: {w.frm.instance_name}.{w.frm.node} -> "
+            f"{w.to.instance_name}.{w.to.node}, check: manual}}"
+        )
     return "\n".join(out) + "\n"

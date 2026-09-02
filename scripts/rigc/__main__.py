@@ -1,6 +1,7 @@
 """`python -m rigc ...` entry point -- delegates to cli.main(). The exit
 vocabulary is cli.py's: 0 accept, 1 rejected input, 2 usage error,
 3 not implemented."""
+
 from __future__ import annotations
 
 import sys

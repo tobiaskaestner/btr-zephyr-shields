@@ -3,6 +3,7 @@
 nothing this command reaches configures cmake -- it censuses board
 rig-extension SOURCES (board/census.py), never a real board devicetree.
 """
+
 from __future__ import annotations
 
 import os
@@ -17,16 +18,25 @@ def _run(*args: str) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     env["ZEPHYR_BASE"] = zephyr_base()
     return subprocess.run(
-        [WEST_EXE, "rigs", *args], cwd=str(WEST_TOPDIR), env=env,
-        capture_output=True, text=True, timeout=subprocess_timeout(60))
+        [WEST_EXE, "rigs", *args],
+        cwd=str(WEST_TOPDIR),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=subprocess_timeout(60),
+    )
 
 
-@pytest.mark.parametrize("rig_target, expected_board", [
-    ("lotus_buttons", "seeeduino_lotus/samd21g18a/rig"),
-    ("quail_temp_farm", "mikroe_quail/stm32f427xx/rig"),
-])
+@pytest.mark.parametrize(
+    "rig_target, expected_board",
+    [
+        ("lotus_buttons", "seeeduino_lotus/samd21g18a/rig"),
+        ("quail_temp_farm", "mikroe_quail/stm32f427xx/rig"),
+    ],
+)
 def test_boards_for_answers_the_one_board_each_connector_type_offers(
-        rig_target: str, expected_board: str) -> None:
+    rig_target: str, expected_board: str
+) -> None:
     """nucleo_datalogger is not a third case here: its own content
     answers TWO boards (see
     test_boards_for_nucleo_datalogger_now_conforms_to_both_arduino_r3_boards
@@ -37,7 +47,8 @@ def test_boards_for_answers_the_one_board_each_connector_type_offers(
     not, by itself, open a second answer."""
     result = _run("--boards-for", rig_target)
     assert result.returncode == 0, (
-        f"--boards-for {rig_target}: exit {result.returncode}\n{result.stderr}")
+        f"--boards-for {rig_target}: exit {result.returncode}\n{result.stderr}"
+    )
     assert result.stdout.strip() == expected_board
 
 
@@ -53,11 +64,14 @@ def test_boards_for_nucleo_datalogger_now_conforms_to_both_arduino_r3_boards() -
     label is what determines the answer."""
     result = _run("--boards-for", "nucleo_datalogger")
     assert result.returncode == 0, (
-        f"--boards-for nucleo_datalogger: exit {result.returncode}\n{result.stderr}")
-    assert result.stdout.split() == sorted([
-        "frdm_k64f/mk64f12/rig", "nucleo_f401re/stm32f401xe/rig"]), (
+        f"--boards-for nucleo_datalogger: exit {result.returncode}\n{result.stderr}"
+    )
+    assert result.stdout.split() == sorted(
+        ["frdm_k64f/mk64f12/rig", "nucleo_f401re/stm32f401xe/rig"]
+    ), (
         "nucleo_datalogger must conform to BOTH arduino_r3 boards -- its "
-        f"content names no board-specific label\n--- stdout ---\n{result.stdout}")
+        f"content names no board-specific label\n--- stdout ---\n{result.stdout}"
+    )
 
 
 def test_boards_for_an_unresolved_rig_target_is_a_nonzero_exit_with_list_rigs_own_message() -> None:
@@ -83,15 +97,16 @@ def test_boards_for_a_promoted_shield_answers_the_same_boards_as_the_rig_it_stan
     which is precisely the regression it exists to catch."""
     promoted = _run("--boards-for", "adafruit_data_logger")
     assert promoted.returncode == 0, (
-        f"--boards-for adafruit_data_logger: exit {promoted.returncode}\n"
-        f"{promoted.stderr}")
+        f"--boards-for adafruit_data_logger: exit {promoted.returncode}\n{promoted.stderr}"
+    )
 
     persisted = _run("--boards-for", "ard_datalogger")
     assert persisted.returncode == 0, persisted.stderr
 
     assert promoted.stdout.split(), (
         "the promoted shield answered NO board -- the comparison below "
-        f"would be vacuous\n--- stderr ---\n{promoted.stderr}")
+        f"would be vacuous\n--- stderr ---\n{promoted.stderr}"
+    )
     assert promoted.stdout.split() == persisted.stdout.split()
 
 
@@ -108,13 +123,15 @@ def test_boards_for_a_promoted_shield_whose_socket_is_ambiguous_answers_nothing(
     rig, socket named explicitly) is that control."""
     result = _run("--boards-for", "flash_click")
     assert result.returncode == 0, (
-        f"--boards-for flash_click: exit {result.returncode}\n{result.stderr}")
+        f"--boards-for flash_click: exit {result.returncode}\n{result.stderr}"
+    )
     assert result.stdout.strip() == ""
 
     control = _run("--boards-for", "quail_temp_farm")
     assert control.stdout.strip() == "mikroe_quail/stm32f427xx/rig", (
         "the mikrobus board is not being censused at all, so flash_click's "
-        f"empty answer proves nothing\n--- stdout ---\n{control.stdout}")
+        f"empty answer proves nothing\n--- stdout ---\n{control.stdout}"
+    )
 
 
 def test_boards_for_a_promoted_shield_naming_its_socket_answers_that_board() -> None:
@@ -128,8 +145,7 @@ def test_boards_for_a_promoted_shield_naming_its_socket_answers_that_board() -> 
     bare = _run("--boards-for", "flash_click")
     socketed = _run("--boards-for", "flash_click:socket=quail_sock1")
 
-    assert socketed.returncode == 0, (
-        f"exit {socketed.returncode}\n{socketed.stderr}")
+    assert socketed.returncode == 0, f"exit {socketed.returncode}\n{socketed.stderr}"
     assert bare.stdout.strip() == ""
     assert socketed.stdout.strip() == "mikroe_quail/stm32f427xx/rig"
 
@@ -144,8 +160,8 @@ def test_boards_for_a_bare_plural_shield_answers_empty_the_per_slot_ambiguity() 
     socket.<slot>= form below is the answer, not a smarter inference."""
     result = _run("--boards-for", "can_span_click")
     assert result.returncode == 0, (
-        f"--boards-for can_span_click: exit {result.returncode}\n"
-        f"{result.stderr}")
+        f"--boards-for can_span_click: exit {result.returncode}\n{result.stderr}"
+    )
     assert result.stdout.strip() == ""
 
 
@@ -158,11 +174,10 @@ def test_boards_for_a_plural_shield_with_slot_options_answers_the_named_board() 
     is: either half alone is satisfiable by a stub."""
     bare = _run("--boards-for", "can_span_click")
     optioned = _run(
-        "--boards-for",
-        "can_span_click:socket.left=quail_sock2:socket.right=quail_sock3")
+        "--boards-for", "can_span_click:socket.left=quail_sock2:socket.right=quail_sock3"
+    )
 
-    assert optioned.returncode == 0, (
-        f"exit {optioned.returncode}\n{optioned.stderr}")
+    assert optioned.returncode == 0, f"exit {optioned.returncode}\n{optioned.stderr}"
     assert bare.stdout.strip() == ""
     assert optioned.stdout.strip() == "mikroe_quail/stm32f427xx/rig"
 
@@ -204,7 +219,8 @@ def test_boards_for_a_promoted_shield_with_a_required_param_answers_once_assigne
 
     assert assigned.returncode == 0, (
         f"--boards-for grove_btn:gb_key.zephyr,code=INPUT_KEY_0: exit "
-        f"{assigned.returncode}\n{assigned.stderr}")
+        f"{assigned.returncode}\n{assigned.stderr}"
+    )
     assert assigned.stdout.strip() == "m5stack_nanoc6/esp32c6/hpcore/rig"
 
 
@@ -215,9 +231,7 @@ def test_boards_for_a_promoted_shield_with_socket_and_dotted_param_composes() ->
     parse_promotion_opts documents the two composing.
     `socket=grove_d2` breaks the eight-way ambiguity the test above hits,
     so this answers exactly the one board that socket lives on."""
-    result = _run(
-        "--boards-for",
-        "grove_btn:socket=grove_d2:gb_key.zephyr,code=INPUT_KEY_0")
+    result = _run("--boards-for", "grove_btn:socket=grove_d2:gb_key.zephyr,code=INPUT_KEY_0")
     assert result.returncode == 0, f"exit {result.returncode}\n{result.stderr}"
     assert result.stdout.strip() == "seeeduino_lotus/samd21g18a/rig"
 
@@ -257,11 +271,13 @@ def test_boards_for_a_variant_on_a_promoted_shield_is_refused() -> None:
     assert result.returncode != 0
     assert "a promoted shield has no variant axis to select from" in result.stderr, (
         "refused, but not by check_promotable -- see this test's docstring"
-        f"\n--- stderr ---\n{result.stderr}")
+        f"\n--- stderr ---\n{result.stderr}"
+    )
 
 
 def test_boards_for_a_name_that_is_both_a_rig_and_a_shield_is_an_error_naming_both(
-        tmp_path) -> None:
+    tmp_path,
+) -> None:
     """The rig/shield name collision, now that --boards-for resolves both
     namespaces: it must ERROR rather than silently pick one. Constructed
     the same way test_explain.py constructs it -- a scratch --board-root
@@ -271,8 +287,7 @@ def test_boards_for_a_name_that_is_both_a_rig_and_a_shield_is_an_error_naming_bo
     rig_dir.mkdir(parents=True)
     (rig_dir / "rig.yml").write_text("rig:\n  name: adafruit_data_logger\n")
 
-    result = _run("--boards-for", "adafruit_data_logger",
-                  "--board-root", str(tmp_path))
+    result = _run("--boards-for", "adafruit_data_logger", "--board-root", str(tmp_path))
     assert result.returncode != 0
     assert "both" in result.stderr
     assert str(rig_dir) in result.stderr
@@ -283,11 +298,8 @@ def test_boards_for_a_list_target_answers_a_board_hosting_both() -> None:
     answers iff the WHOLE desugared rig resolves clean -- mikroe_quail
     hosts eth_click and flash_click on two of its four distinct mikroBUS
     sockets simultaneously, so the list target answers it."""
-    result = _run(
-        "--boards-for",
-        "eth_click:socket=quail_sock1;flash_click:socket=quail_sock2")
-    assert result.returncode == 0, (
-        f"--boards-for <list>: exit {result.returncode}\n{result.stderr}")
+    result = _run("--boards-for", "eth_click:socket=quail_sock1;flash_click:socket=quail_sock2")
+    assert result.returncode == 0, f"--boards-for <list>: exit {result.returncode}\n{result.stderr}"
     assert result.stdout.strip() == "mikroe_quail/stm32f427xx/rig"
 
 
@@ -299,18 +311,16 @@ def test_boards_for_a_list_target_answers_nothing_on_socket_exclusivity() -> Non
     positive test above, and test_boards_for_a_promoted_shield_naming_
     its_socket_answers_that_board), but not both pinned to the same
     physical socket at once."""
-    result = _run(
-        "--boards-for",
-        "eth_click:socket=quail_sock1;flash_click:socket=quail_sock1")
-    assert result.returncode == 0, (
-        f"--boards-for <list>: exit {result.returncode}\n{result.stderr}")
+    result = _run("--boards-for", "eth_click:socket=quail_sock1;flash_click:socket=quail_sock1")
+    assert result.returncode == 0, f"--boards-for <list>: exit {result.returncode}\n{result.stderr}"
     assert result.stdout.strip() == ""
 
     each_alone = _run("--boards-for", "eth_click:socket=quail_sock1")
     assert each_alone.stdout.strip() == "mikroe_quail/stm32f427xx/rig", (
         "mikroe_quail must be censused and answer for eth_click ALONE, or "
         "the empty list answer above proves nothing about exclusivity\n"
-        f"--- stdout ---\n{each_alone.stdout}")
+        f"--- stdout ---\n{each_alone.stdout}"
+    )
 
 
 def test_boards_for_a_list_target_with_a_duplicate_element_is_refused() -> None:
@@ -344,5 +354,6 @@ def test_west_rigs_with_no_flag_still_lists_every_rig_unchanged() -> None:
     assert result.returncode == 0
     expected = sorted(
         yaml.safe_load(p.read_text())["rig"]["name"]
-        for p in (REPO_ROOT / "boards" / "rigs").rglob("rig.yml"))
+        for p in (REPO_ROOT / "boards" / "rigs").rglob("rig.yml")
+    )
     assert sorted(result.stdout.split()) == expected

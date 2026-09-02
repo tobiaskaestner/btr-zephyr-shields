@@ -5,6 +5,7 @@ text (only the endpoint pair), the trap is proven by using two DIFFERENT
 wires -- one on `rig.wires` only, one on `solved.wires` only -- and
 asserting the emitted signal line names the SOLVED one.
 """
+
 from __future__ import annotations
 
 from rigc.analyzer import Solved
@@ -16,12 +17,18 @@ _SRC = SourceRef("f.yml", 1, "k")
 
 
 def test_wire_signals_come_from_solved_wires_not_rig_wires() -> None:
-    rig_only = Wire(frm=WireEnd(instance_name="a", node="x", src=_SRC),
-                    to=WireEnd(instance_name="b", node="y", src=_SRC),
-                    route="adhoc", src=_SRC)
-    solved_only = Wire(frm=WireEnd(instance_name="c", node="p", src=_SRC),
-                       to=WireEnd(instance_name="d", node="q", src=_SRC),
-                       route="adhoc", src=_SRC)
+    rig_only = Wire(
+        frm=WireEnd(instance_name="a", node="x", src=_SRC),
+        to=WireEnd(instance_name="b", node="y", src=_SRC),
+        route="adhoc",
+        src=_SRC,
+    )
+    solved_only = Wire(
+        frm=WireEnd(instance_name="c", node="p", src=_SRC),
+        to=WireEnd(instance_name="d", node="q", src=_SRC),
+        route="adhoc",
+        src=_SRC,
+    )
 
     rig = Rig(name="r", instances=[], wires=[rig_only])
     s = Solved(wires=[solved_only])
@@ -39,28 +46,46 @@ def test_addr_and_cs_entries_are_sorted_and_carry_the_probe_check() -> None:
     the qualified-bus twin of this same shape."""
     from rigc.model import BoardSocket, BusRef, Device, Instance, Shield
 
-    sensor = Device(name="sensor", label="sensor", compatible=None, bus="i2c",
-                    group=None, reg=None, addr_from=None, cs_position=None)
-    flash = Device(name="flash", label="flash", compatible=None, bus="spi",
-                   group=None, reg=None, addr_from=None, cs_position=None)
-    shield = Shield(name="sh", label="sh", plugs={"plug": "t"},
-                    devices=[sensor, flash])
+    sensor = Device(
+        name="sensor",
+        label="sensor",
+        compatible=None,
+        bus="i2c",
+        group=None,
+        reg=None,
+        addr_from=None,
+        cs_position=None,
+    )
+    flash = Device(
+        name="flash",
+        label="flash",
+        compatible=None,
+        bus="spi",
+        group=None,
+        reg=None,
+        addr_from=None,
+        cs_position=None,
+    )
+    shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[sensor, flash])
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", board="b", instances=[inst])
-    socket = BoardSocket(label="s1", path="/s1", type_name="t", gpio_map={},
-                        buses={"i2c": BusRef("i2c1", "/i2c1"),
-                              "spi": BusRef("spi1", "/spi1")})
+    socket = BoardSocket(
+        label="s1",
+        path="/s1",
+        type_name="t",
+        gpio_map={},
+        buses={"i2c": BusRef("i2c1", "/i2c1"), "spi": BusRef("spi1", "/spi1")},
+    )
     s = Solved(
         sockets={"i1": {"plug": socket}},
         addr={("i1", "sensor"): 0x50},
-        cs={("i1", "flash"): (0, 5)})
+        cs={("i1", "flash"): (0, 5)},
+    )
 
     text = render_expectations(rig, s)
 
-    assert ("instance: i1, device: sensor, bus: i2c1, address: 0x50, "
-           "check: probe") in text
-    assert ("instance: i1, device: flash, bus: spi1, cs-index: 0, "
-           "check: probe") in text
+    assert ("instance: i1, device: sensor, bus: i2c1, address: 0x50, check: probe") in text
+    assert ("instance: i1, device: flash, bus: spi1, cs-index: 0, check: probe") in text
 
 
 def test_cs_entry_resolves_a_named_bus_through_the_backing_device() -> None:
@@ -71,20 +96,31 @@ def test_cs_entry_resolves_a_named_bus_through_the_backing_device() -> None:
     finds one."""
     from rigc.model import BoardSocket, BusRef, Device, Instance, Shield
 
-    dev = Device(name="drv8825", label="drv8825", compatible=None,
-                bus="spi-motors", group=None, reg=None, addr_from=None,
-                cs_position=None)
+    dev = Device(
+        name="drv8825",
+        label="drv8825",
+        compatible=None,
+        bus="spi-motors",
+        group=None,
+        reg=None,
+        addr_from=None,
+        cs_position=None,
+    )
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     rig = Rig(name="r", board="b", instances=[inst])
-    socket = BoardSocket(label="sock", path="/s", type_name="t", gpio_map={},
-                        buses={"spi-motors": BusRef("spi2", "/spi2")})
+    socket = BoardSocket(
+        label="sock",
+        path="/s",
+        type_name="t",
+        gpio_map={},
+        buses={"spi-motors": BusRef("spi2", "/spi2")},
+    )
     s = Solved(sockets={"i1": {"plug": socket}}, cs={("i1", "drv8825"): (0, 11)})
 
     text = render_expectations(rig, s)
 
-    assert ("instance: i1, device: drv8825, bus: spi2, cs-index: 0, "
-           "check: probe") in text
+    assert ("instance: i1, device: drv8825, bus: spi2, cs-index: 0, check: probe") in text
 
 
 def test_banner_and_rig_identity_lines() -> None:

@@ -7,6 +7,7 @@ author reordering `instances:` never changes what gets allocated where
 Instance/Device values already in hand plus the resolved socket the
 caller already has -- no Rig needed, which is what makes it a value
 function on its own."""
+
 from __future__ import annotations
 
 from ..model import BoardSocket, Device, Instance

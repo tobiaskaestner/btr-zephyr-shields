@@ -6,6 +6,7 @@ build_info.yml's cmake.devicetree section), so it is the candidate for
 upstreaming into python-devicetree itself. Its tests mirror upstream
 python-devicetree's test_edtlib.py coverage shape (BSD-3): module-level
 test_* functions, plain asserts, no rigc product imports."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -29,7 +30,8 @@ def test_recipe_from_build_info(tmp_path: Path) -> None:
             bindings-dirs:
               - /a/dts/bindings
               - /b/dts/bindings
-        """))
+        """)
+    )
     recipe = edt_build.recipe_from_build_info(str(build_info))
     assert recipe.include_dirs == ["/a/include", "/b/include"]
     assert recipe.bindings_dirs == ["/a/dts/bindings", "/b/dts/bindings"]
@@ -49,7 +51,8 @@ def test_recipe_from_build_info_appends_board_path(tmp_path: Path) -> None:
             bindings-dirs: [/a/dts/bindings]
           board:
             path: [/boards/ext, /boards/base]
-        """))
+        """)
+    )
     recipe = edt_build.recipe_from_build_info(str(build_info))
     assert recipe.include_dirs == ["/a/include", "/boards/ext", "/boards/base"]
 
@@ -67,7 +70,8 @@ def test_recipe_from_build_info_board_path_may_be_a_bare_string(tmp_path: Path) 
             bindings-dirs: []
           board:
             path: /boards/plain
-        """))
+        """)
+    )
     recipe = edt_build.recipe_from_build_info(str(build_info))
     assert recipe.include_dirs == ["/boards/plain"]
 
@@ -82,6 +86,7 @@ def test_recipe_from_build_info_board_path_absent_is_fine(tmp_path: Path) -> Non
           devicetree:
             include-dirs: [/a/include]
             bindings-dirs: [/a/dts/bindings]
-        """))
+        """)
+    )
     recipe = edt_build.recipe_from_build_info(str(build_info))
     assert recipe.include_dirs == ["/a/include"]

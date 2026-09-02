@@ -10,6 +10,7 @@ accumulator passed down and written into. Every function that opens a
 real file returns the paths it touched as part of its own result;
 callers compose them upward with `union`, the same way diagnostics
 compose upward as list concatenation."""
+
 from __future__ import annotations
 
 import os

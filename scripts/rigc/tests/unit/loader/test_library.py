@@ -26,6 +26,7 @@ content included, deliberately, since discovery never reads it):
 neither axis-less nor revisioned shields are ever eagerly parsed, so
 scanning stays subprocess-free unconditionally.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -49,11 +50,13 @@ _SRC = SourceRef("synthetic", 1, "instance 'x'")
 
 
 def _shield(name: str) -> Shield:
-    return Shield(name=name, label=name, plugs={"plug": "fixture-type"},
-                  src=SourceRef("synthetic", 1))
+    return Shield(
+        name=name, label=name, plugs={"plug": "fixture-type"}, src=SourceRef("synthetic", 1)
+    )
 
 
 # ---------------------------------------------------------------- _pick_shield
+
 
 def test_pick_shield_matches_by_folder_name() -> None:
     parsed = {"other": _shield("other"), "wanted": _shield("wanted")}
@@ -78,15 +81,15 @@ def test_pick_shield_reports_none_when_the_template_defines_nothing() -> None:
     assert "nodes defined here: none" in diags[0].message
 
 
-def test_pick_shield_mismatch_names_shield_yml_as_the_source_when_given_one(
-        ) -> None:
+def test_pick_shield_mismatch_names_shield_yml_as_the_source_when_given_one() -> None:
     """A mismatch on a name that came FROM shield.yml (yml_path given)
     must say so, never claim the folder as the source -- the wording
     the yml-less case above keeps is only true when there is no
     shield.yml to have named it."""
     parsed = {"other_name": _shield("other_name")}
-    shield, diags = _pick_shield(parsed, "declared", "/x/folder/declared.shield",
-                                 yml_path="/x/folder/shield.yml")
+    shield, diags = _pick_shield(
+        parsed, "declared", "/x/folder/declared.shield", yml_path="/x/folder/shield.yml"
+    )
     assert shield is None
     assert "shield.yml itself declares" in diags[0].message
     assert "the folder it lives in" not in diags[0].message
@@ -94,6 +97,7 @@ def test_pick_shield_mismatch_names_shield_yml_as_the_source_when_given_one(
 
 
 # ------------------------------------------------------- _shield_yml_entries
+
 
 def test_shield_yml_entries_absent_file_yields_nothing(tmp_path: Path) -> None:
     yml_path, entries, diags = _shield_yml_entries(str(tmp_path))
@@ -103,42 +107,47 @@ def test_shield_yml_entries_absent_file_yields_nothing(tmp_path: Path) -> None:
 
 
 def test_shield_yml_entries_singular_shield_key(tmp_path: Path) -> None:
-    (tmp_path / "shield.yml").write_text(dedent("""\
+    (tmp_path / "shield.yml").write_text(
+        dedent("""\
         shield:
           name: fx
-        """))
+        """)
+    )
     yml_path, entries, diags = _shield_yml_entries(str(tmp_path))
     assert yml_path == str(tmp_path / "shield.yml")
     assert diags == []
-    assert [(name, promotable) for name, _v, promotable in entries] == \
-        [("fx", False)]
+    assert [(name, promotable) for name, _v, promotable in entries] == [("fx", False)]
 
 
-def test_shield_yml_entries_plural_shields_key_yields_one_per_entry(
-        tmp_path: Path) -> None:
-    (tmp_path / "shield.yml").write_text(dedent("""\
+def test_shield_yml_entries_plural_shields_key_yields_one_per_entry(tmp_path: Path) -> None:
+    (tmp_path / "shield.yml").write_text(
+        dedent("""\
         shields:
           - name: alpha
             template: true
           - name: beta
-        """))
+        """)
+    )
     _yml_path, entries, diags = _shield_yml_entries(str(tmp_path))
     assert diags == []
-    assert [(name, promotable) for name, _v, promotable in entries] == \
-        [("alpha", True), ("beta", False)]
+    assert [(name, promotable) for name, _v, promotable in entries] == [
+        ("alpha", True),
+        ("beta", False),
+    ]
 
 
-def test_shield_yml_entries_a_shields_block_that_is_not_a_list_is_reported(
-        tmp_path: Path) -> None:
+def test_shield_yml_entries_a_shields_block_that_is_not_a_list_is_reported(tmp_path: Path) -> None:
     """The one-dash-short typo. It must not be a SILENT drop: the folder
     loses every name it meant to declare, and nothing downstream can
     attribute that loss to this file (an instance referencing the shield
     would blame itself instead)."""
-    (tmp_path / "shield.yml").write_text(dedent("""\
+    (tmp_path / "shield.yml").write_text(
+        dedent("""\
         shields:
           name: alpha
           template: true
-        """))
+        """)
+    )
     _yml_path, entries, diags = _shield_yml_entries(str(tmp_path))
     assert entries == []
     assert len(diags) == 1
@@ -146,13 +155,14 @@ def test_shield_yml_entries_a_shields_block_that_is_not_a_list_is_reported(
     assert "'shields' must be a list" in diags[0].message
 
 
-def test_shield_yml_entries_a_shields_entry_missing_name_is_dropped(
-        tmp_path: Path) -> None:
-    (tmp_path / "shield.yml").write_text(dedent("""\
+def test_shield_yml_entries_a_shields_entry_missing_name_is_dropped(tmp_path: Path) -> None:
+    (tmp_path / "shield.yml").write_text(
+        dedent("""\
         shields:
           - template: true
           - name: beta
-        """))
+        """)
+    )
     _yml_path, entries, diags = _shield_yml_entries(str(tmp_path))
     assert [name for name, _v, _p in entries] == ["beta"]
     assert len(diags) == 1
@@ -160,17 +170,17 @@ def test_shield_yml_entries_a_shields_entry_missing_name_is_dropped(
     assert "required key 'name' is missing" in diags[0].message
 
 
-def test_shield_yml_entries_a_repeated_name_in_one_list_is_dropped(
-        tmp_path: Path) -> None:
-    (tmp_path / "shield.yml").write_text(dedent("""\
+def test_shield_yml_entries_a_repeated_name_in_one_list_is_dropped(tmp_path: Path) -> None:
+    (tmp_path / "shield.yml").write_text(
+        dedent("""\
         shields:
           - name: alpha
           - name: alpha
             template: true
-        """))
+        """)
+    )
     _yml_path, entries, diags = _shield_yml_entries(str(tmp_path))
-    assert [(name, promotable) for name, _v, promotable in entries] == \
-        [("alpha", False)]
+    assert [(name, promotable) for name, _v, promotable in entries] == [("alpha", False)]
     assert len(diags) == 1
     assert diags[0].code == "lang-schema"
     assert "'alpha' is declared more than once" in diags[0].message
@@ -187,23 +197,24 @@ def test_shield_yml_entries_a_repeated_name_in_one_list_is_dropped(
 # `os.path.basename(shield_dir)` would fail here even though it kept the
 # pre-plurality fixtures (folder name == declared name) green.
 
-def test_entry_revisions_bad_default_is_blamed_on_the_declared_name(
-        tmp_path: Path) -> None:
+
+def test_entry_revisions_bad_default_is_blamed_on_the_declared_name(tmp_path: Path) -> None:
     shield_dir = tmp_path / "folder_name"
     shield_dir.mkdir()
-    (shield_dir / "shield.yml").write_text(dedent("""\
+    (shield_dir / "shield.yml").write_text(
+        dedent("""\
         shield:
           name: declared_name
           template: true
           revisions:
             default: "3"
             list: ["1", "2"]
-        """))
+        """)
+    )
     _yml_path, entries, entry_diags = _shield_yml_entries(str(shield_dir))
     assert entry_diags == []
     [(name, entry_v, _promotable)] = entries
-    decl, diags = parse_legacy_revision_decl(
-        entry_v, "revisions", owner=f"shield '{name}'")
+    decl, diags = parse_legacy_revision_decl(entry_v, "revisions", owner=f"shield '{name}'")
     assert decl is None
     assert len(diags) == 1
     assert diags[0].code == "lang-schema"
@@ -214,7 +225,8 @@ def test_entry_revisions_bad_default_is_blamed_on_the_declared_name(
 def test_entry_revisions_parses_from_a_plural_list_entry(tmp_path: Path) -> None:
     shield_dir = tmp_path / "plural_folder"
     shield_dir.mkdir()
-    (shield_dir / "shield.yml").write_text(dedent("""\
+    (shield_dir / "shield.yml").write_text(
+        dedent("""\
         shields:
           - name: alpha
             template: true
@@ -223,25 +235,28 @@ def test_entry_revisions_parses_from_a_plural_list_entry(tmp_path: Path) -> None
               list: ["1", "2"]
           - name: beta
             template: true
-        """))
+        """)
+    )
     _yml_path, entries, entry_diags = _shield_yml_entries(str(shield_dir))
     assert entry_diags == []
     by_name = {name: entry_v for name, entry_v, _p in entries}
     decl_alpha, diags_alpha = parse_legacy_revision_decl(
-        by_name["alpha"], "revisions", owner="shield 'alpha'")
+        by_name["alpha"], "revisions", owner="shield 'alpha'"
+    )
     assert diags_alpha == []
     assert decl_alpha == AxisDecl(values=["1", "2"], default="1")
     decl_beta, diags_beta = parse_legacy_revision_decl(
-        by_name["beta"], "revisions", owner="shield 'beta'")
+        by_name["beta"], "revisions", owner="shield 'beta'"
+    )
     assert diags_beta == []
     assert decl_beta is None
 
 
 # ------------------------------------------------------- resolve(): failure shapes
 
+
 def test_resolve_unknown_shield_is_lang_instance_shield() -> None:
-    lib = ShieldLibrary(shields={}, axes={}, pending={}, ymls={}, types={},
-                        workdir="/nonexistent")
+    lib = ShieldLibrary(shields={}, axes={}, pending={}, ymls={}, types={}, workdir="/nonexistent")
     shield, diags, deps = lib.resolve("ghost", "instance 'x'", _SRC)
     assert shield is None
     assert len(diags) == 1
@@ -253,8 +268,14 @@ def test_resolve_a_declared_default_axis_shield_returns_the_cached_value() -> No
     """The general (non-@rev, already-cached) path never needs
     `_resolve_revision`/parse_tu at all."""
     sh = _shield("plain")
-    lib = ShieldLibrary(shields={"plain": sh}, axes={"plain": None}, pending={},
-                        ymls={}, types={}, workdir="/nonexistent")
+    lib = ShieldLibrary(
+        shields={"plain": sh},
+        axes={"plain": None},
+        pending={},
+        ymls={},
+        types={},
+        workdir="/nonexistent",
+    )
     shield, diags, deps = lib.resolve("plain", "instance 'x'", _SRC)
     assert shield is sh
     assert diags == []
@@ -265,17 +286,24 @@ def test_resolve_bare_name_with_no_declared_axis_and_a_memoized_failure_returns_
     an earlier reference (recorded in `failed`) resolves quietly on a
     later one -- no re-parse (`pending` is deliberately left EMPTY
     here, so a re-parse attempt would KeyError), no re-echo."""
-    lib = ShieldLibrary(shields={}, axes={"plain": None}, pending={},
-                        ymls={}, types={}, workdir="/nonexistent",
-                        failed={"plain"})
+    lib = ShieldLibrary(
+        shields={},
+        axes={"plain": None},
+        pending={},
+        ymls={},
+        types={},
+        workdir="/nonexistent",
+        failed={"plain"},
+    )
     shield, diags, deps = lib.resolve("plain", "instance 'x'", _SRC)
     assert shield is None
     assert diags == []
 
 
 def test_resolve_at_rev_against_undeclared_axis() -> None:
-    lib = ShieldLibrary(shields={}, axes={"fx": None}, pending={}, ymls={},
-                        types={}, workdir="/nonexistent")
+    lib = ShieldLibrary(
+        shields={}, axes={"fx": None}, pending={}, ymls={}, types={}, workdir="/nonexistent"
+    )
     shield, diags, deps = lib.resolve("fx@1", "instance 'x'", _SRC)
     assert shield is None
     assert diags[0].code == "lang-rev"
@@ -288,15 +316,17 @@ def test_resolve_at_rev_not_a_declared_member() -> None:
     resolve_axis_selection runs no hwmv2 machinery here: '99' is rejected
     outright, never nearest-lower-matched down to '2'."""
     decl = AxisDecl(values=["1", "2"], default="1")
-    lib = ShieldLibrary(shields={}, axes={"fx": decl}, pending={}, ymls={},
-                        types={}, workdir="/nonexistent")
+    lib = ShieldLibrary(
+        shields={}, axes={"fx": decl}, pending={}, ymls={}, types={}, workdir="/nonexistent"
+    )
     shield, diags, deps = lib.resolve("fx@99", "instance 'x'", _SRC)
     assert shield is None
     assert diags[0].code == "lang-rev"
     # Full text, same reasoning as the no-default case below: the owner
     # wording is a parameter this call site passes to the shared decision.
     assert diags[0].message == (
-        "shield 'fx': revision '99' is not declared -- known revisions: 1, 2")
+        "shield 'fx': revision '99' is not declared -- known revisions: 1, 2"
+    )
 
 
 def test_resolve_at_rev_nearest_lower_match_is_owner_agnostic_in_the_shared_function() -> None:
@@ -314,8 +344,14 @@ def test_resolve_at_rev_nearest_lower_match_is_owner_agnostic_in_the_shared_func
     mechanism is ready; it does not claim shields exercise it today."""
     decl = AxisDecl(values=["1", "2"], default="1", format="number")
     cached = _shield("fx")
-    lib = ShieldLibrary(shields={"fx@2": cached}, axes={"fx": decl}, pending={},
-                        ymls={}, types={}, workdir="/nonexistent")
+    lib = ShieldLibrary(
+        shields={"fx@2": cached},
+        axes={"fx": decl},
+        pending={},
+        ymls={},
+        types={},
+        workdir="/nonexistent",
+    )
     shield, diags, deps = lib.resolve("fx@99", "instance 'x'", _SRC)
     assert shield is cached
     assert diags == []
@@ -336,14 +372,16 @@ def test_resolve_bare_name_with_a_declared_axis_but_no_default() -> None:
     too -- so it would pass while this call site emitted a diagnostic
     calling the shield a rig."""
     decl = AxisDecl(values=["1", "2"], default=None)
-    lib = ShieldLibrary(shields={}, axes={"fx": decl}, pending={}, ymls={},
-                        types={}, workdir="/nonexistent")
+    lib = ShieldLibrary(
+        shields={}, axes={"fx": decl}, pending={}, ymls={}, types={}, workdir="/nonexistent"
+    )
     shield, diags, deps = lib.resolve("fx", "instance 'x'", _SRC)
     assert shield is None
     assert diags[0].code == "lang-rev"
     assert diags[0].message == (
         "shield 'fx': no revision selected, and this shield declares no "
-        "default revision -- choose one of: 1, 2")
+        "default revision -- choose one of: 1, 2"
+    )
 
 
 def test_resolve_memoizes_a_cached_revision_without_reparsing() -> None:
@@ -353,8 +391,14 @@ def test_resolve_memoizes_a_cached_revision_without_reparsing() -> None:
     never touches parse_tu/cpp."""
     decl = AxisDecl(values=["1", "2"], default="1")
     cached = _shield("fx")
-    lib = ShieldLibrary(shields={"fx@2": cached}, axes={"fx": decl}, pending={},
-                        ymls={}, types={}, workdir="/nonexistent")
+    lib = ShieldLibrary(
+        shields={"fx@2": cached},
+        axes={"fx": decl},
+        pending={},
+        ymls={},
+        types={},
+        workdir="/nonexistent",
+    )
     shield, diags, deps = lib.resolve("fx@2", "instance 'x'", _SRC)
     assert shield is cached
     assert diags == []
@@ -366,9 +410,14 @@ def test_resolve_records_the_shield_yml_dependency_when_referenced() -> None:
     only once something actually NAMES it -- recorded at resolve() time,
     never at scan time."""
     cached = _shield("fx")
-    lib = ShieldLibrary(shields={"fx": cached}, axes={"fx": None}, pending={},
-                        ymls={"fx": "/some/fx/shield.yml"}, types={},
-                        workdir="/nonexistent")
+    lib = ShieldLibrary(
+        shields={"fx": cached},
+        axes={"fx": None},
+        pending={},
+        ymls={"fx": "/some/fx/shield.yml"},
+        types={},
+        workdir="/nonexistent",
+    )
     shield, diags, deps = lib.resolve("fx", "instance 'x'", _SRC)
     assert shield is cached
     assert deps == frozenset({"/some/fx/shield.yml"})
@@ -376,8 +425,14 @@ def test_resolve_records_the_shield_yml_dependency_when_referenced() -> None:
 
 def test_resolve_no_dependency_when_the_shield_has_no_yml() -> None:
     cached = _shield("fx")
-    lib = ShieldLibrary(shields={"fx": cached}, axes={"fx": None}, pending={},
-                        ymls={}, types={}, workdir="/nonexistent")
+    lib = ShieldLibrary(
+        shields={"fx": cached},
+        axes={"fx": None},
+        pending={},
+        ymls={},
+        types={},
+        workdir="/nonexistent",
+    )
     _, _, deps = lib.resolve("fx", "instance 'x'", _SRC)
     assert deps == frozenset()
 
@@ -390,24 +445,37 @@ def test_resolve_no_dependency_when_the_shield_has_no_yml() -> None:
 # compose around it -- stays verifiable without a subprocess, the same
 # seam-substitution idiom test_board_resolve.py uses for project.load_board.
 
-def _fake_parse_template(shield: Shield | None, diags: list[Diagnostic],
-                         deps: Deps, calls: list[str],
-                         ):
+
+def _fake_parse_template(
+    shield: Shield | None,
+    diags: list[Diagnostic],
+    deps: Deps,
+    calls: list[str],
+):
     """A stand-in for `_parse_shield_template`: records every name it was
     called with (`calls`) and returns a fixed (shield, diags, deps)
     regardless of arguments -- enough to prove resolve() calls it AT MOST
     ONCE per name, never enough to need a real translation unit."""
-    def _fake(name: str, template: str, includes: list[str], dts_name: str,
-             workdir: str, include_dirs: list[str] | None,
-             types: dict[str, ConnectorType], yml_path: str | None,
-             ) -> tuple[Shield | None, list[Diagnostic], Deps]:
+
+    def _fake(
+        name: str,
+        template: str,
+        includes: list[str],
+        dts_name: str,
+        workdir: str,
+        include_dirs: list[str] | None,
+        types: dict[str, ConnectorType],
+        yml_path: str | None,
+    ) -> tuple[Shield | None, list[Diagnostic], Deps]:
         calls.append(name)
         return shield, diags, deps
+
     return _fake
 
 
 def test_axis_less_shield_parses_on_first_reference_and_caches_after(
-        monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The axis-less lazy-parse path, generalised from `_resolve_revision`'s
     own `self.shields[name]` memoization: resolve() must call the shared
     parse helper on the FIRST reference and reuse the cached Shield on a
@@ -418,10 +486,17 @@ def test_axis_less_shield_parses_on_first_reference_and_caches_after(
     parsed = _shield("fx")
     monkeypatch.setattr(
         "rigc.loader.library._parse_shield_template",
-        _fake_parse_template(parsed, [], frozenset({"/some/fx/fx.shield"}), calls))
+        _fake_parse_template(parsed, [], frozenset({"/some/fx/fx.shield"}), calls),
+    )
     pending = _Pending("/some/fx", "/some/fx/fx.shield", None)
-    lib = ShieldLibrary(shields={}, axes={"fx": None}, pending={"fx": pending},
-                        ymls={}, types={}, workdir="/nonexistent")
+    lib = ShieldLibrary(
+        shields={},
+        axes={"fx": None},
+        pending={"fx": pending},
+        ymls={},
+        types={},
+        workdir="/nonexistent",
+    )
 
     shield1, diags1, deps1 = lib.resolve("fx", "instance 'a'", _SRC)
     shield2, diags2, deps2 = lib.resolve("fx", "instance 'b'", _SRC)
@@ -430,11 +505,12 @@ def test_axis_less_shield_parses_on_first_reference_and_caches_after(
     assert diags1 == [] and diags2 == []
     assert calls == ["fx"]
     assert deps1 == frozenset({"/some/fx/fx.shield"})
-    assert deps2 == frozenset()    # cache hit: no parse, no dep recomputed
+    assert deps2 == frozenset()  # cache hit: no parse, no dep recomputed
 
 
 def test_axis_less_shield_base_parse_failure_is_memoized_and_reports_once(
-        monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """Naive laziness would re-run the parse (and
     re-emit the same diagnostic) on every reference to a broken template;
     this memoizes the failure the first time and answers silently after.
@@ -445,10 +521,17 @@ def test_axis_less_shield_base_parse_failure_is_memoized_and_reports_once(
     failure = [error("lang-shield-name", "boom", (SourceRef("/some/fx/fx.shield", 1),))]
     monkeypatch.setattr(
         "rigc.loader.library._parse_shield_template",
-        _fake_parse_template(None, failure, frozenset(), calls))
+        _fake_parse_template(None, failure, frozenset(), calls),
+    )
     pending = _Pending("/some/fx", "/some/fx/fx.shield", None)
-    lib = ShieldLibrary(shields={}, axes={"fx": None}, pending={"fx": pending},
-                        ymls={}, types={}, workdir="/nonexistent")
+    lib = ShieldLibrary(
+        shields={},
+        axes={"fx": None},
+        pending={"fx": pending},
+        ymls={},
+        types={},
+        workdir="/nonexistent",
+    )
 
     shield1, diags1, _ = lib.resolve("fx", "instance 'a'", _SRC)
     shield2, diags2, _ = lib.resolve("fx", "instance 'b'", _SRC)
@@ -461,7 +544,8 @@ def test_axis_less_shield_base_parse_failure_is_memoized_and_reports_once(
 
 
 def test_resolved_axis_less_shield_deps_include_its_own_base_file(
-        monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The base template becomes a dependency once resolve()
     actually parses it -- touched explicitly by resolve(), not left to
     cpp-linemarker recovery (`source_files`) alone, because a template
@@ -471,10 +555,17 @@ def test_resolved_axis_less_shield_deps_include_its_own_base_file(
     own, exactly the shape a node-less template's real parse would too."""
     monkeypatch.setattr(
         "rigc.loader.library._parse_shield_template",
-        _fake_parse_template(_shield("fx"), [], frozenset(), []))
+        _fake_parse_template(_shield("fx"), [], frozenset(), []),
+    )
     pending = _Pending("/some/fx", "/some/fx/fx.shield", None)
-    lib = ShieldLibrary(shields={}, axes={"fx": None}, pending={"fx": pending},
-                        ymls={}, types={}, workdir="/nonexistent")
+    lib = ShieldLibrary(
+        shields={},
+        axes={"fx": None},
+        pending={"fx": pending},
+        ymls={},
+        types={},
+        workdir="/nonexistent",
+    )
     _, _, deps = lib.resolve("fx", "instance 'a'", _SRC)
     assert deps == frozenset({"/some/fx/fx.shield"})
 
@@ -492,8 +583,10 @@ def test_resolved_axis_less_shield_deps_include_its_own_base_file(
 # hwmv2 semantics too, pending only the zephyr-side schema change that
 # would let a real shield.yml reach it.
 
+
 def test_resolve_shield_side_nearest_lower_stem_follows_the_resolved_value(
-        monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """The RESOLVED value (not the requested one) constructs a shield
     revision's own template dts
     name, .shield/.conf lookups and memoization key -- a nearest-lower
@@ -501,21 +594,32 @@ def test_resolve_shield_side_nearest_lower_stem_follows_the_resolved_value(
     requested '1.5' zero-appends to '1.5.0' (major.minor.patch's own
     loose typing) and, undeclared, resolves DOWN to '1.0.0' -- only a
     'fx_1_0_0...'-shaped lookup is ever attempted, never 'fx_1_5...'."""
-    decl = AxisDecl(values=["1.0.0", "2.0.0"], default="1.0.0",
-                    format="major.minor.patch")
+    decl = AxisDecl(values=["1.0.0", "2.0.0"], default="1.0.0", format="major.minor.patch")
     calls: list[str] = []
 
-    def _fake(name: str, template: str, includes: list[str], dts_name: str,
-             workdir: str, include_dirs: list[str] | None,
-             types: dict[str, ConnectorType], yml_path: str | None,
-             ) -> tuple[Shield | None, list[Diagnostic], Deps]:
+    def _fake(
+        name: str,
+        template: str,
+        includes: list[str],
+        dts_name: str,
+        workdir: str,
+        include_dirs: list[str] | None,
+        types: dict[str, ConnectorType],
+        yml_path: str | None,
+    ) -> tuple[Shield | None, list[Diagnostic], Deps]:
         calls.append(dts_name)
         return _shield(name), [], frozenset()
 
     monkeypatch.setattr("rigc.loader.library._parse_shield_template", _fake)
     pending = _Pending("/some/fx", "/some/fx/fx.shield", decl)
-    lib = ShieldLibrary(shields={}, axes={"fx": decl}, pending={"fx": pending},
-                        ymls={}, types={}, workdir="/nonexistent")
+    lib = ShieldLibrary(
+        shields={},
+        axes={"fx": decl},
+        pending={"fx": pending},
+        ymls={},
+        types={},
+        workdir="/nonexistent",
+    )
 
     shield, diags, deps = lib.resolve("fx@1.5", "instance 'x'", _SRC)
 
@@ -529,26 +633,38 @@ def test_resolve_shield_side_nearest_lower_stem_follows_the_resolved_value(
 
 
 def test_resolve_nearest_lower_memoizes_under_the_resolved_key(
-        monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """'@1.5' and '@1' both resolve to the SAME declared revision here
     -- they must parse the template only ONCE, memoized under the
     RESOLVED key, or a naive requested-keyed cache would parse it
     (and re-run cpp) twice."""
-    decl = AxisDecl(values=["1.0.0", "2.0.0"], default="1.0.0",
-                    format="major.minor.patch")
+    decl = AxisDecl(values=["1.0.0", "2.0.0"], default="1.0.0", format="major.minor.patch")
     calls: list[str] = []
 
-    def _fake(name: str, template: str, includes: list[str], dts_name: str,
-             workdir: str, include_dirs: list[str] | None,
-             types: dict[str, ConnectorType], yml_path: str | None,
-             ) -> tuple[Shield | None, list[Diagnostic], Deps]:
+    def _fake(
+        name: str,
+        template: str,
+        includes: list[str],
+        dts_name: str,
+        workdir: str,
+        include_dirs: list[str] | None,
+        types: dict[str, ConnectorType],
+        yml_path: str | None,
+    ) -> tuple[Shield | None, list[Diagnostic], Deps]:
         calls.append(dts_name)
         return _shield(name), [], frozenset()
 
     monkeypatch.setattr("rigc.loader.library._parse_shield_template", _fake)
     pending = _Pending("/some/fx", "/some/fx/fx.shield", decl)
-    lib = ShieldLibrary(shields={}, axes={"fx": decl}, pending={"fx": pending},
-                        ymls={}, types={}, workdir="/nonexistent")
+    lib = ShieldLibrary(
+        shields={},
+        axes={"fx": decl},
+        pending={"fx": pending},
+        ymls={},
+        types={},
+        workdir="/nonexistent",
+    )
 
     shield1, diags1, _ = lib.resolve("fx@1.5", "instance 'a'", _SRC)
     shield2, diags2, _ = lib.resolve("fx@1", "instance 'b'", _SRC)
@@ -559,6 +675,7 @@ def test_resolve_nearest_lower_memoizes_under_the_resolved_key(
 
 
 # ------------------------------------------------------- load_shield_library scan
+
 
 def _declared_shield_folder(root: Path, name: str, revisions: str = "1") -> None:
     """A `template: true` shield folder carrying a shield.yml -- scanned
@@ -575,7 +692,8 @@ def _declared_shield_folder(root: Path, name: str, revisions: str = "1") -> None
     (d / "shield.yml").write_text(
         f"shield:\n  name: {name}\n  template: true\n  revision:\n"
         f"    format: number\n    default: \"{revisions}\"\n"
-        f"    revisions:\n      - name: \"{revisions}\"\n")
+        f"    revisions:\n      - name: \"{revisions}\"\n"
+    )
 
 
 def test_scan_discovers_exactly_basename_dot_shield(tmp_path: Path) -> None:
@@ -584,14 +702,17 @@ def test_scan_discovers_exactly_basename_dot_shield(tmp_path: Path) -> None:
     _declared_shield_folder(root, "fx_b")
     # A legacy Kconfig.shield fragment -- must NOT be mis-globbed as a
     # shield template (it ends in the literal substring ".shield").
-    (root / "fx_a" / "Kconfig.shield").write_text(dedent("""\
+    (root / "fx_a" / "Kconfig.shield").write_text(
+        dedent("""\
         # not a shield template
-        """))
-    lib, diags, deps = load_shield_library(str(tmp_path / "work"),
-                                          shield_dirs=[str(root)], types={})
+        """)
+    )
+    lib, diags, deps = load_shield_library(
+        str(tmp_path / "work"), shield_dirs=[str(root)], types={}
+    )
     assert diags == []
     assert set(lib.pending) == {"fx_a", "fx_b"}
-    assert lib.shields == {}    # both deferred (declared axis), never eager-parsed
+    assert lib.shields == {}  # both deferred (declared axis), never eager-parsed
 
 
 def test_scan_skips_a_folder_with_no_matching_dot_shield_file(tmp_path: Path) -> None:
@@ -599,11 +720,14 @@ def test_scan_skips_a_folder_with_no_matching_dot_shield_file(tmp_path: Path) ->
     root.mkdir()
     stray = root / "not_a_shield"
     stray.mkdir()
-    (stray / "Kconfig.shield").write_text(dedent("""\
+    (stray / "Kconfig.shield").write_text(
+        dedent("""\
         # no not_a_shield.shield beside it
-        """))
-    lib, diags, deps = load_shield_library(str(tmp_path / "work"),
-                                          shield_dirs=[str(root)], types={})
+        """)
+    )
+    lib, diags, deps = load_shield_library(
+        str(tmp_path / "work"), shield_dirs=[str(root)], types={}
+    )
     assert diags == []
     assert lib.pending == {}
     assert lib.shields == {}
@@ -615,7 +739,8 @@ def test_scan_unions_multiple_shield_dirs(tmp_path: Path) -> None:
     _declared_shield_folder(root_a, "from_a")
     _declared_shield_folder(root_b, "from_b")
     lib, diags, deps = load_shield_library(
-        str(tmp_path / "work"), shield_dirs=[str(root_a), str(root_b)], types={})
+        str(tmp_path / "work"), shield_dirs=[str(root_a), str(root_b)], types={}
+    )
     assert set(lib.pending) == {"from_a", "from_b"}
 
 
@@ -641,8 +766,9 @@ def test_scan_is_eager_and_complete_for_axis_less_shields_too(tmp_path: Path) ->
     _axisless_shield_folder(root, "fx_a")
     _axisless_shield_folder(root, "fx_b")
     _declared_shield_folder(root, "fx_c")
-    lib, diags, deps = load_shield_library(str(tmp_path / "work"),
-                                          shield_dirs=[str(root)], types={})
+    lib, diags, deps = load_shield_library(
+        str(tmp_path / "work"), shield_dirs=[str(root)], types={}
+    )
     assert diags == []
     assert set(lib.axes) == {"fx_a", "fx_b", "fx_c"}
     assert lib.axes["fx_a"] is None and lib.axes["fx_b"] is None
@@ -674,8 +800,9 @@ def test_unreferenced_broken_axis_less_template_is_silent(tmp_path: Path) -> Non
     content."""
     root = tmp_path / "shields"
     _axisless_shield_folder(root, "broken")
-    lib, diags, deps = load_shield_library(str(tmp_path / "work"),
-                                          shield_dirs=[str(root)], types={})
+    lib, diags, deps = load_shield_library(
+        str(tmp_path / "work"), shield_dirs=[str(root)], types={}
+    )
     assert diags == []
     assert lib.shields == {}
 
@@ -690,13 +817,11 @@ def test_discovery_deps_exclude_shield_templates(tmp_path: Path) -> None:
     whether anything ever references it."""
     root = tmp_path / "shields"
     _axisless_shield_folder(root, "fx_a")
-    _, _, deps = load_shield_library(str(tmp_path / "work"),
-                                     shield_dirs=[str(root)], types={})
+    _, _, deps = load_shield_library(str(tmp_path / "work"), shield_dirs=[str(root)], types={})
     assert deps == frozenset()
 
 
-def test_unknown_shield_reference_still_lists_every_discovered_shield(
-        tmp_path: Path) -> None:
+def test_unknown_shield_reference_still_lists_every_discovered_shield(tmp_path: Path) -> None:
     """The known-shields census a
     `lang-instance-shield` diagnostic prints must name every DISCOVERED
     shield regardless of whether any of them has been parsed, resolved,
@@ -710,8 +835,7 @@ def test_unknown_shield_reference_still_lists_every_discovered_shield(
     _axisless_shield_folder(root, "fx_a")
     _axisless_shield_folder(root, "fx_b")
     _declared_shield_folder(root, "fx_c")
-    lib, _, _ = load_shield_library(str(tmp_path / "work"),
-                                    shield_dirs=[str(root)], types={})
+    lib, _, _ = load_shield_library(str(tmp_path / "work"), shield_dirs=[str(root)], types={})
     # Seed the three post-discovery states the census must survive, so the
     # claim above is exercised rather than merely asserted: one parsed, one
     # with a memoized parse failure, one still untouched.

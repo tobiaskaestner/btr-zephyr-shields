@@ -11,6 +11,7 @@ Every test here constructs plain CsMember/CsPlacement values directly --
 no Rig, Instance, Shield, Board, or BoardSocket anywhere -- proving the
 contract needs no larger scenario to exercise: a reject here is not a unit
 concern, it is new coverage of a different subject."""
+
 from __future__ import annotations
 
 from rigc.analyzer.cs import CsMember, CsPlacement, allocate_cs_positions, effective_cs_pool
@@ -35,8 +36,7 @@ def test_copper_fixed_member_is_never_reported_exhausted() -> None:
     the LATER net-conflict check's job (analyzer/gpio.py's check_nets),
     never this function's."""
     members = [CsMember(identity="fixed", fixed=(7, "net-7"))]
-    placements, exhausted = allocate_cs_positions(
-        members, occupied=frozenset({"net-7"}))
+    placements, exhausted = allocate_cs_positions(members, occupied=frozenset({"net-7"}))
     assert placements == [CsPlacement("fixed", 7, True)]
     assert exhausted == []
 
@@ -73,8 +73,7 @@ def test_first_free_selection_skips_already_taken_candidates() -> None:
     is not already taken wins -- a taken candidate earlier in the pool is
     skipped, never preferred for being first positionally."""
     members = [CsMember(identity="a", pool=((3, "net-3"), (5, "net-5")))]
-    placements, _exhausted = allocate_cs_positions(
-        members, occupied=frozenset({"net-3"}))
+    placements, _exhausted = allocate_cs_positions(members, occupied=frozenset({"net-3"}))
     assert placements == [CsPlacement("a", 5, False)]
 
 
@@ -103,8 +102,7 @@ def test_pool_exhaustion_is_reported_by_identity() -> None:
     reported exhausted -- it is simply absent from placements, never a
     placement with a bogus position."""
     members = [CsMember(identity="a", pool=((0, "net-0"), (1, "net-1")))]
-    placements, exhausted = allocate_cs_positions(
-        members, occupied=frozenset({"net-0", "net-1"}))
+    placements, exhausted = allocate_cs_positions(members, occupied=frozenset({"net-0", "net-1"}))
     assert placements == []
     assert exhausted == ["a"]
 
@@ -117,8 +115,7 @@ def test_exhaustion_is_per_member_not_all_or_nothing() -> None:
         CsMember(identity="a", pool=((0, "net-0"),)),
         CsMember(identity="b", pool=((9, "net-9"),)),
     ]
-    placements, exhausted = allocate_cs_positions(
-        members, occupied=frozenset({"net-0"}))
+    placements, exhausted = allocate_cs_positions(members, occupied=frozenset({"net-0"}))
     assert placements == [CsPlacement("b", 9, False)]
     assert exhausted == ["a"]
 

@@ -93,6 +93,7 @@ WEST_BUILD` above exists for options -- "west workspace" alone would
 require an ever-growing allowlist of ordinary nouns rather than one of
 real commands.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -194,7 +195,8 @@ def _shared_resolver_args() -> str:
     raise AssertionError(
         f"{LIST_RIGS.name} declares no {LIST_RIGS_SHARED_FUNC}() any more -- "
         "west rigs shares its parser arguments with something else now, and "
-        "this test is scanning nothing")
+        "this test is scanning nothing"
+    )
 
 
 def _documented_options() -> set[str]:
@@ -230,7 +232,8 @@ def test_commands_page_documents_something_at_all() -> None:
     wrong."""
     entries = _documented_entries()
     assert len(entries) >= 10, (
-        f"doc/reference/commands.rst gives an entry to only {sorted(entries)}")
+        f"doc/reference/commands.rst gives an entry to only {sorted(entries)}"
+    )
 
 
 def test_cli_reference_forward_every_option_is_documented() -> None:
@@ -239,19 +242,17 @@ def test_cli_reference_forward_every_option_is_documented() -> None:
     in its prose."""
     missing = sorted(_declared_options() - _documented_entries())
     assert not missing, (
-        "option(s) declared by a real parser and absent from "
-        f"doc/reference/commands.rst: {missing}")
+        f"option(s) declared by a real parser and absent from doc/reference/commands.rst: {missing}"
+    )
 
 
 def test_cli_reference_reverse_every_documented_option_is_real() -> None:
     """Every option the page names is one a real parser declares, or one
     inherited from `west build`. Catches a page that outlived a rename."""
-    invented = sorted(_documented_options()
-                      - _declared_options()
-                      - _INHERITED_FROM_WEST_BUILD)
+    invented = sorted(_documented_options() - _declared_options() - _INHERITED_FROM_WEST_BUILD)
     assert not invented, (
-        "doc/reference/commands.rst names option(s) no parser declares: "
-        f"{invented}")
+        f"doc/reference/commands.rst names option(s) no parser declares: {invented}"
+    )
 
 
 # --------------------------------------------- west SUBCOMMAND vocabulary
@@ -262,8 +263,7 @@ def test_cli_reference_reverse_every_documented_option_is_real() -> None:
 #: A `west <subcommand>` invocation at a shell prompt inside a
 #: `.. code-block:: console` block -- this doc set's own convention for a
 #: runnable example.
-_DOC_WEST_PROMPT_RE = re.compile(r"^\s*\$\s+west\s+([a-z][a-z0-9_-]*)",
-                                 re.MULTILINE)
+_DOC_WEST_PROMPT_RE = re.compile(r"^\s*\$\s+west\s+([a-z][a-z0-9_-]*)", re.MULTILINE)
 
 #: The same, as a double-backtick inline literal -- this doc set's own
 #: convention for naming a command in running prose or a heading
@@ -278,9 +278,7 @@ def _repo_declared_west_commands() -> set[str]:
     hardcoded, so a second command added here is picked up automatically."""
     manifest = REPO_ROOT / "scripts" / "west-commands.yml"
     data = yaml.safe_load(manifest.read_text())
-    return {cmd["name"]
-           for entry in data["west-commands"]
-           for cmd in entry["commands"]}
+    return {cmd["name"] for entry in data["west-commands"] for cmd in entry["commands"]}
 
 
 def _upstream_west_builtin_commands() -> set[str]:
@@ -293,6 +291,7 @@ def _upstream_west_builtin_commands() -> set[str]:
     a Zephyr tree -- unlike importing rigs.py itself (see this module's
     own docstring for why THAT import is avoided)."""
     from west.app.main import BUILTIN_COMMAND_GROUPS
+
     # west ships no stub for this module, and the dict LITERAL's own
     # inferred type collapses its heterogeneous class lists to `object`
     # (not iterable, so far as mypy is concerned) -- cast once, here,
@@ -314,17 +313,17 @@ def _upstream_west_extension_commands() -> set[str]:
     pins."""
     manifest = Path(zephyr_base()) / "scripts" / "west-commands.yml"
     data = yaml.safe_load(manifest.read_text())
-    return {cmd["name"]
-           for entry in data["west-commands"]
-           for cmd in entry["commands"]}
+    return {cmd["name"] for entry in data["west-commands"] for cmd in entry["commands"]}
 
 
 def _known_west_commands() -> set[str]:
     """The union of all three real sources: this repo's own, west's
     builtins, and Zephyr's own extensions. A fresh set the caller owns."""
-    return (_repo_declared_west_commands()
-           | _upstream_west_builtin_commands()
-           | _upstream_west_extension_commands())
+    return (
+        _repo_declared_west_commands()
+        | _upstream_west_builtin_commands()
+        | _upstream_west_extension_commands()
+    )
 
 
 def _doc_west_mentions() -> set[str]:
@@ -354,7 +353,8 @@ def test_doc_mentions_a_west_subcommand_at_all() -> None:
     assert len(mentions) >= 2, (
         f"doc/ mentions only {sorted(mentions)} west subcommand(s) in the "
         "prompt/inline-literal shapes this scan looks for -- the regex is "
-        "very likely finding far fewer mentions than are actually there")
+        "very likely finding far fewer mentions than are actually there"
+    )
 
 
 def test_doc_never_names_a_retired_or_invented_west_subcommand() -> None:
@@ -368,4 +368,5 @@ def test_doc_never_names_a_retired_or_invented_west_subcommand() -> None:
     assert not invented, (
         "doc/ names west subcommand(s) that are neither declared by this "
         "repo's scripts/west-commands.yml nor a real command of upstream "
-        f"west: {invented}")
+        f"west: {invented}"
+    )

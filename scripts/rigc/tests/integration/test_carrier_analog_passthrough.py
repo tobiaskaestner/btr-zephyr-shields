@@ -20,6 +20,7 @@ Two rigs (both driven through the real CLI, `python -m rigc expand`):
     own silent drop, and a carrier's declared #pwm-cells disagreeing
     with the resolved parent's is refused (require-and-check).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -31,20 +32,21 @@ _CONNECTOR_INCLUDE = FIXTURES_DIR / "include"
 _BOARD_DTS = FIXTURES_DIR / "boards" / "mainboards" / "carrier_analog_board.dts"
 _SHIELDS = FIXTURES_DIR / "boards" / "rigs" / "carrier-analog-passthrough" / "shields"
 _ACCEPT_RIG = FIXTURES_DIR / "boards" / "rigs" / "carrier-analog-passthrough" / "rig.yml"
-_REJECT_RIG = (FIXTURES_DIR / "boards" / "rigs" / "carrier-analog-passthrough-reject"
-              / "rig.yml")
+_REJECT_RIG = FIXTURES_DIR / "boards" / "rigs" / "carrier-analog-passthrough-reject" / "rig.yml"
 
 
 def _run(rig_yml: Path, out_dir: Path):
     assert_fixture_local([_BOARD_DTS, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE, _SHIELDS])
     return run_expand(
-        rig_yml, out_dir,
+        rig_yml,
+        out_dir,
         board="carrier_analog_fixture_board",
         shield_dirs=[_SHIELDS],
         board_dts=_BOARD_DTS,
         bindings_dirs=[_CONNECTOR_BINDINGS],
         include_dirs=[_CONNECTOR_INCLUDE],
-        connector_dirs=[_CONNECTOR_BINDINGS])
+        connector_dirs=[_CONNECTOR_BINDINGS],
+    )
 
 
 def test_accept_both_functions_resolve_through_the_carrier(tmp_path: Path) -> None:
@@ -55,16 +57,15 @@ def test_accept_both_functions_resolve_through_the_carrier(tmp_path: Path) -> No
     result = _run(_ACCEPT_RIG, out_dir)
 
     assert result.returncode == 0, (
-        f"carrier_analog_passthrough: expected accept\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"carrier_analog_passthrough: expected accept\n--- stderr ---\n{result.stderr}"
+    )
 
     overlay = (out_dir / "rig-gen.overlay").read_text()
     assert "pwms = <&carrier_ca_out 0 20000000>;" in overlay
     assert "io-channels = <&carrier_ca_out 1>;" in overlay
 
 
-def test_accept_synthesized_nexus_carries_all_three_maps_on_one_node(
-        tmp_path: Path) -> None:
+def test_accept_synthesized_nexus_carries_all_three_maps_on_one_node(tmp_path: Path) -> None:
     """On a mixed socket, ONE synthesized node
     (carrier_ca_out) carries gpio-map AND pwm-map AND io-channel-map --
     never two nodes, never one map silently winning. The nexus's own
@@ -97,8 +98,7 @@ def test_accept_synthesized_nexus_carries_all_three_maps_on_one_node(
     assert "&ca_adc { status = \"okay\"; };" in overlay
 
 
-def test_reject_unrouted_pwm_position_is_a_loud_phys_subset(
-        tmp_path: Path) -> None:
+def test_reject_unrouted_pwm_position_is_a_loud_phys_subset(tmp_path: Path) -> None:
     """A PWM/ADC row whose parent does not
     route it is an ERROR, not a silent drop."""
     out_dir = tmp_path / "out"
@@ -112,8 +112,7 @@ def test_reject_unrouted_pwm_position_is_a_loud_phys_subset(
     assert "99" in result.stderr
 
 
-def test_reject_require_and_check_names_both_counts_and_both_sides(
-        tmp_path: Path) -> None:
+def test_reject_require_and_check_names_both_counts_and_both_sides(tmp_path: Path) -> None:
     """require-and-check: a
     declared count disagreeing with the resolved parent's is refused,
     naming BOTH numbers and both sides -- the carrier's shield/instance

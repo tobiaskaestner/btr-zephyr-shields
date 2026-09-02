@@ -46,8 +46,9 @@ def _add_zephyr_scripts():
                 if str(p) not in sys.path:
                     sys.path.insert(0, str(p))
             return
-    raise ImportError('could not locate zephyr scripts under '
-                      f'{_TOPDIR}/(zephyr-rigs|zephyr)/scripts')
+    raise ImportError(
+        f'could not locate zephyr scripts under {_TOPDIR}/(zephyr-rigs|zephyr)/scripts'
+    )
 
 
 _add_zephyr_scripts()
@@ -57,13 +58,13 @@ from zephyr_ext_common import ZEPHYR_BASE  # noqa: E402
 
 
 class Rigs(WestCommand):
-
     def __init__(self):
         super().__init__(
             'rigs',
             'display list of available rigs',
             description='Display list of available rigs',
-            accepts_unknown_args=False)
+            accepts_unknown_args=False,
+        )
 
     def do_add_parser(self, parser_adder):
         default_fmt = '{name}'
@@ -95,19 +96,28 @@ class Rigs(WestCommand):
             so this listing has nothing of its own to print -- use
             --boards-for to ask which real boards a rig's typed sockets
             are satisfiable on.
-            '''))
+            '''),
+        )
         # The epilog above is user-visible too, and carries its own facts
         # without citing them: rig-variants-revisions.md V1a for the axis
         # columns, board-coordinate-s6-brief.md Sec 8 criterion 6 for the
         # absent board column.
 
         # Remember to update west-commands.yml help if you add or remove flags.
-        parser.add_argument('-f', '--format', default=default_fmt,
-                            help='''Format string to use to list each rig;
-                                    see FORMAT STRINGS below.''')
-        parser.add_argument('-n', '--name', dest='name_re',
-                            help='''a regular expression; only rigs whose names
-                            match NAME_RE will be listed''')
+        parser.add_argument(
+            '-f',
+            '--format',
+            default=default_fmt,
+            help='''Format string to use to list each rig;
+                                    see FORMAT STRINGS below.''',
+        )
+        parser.add_argument(
+            '-n',
+            '--name',
+            dest='name_re',
+            help='''a regular expression; only rigs whose names
+                            match NAME_RE will be listed''',
+        )
         # Every help string in this parser is USER-VISIBLE text, so none of
         # them cites a brief or a ruling (doc/explanation/documentation-
         # guidelines.rst: the design record stays under claude/). The facts
@@ -115,7 +125,9 @@ class Rigs(WestCommand):
         # 9.2/9.3 (both namespaces) and multi-plug-list-brief.md (the
         # `;`-separated list form).
         parser.add_argument(
-            '--boards-for', metavar='TARGET', default=None,
+            '--boards-for',
+            metavar='TARGET',
+            default=None,
             help='''instead of listing rigs, print the boards whose typed
                  sockets satisfy TARGET (name[@rev][/variant][:opts]):
                  mating, bus-subset exposure, alias-aware reference
@@ -137,9 +149,12 @@ class Rigs(WestCommand):
                  position routing, CS-pool allocation, address domains and
                  net analysis need the board's real devicetree, which this
                  census cannot see. Short-circuits the listing: -f/-n do
-                 not apply.''')
+                 not apply.''',
+        )
         parser.add_argument(
-            '--explain', metavar='TARGET', default=None,
+            '--explain',
+            metavar='TARGET',
+            default=None,
             help='''instead of listing rigs, print the rig.yml and content
                  file TARGET (name[@rev][/variant][:opts]) stands for:
                  verbatim from disk for a persisted rig, or the
@@ -155,7 +170,8 @@ class Rigs(WestCommand):
                  socket.<slot>=, config.<label>=, <device>.<prop>=), which
                  apply to a promoted shield only and are refused on a
                  persisted rig. Short-circuits the listing like
-                 --boards-for: -f/-n do not apply.''')
+                 --boards-for: -f/-n do not apply.''',
+        )
         list_rigs.add_args(parser)
 
         return parser
@@ -192,15 +208,18 @@ class Rigs(WestCommand):
             # variants: variant_names extracts the bare NAME out of each
             # list: entry, which may be a {name:} mapping rather than a
             # scalar in that same shape.
-            self.inf(args.format.format(
-                name=rig.name,
-                dir=rig.dir,
-                revisions=', '.join(str(v) for v in rig.revisions['list'])
-                if rig.revisions else '',
-                variants=', '.join(str(v) for v in
-                                   list_rigs.variant_names(rig.variants))
-                if rig.variants else '',
-            ))
+            self.inf(
+                args.format.format(
+                    name=rig.name,
+                    dir=rig.dir,
+                    revisions=', '.join(str(v) for v in rig.revisions['list'])
+                    if rig.revisions
+                    else '',
+                    variants=', '.join(str(v) for v in list_rigs.variant_names(rig.variants))
+                    if rig.variants
+                    else '',
+                )
+            )
 
     def _shield_dirs(self, args):
         """The shield namespace at the SAME breadth as the rig namespace:
@@ -210,8 +229,7 @@ class Rigs(WestCommand):
         --explain and therefore silently uncollidable), so both callers
         below pass this explicitly. A root with no `boards/shields`
         contributes nothing."""
-        return [str(Path(root) / 'boards' / 'shields')
-                for root in args.board_roots]
+        return [str(Path(root) / 'boards' / 'shields') for root in args.board_roots]
 
     def _resolve_both_namespaces(self, args, target):
         """The board-coordinate-s3-brief.md Sec 5 namespace rule, shared
@@ -242,13 +260,11 @@ class Rigs(WestCommand):
         from rigc import promote
 
         name, revision, variant, opt_text = list_rigs.parse_rig_target(target)
-        rig = next((r for r in list_rigs.find_rigs(args) if r.name == name),
-                   None)
+        rig = next((r for r in list_rigs.find_rigs(args) if r.name == name), None)
         shields = promote.discover_shields(self._shield_dirs(args))
 
         if rig is not None and name in shields:
-            sys.exit('ERROR: ' + promote.both_paths_error(
-                name, rig.dir, shields[name].dir))
+            sys.exit('ERROR: ' + promote.both_paths_error(name, rig.dir, shields[name].dir))
 
         if name in shields:
             # Resolved here, ahead of check_promotable (multi-plug-
@@ -260,8 +276,7 @@ class Rigs(WestCommand):
             # --explain, since both go through this one method (the S3a
             # lesson this method was extracted to end: one namespace
             # rule, not two independently-worded ones).
-            resolved = promote.resolve_for_promotion(
-                name, self._shield_dirs(args))
+            resolved = promote.resolve_for_promotion(name, self._shield_dirs(args))
             err = promote.check_promotable(name, shields[name], variant)
             if err is not None:
                 sys.exit(f'ERROR: {err}')
@@ -270,8 +285,7 @@ class Rigs(WestCommand):
                 sys.exit(f'ERROR: {opts}')
             return name, revision, opts, shields[name]
 
-        return name, revision, promote.ParsedPromotionOpts(
-            fixed={}, params={}, sockets={}), None
+        return name, revision, promote.ParsedPromotionOpts(fixed={}, params={}, sockets={}), None
 
     def _resolve_list_target(self, args, target):
         """The list-promotion branch of the Sec 5 namespace rule
@@ -303,16 +317,12 @@ class Rigs(WestCommand):
             name, revision, variant, opt_text = list_rigs.parse_rig_target(element)
             rig = rigs_by_name.get(name)
             if rig is not None and name in shields:
-                sys.exit('ERROR: ' + promote.both_paths_error(
-                    name, rig.dir, shields[name].dir))
+                sys.exit('ERROR: ' + promote.both_paths_error(name, rig.dir, shields[name].dir))
             if rig is not None:
-                sys.exit('ERROR: ' + promote.list_element_is_a_rig_error(
-                    name, target, rig.dir))
+                sys.exit('ERROR: ' + promote.list_element_is_a_rig_error(name, target, rig.dir))
             if name not in shields:
-                sys.exit('ERROR: ' + promote.list_element_not_a_shield_error(
-                    name, target))
-            resolved = promote.resolve_for_promotion(
-                name, self._shield_dirs(args))
+                sys.exit('ERROR: ' + promote.list_element_not_a_shield_error(name, target))
+            resolved = promote.resolve_for_promotion(name, self._shield_dirs(args))
             err = promote.check_promotable(name, shields[name], variant)
             if err is not None:
                 sys.exit(f'ERROR: {err}')
@@ -322,7 +332,8 @@ class Rigs(WestCommand):
             elements.append((name, revision, opts))
 
         dup_err = promote.check_list_no_duplicate_elements(
-            [name for name, _revision, _opts in elements], target)
+            [name for name, _revision, _opts in elements], target
+        )
         if dup_err is not None:
             sys.exit(f'ERROR: {dup_err}')
 
@@ -388,15 +399,17 @@ class Rigs(WestCommand):
             promoted = self._resolve_list_target(args, args.boards_for)
             revision = None
         else:
-            name, revision, opts, shield = self._resolve_both_namespaces(
-                args, args.boards_for)
+            name, revision, opts, shield = self._resolve_both_namespaces(args, args.boards_for)
             promoted = None
             if shield is not None:
                 promoted = promote.promote_shield(
-                    name, revision, socket=opts.fixed.get('socket'),
+                    name,
+                    revision,
+                    socket=opts.fixed.get('socket'),
                     sockets=opts.sockets or None,
                     config=opts.config or None,
-                    params=opts.params or None)
+                    params=opts.params or None,
+                )
                 revision = None
         variant = None
 
@@ -407,8 +420,7 @@ class Rigs(WestCommand):
                 rig_yml = os.path.join(workdir, list_rigs.RIG_YML)
                 with open(rig_yml, 'w') as f:
                     f.write(promoted.rig_yml)
-                with open(os.path.join(workdir, promoted.content_name),
-                          'w') as f:
+                with open(os.path.join(workdir, promoted.content_name), 'w') as f:
                     f.write(promoted.content)
             else:
                 # Not a shield name at all: an ordinary rig target,
@@ -420,9 +432,13 @@ class Rigs(WestCommand):
                 revision, variant = rig_target.revision, rig_target.variant
 
             rig, diags, _rig_deps = loader.load(
-                rig_yml, workdir, types=types,
+                rig_yml,
+                workdir,
+                types=types,
                 shield_dirs=self._shield_dirs(args),
-                revision=revision, variant=variant)
+                revision=revision,
+                variant=variant,
+            )
         finally:
             # D10's rule: this command never leaves a workdir behind,
             # accept or reject alike -- unlike rigc's own CLI, a query has
@@ -433,10 +449,8 @@ class Rigs(WestCommand):
             print(render(diags), file=sys.stderr)
             sys.exit(1)
 
-        boards = board.census_boards(
-            [str(root) for root in args.board_roots])
-        for verdict in sorted(board.boards_for(rig, types, boards),
-                              key=lambda v: v.target):
+        boards = board.census_boards([str(root) for root in args.board_roots])
+        for verdict in sorted(board.boards_for(rig, types, boards), key=lambda v: v.target):
             if verdict.conforms:
                 self.inf(verdict.target)
 
@@ -464,21 +478,25 @@ class Rigs(WestCommand):
 
         if ';' in args.explain:
             promoted = self._resolve_list_target(args, args.explain)
-            self._print_pair(('rig.yml', promoted.rig_yml),
-                             (promoted.content_name, promoted.content))
+            self._print_pair(
+                ('rig.yml', promoted.rig_yml), (promoted.content_name, promoted.content)
+            )
             return
 
-        name, revision, opts, shield = self._resolve_both_namespaces(
-            args, args.explain)
+        name, revision, opts, shield = self._resolve_both_namespaces(args, args.explain)
 
         if shield is not None:
             promoted = promote.promote_shield(
-                name, revision, socket=opts.fixed.get('socket'),
+                name,
+                revision,
+                socket=opts.fixed.get('socket'),
                 sockets=opts.sockets or None,
                 config=opts.config or None,
-                params=opts.params or None)
-            self._print_pair(('rig.yml', promoted.rig_yml),
-                             (promoted.content_name, promoted.content))
+                params=opts.params or None,
+            )
+            self._print_pair(
+                ('rig.yml', promoted.rig_yml), (promoted.content_name, promoted.content)
+            )
             return
 
         # Not a shield name at all: an ordinary rig target, including the
@@ -492,8 +510,9 @@ class Rigs(WestCommand):
         rig_target = list_rigs.resolve_rig_target(args.explain, args)
         rig_yml_path = rig_target.dir / list_rigs.RIG_YML
         content_path = rig_target.dir / content_file_name(rig_target.name)
-        self._print_pair(('rig.yml', rig_yml_path.read_text()),
-                         (content_path.name, content_path.read_text()))
+        self._print_pair(
+            ('rig.yml', rig_yml_path.read_text()), (content_path.name, content_path.read_text())
+        )
 
     def _print_pair(self, first, second):
         """One --explain answer: two (filename, text) pairs, each headed

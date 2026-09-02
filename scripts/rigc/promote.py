@@ -25,6 +25,7 @@ No cmake, no cpp, no board: printing a promoted shield's two documents
 needs none of rigc's heavier machinery -- `promote_shield` never touches
 a filesystem. `rigc.loader.load` is what PROVES the printed text is real
 (the round-trip test); this module never imports it."""
+
 from __future__ import annotations
 
 import os
@@ -58,8 +59,9 @@ class ShieldInfo:
     has_yml: bool
 
 
-def discover_shields(shield_dirs: list[str] | None = None,
-                     ) -> dict[str, ShieldInfo]:
+def discover_shields(
+    shield_dirs: list[str] | None = None,
+) -> dict[str, ShieldInfo]:
     """Every name `loader/library.py`'s own scan discovers, keyed by
     name -- every resolvable rig template (`lib.pending`) UNION every
     name any shield.yml under `shield_dirs` declares (`lib.ymls`), since
@@ -91,16 +93,15 @@ def discover_shields(shield_dirs: list[str] | None = None,
     orthogonal to the promotability question this function answers, and
     a caller that actually loads a rig (never this function alone) is
     what surfaces them. Returns a dict the caller owns."""
-    lib, _diags, _deps = load_shield_library(
-        "<rigc-promote-discovery-unused>", shield_dirs)
+    lib, _diags, _deps = load_shield_library("<rigc-promote-discovery-unused>", shield_dirs)
     out: dict[str, ShieldInfo] = {}
     for name in set(lib.pending) | set(lib.ymls):
         has_yml = name in lib.ymls
-        shield_dir = (lib.pending[name].shield_dir if name in lib.pending
-                     else os.path.dirname(lib.ymls[name]))
+        shield_dir = (
+            lib.pending[name].shield_dir if name in lib.pending else os.path.dirname(lib.ymls[name])
+        )
         template = lib.promotable.get(name, False) if has_yml else False
-        out[name] = ShieldInfo(name=name, dir=shield_dir,
-                               template=template, has_yml=has_yml)
+        out[name] = ShieldInfo(name=name, dir=shield_dir, template=template, has_yml=has_yml)
     return out
 
 
@@ -172,15 +173,18 @@ class ParsedPromotionOpts:
     in its own field.
 
     All four are fresh dicts/mappings the caller owns."""
+
     fixed: dict[str, str]
     params: dict[str, dict[str, str]]
     sockets: dict[str, str] = field(default_factory=dict)
     config: dict[str, str] = field(default_factory=dict)
 
 
-def parse_promotion_opts(opts: str | None, target: str,
-                         shield: Shield | None = None,
-                         ) -> ParsedPromotionOpts | str:
+def parse_promotion_opts(
+    opts: str | None,
+    target: str,
+    shield: Shield | None = None,
+) -> ParsedPromotionOpts | str:
     """Parse the `:`-separated assignment list a promotion target may
     carry -- `<shield>[@rev][:<key>=<value>[:<key>=<value>...]]` -- into
     a `ParsedPromotionOpts` for the ONE desugared instance.
@@ -247,39 +251,49 @@ def parse_promotion_opts(opts: str | None, target: str,
     for assignment in opts.split(":"):
         key, sep, value = assignment.partition("=")
         if not sep:
-            return (f"'{target}': promotion option '{assignment}' is not "
-                    f"'<key>=<value>' -- promotion options are explicit "
-                    f"assignments (known keys: "
-                    f"{', '.join(_PROMOTION_OPTS)})")
+            return (
+                f"'{target}': promotion option '{assignment}' is not "
+                f"'<key>=<value>' -- promotion options are explicit "
+                f"assignments (known keys: "
+                f"{', '.join(_PROMOTION_OPTS)})"
+            )
         if "." in key:
             err = _route_dotted_promotion_assignment(
-                key, value, target, shield, plural, sockets, config, params)
+                key, value, target, shield, plural, sockets, config, params
+            )
             if err is not None:
                 return err
             continue
         if key not in _PROMOTION_OPTS:
-            return (f"'{target}': unknown promotion option '{key}' "
-                    f"(known keys: {', '.join(_PROMOTION_OPTS)})")
+            return (
+                f"'{target}': unknown promotion option '{key}' "
+                f"(known keys: {', '.join(_PROMOTION_OPTS)})"
+            )
         if key == "socket" and plural:
             assert shield is not None  # plural is only True when shield is
-            return (f"'{target}': shield plugs {len(shield.plugs)} "
-                    f"sockets -- use socket.<slot>=<label> (slots: "
-                    f"{', '.join(shield.plugs)}), not bare socket=<label>")
+            return (
+                f"'{target}': shield plugs {len(shield.plugs)} "
+                f"sockets -- use socket.<slot>=<label> (slots: "
+                f"{', '.join(shield.plugs)}), not bare socket=<label>"
+            )
         if key in fixed:
-            return (f"'{target}': promotion option '{key}' given more "
-                    f"than once")
+            return f"'{target}': promotion option '{key}' given more than once"
         if not value:
-            return (f"'{target}': promotion option '{key}=' has an empty "
-                    f"value")
+            return f"'{target}': promotion option '{key}=' has an empty value"
         fixed[key] = value
-    return ParsedPromotionOpts(fixed=fixed, params=params, sockets=sockets,
-                               config=config)
+    return ParsedPromotionOpts(fixed=fixed, params=params, sockets=sockets, config=config)
 
 
 def _route_dotted_promotion_assignment(
-        key: str, value: str, target: str, shield: Shield | None,
-        plural: bool, sockets: dict[str, str], config: dict[str, str],
-        params: dict[str, dict[str, str]]) -> str | None:
+    key: str,
+    value: str,
+    target: str,
+    shield: Shield | None,
+    plural: bool,
+    sockets: dict[str, str],
+    config: dict[str, str],
+    params: dict[str, dict[str, str]],
+) -> str | None:
     """Route one dotted `<label>.<name>=<value>` promotion assignment
     (`key` already confirmed to contain a `.`) to whichever of
     sockets/config/params its label half selects -- `socket` and
@@ -290,47 +304,54 @@ def _route_dotted_promotion_assignment(
     refused, or None once it has been recorded."""
     dev_label, _, prop_name = key.partition(".")
     if not dev_label or not prop_name:
-        return (f"'{target}': promotion parameter '{key}' is not "
-                f"'<device>.<prop>=<value>' -- both the device "
-                f"label and the property name must be non-empty")
+        return (
+            f"'{target}': promotion parameter '{key}' is not "
+            f"'<device>.<prop>=<value>' -- both the device "
+            f"label and the property name must be non-empty"
+        )
     if dev_label == "socket":
-        return _parse_socket_slot_assignment(
-            prop_name, value, target, shield, plural, sockets)
+        return _parse_socket_slot_assignment(prop_name, value, target, shield, plural, sockets)
     if dev_label == "config":
         return _parse_config_label_assignment(prop_name, value, target, config)
-    return _parse_promotion_param_assignment(dev_label, prop_name, value,
-                                             target, params)
+    return _parse_promotion_param_assignment(dev_label, prop_name, value, target, params)
 
 
 def _parse_socket_slot_assignment(
-        slot_name: str, value: str, target: str, shield: Shield | None,
-        plural: bool, sockets: dict[str, str]) -> str | None:
+    slot_name: str,
+    value: str,
+    target: str,
+    shield: Shield | None,
+    plural: bool,
+    sockets: dict[str, str],
+) -> str | None:
     """Route one `socket.<slot>=<value>` assignment against `shield`'s
     real slots -- reserved unconditionally, never checked against a
     shield's real device labels. Mutates sockets in place; shield is
     read-only. Returns an error message on a malformed, unknown-slot,
     or duplicate assignment, None once recorded."""
     if shield is not None and not plural:
-        return (f"'{target}': shield has a single plug -- use "
-                f"socket=<label>, not socket.{slot_name}="
-                f"<label>")
+        return (
+            f"'{target}': shield has a single plug -- use "
+            f"socket=<label>, not socket.{slot_name}="
+            f"<label>"
+        )
     if shield is not None and slot_name not in shield.plugs:
-        return (f"'{target}': socket.{slot_name} names unknown "
-                f"slot '{slot_name}' -- known slots: "
-                f"{', '.join(shield.plugs)}")
+        return (
+            f"'{target}': socket.{slot_name} names unknown "
+            f"slot '{slot_name}' -- known slots: "
+            f"{', '.join(shield.plugs)}"
+        )
     if slot_name in sockets:
-        return (f"'{target}': slot 'socket.{slot_name}' given "
-                f"more than once")
+        return f"'{target}': slot 'socket.{slot_name}' given more than once"
     if not value:
-        return (f"'{target}': promotion slot option "
-                f"'socket.{slot_name}=' has an empty value")
+        return f"'{target}': promotion slot option 'socket.{slot_name}=' has an empty value"
     sockets[slot_name] = value
     return None
 
 
 def _parse_config_label_assignment(
-        label_name: str, value: str, target: str,
-        config: dict[str, str]) -> str | None:
+    label_name: str, value: str, target: str, config: dict[str, str]
+) -> str | None:
     """Route one `config.<label>=<value>` assignment -- `socket`'s exact
     analogue, reserved unconditionally and never validated against the
     shield's real config elements here (`rigc.loader.params.
@@ -338,38 +359,36 @@ def _parse_config_label_assignment(
     valid labels). Mutates config in place. Returns an error message on
     a duplicate or empty-value assignment, None once recorded."""
     if label_name in config:
-        return (f"'{target}': config label 'config.{label_name}' "
-                f"given more than once")
+        return f"'{target}': config label 'config.{label_name}' given more than once"
     if not value:
-        return (f"'{target}': promotion config option "
-                f"'config.{label_name}=' has an empty value")
+        return f"'{target}': promotion config option 'config.{label_name}=' has an empty value"
     config[label_name] = value
     return None
 
 
 def _parse_promotion_param_assignment(
-        dev_label: str, prop_name: str, value: str, target: str,
-        params: dict[str, dict[str, str]]) -> str | None:
+    dev_label: str, prop_name: str, value: str, target: str, params: dict[str, dict[str, str]]
+) -> str | None:
     """Route one `<device>.<prop>=<value>` parameter assignment -- the
     residual dotted-key case once `socket`/`config` are ruled out.
     Mutates params in place. Returns an error message on a duplicate or
     empty-value assignment, None once recorded."""
     if prop_name in params.get(dev_label, {}):
-        return (f"'{target}': parameter '{dev_label}.{prop_name}' "
-                f"given more than once")
+        return f"'{target}': parameter '{dev_label}.{prop_name}' given more than once"
     if not value:
-        return (f"'{target}': promotion parameter '{dev_label}.{prop_name}="
-                f"' has an empty value")
+        return f"'{target}': promotion parameter '{dev_label}.{prop_name}=' has an empty value"
     params.setdefault(dev_label, {})[prop_name] = value
     return None
 
 
-def _render_instance(name: str, revision: str | None = None,
-                     socket: str | None = None,
-                     sockets: dict[str, str] | None = None,
-                     config: dict[str, str] | None = None,
-                     params: dict[str, dict[str, str]] | None = None,
-                     ) -> str:
+def _render_instance(
+    name: str,
+    revision: str | None = None,
+    socket: str | None = None,
+    sockets: dict[str, str] | None = None,
+    config: dict[str, str] | None = None,
+    params: dict[str, dict[str, str]] | None = None,
+) -> str:
     """One `instances:` list entry, exactly the text `promote_shield`
     prints for its single instance -- factored out so `promote_shield`
     (unchanged behavior) and `promote_shield_list` render every instance
@@ -410,12 +429,14 @@ def _render_instance(name: str, revision: str | None = None,
     return block
 
 
-def promote_shield(name: str, revision: str | None = None,
-                   socket: str | None = None,
-                   sockets: dict[str, str] | None = None,
-                   config: dict[str, str] | None = None,
-                   params: dict[str, dict[str, str]] | None = None,
-                   ) -> PromotedRig:
+def promote_shield(
+    name: str,
+    revision: str | None = None,
+    socket: str | None = None,
+    sockets: dict[str, str] | None = None,
+    config: dict[str, str] | None = None,
+    params: dict[str, dict[str, str]] | None = None,
+) -> PromotedRig:
     """The natural mapping `a -> [a]`, written out: a rig.yml with NO
     `board:` (a promoted rig's board reaches it only by INJECTION;
     rig.yml has no `board:` key at all any more, promoted or persisted)
@@ -504,14 +525,14 @@ def promote_shield(name: str, revision: str | None = None,
     before this ever runs). Returns a PromotedRig the caller owns."""
     rig_yml = f"rig:\n  name: {name}\n"
     content = "instances:\n" + _render_instance(
-        name, revision, socket=socket, sockets=sockets, config=config,
-        params=params)
+        name, revision, socket=socket, sockets=sockets, config=config, params=params
+    )
     return PromotedRig(rig_yml=rig_yml, content_name=f"{name}.yml", content=content)
 
 
 def promote_shield_list(
-        elements: list[tuple[str, str | None, ParsedPromotionOpts]],
-        ) -> PromotedRig:
+    elements: list[tuple[str, str | None, ParsedPromotionOpts]],
+) -> PromotedRig:
     """The list generalization of `promote_shield`'s `a -> [a]` mapping:
     N `(name, revision, parsed opts)` triples -- one per `;`-separated
     target element, already resolved and validated by the caller (every
@@ -538,13 +559,19 @@ def promote_shield_list(
     Returns a PromotedRig the caller owns."""
     rig_name = "+".join(name for name, _revision, _opts in elements)
     content = "instances:\n" + "".join(
-        _render_instance(name, revision, socket=opts.fixed.get("socket"),
-                         sockets=opts.sockets or None,
-                         config=opts.config or None,
-                         params=opts.params or None)
-        for name, revision, opts in elements)
-    return PromotedRig(rig_yml=f"rig:\n  name: {rig_name}\n",
-                       content_name=f"{rig_name}.yml", content=content)
+        _render_instance(
+            name,
+            revision,
+            socket=opts.fixed.get("socket"),
+            sockets=opts.sockets or None,
+            config=opts.config or None,
+            params=opts.params or None,
+        )
+        for name, revision, opts in elements
+    )
+    return PromotedRig(
+        rig_yml=f"rig:\n  name: {rig_name}\n", content_name=f"{rig_name}.yml", content=content
+    )
 
 
 def shield_is_multiplug(shield: Shield) -> bool:
@@ -556,8 +583,10 @@ def shield_is_multiplug(shield: Shield) -> bool:
     return len(shield.plugs) > 1
 
 
-def resolve_for_promotion(name: str, shield_dirs: list[str] | None = None,
-                          ) -> Shield | None:
+def resolve_for_promotion(
+    name: str,
+    shield_dirs: list[str] | None = None,
+) -> Shield | None:
     """Resolve `name`'s own template -- the IO edge a promotion caller
     reaches for when it needs a fact `discover_shields`'s cheap scan does
     not carry (its real slot names, for `parse_promotion_opts`'s
@@ -581,12 +610,12 @@ def resolve_for_promotion(name: str, shield_dirs: list[str] | None = None,
     with tempfile.TemporaryDirectory(prefix="rigc-promote-plug-count-") as workdir:
         lib, _diags, _deps = load_shield_library(workdir, shield_dirs)
         shield, _diags2, _deps2 = lib.resolve(
-            name, "promotion slot probe", SourceRef("<promote>", 0))
+            name, "promotion slot probe", SourceRef("<promote>", 0)
+        )
         return shield
 
 
-def check_promotable(name: str, info: ShieldInfo,
-                     variant: str | None) -> str | None:
+def check_promotable(name: str, info: ShieldInfo, variant: str | None) -> str | None:
     """Whether `name` -- already known to `discover_shields` (`info` is
     its own entry, read-only to this call) -- may be promoted at all, in
     the order a user's own target string is checked: a `/variant` names
@@ -604,15 +633,17 @@ def check_promotable(name: str, info: ShieldInfo,
     when `promote_shield` may run. Pure: makes no filesystem call of its
     own."""
     if variant is not None:
-        return (f"'{name}/{variant}': a promoted shield has no variant "
-                "axis to select from -- '@rev' is the only axis it "
-                "promotes with, and it selects the SHIELD's own "
-                "revision, never a rig variant")
+        return (
+            f"'{name}/{variant}': a promoted shield has no variant "
+            "axis to select from -- '@rev' is the only axis it "
+            "promotes with, and it selects the SHIELD's own "
+            "revision, never a rig variant"
+        )
     if not info.template:
-        missing = ("no shield.yml" if not info.has_yml else
-                   "shield.yml does not declare 'template: true'")
-        return (f"shield '{name}' is discoverable but not promotable to "
-                f"a rig -- {missing}")
+        missing = (
+            "no shield.yml" if not info.has_yml else "shield.yml does not declare 'template: true'"
+        )
+        return f"shield '{name}' is discoverable but not promotable to a rig -- {missing}"
     return None
 
 
@@ -651,13 +682,14 @@ def both_paths_error(name: str, rig_dir: Path, shield_dir: str) -> str:
     cross-module case that makes a name collide in the first place.
 
     Pure: builds a message from its three arguments alone."""
-    return (f"'{name}' names both a rig ({rig_dir}) and a shield "
-            f"({shield_dir}) -- rename one; a name that is both "
-            "is ambiguous by construction, never guessed between")
+    return (
+        f"'{name}' names both a rig ({rig_dir}) and a shield "
+        f"({shield_dir}) -- rename one; a name that is both "
+        "is ambiguous by construction, never guessed between"
+    )
 
 
-def list_element_is_a_rig_error(name: str, target: str,
-                                rig_dir: str | Path) -> str:
+def list_element_is_a_rig_error(name: str, target: str, rig_dir: str | Path) -> str:
     """The list-promotion grammar's own "every element must be a SHIELD"
     ruling, spelled out for the specific element `name` of the
     `;`-separated `target` that names a persisted
@@ -672,11 +704,13 @@ def list_element_is_a_rig_error(name: str, target: str,
     error`'s own discipline of naming only paths a caller actually found.
 
     Pure: builds a message from its three arguments alone."""
-    return (f"'{target}': list element '{name}' names a persisted rig "
-            f"({rig_dir}), not a shield -- every element of a list "
-            f"promotion target must be a shield; a rig is already a "
-            f"container, and a list mixing containers with elements has "
-            f"no coherent desugaring")
+    return (
+        f"'{target}': list element '{name}' names a persisted rig "
+        f"({rig_dir}), not a shield -- every element of a list "
+        f"promotion target must be a shield; a rig is already a "
+        f"container, and a list mixing containers with elements has "
+        f"no coherent desugaring"
+    )
 
 
 def list_element_not_a_shield_error(name: str, target: str) -> str:
@@ -689,12 +723,10 @@ def list_element_not_a_shield_error(name: str, target: str) -> str:
     message that never mentions WHICH element was the problem.
 
     Pure: builds a message from its two arguments alone."""
-    return (f"'{target}': list element '{name}' does not name a "
-            f"discoverable shield")
+    return f"'{target}': list element '{name}' does not name a discoverable shield"
 
 
-def check_list_no_duplicate_elements(names: list[str],
-                                     target: str) -> str | None:
+def check_list_no_duplicate_elements(names: list[str], target: str) -> str | None:
     """`[a, a]` is REFUSED, not desugared -- a repeated shield name has no
     instance-naming rule yet (instance name = shield name is the
     singleton desugaring's own fixed convention, and two instances
@@ -714,10 +746,12 @@ def check_list_no_duplicate_elements(names: list[str],
     seen = set()
     for name in names:
         if name in seen:
-            return (f"'{target}': shield '{name}' is named more than "
-                    f"once in this list -- list promotion needs one "
-                    f"instance per element (indexed naming for a "
-                    f"repeated shield is future work)")
+            return (
+                f"'{target}': shield '{name}' is named more than "
+                f"once in this list -- list promotion needs one "
+                f"instance per element (indexed naming for a "
+                f"repeated shield is future work)"
+            )
         seen.add(name)
     return None
 
@@ -754,8 +788,9 @@ def _split_list_element(element: str) -> tuple[str, str | None, str | None]:
 
 
 def parse_promotion_list(
-        target: str, shield_dirs: list[str] | None = None,
-        ) -> list[tuple[str, str | None, ParsedPromotionOpts]] | str:
+    target: str,
+    shield_dirs: list[str] | None = None,
+) -> list[tuple[str, str | None, ParsedPromotionOpts]] | str:
     """Parse a `;`-separated `--promote` LIST target into one (name,
     revision, parsed opts) triple per element, in the given order.
 
@@ -783,8 +818,7 @@ def parse_promotion_list(
         if isinstance(opts, str):
             return opts
         elements.append((shield_name, elem_revision, opts))
-    dup_err = check_list_no_duplicate_elements(
-        [name for name, _rev, _opts in elements], target)
+    dup_err = check_list_no_duplicate_elements([name for name, _rev, _opts in elements], target)
     if dup_err is not None:
         return dup_err
     return elements

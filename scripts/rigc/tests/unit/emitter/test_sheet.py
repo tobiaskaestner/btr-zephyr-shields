@@ -6,6 +6,7 @@ index), and reading the wrong one is a silent wrong-overlay-class bug no
 frozen golden would catch on its own if the two ever diverged in a
 fixture the corpus doesn't happen to exercise.
 """
+
 from __future__ import annotations
 
 from rigc.analyzer import Solved
@@ -73,8 +74,12 @@ def test_params_table_shows_an_int_literal_value_with_no_resolution_attempt() ->
     would need a real cpp/dtlib TU) -- keeps this test hermetic and
     subprocess-free while still exercising the table's own row shape."""
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"})
-    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"},
-                   params={"dev": {"debounce-interval-ms": "30"}})
+    inst = Instance(
+        name="i1",
+        shield=shield,
+        sockets={"plug": "sock"},
+        params={"dev": {"debounce-interval-ms": "30"}},
+    )
     rig = Rig(name="r", instances=[inst])
     s = Solved()
 
@@ -91,8 +96,7 @@ def test_socket_assignment_row_shows_the_resolved_label_when_none_was_declared()
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"})
     inst = Instance(name="i1", shield=shield, sockets={"plug": None})
     rig = Rig(name="r", instances=[inst])
-    socket = BoardSocket(label="ard", path="/ard", type_name="t",
-                        gpio_map={}, buses={})
+    socket = BoardSocket(label="ard", path="/ard", type_name="t", gpio_map={}, buses={})
     s = Solved(sockets={"i1": {"plug": socket}})
 
     text = render_sheet(rig, s, {}, workdir="/does-not-matter")
@@ -108,8 +112,7 @@ def test_socket_assignment_row_shows_the_declared_string_when_one_was_given() ->
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"})
     inst = Instance(name="i1", shield=shield, sockets={"plug": "arduino_r3"})
     rig = Rig(name="r", instances=[inst])
-    socket = BoardSocket(label="nucleo_ard", path="/ard", type_name="t",
-                        gpio_map={}, buses={})
+    socket = BoardSocket(label="nucleo_ard", path="/ard", type_name="t", gpio_map={}, buses={})
     s = Solved(sockets={"i1": {"plug": socket}})
 
     text = render_sheet(rig, s, {}, workdir="/does-not-matter")
@@ -125,14 +128,21 @@ def test_strap_line_shows_the_owning_devices_own_slot_on_a_plural_shield() -> No
     device sits on the NON-default 'right' slot, so the straps line must
     show the 'right' socket, not 'left'."""
     shield = Shield(name="sh", label="sh", plugs={"left": "t", "right": "t"})
-    strap = Strap(name="addr0", label="addr0", domain=[(0x10, 0), (0x11, 1)],
-                 sheet_label="ADDR0")
+    strap = Strap(name="addr0", label="addr0", domain=[(0x10, 0), (0x11, 1)], sheet_label="ADDR0")
     shield.straps[strap.name] = strap
-    dev = Device(name="d", label="dl", compatible=None, bus="i2c", group=None,
-                reg=None, addr_from="addr0", cs_position=None, plug="right")
+    dev = Device(
+        name="d",
+        label="dl",
+        compatible=None,
+        bus="i2c",
+        group=None,
+        reg=None,
+        addr_from="addr0",
+        cs_position=None,
+        plug="right",
+    )
     shield.devices.append(dev)
-    inst = Instance(name="i1", shield=shield,
-                    sockets={"left": "sockL", "right": "sockR"})
+    inst = Instance(name="i1", shield=shield, sockets={"left": "sockL", "right": "sockR"})
     rig = Rig(name="r", instances=[inst])
     s = Solved(straps=[(inst, strap, 1, 0x11)])
 
@@ -152,10 +162,10 @@ def test_jumper_line_renders_on_a_shield_whose_plug_node_is_not_named_plug() -> 
     shield.jumpers[jmp.name] = jmp
     inst = Instance(name="i1", shield=shield, sockets={"north": "sockN"})
     rig = Rig(name="r", instances=[inst])
-    socket = BoardSocket(label="sockN", path="/n", type_name="t",
-                        gpio_map={}, buses={})
-    ctype = ConnectorType(name="t", positions={}, index2name={7: "D7"},
-                         bus_proxies=[], stackable=False, cs_pool={})
+    socket = BoardSocket(label="sockN", path="/n", type_name="t", gpio_map={}, buses={})
+    ctype = ConnectorType(
+        name="t", positions={}, index2name={7: "D7"}, bus_proxies=[], stackable=False, cs_pool={}
+    )
     s = Solved(sockets={"i1": {"north": socket}}, jumpers_set=[(inst, jmp, 0, 7)])
 
     text = render_sheet(rig, s, {"t": ctype}, workdir="/does-not-matter")

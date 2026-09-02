@@ -53,6 +53,7 @@ that as any other Zephyr build.
 All run a real CMake configure -- marked @pytest.mark.build;
 CHECK_FAST=1 (scripts/check.sh) deselects them via pytest -m "not build".
 """
+
 from __future__ import annotations
 
 import os
@@ -103,18 +104,22 @@ def _cmake_alone_env() -> dict[str, str]:
     """
     west_path = shutil.which("west")
     assert west_path is not None, (
-        "west not found on PATH to begin with -- can't prove its absence "
-        "means anything")
+        "west not found on PATH to begin with -- can't prove its absence means anything"
+    )
     west_dir = os.path.dirname(west_path)
 
     env = dict(os.environ)
-    kept = [p for p in env.get("PATH", "").split(os.pathsep)
-            if p and os.path.abspath(p) != os.path.abspath(west_dir)]
+    kept = [
+        p
+        for p in env.get("PATH", "").split(os.pathsep)
+        if p and os.path.abspath(p) != os.path.abspath(west_dir)
+    ]
     env["PATH"] = os.pathsep.join(kept)
     assert shutil.which("west", path=env["PATH"]) is None, (
         "west is still resolvable after stripping its directory from PATH "
         "-- this venv's layout differs from what this test assumes "
-        "(west + python3 living in the same bin/ dir)")
+        "(west + python3 living in the same bin/ dir)"
+    )
     env["ZEPHYR_BASE"] = zephyr_base()
     return env
 
@@ -130,7 +135,11 @@ def _cmake_alone_argv(build_dir: Path, extra_defines: list) -> list:
     venv_python = WEST_TOPDIR / ".venv" / "bin" / "python3"
     app = str(WEST_TOPDIR / _APP)
     return [
-        "cmake", "-S", app, "-B", str(build_dir),
+        "cmake",
+        "-S",
+        app,
+        "-B",
+        str(build_dir),
         f"-DPython3_EXECUTABLE={venv_python}",
         *extra_defines,
         "-GNinja",
@@ -140,8 +149,14 @@ def _cmake_alone_argv(build_dir: Path, extra_defines: list) -> list:
 def _run_cmake_alone(build_dir: Path, extra_defines: list) -> subprocess.CompletedProcess[str]:
     env = _cmake_alone_env()
     cmd = _cmake_alone_argv(build_dir, extra_defines)
-    return subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=env,
-                           capture_output=True, text=True, timeout=subprocess_timeout(300))
+    return subprocess.run(
+        cmd,
+        cwd=str(WEST_TOPDIR),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=subprocess_timeout(300),
+    )
 
 
 _EXTRA_DTS_ROOT = str(FIXTURES_DIR / "extra_dts_root")
@@ -171,14 +186,19 @@ def test_cmake_alone_threads_connector_dir_per_dts_root(tmp_path: Path) -> None:
     per-DTS_ROOT loop, not a single hardcoded path that happens to work
     once."""
     build_dir = tmp_path / "connector-dir-recipe"
-    result = _run_cmake_alone(build_dir, [
-        f"-DRIG={_RIG}", f"-DBOARD={RIG_BOARD[_RIG]}",
-        f"-DDTS_ROOT={_EXTRA_DTS_ROOT}",
-    ])
+    result = _run_cmake_alone(
+        build_dir,
+        [
+            f"-DRIG={_RIG}",
+            f"-DBOARD={RIG_BOARD[_RIG]}",
+            f"-DDTS_ROOT={_EXTRA_DTS_ROOT}",
+        ],
+    )
     assert result.returncode == 0, (
         f"cmake -DRIG={_RIG} -DDTS_ROOT={_EXTRA_DTS_ROOT} failed to configure\n"
         f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"--- stderr ---\n{result.stderr}"
+    )
 
     rerun_script = build_dir / "rig" / "rerun-expand.sh"
     assert rerun_script.is_file(), f"rerun-expand.sh was not written to {rerun_script}"
@@ -187,36 +207,40 @@ def test_cmake_alone_threads_connector_dir_per_dts_root(tmp_path: Path) -> None:
     fixture_connectors = f"{_EXTRA_DTS_ROOT}/dts/bindings/connectors"
     module_connectors = f"{REPO_ROOT}/dts/bindings/connectors"
     assert f"--connector-dir {fixture_connectors}" in content, (
-        f"the injected DTS_ROOT's own connectors dir is missing from "
-        f"rerun-expand.sh:\n{content}")
+        f"the injected DTS_ROOT's own connectors dir is missing from rerun-expand.sh:\n{content}"
+    )
     assert f"--connector-dir {module_connectors}" in content, (
         f"btr-shields' OWN connectors dir (this module's dts_root: . "
         f"declaration) is missing from rerun-expand.sh -- --connector-dir "
         f"must be threaded PER DTS_ROOT, not only for an injected extra "
-        f"one:\n{content}")
+        f"one:\n{content}"
+    )
 
 
-def test_cmake_alone_board_rig_both_given_configures_with_given_board(
-        tmp_path: Path) -> None:
+def test_cmake_alone_board_rig_both_given_configures_with_given_board(tmp_path: Path) -> None:
     """BOARD is an independent coordinate: -DBOARD + -DRIG on a fresh
     configure CONFIGURES, and the GIVEN board is the one built. The
     value here MATCHES nucleo_datalogger's own board
     (nucleo_f401re/stm32f401xe/rig, passed back verbatim), so this must
     be indistinguishable from a bare -DRIG configure."""
     build_dir = tmp_path / "both-given"
-    result = _run_cmake_alone(build_dir, [
-        f"-DRIG={_RIG}", "-DBOARD=nucleo_f401re/stm32f401xe/rig",
-    ])
+    result = _run_cmake_alone(
+        build_dir,
+        [
+            f"-DRIG={_RIG}",
+            "-DBOARD=nucleo_f401re/stm32f401xe/rig",
+        ],
+    )
     assert result.returncode == 0, (
         f"expected -DBOARD + -DRIG on a fresh configure to succeed\n"
         f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"--- stderr ---\n{result.stderr}"
+    )
     with open(build_dir / "build_info.yml") as f:
         info = yaml.safe_load(f)
     assert info["cmake"]["board"]["name"] == "nucleo_f401re"
     assert info["cmake"]["board"]["qualifiers"] == "stm32f401xe/rig"
-    assert (info["cmake"]["vendor-specific"]["rig"]["board"]
-            == "nucleo_f401re/stm32f401xe/rig")
+    assert info["cmake"]["vendor-specific"]["rig"]["board"] == "nucleo_f401re/stm32f401xe/rig"
 
 
 # no_board_datalogger declares NO board: at all -- the same shape every
@@ -247,19 +271,23 @@ _EXTRA_BOARD_ROOT = str(FIXTURES_DIR / "extra_board_root")
 _NO_BOARD_RIG = "no_board_datalogger"
 
 
-def test_cmake_alone_no_board_declared_without_injection_is_fatal(
-        tmp_path: Path) -> None:
+def test_cmake_alone_no_board_declared_without_injection_is_fatal(tmp_path: Path) -> None:
     """The "never neither unless injected" rule's negative half: with no
     -DBOARD given and no board declared, there is nothing to fall back
     to, so this is a configure-time FATAL_ERROR naming both the rig and
     the missing flag."""
     build_dir = tmp_path / "no-board-no-injection"
-    result = _run_cmake_alone(build_dir, [
-        f"-DRIG={_NO_BOARD_RIG}", f"-DBOARD_ROOT={_EXTRA_BOARD_ROOT}",
-    ])
+    result = _run_cmake_alone(
+        build_dir,
+        [
+            f"-DRIG={_NO_BOARD_RIG}",
+            f"-DBOARD_ROOT={_EXTRA_BOARD_ROOT}",
+        ],
+    )
     assert result.returncode != 0, (
         f"expected -DRIG={_NO_BOARD_RIG} with no -DBOARD to FATAL, but "
-        f"configure succeeded\n--- argv ---\n{render_argv(result)}")
+        f"configure succeeded\n--- argv ---\n{render_argv(result)}"
+    )
     # Asserted against cmake's own OUTPUT only, never the argv: the argv
     # already contains -DRIG=no_board_datalogger and -DBOARD_ROOT=... (which
     # itself lowercases to a string containing "-dboard"), so a check
@@ -292,39 +320,48 @@ def test_cmake_alone_board_injection_is_read_not_ignored(tmp_path: Path) -> None
     SAME board regardless of which value was given; neither is
     consistent with what is asserted below."""
     nucleo_dir = tmp_path / "nucleo"
-    nucleo = _run_cmake_alone(nucleo_dir, [
-        f"-DRIG={_NO_BOARD_RIG}", f"-DBOARD_ROOT={_EXTRA_BOARD_ROOT}",
-        "-DBOARD=nucleo_f401re/stm32f401xe/rig",
-    ])
+    nucleo = _run_cmake_alone(
+        nucleo_dir,
+        [
+            f"-DRIG={_NO_BOARD_RIG}",
+            f"-DBOARD_ROOT={_EXTRA_BOARD_ROOT}",
+            "-DBOARD=nucleo_f401re/stm32f401xe/rig",
+        ],
+    )
     assert nucleo.returncode == 0, (
         f"-DBOARD=nucleo_f401re/stm32f401xe/rig must configure\n"
         f"--- argv ---\n{render_argv(nucleo)}\n--- stdout ---\n{nucleo.stdout}\n"
-        f"--- stderr ---\n{nucleo.stderr}")
+        f"--- stderr ---\n{nucleo.stderr}"
+    )
     with open(nucleo_dir / "build_info.yml") as f:
         nucleo_info = yaml.safe_load(f)
 
     frdm_dir = tmp_path / "frdm"
-    frdm = _run_cmake_alone(frdm_dir, [
-        f"-DRIG={_NO_BOARD_RIG}", f"-DBOARD_ROOT={_EXTRA_BOARD_ROOT}",
-        "-DBOARD=frdm_k64f/mk64f12/rig",
-    ])
+    frdm = _run_cmake_alone(
+        frdm_dir,
+        [
+            f"-DRIG={_NO_BOARD_RIG}",
+            f"-DBOARD_ROOT={_EXTRA_BOARD_ROOT}",
+            "-DBOARD=frdm_k64f/mk64f12/rig",
+        ],
+    )
     assert frdm.returncode == 0, (
         f"-DBOARD=frdm_k64f/mk64f12/rig must configure\n"
         f"--- argv ---\n{render_argv(frdm)}\n--- stdout ---\n{frdm.stdout}\n"
-        f"--- stderr ---\n{frdm.stderr}")
+        f"--- stderr ---\n{frdm.stderr}"
+    )
     with open(frdm_dir / "build_info.yml") as f:
         frdm_info = yaml.safe_load(f)
 
     assert nucleo_info["cmake"]["board"]["name"] == "nucleo_f401re"
     assert frdm_info["cmake"]["board"]["name"] == "frdm_k64f"
-    assert (nucleo_info["cmake"]["vendor-specific"]["rig"]["board"]
-            == "nucleo_f401re/stm32f401xe/rig")
-    assert (frdm_info["cmake"]["vendor-specific"]["rig"]["board"]
-            == "frdm_k64f/mk64f12/rig")
+    assert (
+        nucleo_info["cmake"]["vendor-specific"]["rig"]["board"] == "nucleo_f401re/stm32f401xe/rig"
+    )
+    assert frdm_info["cmake"]["vendor-specific"]["rig"]["board"] == "frdm_k64f/mk64f12/rig"
 
 
-def test_cmake_alone_qualified_rig_target_against_undeclared_axis_rejected(
-        tmp_path: Path) -> None:
+def test_cmake_alone_qualified_rig_target_against_undeclared_axis_rejected(tmp_path: Path) -> None:
     """Qualifiers RESOLVE — list_rigs.py's
     own resolve_rig_target validates a selected axis against the rig's OWN
     declarations, so a qualifier against nucleo_datalogger (which declares
@@ -359,13 +396,17 @@ def test_cmake_alone_shield_rig_both_given_is_fatal(tmp_path: Path) -> None:
     # without a board this test would pass on the wrong diagnostic
     # entirely -- asserting SHIELD/RIG exclusion while really observing
     # "no -DBOARD was given".
-    result = _run_cmake_alone(build_dir, [
-        f"-DRIG={_RIG}", f"-DBOARD={RIG_BOARD[_RIG]}",
-        "-DSHIELD=adafruit_data_logger",
-    ])
+    result = _run_cmake_alone(
+        build_dir,
+        [
+            f"-DRIG={_RIG}",
+            f"-DBOARD={RIG_BOARD[_RIG]}",
+            "-DSHIELD=adafruit_data_logger",
+        ],
+    )
     assert result.returncode != 0, (
-        "expected -DSHIELD + -DRIG on a fresh configure to FATAL, but "
-        "configure succeeded")
+        "expected -DSHIELD + -DRIG on a fresh configure to FATAL, but configure succeeded"
+    )
     combined = f"{render_argv(result)}\n" + result.stdout + result.stderr
     assert "adafruit_data_logger" in combined, combined
     assert _RIG in combined, combined
@@ -381,18 +422,29 @@ def test_cmake_alone_plain_shield_build_untouched(tmp_path: Path) -> None:
     venv_python = WEST_TOPDIR / ".venv" / "bin" / "python3"
     env = _cmake_alone_env()
     cmd = [
-        "cmake", "-S", str(WEST_TOPDIR / _APP), "-B", str(build_dir),
+        "cmake",
+        "-S",
+        str(WEST_TOPDIR / _APP),
+        "-B",
+        str(build_dir),
         f"-DPython3_EXECUTABLE={venv_python}",
         "-DBOARD=nucleo_f401re/stm32f401xe/rig",
         "-DSHIELD=adafruit_data_logger",
         "-GNinja",
     ]
-    result = subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=env,
-                             capture_output=True, text=True, timeout=subprocess_timeout(300))
+    result = subprocess.run(
+        cmd,
+        cwd=str(WEST_TOPDIR),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=subprocess_timeout(300),
+    )
     assert result.returncode == 0, (
         "a plain (no -DRIG) --shield-equivalent configure must remain "
         f"untouched\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"--- stderr ---\n{result.stderr}"
+    )
 
 
 def test_cmake_alone_lotus_needs_bridle_module(tmp_path: Path) -> None:
@@ -404,12 +456,12 @@ def test_cmake_alone_lotus_needs_bridle_module(tmp_path: Path) -> None:
     exist. This is the accepted cost of keeping bridle out of the manifest,
     not something to fix."""
     build_dir = tmp_path / "lotus-no-module"
-    result = _run_cmake_alone(build_dir, ["-DRIG=lotus_pwm",
-                                          f'-DBOARD={RIG_BOARD["lotus_pwm"]}'])
+    result = _run_cmake_alone(build_dir, ["-DRIG=lotus_pwm", f'-DBOARD={RIG_BOARD["lotus_pwm"]}'])
     assert result.returncode != 0, (
         "expected cmake -DRIG=lotus_pwm WITHOUT -DEXTRA_ZEPHYR_MODULES to "
         "fail (seeeduino_lotus does not exist without bridle's board_root)\n"
-        f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+        f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
+    )
     combined = f"{render_argv(result)}\n" + result.stdout + result.stderr
     assert "seeeduino_lotus" in combined, combined
 
@@ -423,8 +475,7 @@ def test_cmake_alone_lotus_needs_bridle_module(tmp_path: Path) -> None:
 
 
 @pytest.mark.build
-def test_cmake_alone_promoted_shield_configures_with_a_given_board(
-        tmp_path: Path) -> None:
+def test_cmake_alone_promoted_shield_configures_with_a_given_board(tmp_path: Path) -> None:
     """-DRIG naming a SHIELD configures, given a board.
     adafruit_data_logger plugs arduino-r3 and nucleo's rig extension
     declares exactly one socket of that type, so the socket resolves by
@@ -436,14 +487,18 @@ def test_cmake_alone_promoted_shield_configures_with_a_given_board(
     the failure this is really guarding against, so the board actually
     built and the promoted-shield provenance key are both checked."""
     build_dir = tmp_path / "promoted"
-    result = _run_cmake_alone(build_dir, [
-        "-DRIG=adafruit_data_logger",
-        "-DBOARD=nucleo_f401re/stm32f401xe/rig",
-    ])
+    result = _run_cmake_alone(
+        build_dir,
+        [
+            "-DRIG=adafruit_data_logger",
+            "-DBOARD=nucleo_f401re/stm32f401xe/rig",
+        ],
+    )
     assert result.returncode == 0, (
         "expected -DRIG=<shield> + -DBOARD to configure\n"
         f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"--- stderr ---\n{result.stderr}"
+    )
 
     with open(build_dir / "build_info.yml") as f:
         info = yaml.safe_load(f)
@@ -460,7 +515,8 @@ def test_cmake_alone_promoted_shield_configures_with_a_given_board(
 
 @pytest.mark.build
 def test_cmake_alone_promoted_shield_with_a_socket_configures_where_the_bare_form_cannot(
-        tmp_path: Path) -> None:
+    tmp_path: Path,
+) -> None:
     """The promotion-option grammar through the REAL cmake seam, which is
     the only place it can be falsified end to end: `{PROMOTED}` carries
     the whole target string and dts.cmake forwards it to `--promote`
@@ -473,25 +529,33 @@ def test_cmake_alone_promoted_shield_with_a_socket_configures_where_the_bare_for
     weak: a socket silently ignored would still let the bare case fail
     and, without the second assertion, nothing would notice that the
     socketed case failed for the very same reason."""
-    bare = _run_cmake_alone(tmp_path / "bare", [
-        "-DRIG=flash_click",
-        "-DBOARD=mikroe_quail/stm32f427xx/rig",
-    ])
+    bare = _run_cmake_alone(
+        tmp_path / "bare",
+        [
+            "-DRIG=flash_click",
+            "-DBOARD=mikroe_quail/stm32f427xx/rig",
+        ],
+    )
     assert bare.returncode != 0, (
         "flash_click has four candidate mikrobus sockets on quail; the "
         "bare promoted form must still be refused, or the control below "
-        f"proves nothing\n--- stdout ---\n{bare.stdout}")
+        f"proves nothing\n--- stdout ---\n{bare.stdout}"
+    )
     assert "phys-socket" in bare.stdout + bare.stderr
 
     build_dir = tmp_path / "socketed"
-    result = _run_cmake_alone(build_dir, [
-        "-DRIG=flash_click:socket=quail_sock1",
-        "-DBOARD=mikroe_quail/stm32f427xx/rig",
-    ])
+    result = _run_cmake_alone(
+        build_dir,
+        [
+            "-DRIG=flash_click:socket=quail_sock1",
+            "-DBOARD=mikroe_quail/stm32f427xx/rig",
+        ],
+    )
     assert result.returncode == 0, (
         "expected -DRIG=<shield>:socket=<label> to configure\n"
         f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"--- stderr ---\n{result.stderr}"
+    )
 
     with open(build_dir / "build_info.yml") as f:
         info = yaml.safe_load(f)
@@ -511,8 +575,7 @@ def test_cmake_alone_promoted_shield_with_a_socket_configures_where_the_bare_for
 
 
 @pytest.mark.build
-def test_cmake_alone_list_target_configures_with_both_shields(
-        tmp_path: Path) -> None:
+def test_cmake_alone_list_target_configures_with_both_shields(tmp_path: Path) -> None:
     """The module observing the cmake-
     list hazard, with its own list-target case: `-DRIG='a;b'` carries a
     literal `;` all the way from the invocation, through list_rigs.py's
@@ -525,14 +588,18 @@ def test_cmake_alone_list_target_configures_with_both_shields(
     truncating it at the first embedded `;`."""
     raw = "eth_click:socket=quail_sock1;flash_click:socket=quail_sock2"
     build_dir = tmp_path / "list-target"
-    result = _run_cmake_alone(build_dir, [
-        f"-DRIG={raw}",
-        "-DBOARD=mikroe_quail/stm32f427xx/rig",
-    ])
+    result = _run_cmake_alone(
+        build_dir,
+        [
+            f"-DRIG={raw}",
+            "-DBOARD=mikroe_quail/stm32f427xx/rig",
+        ],
+    )
     assert result.returncode == 0, (
         "expected -DRIG='<shield-a>;<shield-b>' to configure\n"
         f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"--- stderr ---\n{result.stderr}"
+    )
 
     with open(build_dir / "build_info.yml") as f:
         info = yaml.safe_load(f)
@@ -559,8 +626,7 @@ def test_cmake_alone_list_target_configures_with_both_shields(
     assert "quail_sock2" in overlay
 
 
-def test_cmake_alone_promoted_shield_without_a_board_is_fatal(
-        tmp_path: Path) -> None:
+def test_cmake_alone_promoted_shield_without_a_board_is_fatal(tmp_path: Path) -> None:
     """A promoted shield declares no board and has no axis
     to fall back to, so omitting -DBOARD must FATAL rather than guess.
 
@@ -572,12 +638,14 @@ def test_cmake_alone_promoted_shield_without_a_board_is_fatal(
     result = _run_cmake_alone(build_dir, ["-DRIG=adafruit_data_logger"])
     assert result.returncode != 0, (
         "expected -DRIG=<shield> with no -DBOARD to fail\n"
-        f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}")
+        f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}"
+    )
     combined = result.stdout + result.stderr
     assert "names the shield 'adafruit_data_logger'" in combined, (
         "the FATAL did not identify the target as a shield -- a boardless "
         "rig's own wording would be wrong here\n"
-        f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+        f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
+    )
     assert "no -DBOARD was given" in combined
 
 
@@ -597,8 +665,7 @@ _SINGLETON_LAW_BOARD = "nucleo_f401re/stm32f401xe/rig"
 
 
 @pytest.mark.build
-def test_cmake_alone_singleton_law_promoted_matches_fixture_rig_build(
-        tmp_path: Path) -> None:
+def test_cmake_alone_singleton_law_promoted_matches_fixture_rig_build(tmp_path: Path) -> None:
     """A promoted adafruit_data_logger build and a fixture rig build
     containing the IDENTICAL topology (one socket-less instance named
     after the shield, the promoted form's own
@@ -610,24 +677,33 @@ def test_cmake_alone_singleton_law_promoted_matches_fixture_rig_build(
     name in this module's own default board root once
     _SINGLETON_LAW_BOARD_ROOT is added alongside it via -DBOARD_ROOT)."""
     promoted_dir = tmp_path / "promoted"
-    promoted = _run_cmake_alone(promoted_dir, [
-        f"-DRIG={_SINGLETON_LAW_SHIELD}", f"-DBOARD={_SINGLETON_LAW_BOARD}",
-    ])
+    promoted = _run_cmake_alone(
+        promoted_dir,
+        [
+            f"-DRIG={_SINGLETON_LAW_SHIELD}",
+            f"-DBOARD={_SINGLETON_LAW_BOARD}",
+        ],
+    )
     assert promoted.returncode == 0, (
         f"promoted {_SINGLETON_LAW_SHIELD} build failed to configure\n"
         f"--- argv ---\n{render_argv(promoted)}\n--- stdout ---\n{promoted.stdout}\n"
-        f"--- stderr ---\n{promoted.stderr}")
+        f"--- stderr ---\n{promoted.stderr}"
+    )
 
     fixture_dir = tmp_path / "fixture"
-    fixture = _run_cmake_alone(fixture_dir, [
-        f"-DRIG={_SINGLETON_LAW_RIG}",
-        f"-DBOARD_ROOT={_SINGLETON_LAW_BOARD_ROOT}",
-        f"-DBOARD={_SINGLETON_LAW_BOARD}",
-    ])
+    fixture = _run_cmake_alone(
+        fixture_dir,
+        [
+            f"-DRIG={_SINGLETON_LAW_RIG}",
+            f"-DBOARD_ROOT={_SINGLETON_LAW_BOARD_ROOT}",
+            f"-DBOARD={_SINGLETON_LAW_BOARD}",
+        ],
+    )
     assert fixture.returncode == 0, (
         f"fixture rig {_SINGLETON_LAW_RIG} build failed to configure\n"
         f"--- argv ---\n{render_argv(fixture)}\n--- stdout ---\n{fixture.stdout}\n"
-        f"--- stderr ---\n{fixture.stderr}")
+        f"--- stderr ---\n{fixture.stderr}"
+    )
 
     promoted_dts = promoted_dir / "zephyr" / "zephyr.dts"
     fixture_dts = fixture_dir / "zephyr" / "zephyr.dts"
@@ -638,12 +714,15 @@ def test_cmake_alone_singleton_law_promoted_matches_fixture_rig_build(
     check = subprocess.run(
         [sys.executable, str(DTS_EQUIV), str(fixture_dts), str(promoted_dts)],
         env={**os.environ, "ZEPHYR_BASE": zb},
-        capture_output=True, text=True)
+        capture_output=True,
+        text=True,
+    )
     assert check.returncode == 0, (
         "the singleton identity law's build-marked cross-check failed: "
         f"promoted {_SINGLETON_LAW_SHIELD} is not structurally equivalent "
         f"to the fixture rig's own build (dts_equiv.py):\n--- argv ---\n"
-        f"{render_argv(check)}\n{check.stdout}\n{check.stderr}")
+        f"{render_argv(check)}\n{check.stdout}\n{check.stderr}"
+    )
 
     # NEGATIVE CONTROL, and it costs no extra configure -- it perturbs the
     # zephyr.dts already built above. Without it this test would pass
@@ -664,16 +743,19 @@ def test_cmake_alone_singleton_law_promoted_matches_fixture_rig_build(
     assert 'status = "okay";' in promoted_text, (
         "no enabled node in the promoted zephyr.dts to perturb -- this "
         "control needs a real devicetree fact to change; pick another "
-        "rather than dropping it")
-    perturbed.write_text(
-        promoted_text.replace('status = "okay";', 'status = "disabled";', 1))
+        "rather than dropping it"
+    )
+    perturbed.write_text(promoted_text.replace('status = "okay";', 'status = "disabled";', 1))
     control = subprocess.run(
         [sys.executable, str(DTS_EQUIV), str(fixture_dts), str(perturbed)],
         env={**os.environ, "ZEPHYR_BASE": zb},
-        capture_output=True, text=True)
+        capture_output=True,
+        text=True,
+    )
     assert control.returncode != 0, (
         "dts_equiv.py reported a perturbed zephyr.dts (first enabled node "
         "disabled) as EQUIVALENT to the fixture rig's build -- so the "
         "equality assertion above proves nothing about this input. Fix the "
         f"comparator, never this control.\n--- argv ---\n"
-        f"{render_argv(control)}\n{control.stdout}\n{control.stderr}")
+        f"{render_argv(control)}\n{control.stdout}\n{control.stderr}"
+    )

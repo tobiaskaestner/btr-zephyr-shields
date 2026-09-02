@@ -11,6 +11,7 @@ Rig, Instance, Shield, Device, or BoardSocket anywhere -- proving the
 contract needs no larger scenario to exercise: a reject here is not a unit
 concern, it is new coverage of a different subject, the same standard
 `test_cs.py` already meets for CS allocation."""
+
 from __future__ import annotations
 
 from rigc.analyzer.addresses import (
@@ -31,11 +32,10 @@ def test_fixed_member_is_claimed_verbatim() -> None:
 
 
 def test_two_fixed_members_at_the_same_address_conflict() -> None:
-    members = [AddressMember(identity="a", fixed=0x5f),
-              AddressMember(identity="b", fixed=0x5f)]
+    members = [AddressMember(identity="a", fixed=0x5F), AddressMember(identity="b", fixed=0x5F)]
     placements, problems = allocate_scope_addresses(members)
-    assert placements == [AddressPlacement("a", 0x5f, None, "fixed")]
-    assert problems == [AddressProblem("conflict", "b", address=0x5f, first="a")]
+    assert placements == [AddressPlacement("a", 0x5F, None, "fixed")]
+    assert problems == [AddressProblem("conflict", "b", address=0x5F, first="a")]
 
 
 # ---------------------------------------------------------------- pinned resolves through its domain
@@ -65,8 +65,7 @@ def test_a_fixed_claim_can_collide_with_a_later_pinned_member() -> None:
     ]
     placements, problems = allocate_scope_addresses(members)
     assert placements == [AddressPlacement("fixed", 0x50, None, "fixed")]
-    assert problems == [
-        AddressProblem("conflict", "pinned", address=0x50, first="fixed")]
+    assert problems == [AddressProblem("conflict", "pinned", address=0x50, first="fixed")]
 
 
 # ---------------------------------------------------------------- free allocation
@@ -99,8 +98,7 @@ def test_free_domain_exhaustion_reports_the_full_occupancy_snapshot() -> None:
     ]
     placements, problems = allocate_scope_addresses(members)
     assert placements == [AddressPlacement("taken", 0x10, None, "fixed")]
-    assert problems == [
-        AddressProblem("exhausted", "free", occupied=((0x10, "taken"),))]
+    assert problems == [AddressProblem("exhausted", "free", occupied=((0x10, "taken"),))]
 
 
 def test_exhaustion_is_per_member_not_all_or_nothing() -> None:
@@ -113,8 +111,7 @@ def test_exhaustion_is_per_member_not_all_or_nothing() -> None:
     ]
     placements, problems = allocate_scope_addresses(members)
     assert [p.identity for p in placements] == ["taken", "b"]
-    assert problems == [
-        AddressProblem("exhausted", "a", occupied=((0x10, "taken"),))]
+    assert problems == [AddressProblem("exhausted", "a", occupied=((0x10, "taken"),))]
 
 
 def test_two_free_members_of_one_call_do_not_collide_with_each_other() -> None:

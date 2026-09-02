@@ -6,6 +6,7 @@ NetClaim/Nets values -- no Rig needed, since a net's conflict-or-not
 outcome is a function of its claim list alone. `collect_gpio_nets` (the
 pass itself) gets one minimal constructed Rig, to pin position/jumper
 resolution and pwm/adc channel collection together."""
+
 from __future__ import annotations
 
 from rigc.analyzer.gpio import (
@@ -56,8 +57,7 @@ def test_role_of_strips_the_gpios_suffix_before_matching() -> None:
 
 
 def _socket(gpio_map=None, path="/socket@0", label="s1") -> BoardSocket:
-    return BoardSocket(label=label, path=path, type_name="t",
-                      gpio_map=gpio_map or {}, buses={})
+    return BoardSocket(label=label, path=path, type_name="t", gpio_map=gpio_map or {}, buses={})
 
 
 def test_soc_net_resolves_through_the_gpio_map() -> None:
@@ -85,19 +85,33 @@ def test_soc_net_unrouted_position_stays_socket_local() -> None:
 
 
 def _inst(name="i") -> Instance:
-    return Instance(name=name, shield=Shield(name="s", label="s", plugs={"plug": "t"}),
-                    sockets={"plug": "sock"})
+    return Instance(
+        name=name, shield=Shield(name="s", label="s", plugs={"plug": "t"}), sockets={"plug": "sock"}
+    )
 
 
 def _dev(name="d") -> Device:
-    return Device(name=name, label=name, compatible=None, bus=None,
-                 group=None, reg=None, addr_from=None, cs_position=None)
+    return Device(
+        name=name,
+        label=name,
+        compatible=None,
+        bus=None,
+        group=None,
+        reg=None,
+        addr_from=None,
+        cs_position=None,
+    )
 
 
-def _claim(role: str, what: str = "x", position: int = 0,
-          socket=None) -> NetClaim:
-    return NetClaim(instance=_inst(), device=_dev(), what=what, role=role,
-                    socket=socket or _socket(), position=position)
+def _claim(role: str, what: str = "x", position: int = 0, socket=None) -> NetClaim:
+    return NetClaim(
+        instance=_inst(),
+        device=_dev(),
+        what=what,
+        role=role,
+        socket=socket or _socket(),
+        position=position,
+    )
 
 
 def test_check_nets_two_dedicated_claims_are_an_exclusive_conflict() -> None:
@@ -133,8 +147,7 @@ def test_check_nets_two_drivers_is_phys_net() -> None:
 
 def test_check_nets_one_driver_many_listeners_is_legal() -> None:
     key = ("soc", "gpioa", 0)
-    nets: Nets = {key: [_claim("driver", "a"), _claim("listener", "b"),
-                 _claim("listener", "c")]}
+    nets: Nets = {key: [_claim("driver", "a"), _claim("listener", "b"), _claim("listener", "c")]}
     assert check_nets(nets, types={"t": _ctype()}) == []
 
 
@@ -156,16 +169,20 @@ def test_merge_nets_concatenates_claims_preserving_order() -> None:
 
 
 def _ctype() -> ConnectorType:
-    return ConnectorType(name="t", positions={
-        "D7": Position(name="D7", index=7, function="gpio")},
-        index2name={7: "D7"}, bus_proxies=[], stackable=False, cs_pool={})
+    return ConnectorType(
+        name="t",
+        positions={"D7": Position(name="D7", index=7, function="gpio")},
+        index2name={7: "D7"},
+        bus_proxies=[],
+        stackable=False,
+        cs_pool={},
+    )
 
 
 def test_collect_gpio_nets_registers_a_fixed_position_claim() -> None:
     socket = _socket(gpio_map={7: ("gpioa", 5, 0)}, label="nucleo_ard")
     dev = _dev("rtc")
-    dev.function_refs.append(FunctionRef(prop="int1-gpios", position=7, flags=0,
-                                 src=None))  # type: ignore[arg-type]
+    dev.function_refs.append(FunctionRef(prop="int1-gpios", position=7, flags=0, src=None))  # type: ignore[arg-type]
     inst = _inst("logger_1")
     inst.shield.devices.append(dev)
     rig = Rig(name="r", instances=[inst])
@@ -182,8 +199,7 @@ def test_collect_gpio_nets_skips_instances_without_a_resolved_socket() -> None:
     """Skip-don't-abort: an instance absent from `sockets` (its mating
     failed) contributes NOTHING here -- never an exception, never a net."""
     dev = _dev("rtc")
-    dev.function_refs.append(FunctionRef(prop="int1-gpios", position=7, flags=0,
-                                 src=None))  # type: ignore[arg-type]
+    dev.function_refs.append(FunctionRef(prop="int1-gpios", position=7, flags=0, src=None))  # type: ignore[arg-type]
     inst = _inst("orphan")
     inst.shield.devices.append(dev)
     rig = Rig(name="r", instances=[inst])
@@ -198,12 +214,11 @@ def test_collect_gpio_nets_jumper_deferred_position_needs_a_pin_selection() -> N
     """A gpio ref through a routing jumper with no `config:` selection is
     a phys-position rejection -- resolved only when the rig pins it."""
     socket = _socket(gpio_map={0: ("gpioa", 0, 0), 1: ("gpioa", 1, 0)})
-    jmp = Jumper(name="irq_jmp", label="irq_jmp", domain=[(0, 0), (1, 1)],
-                sheet_label="")
+    jmp = Jumper(name="irq_jmp", label="irq_jmp", domain=[(0, 0), (1, 1)], sheet_label="")
     dev = _dev("wifi")
-    dev.function_refs.append(FunctionRef(prop="irq-gpios", position=None, flags=0,
-                                 jumper="irq_jmp",
-                                 src=None))  # type: ignore[arg-type]
+    dev.function_refs.append(
+        FunctionRef(prop="irq-gpios", position=None, flags=0, jumper="irq_jmp", src=None)  # type: ignore[arg-type]
+    )
     inst = _inst("wifi_1")
     inst.shield.devices.append(dev)
     inst.shield.jumpers["irq_jmp"] = jmp
@@ -220,9 +235,9 @@ def test_collect_gpio_nets_channel_ref_registers_pin_and_channel_claims() -> Non
     socket = _socket(gpio_map={0: ("gpioa", 3, 0)})
     socket.pwm_map[0] = ("tcc0", 1)
     dev = _dev("servo")
-    dev.function_refs.append(FunctionRef(prop="pwms", position=0, flags=0,
-                                 function="pwm", period=1000,
-                                 src=None))  # type: ignore[arg-type]
+    dev.function_refs.append(
+        FunctionRef(prop="pwms", position=0, flags=0, function="pwm", period=1000, src=None)  # type: ignore[arg-type]
+    )
     inst = _inst("servo_1")
     inst.shield.devices.append(dev)
     rig = Rig(name="r", instances=[inst])
@@ -230,18 +245,18 @@ def test_collect_gpio_nets_channel_ref_registers_pin_and_channel_claims() -> Non
     result, diags = collect_gpio_nets(rig, {"servo_1": {"plug": socket}}, {"t": _ctype()})
 
     assert diags == []
-    assert ("soc", "gpioa", 3) in result.nets            # PIN net
-    assert ("chan", "tcc0", 1) in result.nets             # CHANNEL net
+    assert ("soc", "gpioa", 3) in result.nets  # PIN net
+    assert ("chan", "tcc0", 1) in result.nets  # CHANNEL net
     assert result.channels[("servo_1", "servo", "pwms")][:3] == ("pwm", "tcc0", 1)
     assert result.controllers["tcc0"] == "pwm"
 
 
 def test_collect_gpio_nets_channel_ref_missing_map_entry_is_phys_function() -> None:
-    socket = _socket()   # no pwm_map at all
+    socket = _socket()  # no pwm_map at all
     dev = _dev("servo")
-    dev.function_refs.append(FunctionRef(prop="pwms", position=0, flags=0,
-                                 function="pwm", period=0,
-                                 src=None))  # type: ignore[arg-type]
+    dev.function_refs.append(
+        FunctionRef(prop="pwms", position=0, flags=0, function="pwm", period=0, src=None)  # type: ignore[arg-type]
+    )
     inst = _inst("servo_1")
     inst.shield.devices.append(dev)
     rig = Rig(name="r", instances=[inst])
@@ -260,10 +275,11 @@ def test_collect_gpio_nets_channel_ref_missing_map_entry_is_phys_function() -> N
 def test_collect_gpio_nets_channel_ref_missing_map_entry_names_the_real_adc_property() -> None:
     """The ADC twin of the case above: the diagnostic names the real DTS
     property, "io-channel-map", never the nonexistent "socket,adc-map"."""
-    socket = _socket()   # no adc_map at all
+    socket = _socket()  # no adc_map at all
     dev = _dev("sensor")
-    dev.function_refs.append(FunctionRef(prop="io-channels", position=0, flags=0,
-                                 function="adc", src=None))  # type: ignore[arg-type]
+    dev.function_refs.append(
+        FunctionRef(prop="io-channels", position=0, flags=0, function="adc", src=None)  # type: ignore[arg-type]
+    )
     inst = _inst("sensor_1")
     inst.shield.devices.append(dev)
     rig = Rig(name="r", instances=[inst])
@@ -287,9 +303,9 @@ def test_collect_gpio_nets_nonzero_pwm_flags_is_phys_function_on_a_2cell_socket(
     socket.pwm_map[0] = ("tcc0", 0)
     socket.pwm_cells = 2
     dev = _dev("servo")
-    dev.function_refs.append(FunctionRef(prop="pwms", position=0, flags=1,
-                                 function="pwm", period=0,
-                                 src=None))  # type: ignore[arg-type]
+    dev.function_refs.append(
+        FunctionRef(prop="pwms", position=0, flags=1, function="pwm", period=0, src=None)  # type: ignore[arg-type]
+    )
     inst = _inst("servo_1")
     inst.shield.devices.append(dev)
     rig = Rig(name="r", instances=[inst])
@@ -312,9 +328,9 @@ def test_collect_gpio_nets_nonzero_pwm_flags_is_carried_on_a_3cell_socket() -> N
     socket.pwm_map[0] = ("tcc0", 0)
     socket.pwm_cells = 3
     dev = _dev("servo")
-    dev.function_refs.append(FunctionRef(prop="pwms", position=0, flags=1,
-                                 function="pwm", period=20000000,
-                                 src=None))  # type: ignore[arg-type]
+    dev.function_refs.append(
+        FunctionRef(prop="pwms", position=0, flags=1, function="pwm", period=20000000, src=None)  # type: ignore[arg-type]
+    )
     inst = _inst("servo_1")
     inst.shield.devices.append(dev)
     rig = Rig(name="r", instances=[inst])
@@ -322,5 +338,4 @@ def test_collect_gpio_nets_nonzero_pwm_flags_is_carried_on_a_3cell_socket() -> N
     result, diags = collect_gpio_nets(rig, {"servo_1": {"plug": socket}}, {"t": _ctype()})
 
     assert diags == []
-    assert result.channels[("servo_1", "servo", "pwms")] == (
-        "pwm", "tcc0", 0, 20000000, 1, 0)
+    assert result.channels[("servo_1", "servo", "pwms")] == ("pwm", "tcc0", 0, 20000000, 1, 0)

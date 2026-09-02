@@ -4,6 +4,7 @@ assert_fixture_local is the structural proof a hermetic test leans on;
 if the enforcement is broken, the boundary decays silently -- so the
 enforcement gets its own unit coverage, against a synthetic root.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -20,8 +21,7 @@ def test_paths_inside_the_root_pass(tmp_path: Path) -> None:
 
 def test_path_outside_the_root_fails(tmp_path: Path) -> None:
     with pytest.raises(AssertionError):
-        assert_fixture_local([tmp_path / ".." / "elsewhere.yml"],
-                             fixtures_dir=tmp_path)
+        assert_fixture_local([tmp_path / ".." / "elsewhere.yml"], fixtures_dir=tmp_path)
 
 
 def test_sibling_with_root_as_prefix_fails(tmp_path: Path) -> None:

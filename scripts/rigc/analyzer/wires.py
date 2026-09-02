@@ -7,6 +7,7 @@ its connector-type position INDEX without mutating `wire.route` in
 place -- this module returns a NEW list of Wire values with the route
 already resolved, so the pass composes like every other one here
 (`(its piece, diagnostics)`), never writing into a Rig it was handed."""
+
 from __future__ import annotations
 
 from ..diag import Diagnostic, error
@@ -14,9 +15,13 @@ from ..model import ConnectorType, Instance, Rig, Wire
 from .socketmap import Sockets, for_slot
 
 
-def _resolve_via_route(wire: Wire, route: str, by_name: dict[str, Instance],
-                       sockets: Sockets, types: dict[str, ConnectorType],
-                       ) -> tuple[str | int, list[Diagnostic]]:
+def _resolve_via_route(
+    wire: Wire,
+    route: str,
+    by_name: dict[str, Instance],
+    sockets: Sockets,
+    types: dict[str, ConnectorType],
+) -> tuple[str | int, list[Diagnostic]]:
     """The `route: via <position name>` branch of `check_wires`, lifted
     out: resolved to the connector type's own position INDEX, through
     the FROM end's socket. Ambiguous for a plural FROM instance (which
@@ -27,28 +32,40 @@ def _resolve_via_route(wire: Wire, route: str, by_name: dict[str, Instance],
     diags: list[Diagnostic] = []
     frm_inst = by_name.get(wire.frm.instance_name)
     if frm_inst is not None and len(frm_inst.shield.plugs) > 1:
-        diags.append(error(
-            "phys-wire",
-            f"route 'via {route}': instance '{frm_inst.name}' plugs "
-            f"more than one socket -- via-routing is not supported "
-            "for a multi-plug instance yet",
-            (wire.src,)))
+        diags.append(
+            error(
+                "phys-wire",
+                f"route 'via {route}': instance '{frm_inst.name}' plugs "
+                f"more than one socket -- via-routing is not supported "
+                "for a multi-plug instance yet",
+                (wire.src,),
+            )
+        )
         return route, diags
-    socket = (for_slot(sockets, frm_inst, next(iter(frm_inst.shield.plugs)))
-             if frm_inst is not None else None)
+    socket = (
+        for_slot(sockets, frm_inst, next(iter(frm_inst.shield.plugs)))
+        if frm_inst is not None
+        else None
+    )
     ctype = types[socket.type_name] if socket is not None else None
     if ctype is not None and route in ctype.positions:
         return ctype.positions[route].index, diags
-    diags.append(error(
-        "phys-wire",
-        f"route 'via {route}': no such position on connector type "
-        f"'{ctype.name if ctype is not None else '?'}'", (wire.src,)))
+    diags.append(
+        error(
+            "phys-wire",
+            f"route 'via {route}': no such position on connector type "
+            f"'{ctype.name if ctype is not None else '?'}'",
+            (wire.src,),
+        )
+    )
     return route, diags
 
 
-def check_wires(rig: Rig, sockets: Sockets,
-                types: dict[str, ConnectorType],
-                ) -> tuple[list[Wire], list[Diagnostic]]:
+def check_wires(
+    rig: Rig,
+    sockets: Sockets,
+    types: dict[str, ConnectorType],
+) -> tuple[list[Wire], list[Diagnostic]]:
     """The wire pass: endpoints checked against resolved sockets, route
     names resolved to positions.
 
@@ -66,11 +83,14 @@ def check_wires(rig: Rig, sockets: Sockets,
             inst = by_name.get(end.instance_name)
             pad = inst.shield.pads.get(end.node) if inst is not None else None
             if pad is None:
-                diags.append(error(
-                    "phys-wire",
-                    f"wire end '{end.instance_name}.{end.node}' is not a pad — "
-                    "only pads (arity-1 connectors) are wireable in the prototype",
-                    (end.src,)))
+                diags.append(
+                    error(
+                        "phys-wire",
+                        f"wire end '{end.instance_name}.{end.node}' is not a pad — "
+                        "only pads (arity-1 connectors) are wireable in the prototype",
+                        (end.src,),
+                    )
+                )
                 continue
             roles.append((end, pad.role))
         if len(roles) < 2:
@@ -79,13 +99,15 @@ def check_wires(rig: Rig, sockets: Sockets,
 
         drivers = [e for e, r in roles if r == "driver"]
         if len(drivers) != 1:
-            claims = ", ".join(
-                f"{e.instance_name}.{e.node} ({r})" for e, r in roles)
-            diags.append(error(
-                "phys-wire",
-                f"a net needs exactly one driver and ≥1 listener; "
-                f"wire has {len(drivers)} drivers: {claims}",
-                (wire.src,)))
+            claims = ", ".join(f"{e.instance_name}.{e.node} ({r})" for e, r in roles)
+            diags.append(
+                error(
+                    "phys-wire",
+                    f"a net needs exactly one driver and ≥1 listener; "
+                    f"wire has {len(drivers)} drivers: {claims}",
+                    (wire.src,),
+                )
+            )
 
         route = wire.route
         if isinstance(route, str) and route != "adhoc":

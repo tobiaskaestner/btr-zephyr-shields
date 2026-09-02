@@ -18,6 +18,7 @@ Every function here is read-only over its arguments and returns a
 reference into the resolution map it was handed, never a copy -- the
 returned `BoardSocket` is owned by whichever pass built the map
 (analyzer/sockets.py's `resolve_sockets`), never by the caller."""
+
 from __future__ import annotations
 
 from ..model import BoardSocket, Device, FunctionRef, Instance
@@ -64,7 +65,8 @@ def for_bus_device(sockets: Sockets, inst: Instance, dev: Device) -> BoardSocket
     that slot never resolved. `sockets`/`inst`/`dev` are read-only."""
     assert dev.plug is not None, (
         f"for_bus_device called on plain-group device '{dev.name}' "
-        "(no bus, no plug slot to look up)")
+        "(no bus, no plug slot to look up)"
+    )
     return sockets.get(inst.name, {}).get(dev.plug)
 
 

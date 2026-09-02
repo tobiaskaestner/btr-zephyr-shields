@@ -19,6 +19,7 @@ The baseline file is expected to live under .reports/ (gitignored) --
 keep it local rather than committing it, since it is a per-machine
 artifact, not a project one.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -51,15 +52,15 @@ def write_baseline(path: Path, times: dict[str, float]) -> None:
     total = sum(times.values()) or 1.0
     baseline = {
         "total_seconds": total,
-        "tests": {nodeid: {"seconds": secs, "share": secs / total}
-                 for nodeid, secs in times.items()},
+        "tests": {
+            nodeid: {"seconds": secs, "share": secs / total} for nodeid, secs in times.items()
+        },
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(baseline, indent=2, sort_keys=True) + "\n")
 
 
-def diff_against_baseline(times: dict[str, float], baseline_path: Path,
-                          threshold: float) -> bool:
+def diff_against_baseline(times: dict[str, float], baseline_path: Path, threshold: float) -> bool:
     """Print every test whose share of the suite total grew by more than
     threshold (a fraction of the suite -- 0.02 means 2 percentage points)
     relative to the stored baseline. A test absent from the baseline (new
@@ -78,26 +79,36 @@ def diff_against_baseline(times: dict[str, float], baseline_path: Path,
         delta = share - base["share"]
         if delta > threshold:
             regressed = True
-            print(f"REGRESSION  {nodeid}: share {base['share']:.4f} -> "
-                 f"{share:.4f} (+{delta:.4f}), {base['seconds']:.2f}s -> "
-                 f"{secs:.2f}s")
+            print(
+                f"REGRESSION  {nodeid}: share {base['share']:.4f} -> "
+                f"{share:.4f} (+{delta:.4f}), {base['seconds']:.2f}s -> "
+                f"{secs:.2f}s"
+            )
     return regressed
 
 
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description=__doc__,
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     parser.add_argument("junitxml", type=Path)
-    parser.add_argument("--baseline", type=Path,
-                       help="baseline json to diff the run against")
-    parser.add_argument("--update-baseline", type=Path,
-                       help="write (overwrite) the baseline json instead of diffing")
-    parser.add_argument("--slowest", type=int, default=10,
-                       help="always print the N slowest tests (default 10)")
-    parser.add_argument("--threshold", type=float, default=0.02,
-                       help="share-of-total delta (fraction of the suite) that "
-                            "counts as a regression (default 0.02 = 2 "
-                            "percentage points)")
+    parser.add_argument("--baseline", type=Path, help="baseline json to diff the run against")
+    parser.add_argument(
+        "--update-baseline",
+        type=Path,
+        help="write (overwrite) the baseline json instead of diffing",
+    )
+    parser.add_argument(
+        "--slowest", type=int, default=10, help="always print the N slowest tests (default 10)"
+    )
+    parser.add_argument(
+        "--threshold",
+        type=float,
+        default=0.02,
+        help="share-of-total delta (fraction of the suite) that "
+        "counts as a regression (default 0.02 = 2 "
+        "percentage points)",
+    )
     args = parser.parse_args(argv)
 
     times = parse_junit(args.junitxml)
@@ -115,8 +126,10 @@ def main(argv: list[str]) -> int:
 
     if args.baseline:
         if not args.baseline.is_file():
-            print(f"no baseline at {args.baseline} yet -- run --update-baseline "
-                 "first", file=sys.stderr)
+            print(
+                f"no baseline at {args.baseline} yet -- run --update-baseline first",
+                file=sys.stderr,
+            )
             return 2
         regressed = diff_against_baseline(times, args.baseline, args.threshold)
         return 1 if regressed else 0

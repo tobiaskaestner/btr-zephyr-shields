@@ -120,9 +120,7 @@ def _configure_logging(verbosity: int = 0) -> None:
     handler = logging.StreamHandler(sys.stderr)
     setattr(handler, _OWN_HANDLER, True)
     handler.setFormatter(
-        logging.Formatter(
-            "%(asctime)s %(levelname)s %(name)s:%(funcName)s: %(message)s"
-        )
+        logging.Formatter("%(asctime)s %(levelname)s %(name)s:%(funcName)s: %(message)s")
     )
     root.addHandler(handler)
     root.setLevel(level_name.upper())
@@ -163,11 +161,15 @@ def build_parser() -> argparse.ArgumentParser:
     )
     rig_or_promote = p.add_mutually_exclusive_group(required=True)
     rig_or_promote.add_argument(
-        "rig", nargs="?", default=None,
+        "rig",
+        nargs="?",
+        default=None,
         help="path to the rig's metadata file, rig.yml",
     )
     rig_or_promote.add_argument(
-        "--promote", default=None, metavar="TARGET",
+        "--promote",
+        default=None,
+        metavar="TARGET",
         help="a promotion TARGET to expand in place of a real rig.yml: "
         "<shield>[@rev][:<key>=<value>...], or a `;`-separated list of "
         "those -- synthesizes promote.promote_shield's own rig.yml/"
@@ -183,7 +185,9 @@ def build_parser() -> argparse.ArgumentParser:
         help="a shield-library root; repeatable",
     )
     p.add_argument(
-        "--board", default=None, metavar="NAME",
+        "--board",
+        default=None,
+        metavar="NAME",
         help="the board to build against, in Zephyr's own "
         "<board>/<soc>/<variant> spelling -- the ONLY source of a rig's "
         "board (no rig file declares one). Omitted, the rig loads with "
@@ -232,16 +236,13 @@ def build_parser() -> argparse.ArgumentParser:
         metavar="NAME",
         help="the selected variant axis value",
     )
-    p.add_argument(
-        "--out-dir", required=True, help="directory to write the emitted artifacts into"
-    )
+    p.add_argument("--out-dir", required=True, help="directory to write the emitted artifacts into")
     p.add_argument(
         "-v",
         "--verbose",
         action="count",
         default=0,
-        help="-v for INFO logging on stderr, -vv for DEBUG; "
-        "overrides RIGC_LOG when given",
+        help="-v for INFO logging on stderr, -vv for DEBUG; overrides RIGC_LOG when given",
     )
     return ap
 
@@ -310,16 +311,19 @@ def _materialize_promotion(
         # value already passes through -- duplicating the check here
         # would be a second authority for the same fact.
         resolved = promote.resolve_for_promotion(shield_name, shield_dirs)
-        opts = promote.parse_promotion_opts(
-            opt_text or None, args.promote, resolved)
+        opts = promote.parse_promotion_opts(opt_text or None, args.promote, resolved)
         if isinstance(opts, str):
             # No SourceRef: the offending text is argv, not a file,
             # and the message already quotes the target verbatim.
             return [diag_error("lang-promote-opts", opts)]
         promoted = promote.promote_shield(
-            shield_name, args.revision, socket=opts.fixed.get("socket"),
-            sockets=opts.sockets or None, config=opts.config or None,
-            params=opts.params or None)
+            shield_name,
+            args.revision,
+            socket=opts.fixed.get("socket"),
+            sockets=opts.sockets or None,
+            config=opts.config or None,
+            params=opts.params or None,
+        )
     rig_path = os.path.join(workdir, "rig.yml")
     with open(rig_path, "w") as f:
         f.write(promoted.rig_yml)
@@ -360,7 +364,9 @@ def _expand(args: argparse.Namespace) -> int:
         if isinstance(result, list):
             return _reject(result)
         rig_path, revision = result
-    assert rig_path is not None  # argparse's mutually exclusive group guarantees one of rig/--promote
+    assert (
+        rig_path is not None
+    )  # argparse's mutually exclusive group guarantees one of rig/--promote
 
     try:
         # Resolved here and threaded down, replacing what would otherwise
@@ -374,9 +380,7 @@ def _expand(args: argparse.Namespace) -> int:
         # source no longer sits next to the real connector types. That
         # must reject cleanly through the SAME path as every other
         # loader-stage failure, never as an uncaught exception.
-        types, types_deps = load_types(
-            connector_dirs=connector_dirs, header_dirs=header_dirs
-        )
+        types, types_deps = load_types(connector_dirs=connector_dirs, header_dirs=header_dirs)
         rig, diags, rig_deps = loader.load(
             rig_path,
             workdir,
@@ -416,11 +420,17 @@ def _expand(args: argparse.Namespace) -> int:
     # `board:` key to point at) -- phys-board, no refs, matching every
     # other board-reading diagnostic's own unanchored shape.
     if not rig.board:
-        return _reject(diags + [diag_error(
-            "phys-board",
-            f"rig '{rig.name}': no board given -- a rig has no board "
-            "of its own any more (board: left rig.yml's grammar "
-            "entirely); pass --board <name>")])
+        return _reject(
+            diags
+            + [
+                diag_error(
+                    "phys-board",
+                    f"rig '{rig.name}': no board given -- a rig has no board "
+                    "of its own any more (board: left rig.yml's grammar "
+                    "entirely); pass --board <name>",
+                )
+            ]
+        )
     #
     # load_board's own diagnostics carry no `rig`-side src ref
     # (a "phys-board" finding is never anchored to a rig.yml line), so

@@ -14,6 +14,7 @@ The anchor-line contract rides along: an anchor carries the VALUE node's
 start line (a scalar value sits on its key's line; a nested mapping
 starts on the first entry's line, one below its key).
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -39,6 +40,7 @@ def _doc(tmp_path: Path, text: str, name: str = "content.yml") -> Val:
 
 # --------------------------------------------------- filename construction
 
+
 def test_content_file_is_name_dot_yml() -> None:
     assert content_file_name("nucleo_datalogger") == "nucleo_datalogger.yml"
 
@@ -52,6 +54,7 @@ def test_construction_uses_the_name_value_alone() -> None:
 
 # ------------------------------------------------------------- require()
 
+
 def test_require_present_key_returns_it_with_no_diagnostics(tmp_path: Path) -> None:
     doc = _doc(tmp_path, "name: x\n")
     val, diags = require(doc, "name", "rig")
@@ -59,8 +62,7 @@ def test_require_present_key_returns_it_with_no_diagnostics(tmp_path: Path) -> N
     assert diags == []
 
 
-def test_require_missing_key_is_a_lang_schema_error_anchored_at_container(
-        tmp_path: Path) -> None:
+def test_require_missing_key_is_a_lang_schema_error_anchored_at_container(tmp_path: Path) -> None:
     doc = _doc(tmp_path, "other: 1\n")
     val, diags = require(doc, "name", "rig")
     assert val is None
@@ -68,4 +70,4 @@ def test_require_missing_key_is_a_lang_schema_error_anchored_at_container(
     d = diags[0]
     assert d.severity == "error"
     assert d.code == "lang-schema"
-    assert d.refs == (doc.src,)        # anchored at the CONTAINER, not a key
+    assert d.refs == (doc.src,)  # anchored at the CONTAINER, not a key

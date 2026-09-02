@@ -8,6 +8,7 @@ NOT the shared import surface (see harness.py's own docstring for why: two
 sibling conftest.py files under a common sys.path, with no __init__.py
 anywhere, would otherwise cross-wire under Python's plain `from conftest
 import ...` idiom, since sys.modules["conftest"] is first-wins)."""
+
 from __future__ import annotations
 
 from harness import *  # noqa: F401,F403

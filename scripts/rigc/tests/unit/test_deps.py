@@ -3,6 +3,7 @@ mutable accumulator passed in and written to. `touch`/`union` are the
 two primitives every recording point (registry.py, loader/library.py)
 composes upward with.
 """
+
 from __future__ import annotations
 
 import os

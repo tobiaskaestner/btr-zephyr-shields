@@ -13,6 +13,7 @@ to the full captured message; then every module with its own pass/fail
 counts and per-test rows. Companion to timing_report.py, which reads the
 same files for wall-time diffing.
 """
+
 from __future__ import annotations
 
 import html
@@ -73,14 +74,15 @@ def render(xml_path: Path) -> str:
         badge = {"pass": "passed", "fail": "FAILED", "skip": "skipped"}[status]
         rows_by_module.setdefault(module, []).append(
             f"<tr><td><span class='badge {status}'>{badge}</span></td>"
-            f"<td>{html.escape(name)}</td><td class='t'>{time:.2f}s</td></tr>")
+            f"<td>{html.escape(name)}</td><td class='t'>{time:.2f}s</td></tr>"
+        )
         if status == "fail" and detail is not None:
-            text = html.escape(
-                (detail.get("message") or "") + "\n" + (detail.text or ""))
+            text = html.escape((detail.get("message") or "") + "\n" + (detail.text or ""))
             failures.append(
                 f"<details><summary><span class='badge fail'>FAILED</span> "
                 f"{html.escape(module)}::{html.escape(name)}</summary>"
-                f"<pre>{text}</pre></details>")
+                f"<pre>{text}</pre></details>"
+            )
 
     suite_name = ", ".join(s.get("name") or "?" for s in suites)
     stamp = ", ".join(filter(None, (s.get("timestamp") for s in suites)))
@@ -100,8 +102,9 @@ def render(xml_path: Path) -> str:
         parts += failures
     for module in sorted(rows_by_module):
         rows = rows_by_module[module]
-        parts.append(f"<h2>{html.escape(module)} ({len(rows)})</h2>"
-                     "<table>" + "".join(rows) + "</table>")
+        parts.append(
+            f"<h2>{html.escape(module)} ({len(rows)})</h2><table>" + "".join(rows) + "</table>"
+        )
     parts.append("</body></html>")
     return "".join(parts)
 

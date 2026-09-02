@@ -54,6 +54,7 @@ one), it is composition-by-return exactly like every other rigc module.
 that ALREADY EXISTS -- it never calls cpp itself -- so it is
 unit-testable directly against a synthetic, cpp-free `.dts` text parsed
 with `dtsio.get_dtlib().DT(path)`."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -84,8 +85,15 @@ from ..model import ConnectorType, Device, ExposedSocket, FunctionRef, Jumper, P
 #: from leaking into the template-level walk is the per-plug walk over
 #: `nodes_by_slot` below, not this set.
 _RESERVED = {"pads", "config"}
-_MODEL_PROPS = {"reg", "compatible", "shield,addr-from", "shield,cs-position",
-               "shield,collect", "shield,params", "shield,param-includes"}
+_MODEL_PROPS = {
+    "reg",
+    "compatible",
+    "shield,addr-from",
+    "shield,cs-position",
+    "shield,collect",
+    "shield,params",
+    "shield,param-includes",
+}
 
 #: path -> (slot name, connector type) for every plug this shield declares
 #: -- one entry per plug node, at any count -- the map
@@ -95,8 +103,10 @@ _MODEL_PROPS = {"reg", "compatible", "shield,addr-from", "shield,cs-position",
 PlugsByPath = dict[str, tuple[str, ConnectorType | None]]
 
 
-def parse_shields(dt, types: dict[str, ConnectorType],
-                  ) -> tuple[dict[str, Shield], list[Diagnostic]]:
+def parse_shields(
+    dt,
+    types: dict[str, ConnectorType],
+) -> tuple[dict[str, Shield], list[Diagnostic]]:
     """Every `.shield` file has exactly one shield node under the
     `shield-templates` wrapper (a marker that distinguishes a TEMPLATE
     from a real Zephyr shield's applied `<name>.overlay`)."""
@@ -117,8 +127,7 @@ def _is_plug_node(g) -> bool:
 
 
 def _is_exposed_node(g) -> bool:
-    return "compatible" in g.props and \
-        g.props["compatible"].to_string().startswith("socket,")
+    return "compatible" in g.props and g.props["compatible"].to_string().startswith("socket,")
 
 
 def _require_label(node, kind: str, shield_name: str) -> tuple[str, list[Diagnostic]]:
@@ -137,45 +146,55 @@ def _require_label(node, kind: str, shield_name: str) -> tuple[str, list[Diagnos
     node and what it needs."""
     if node.labels:
         return node.labels[0], []
-    return node.name, [error(
-        "lang-shield-label",
-        f"{kind} '{node.name}' of shield '{shield_name}' has no DTS "
-        "label -- rig-facing references (config:/wires:/socket:) "
-        "resolve by label, never by node name -- give it one",
-        (src_of(node),))]
+    return node.name, [
+        error(
+            "lang-shield-label",
+            f"{kind} '{node.name}' of shield '{shield_name}' has no DTS "
+            "label -- rig-facing references (config:/wires:/socket:) "
+            "resolve by label, never by node name -- give it one",
+            (src_of(node),),
+        )
+    ]
 
 
-def _parse_shield(node, types: dict[str, ConnectorType],
-                  ) -> tuple[Shield, list[Diagnostic]]:
+def _parse_shield(
+    node,
+    types: dict[str, ConnectorType],
+) -> tuple[Shield, list[Diagnostic]]:
     diags: list[Diagnostic] = []
     label = node.labels[0] if node.labels else node.name
     plugs_prop = node.props.get("shield,plugs")
     plug_children = [c for c in node.nodes.values() if _is_plug_node(c)]
 
     if plugs_prop is not None:
-        diags.append(error(
-            "lang-shield-plug",
-            f"shield '{node.name}' declares shield,plugs on the TEMPLATE "
-            "node -- that spelling is retired: move it onto the plug node "
-            "itself, beside a 'compatible = \"shield,plug\"', so one plug "
-            "and many are declared the same way",
-            (src_of(plugs_prop),)))
+        diags.append(
+            error(
+                "lang-shield-plug",
+                f"shield '{node.name}' declares shield,plugs on the TEMPLATE "
+                "node -- that spelling is retired: move it onto the plug node "
+                "itself, beside a 'compatible = \"shield,plug\"', so one plug "
+                "and many are declared the same way",
+                (src_of(plugs_prop),),
+            )
+        )
         return Shield(name=node.name, label=label, plugs={}, src=src_of(node)), diags
 
     shield = Shield(name=node.name, label=label, plugs={}, src=src_of(node))
     shield.by_path[node.path] = shield
 
     if not plug_children:
-        diags.append(error(
-            "lang-shield-plug",
-            f"shield '{shield.name}' declares no 'shield,plug'-compatible "
-            "child -- the plug is the position reference frame, and a "
-            "shield names its connector type on it",
-            (src_of(node),)))
+        diags.append(
+            error(
+                "lang-shield-plug",
+                f"shield '{shield.name}' declares no 'shield,plug'-compatible "
+                "child -- the plug is the position reference frame, and a "
+                "shield names its connector type on it",
+                (src_of(node),),
+            )
+        )
         return shield, diags
 
-    ctypes_by_slot, nodes_by_slot, plugs_by_path, d = _parse_plugs(
-        plug_children, shield, types)
+    ctypes_by_slot, nodes_by_slot, plugs_by_path, d = _parse_plugs(plug_children, shield, types)
     diags += d
 
     #: the slot a plug-agnostic (plain-group) device belongs to: the only
@@ -201,7 +220,8 @@ def _parse_shield(node, types: dict[str, ConnectorType],
     # their owning plug (the placement rule), never sit at template level.
     # This holds at ONE plug exactly as at many.
     diags += _parse_template_groups(
-        node, shield, plug_children, ctypes_by_slot, plugs_by_path, only_slot)
+        node, shield, plug_children, ctypes_by_slot, plugs_by_path, only_slot
+    )
 
     # each plug's OWN bus groups, matched against ITS OWN connector
     # type's bus_proxies -- the plug binding, structural. A group nested
@@ -222,9 +242,11 @@ def _parse_shield(node, types: dict[str, ConnectorType],
     return shield, diags
 
 
-def _parse_plugs(plug_children, shield: Shield, types: dict[str, ConnectorType],
-                 ) -> tuple[dict[str, ConnectorType | None], dict[str, Any],
-                            PlugsByPath, list[Diagnostic]]:
+def _parse_plugs(
+    plug_children,
+    shield: Shield,
+    types: dict[str, ConnectorType],
+) -> tuple[dict[str, ConnectorType | None], dict[str, Any], PlugsByPath, list[Diagnostic]]:
     """Every plug child in authoring order: validates its cell counts and
     resolves its connector type, and records `shield.plugs[slot]` (in that
     same order -- shield.plugs' own ordering contract) alongside the three
@@ -237,33 +259,42 @@ def _parse_plugs(plug_children, shield: Shield, types: dict[str, ConnectorType],
         slot = child.name
         for cells in _FUNCTION_CELLS.values():
             if cells in child.props:
-                diags.append(error(
-                    "lang-shield-plug-cells",
-                    f"shield '{shield.name}': plug '{slot}' declares "
-                    f"{cells} -- a plug node declares no cell counts. A "
-                    "position reference through a plug carries the generic "
-                    "count for its function (2 gpio, 3 pwm, 1 adc); only a "
-                    "node that genuinely differs, such as a routing "
-                    "jumper, says so",
-                    (src_of(child.props[cells]),)))
+                diags.append(
+                    error(
+                        "lang-shield-plug-cells",
+                        f"shield '{shield.name}': plug '{slot}' declares "
+                        f"{cells} -- a plug node declares no cell counts. A "
+                        "position reference through a plug carries the generic "
+                        "count for its function (2 gpio, 3 pwm, 1 adc); only a "
+                        "node that genuinely differs, such as a routing "
+                        "jumper, says so",
+                        (src_of(child.props[cells]),),
+                    )
+                )
         type_v = child.props.get("shield,plugs")
         if type_v is None:
-            diags.append(error(
-                "lang-shield-type",
-                f"shield '{shield.name}': plug '{slot}' declares no "
-                "shield,plugs of its own -- every plug names its own "
-                "connector type",
-                (src_of(child),)))
+            diags.append(
+                error(
+                    "lang-shield-type",
+                    f"shield '{shield.name}': plug '{slot}' declares no "
+                    "shield,plugs of its own -- every plug names its own "
+                    "connector type",
+                    (src_of(child),),
+                )
+            )
             continue
         type_name = type_v.to_string()
         ctype = types.get(type_name)
         if ctype is None:
-            diags.append(error(
-                "lang-shield-type",
-                f"shield '{shield.name}': plug '{slot}' plugs unknown "
-                f"connector type '{type_name}'\nknown types: "
-                f"{', '.join(sorted(types))}",
-                (src_of(type_v),)))
+            diags.append(
+                error(
+                    "lang-shield-type",
+                    f"shield '{shield.name}': plug '{slot}' plugs unknown "
+                    f"connector type '{type_name}'\nknown types: "
+                    f"{', '.join(sorted(types))}",
+                    (src_of(type_v),),
+                )
+            )
         shield.plugs[slot] = type_name
         ctypes_by_slot[slot] = ctype
         nodes_by_slot[slot] = child
@@ -288,13 +319,16 @@ def _parse_pads_and_config(node, shield: Shield) -> list[Diagnostic]:
             for snode in group.nodes.values():
                 if "shield,position-domain" in snode.props:
                     if len(shield.plugs) > 1:
-                        diags.append(error(
-                            "lang-shield-plurality",
-                            f"shield '{shield.name}': a shield with more "
-                            f"than one plug cannot declare a routing "
-                            f"jumper ('{snode.name}') -- the position "
-                            "domain has no plug axis",
-                            (src_of(snode),)))
+                        diags.append(
+                            error(
+                                "lang-shield-plurality",
+                                f"shield '{shield.name}': a shield with more "
+                                f"than one plug cannot declare a routing "
+                                f"jumper ('{snode.name}') -- the position "
+                                "domain has no plug axis",
+                                (src_of(snode),),
+                            )
+                        )
                         continue
                     jmp, d = _parse_jumper(snode, shield.name)
                     diags += d
@@ -308,10 +342,14 @@ def _parse_pads_and_config(node, shield: Shield) -> list[Diagnostic]:
     return diags
 
 
-def _parse_template_groups(node, shield: Shield, plug_children,
-                           ctypes_by_slot: dict[str, ConnectorType | None],
-                           plugs_by_path: PlugsByPath,
-                           only_slot: str | None) -> list[Diagnostic]:
+def _parse_template_groups(
+    node,
+    shield: Shield,
+    plug_children,
+    ctypes_by_slot: dict[str, ConnectorType | None],
+    plugs_by_path: PlugsByPath,
+    only_slot: str | None,
+) -> list[Diagnostic]:
     """Plug-agnostic device groups at template level. A bus-shaped group
     here is rejected -- bus groups nest under their owning plug -- but its
     devices are still parsed, so a misplaced group's own diagnostics don't
@@ -322,28 +360,31 @@ def _parse_template_groups(node, shield: Shield, plug_children,
             continue
         if bus_kind_of(group.name) is not None:
             candidates = sorted(
-                slot for slot, ct in ctypes_by_slot.items()
-                if ct and group.name in ct.bus_proxies)
-            diags.append(error(
-                "lang-shield-proxy",
-                f"shield '{shield.name}' has a '{group.name}' bus proxy "
-                "at template level -- bus groups nest under their owning "
-                "plug"
-                + (f" — candidate plugs: {', '.join(candidates)}"
-                   if candidates else ""),
-                (src_of(group),)))
+                slot for slot, ct in ctypes_by_slot.items() if ct and group.name in ct.bus_proxies
+            )
+            diags.append(
+                error(
+                    "lang-shield-proxy",
+                    f"shield '{shield.name}' has a '{group.name}' bus proxy "
+                    "at template level -- bus groups nest under their owning "
+                    "plug" + (f" — candidate plugs: {', '.join(candidates)}" if candidates else ""),
+                    (src_of(group),),
+                )
+            )
         for dnode in group.nodes.values():
-            dev, d = _parse_device(dnode, shield, plugs_by_path, None,
-                                   group.name, only_slot)
+            dev, d = _parse_device(dnode, shield, plugs_by_path, None, group.name, only_slot)
             diags += d
             shield.devices.append(dev)
             shield.by_path[dnode.path] = dev
     return diags
 
 
-def _parse_plug_groups(shield: Shield, nodes_by_slot: dict[str, Any],
-                       ctypes_by_slot: dict[str, ConnectorType | None],
-                       plugs_by_path: PlugsByPath) -> list[Diagnostic]:
+def _parse_plug_groups(
+    shield: Shield,
+    nodes_by_slot: dict[str, Any],
+    ctypes_by_slot: dict[str, ConnectorType | None],
+    plugs_by_path: PlugsByPath,
+) -> list[Diagnostic]:
     """Each plug's own nested groups, matched against its own connector
     type's bus_proxies. A group that is neither an allowed bus proxy nor
     bus-kind-named at all is a plain group in the wrong place; either way
@@ -355,35 +396,46 @@ def _parse_plug_groups(shield: Shield, nodes_by_slot: dict[str, Any],
             bus = group.name if ctype and group.name in ctype.bus_proxies else None
             if bus is None:
                 if ctype and bus_kind_of(group.name) is not None:
-                    diags.append(error(
-                        "lang-shield-proxy",
-                        f"shield '{shield.name}': plug '{slot}' has a "
-                        f"'{group.name}' bus proxy but the '{ctype.name}' "
-                        f"plug binding allows only: "
-                        f"{', '.join(ctype.bus_proxies)}",
-                        (src_of(group),)))
+                    diags.append(
+                        error(
+                            "lang-shield-proxy",
+                            f"shield '{shield.name}': plug '{slot}' has a "
+                            f"'{group.name}' bus proxy but the '{ctype.name}' "
+                            f"plug binding allows only: "
+                            f"{', '.join(ctype.bus_proxies)}",
+                            (src_of(group),),
+                        )
+                    )
                 else:
-                    diags.append(error(
-                        "lang-shield-proxy",
-                        f"shield '{shield.name}': plug '{slot}' has a "
-                        f"'{group.name}' group nested under it -- plain "
-                        "device groups belong at template level "
-                        "(plug-agnostic; their devices' refs each carry "
-                        "their own plug by phandle)",
-                        (src_of(group),)))
+                    diags.append(
+                        error(
+                            "lang-shield-proxy",
+                            f"shield '{shield.name}': plug '{slot}' has a "
+                            f"'{group.name}' group nested under it -- plain "
+                            "device groups belong at template level "
+                            "(plug-agnostic; their devices' refs each carry "
+                            "their own plug by phandle)",
+                            (src_of(group),),
+                        )
+                    )
             for dnode in group.nodes.values():
-                dev, d = _parse_device(dnode, shield, plugs_by_path, bus,
-                                       None if bus else group.name,
-                                       slot if bus else None)
+                dev, d = _parse_device(
+                    dnode,
+                    shield,
+                    plugs_by_path,
+                    bus,
+                    None if bus else group.name,
+                    slot if bus else None,
+                )
                 diags += d
                 shield.devices.append(dev)
                 shield.by_path[dnode.path] = dev
     return diags
 
 
-def _parse_exposed_sockets(node, shield: Shield, plug_children,
-                           plugs_by_path: PlugsByPath,
-                           types: dict[str, ConnectorType]) -> list[Diagnostic]:
+def _parse_exposed_sockets(
+    node, shield: Shield, plug_children, plugs_by_path: PlugsByPath, types: dict[str, ConnectorType]
+) -> list[Diagnostic]:
     """Every re-exported socket at template level, in authoring order."""
     diags: list[Diagnostic] = []
     for group in node.nodes.values():
@@ -396,8 +448,12 @@ def _parse_exposed_sockets(node, shield: Shield, plug_children,
     return diags
 
 
-def _parse_device_addressing(node, shield: Shield, bus, unit: str,
-                             ) -> tuple[int | None, str | None, list[Diagnostic]]:
+def _parse_device_addressing(
+    node,
+    shield: Shield,
+    bus,
+    unit: str,
+) -> tuple[int | None, str | None, list[Diagnostic]]:
     """reg / shield,addr-from / unit-address, together: the address
     authority rule requires exactly one of reg / addr-from on an
     addressable bus, and the unit-address (when present) must agree with
@@ -412,11 +468,14 @@ def _parse_device_addressing(node, shield: Shield, bus, unit: str,
         target = node.props["shield,addr-from"].to_node()
         strap = shield.by_path.get(target.path)
         if not isinstance(strap, Strap):
-            diags.append(error(
-                "lang-addr-from",
-                f"shield,addr-from on '{shield.name}/{node.name}' does not "
-                "point at a config strap of this shield",
-                (src_of(node.props["shield,addr-from"]),)))
+            diags.append(
+                error(
+                    "lang-addr-from",
+                    f"shield,addr-from on '{shield.name}/{node.name}' does not "
+                    "point at a config strap of this shield",
+                    (src_of(node.props["shield,addr-from"]),),
+                )
+            )
         else:
             addr_from = strap.name
 
@@ -424,11 +483,15 @@ def _parse_device_addressing(node, shield: Shield, bus, unit: str,
     if is_bus_kind(bus, "i2c"):
         if (reg is None) == (addr_from is None):
             which = "both" if reg is not None else "neither"
-            diags.append(error(
-                "lang-addr-authority",
-                f"device '{shield.name}/{node.name}' on an addressable bus "
-                f"carries {which} of reg / shield,addr-from — exactly one "
-                "is required (address authority rule)", (src_of(node),)))
+            diags.append(
+                error(
+                    "lang-addr-authority",
+                    f"device '{shield.name}/{node.name}' on an addressable bus "
+                    f"carries {which} of reg / shield,addr-from — exactly one "
+                    "is required (address authority rule)",
+                    (src_of(node),),
+                )
+            )
 
     # authored reg == unit-address (validated); symbolic
     # unit-address is a documentation marker linted against the addr-from
@@ -436,28 +499,39 @@ def _parse_device_addressing(node, shield: Shield, bus, unit: str,
     if unit and reg is not None:
         try:
             if int(unit, 16) != reg:
-                diags.append(error(
-                    "lang-unit-addr",
-                    f"'{node.name}': unit-address @{unit} != authored reg "
-                    f"<{reg:#x}> — they must be a matching pair",
-                    (src_of(node),)))
+                diags.append(
+                    error(
+                        "lang-unit-addr",
+                        f"'{node.name}': unit-address @{unit} != authored reg "
+                        f"<{reg:#x}> — they must be a matching pair",
+                        (src_of(node),),
+                    )
+                )
         except ValueError:
-            diags.append(error(
-                "lang-unit-addr",
-                f"'{node.name}': symbolic unit-address with authored reg "
-                "— symbolic markers are for deferred addresses only",
-                (src_of(node),)))
+            diags.append(
+                error(
+                    "lang-unit-addr",
+                    f"'{node.name}': symbolic unit-address with authored reg "
+                    "— symbolic markers are for deferred addresses only",
+                    (src_of(node),),
+                )
+            )
     elif unit and addr_from and unit.replace("-", "_") != addr_from.replace("-", "_"):
-        diags.append(warning(
-            "lang-unit-addr",
-            f"'{node.name}': symbolic unit-address @{unit} does not match "
-            f"its resolver '{addr_from}' (lint: marker must name the "
-            "addr-from target)", (src_of(node),)))
+        diags.append(
+            warning(
+                "lang-unit-addr",
+                f"'{node.name}': symbolic unit-address @{unit} does not match "
+                f"its resolver '{addr_from}' (lint: marker must name the "
+                "addr-from target)",
+                (src_of(node),),
+            )
+        )
     return reg, addr_from, diags
 
 
-def _parse_device(node, shield: Shield, plugs_by_path: PlugsByPath, bus, group,
-                  dev_plug: str | None) -> tuple[Device, list[Diagnostic]]:
+def _parse_device(
+    node, shield: Shield, plugs_by_path: PlugsByPath, bus, group, dev_plug: str | None
+) -> tuple[Device, list[Diagnostic]]:
     diags: list[Diagnostic] = []
     name, _, unit = node.name.partition("@")
     compat = node.props["compatible"].to_string() if "compatible" in node.props else None
@@ -487,11 +561,21 @@ def _parse_device(node, shield: Shield, plugs_by_path: PlugsByPath, bus, group,
 
     label, d = _require_label(node, "device", shield.name)
     diags += d
-    dev = Device(name=name, label=label,
-                compatible=compat, bus=bus, group=group, reg=reg,
-                addr_from=addr_from, cs_position=cs_position, plug=dev_plug,
-                collect=collect, declared_params=declared_params,
-                declared_param_includes=declared_param_includes, src=src_of(node))
+    dev = Device(
+        name=name,
+        label=label,
+        compatible=compat,
+        bus=bus,
+        group=group,
+        reg=reg,
+        addr_from=addr_from,
+        cs_position=cs_position,
+        plug=dev_plug,
+        collect=collect,
+        declared_params=declared_params,
+        declared_param_includes=declared_param_includes,
+        src=src_of(node),
+    )
 
     for prop in node.props.values():
         if prop.name in _MODEL_PROPS or prop.name == "phandle":
@@ -504,19 +588,27 @@ def _parse_device(node, shield: Shield, plugs_by_path: PlugsByPath, bus, group,
             continue
         dtlib = get_dtlib()
         if prop.type is dtlib.Type.PHANDLES_AND_NUMS:
-            diags.append(warning(
-                "lang-prop",
-                f"phandle property '{prop.name}' of "
-                f"'{shield.name}/{node.name}' is not a recognized function "
-                "ref (gpios/pwms/io-channels) — dropped", (src_of(prop),)))
+            diags.append(
+                warning(
+                    "lang-prop",
+                    f"phandle property '{prop.name}' of "
+                    f"'{shield.name}/{node.name}' is not a recognized function "
+                    "ref (gpios/pwms/io-channels) — dropped",
+                    (src_of(prop),),
+                )
+            )
             continue
         rendered = render_prop(prop)
         if rendered is None:
-            diags.append(warning(
-                "lang-prop",
-                f"property '{prop.name}' of '{shield.name}/{node.name}' "
-                "has a type the prototype cannot pass through — dropped "
-                "from output", (src_of(prop),)))
+            diags.append(
+                warning(
+                    "lang-prop",
+                    f"property '{prop.name}' of '{shield.name}/{node.name}' "
+                    "has a type the prototype cannot pass through — dropped "
+                    "from output",
+                    (src_of(prop),),
+                )
+            )
         elif prop.name != "compatible":
             dev.extra_props.append((prop.name, rendered))
     if compat:
@@ -539,8 +631,12 @@ def _function_of(prop_name: str) -> str | None:
     return None
 
 
-def _parse_pos_ref(prop, function: str, shield: Shield, plugs_by_path: PlugsByPath,
-                   ) -> tuple[list[FunctionRef], list[Diagnostic]]:
+def _parse_pos_ref(
+    prop,
+    function: str,
+    shield: Shield,
+    plugs_by_path: PlugsByPath,
+) -> tuple[list[FunctionRef], list[Diagnostic]]:
     """Nexus-aware position reference, per function. A plug is a
     multi-function nexus: a claim reads the plug's #<fn>-cells cells.
     Granularity is PER-REFERENCE: the phandle names WHICH of the
@@ -555,18 +651,21 @@ def _parse_pos_ref(prop, function: str, shield: Shield, plugs_by_path: PlugsByPa
     while i < len(cells):
         target = dt.phandle2node.get(cells[i])
         ncells = _ncells(target, function)
-        args = cells[i + 1: i + 1 + ncells]
+        args = cells[i + 1 : i + 1 + ncells]
         i += 1 + ncells
         if target is None or len(args) < ncells:
-            diags.append(error(
-                "lang-pos-ref",
-                f"'{prop.name}' has a malformed {function} entry",
-                (src_of(prop),)))
+            diags.append(
+                error(
+                    "lang-pos-ref",
+                    f"'{prop.name}' has a malformed {function} entry",
+                    (src_of(prop),),
+                )
+            )
             return refs, diags
 
         elem = shield.by_path.get(target.path)
         plug_entry = plugs_by_path.get(target.path)
-        if plug_entry is not None:                              # fixed position
+        if plug_entry is not None:  # fixed position
             slot, ctype = plug_entry
             pos = args[0]
             ok, d = _valid_position(prop, pos, ctype)
@@ -574,31 +673,66 @@ def _parse_pos_ref(prop, function: str, shield: Shield, plugs_by_path: PlugsByPa
             if not ok:
                 continue
             if function == "gpio":
-                refs.append(FunctionRef(prop=prop.name, position=pos, flags=args[1],
-                                    function="gpio", src=src_of(prop), plug=slot))
+                refs.append(
+                    FunctionRef(
+                        prop=prop.name,
+                        position=pos,
+                        flags=args[1],
+                        function="gpio",
+                        src=src_of(prop),
+                        plug=slot,
+                    )
+                )
             elif function == "pwm":
-                refs.append(FunctionRef(prop=prop.name, position=pos, period=args[1],
-                                    flags=args[2], function="pwm", src=src_of(prop),
-                                    plug=slot))
+                refs.append(
+                    FunctionRef(
+                        prop=prop.name,
+                        position=pos,
+                        period=args[1],
+                        flags=args[2],
+                        function="pwm",
+                        src=src_of(prop),
+                        plug=slot,
+                    )
+                )
             else:  # adc
-                refs.append(FunctionRef(prop=prop.name, position=pos, flags=0,
-                                    function="adc", src=src_of(prop), plug=slot))
+                refs.append(
+                    FunctionRef(
+                        prop=prop.name,
+                        position=pos,
+                        flags=0,
+                        function="adc",
+                        src=src_of(prop),
+                        plug=slot,
+                    )
+                )
         elif function == "gpio" and isinstance(elem, Jumper):  # deferred position
             flags = args[0] if args else 0
-            refs.append(FunctionRef(prop=prop.name, position=None, flags=flags,
-                                jumper=elem.name, function="gpio", src=src_of(prop)))
+            refs.append(
+                FunctionRef(
+                    prop=prop.name,
+                    position=None,
+                    flags=flags,
+                    jumper=elem.name,
+                    function="gpio",
+                    src=src_of(prop),
+                )
+            )
         else:
             where = target.path if target else "?"
             if len(plugs_by_path) > 1:
                 what = "one of this shield's plug nodes"
             else:
                 what = "THIS shield's plug node"
-            diags.append(error(
-                "lang-pos-ref",
-                f"'{prop.name}' must reference {what} (fixed position)"
-                + ("" if function != "gpio" else " or one of its routing jumpers")
-                + f" — it points at {where}",
-                (src_of(prop),)))
+            diags.append(
+                error(
+                    "lang-pos-ref",
+                    f"'{prop.name}' must reference {what} (fixed position)"
+                    + ("" if function != "gpio" else " or one of its routing jumpers")
+                    + f" — it points at {where}",
+                    (src_of(prop),),
+                )
+            )
     return refs, diags
 
 
@@ -611,21 +745,32 @@ def _ncells(node, function: str) -> int:
 
 def _valid_position(prop, pos: int, ctype) -> tuple[bool, list[Diagnostic]]:
     if ctype and pos not in ctype.index2name:
-        return False, [error(
-            "lang-position",
-            f"'{prop.name}' claims position index {pos}, which does not "
-            f"exist on connector type '{ctype.name}'", (src_of(prop),))]
+        return False, [
+            error(
+                "lang-position",
+                f"'{prop.name}' claims position index {pos}, which does not "
+                f"exist on connector type '{ctype.name}'",
+                (src_of(prop),),
+            )
+        ]
     if ctype and ctype.index2name[pos] not in ctype.positions:
-        return False, [error(
-            "lang-position",
-            f"'{prop.name}' claims {ctype.index2name[pos]} — bus copper, "
-            f"not a claimable position of '{ctype.name}' (electrical "
-            "realization is not modeled)", (src_of(prop),))]
+        return False, [
+            error(
+                "lang-position",
+                f"'{prop.name}' claims {ctype.index2name[pos]} — bus copper, "
+                f"not a claimable position of '{ctype.name}' (electrical "
+                "realization is not modeled)",
+                (src_of(prop),),
+            )
+        ]
     return True, []
 
 
-def _parse_gpio_map(node, plugs_by_path: PlugsByPath, is_plural: bool,
-                    ) -> tuple[dict[int, tuple[str, int, int]], list[Diagnostic]]:
+def _parse_gpio_map(
+    node,
+    plugs_by_path: PlugsByPath,
+    is_plural: bool,
+) -> tuple[dict[int, tuple[str, int, int]], list[Diagnostic]]:
     """gpio-map's own 5-cell rows: child pos, child flags, phandle, parent
     pos, parent flags. Each phandle must land on one of the carrier's own
     plugs (pass-through); RECORDS which slot it named, per row."""
@@ -635,26 +780,33 @@ def _parse_gpio_map(node, plugs_by_path: PlugsByPath, is_plural: bool,
         cells = words(node.props["gpio-map"])
         dt = node.dt
         for i in range(0, len(cells) - len(cells) % 5, 5):
-            pos, _f, phandle, parent_pos, parent_flags = cells[i:i + 5]
+            pos, _f, phandle, parent_pos, parent_flags = cells[i : i + 5]
             target = dt.phandle2node.get(phandle)
             plug_entry = plugs_by_path.get(target.path) if target is not None else None
             if plug_entry is None:
                 what = "one of the carrier's plugs" if is_plural else "the carrier's plug"
-                diags.append(error(
-                    "lang-exposed",
-                    f"exposed socket '{node.name}': gpio-map parent must "
-                    f"be {what} (pass-through)",
-                    (src_of(node),)))
+                diags.append(
+                    error(
+                        "lang-exposed",
+                        f"exposed socket '{node.name}': gpio-map parent must "
+                        f"be {what} (pass-through)",
+                        (src_of(node),),
+                    )
+                )
                 continue
             slot, _pctype = plug_entry
             gpio_map[pos] = (slot, parent_pos, parent_flags)
     return gpio_map, diags
 
 
-def _parse_exposed_buses(node, shield: Shield, plugs_by_path: PlugsByPath,
-                         ctype: ConnectorType | None, type_name: str,
-                         is_plural: bool,
-                         ) -> tuple[dict[str, tuple[str, str]], list[Diagnostic]]:
+def _parse_exposed_buses(
+    node,
+    shield: Shield,
+    plugs_by_path: PlugsByPath,
+    ctype: ConnectorType | None,
+    type_name: str,
+    is_plural: bool,
+) -> tuple[dict[str, tuple[str, str]], list[Diagnostic]]:
     """The socket,<bus> (and role-qualified) properties, in sorted
     property-name order: each is either a pass-through of one of the
     carrier's plugs or a new scope rooted at a device of the shield."""
@@ -662,37 +814,46 @@ def _parse_exposed_buses(node, shield: Shield, plugs_by_path: PlugsByPath,
     buses: dict[str, tuple[str, str]] = {}
     qualified_props = sorted(name for name in node.props if _BUS_PROP_RE.match(name))
     for prop_name in qualified_props:
-        kind = prop_name[len("socket,"):]
+        kind = prop_name[len("socket,") :]
         if ctype is not None and kind not in ctype.bus_proxies:
-            diags.append(error(
-                "lang-exposed",
-                f"exposed socket '{node.name}': {prop_name} names a bus "
-                f"'{kind}' that connector type '{type_name}' does not "
-                "declare -- declared buses: "
-                f"{', '.join(sorted(ctype.bus_proxies)) or 'none'}",
-                (src_of(node),)))
+            diags.append(
+                error(
+                    "lang-exposed",
+                    f"exposed socket '{node.name}': {prop_name} names a bus "
+                    f"'{kind}' that connector type '{type_name}' does not "
+                    "declare -- declared buses: "
+                    f"{', '.join(sorted(ctype.bus_proxies)) or 'none'}",
+                    (src_of(node),),
+                )
+            )
             continue
         target = node.props[prop_name].to_node()
         by_path = shield.by_path.get(target.path)
         plug_entry = plugs_by_path.get(target.path)
         if plug_entry is not None:
             slot, _pctype = plug_entry
-            buses[kind] = ("plug", slot)                # pass-through
+            buses[kind] = ("plug", slot)  # pass-through
         elif isinstance(by_path, Device):
-            buses[kind] = ("scope", by_path.label)       # new scope
+            buses[kind] = ("scope", by_path.label)  # new scope
         else:
             what = "one of the carrier's plugs" if is_plural else "<&plug>"
-            diags.append(error(
-                "lang-exposed",
-                f"exposed socket '{node.name}': {prop_name} must be "
-                f"{what} (pass-through) or <&device> (new scope)",
-                (src_of(node),)))
+            diags.append(
+                error(
+                    "lang-exposed",
+                    f"exposed socket '{node.name}': {prop_name} must be "
+                    f"{what} (pass-through) or <&device> (new scope)",
+                    (src_of(node),),
+                )
+            )
     return buses, diags
 
 
-def _parse_exposed(node, plugs_by_path: PlugsByPath, shield: Shield,
-                   types: dict[str, ConnectorType],
-                   ) -> tuple[ExposedSocket, list[Diagnostic]]:
+def _parse_exposed(
+    node,
+    plugs_by_path: PlugsByPath,
+    shield: Shield,
+    types: dict[str, ConnectorType],
+) -> tuple[ExposedSocket, list[Diagnostic]]:
     """A re-exported socket, potentially composed from SEVERAL named
     parents. gpio-map binds exposed positions to ONE of the carrier's own
     plug positions (pass-through) -- RECORDING which slot the phandle
@@ -715,14 +876,15 @@ def _parse_exposed(node, plugs_by_path: PlugsByPath, shield: Shield,
     diags += d
 
     pwm_map, pwm_cells, d = _parse_channel_map(
-        node, "pwm-map", "#pwm-cells", "pwm", plugs_by_path, is_plural)
+        node, "pwm-map", "#pwm-cells", "pwm", plugs_by_path, is_plural
+    )
     diags += d
     adc_map, adc_cells, d = _parse_channel_map(
-        node, "io-channel-map", "#io-channel-cells", "adc", plugs_by_path, is_plural)
+        node, "io-channel-map", "#io-channel-cells", "adc", plugs_by_path, is_plural
+    )
     diags += d
 
-    buses, d = _parse_exposed_buses(
-        node, shield, plugs_by_path, ctype, type_name, is_plural)
+    buses, d = _parse_exposed_buses(node, shield, plugs_by_path, ctype, type_name, is_plural)
     diags += d
 
     cs_pool: dict[str, list[int]] = {}
@@ -734,22 +896,33 @@ def _parse_exposed(node, plugs_by_path: PlugsByPath, shield: Shield,
             continue
         cs_pool[m.group(1)] = list(node.props[prop_name].to_nums())
 
-    channel = node.props["shield,channel"].to_num() \
-        if "shield,channel" in node.props else None
+    channel = node.props["shield,channel"].to_num() if "shield,channel" in node.props else None
     label, d = _require_label(node, "exposed socket", shield.name)
     diags += d
     return ExposedSocket(
-        name=node.name, label=label,
-        type_name=type_name, gpio_map=gpio_map, buses=buses,
-        pwm_map=pwm_map, pwm_cells=pwm_cells,
-        adc_map=adc_map, adc_cells=adc_cells,
-        cs_pool=cs_pool, channel=channel, src=src_of(node)), diags
+        name=node.name,
+        label=label,
+        type_name=type_name,
+        gpio_map=gpio_map,
+        buses=buses,
+        pwm_map=pwm_map,
+        pwm_cells=pwm_cells,
+        adc_map=adc_map,
+        adc_cells=adc_cells,
+        cs_pool=cs_pool,
+        channel=channel,
+        src=src_of(node),
+    ), diags
 
 
-def _parse_channel_map(node, prop_name: str, cells_prop: str, function: str,
-                       plugs_by_path: PlugsByPath, is_plural: bool,
-                       ) -> tuple[dict[int, tuple[str, int, int]], int | None,
-                                  list[Diagnostic]]:
+def _parse_channel_map(
+    node,
+    prop_name: str,
+    cells_prop: str,
+    function: str,
+    plugs_by_path: PlugsByPath,
+    is_plural: bool,
+) -> tuple[dict[int, tuple[str, int, int]], int | None, list[Diagnostic]]:
     """The pwm-map / io-channel-map twin of gpio-map's own loop above,
     factored out because PWM and ADC share this one function's shape end
     to end and because their STRIDE, unlike gpio-map's, is not a
@@ -775,20 +948,26 @@ def _parse_channel_map(node, prop_name: str, cells_prop: str, function: str,
     has_map = prop_name in node.props
     has_cells = cells_prop in node.props
     if has_map and not has_cells:
-        diags.append(error(
-            "lang-exposed",
-            f"exposed socket '{node.name}': {prop_name} needs a "
-            f"{cells_prop} declaration alongside it (require-and-check: "
-            "the carrier states its own cell count, "
-            "the analyzer checks it against the resolved parent's)",
-            (src_of(node),)))
+        diags.append(
+            error(
+                "lang-exposed",
+                f"exposed socket '{node.name}': {prop_name} needs a "
+                f"{cells_prop} declaration alongside it (require-and-check: "
+                "the carrier states its own cell count, "
+                "the analyzer checks it against the resolved parent's)",
+                (src_of(node),),
+            )
+        )
         return {}, None, diags
     if has_cells and not has_map:
-        diags.append(error(
-            "lang-exposed",
-            f"exposed socket '{node.name}': {cells_prop} needs a "
-            f"{prop_name} declaration alongside it (require-and-check)",
-            (src_of(node),)))
+        diags.append(
+            error(
+                "lang-exposed",
+                f"exposed socket '{node.name}': {cells_prop} needs a "
+                f"{prop_name} declaration alongside it (require-and-check)",
+                (src_of(node),),
+            )
+        )
         return {}, None, diags
     if not has_map:
         return {}, None, diags
@@ -800,12 +979,15 @@ def _parse_channel_map(node, prop_name: str, cells_prop: str, function: str,
     i = 0
     while i < len(cells):
         if i + declared_cells + 1 > len(cells):
-            diags.append(error(
-                "lang-exposed",
-                f"exposed socket '{node.name}': {prop_name} has a "
-                f"malformed entry (expected {declared_cells}-cell child "
-                f"specifiers, per {cells_prop})",
-                (src_of(node),)))
+            diags.append(
+                error(
+                    "lang-exposed",
+                    f"exposed socket '{node.name}': {prop_name} has a "
+                    f"malformed entry (expected {declared_cells}-cell child "
+                    f"specifiers, per {cells_prop})",
+                    (src_of(node),),
+                )
+            )
             break
         pos = cells[i]
         phandle = cells[i + declared_cells]
@@ -813,20 +995,25 @@ def _parse_channel_map(node, prop_name: str, cells_prop: str, function: str,
         parent_cells = _ncells(target, function)
         row_len = declared_cells + 1 + parent_cells
         if i + row_len > len(cells):
-            diags.append(error(
-                "lang-exposed",
-                f"exposed socket '{node.name}': {prop_name} has a "
-                "truncated entry",
-                (src_of(node),)))
+            diags.append(
+                error(
+                    "lang-exposed",
+                    f"exposed socket '{node.name}': {prop_name} has a truncated entry",
+                    (src_of(node),),
+                )
+            )
             break
         plug_entry = plugs_by_path.get(target.path) if target is not None else None
         if plug_entry is None:
             what = "one of the carrier's plugs" if is_plural else "the carrier's plug"
-            diags.append(error(
-                "lang-exposed",
-                f"exposed socket '{node.name}': {prop_name} parent must "
-                f"be {what} (pass-through)",
-                (src_of(node),)))
+            diags.append(
+                error(
+                    "lang-exposed",
+                    f"exposed socket '{node.name}': {prop_name} parent must "
+                    f"be {what} (pass-through)",
+                    (src_of(node),),
+                )
+            )
             i += row_len
             continue
         slot, _pctype = plug_entry
@@ -840,10 +1027,13 @@ def _parse_pad(node, shield_name: str) -> tuple[Pad, list[Diagnostic]]:
     diags: list[Diagnostic] = []
     role = node.props["shield,role"].to_string() if "shield,role" in node.props else "bidir"
     if role not in ("driver", "listener", "bidir"):
-        diags.append(error(
-            "lang-pad-role",
-            f"pad '{node.name}': unknown role '{role}' (driver / listener "
-            "/ bidir)", (src_of(node),)))
+        diags.append(
+            error(
+                "lang-pad-role",
+                f"pad '{node.name}': unknown role '{role}' (driver / listener / bidir)",
+                (src_of(node),),
+            )
+        )
     of = None
     if "shield,of" in node.props:
         of = node.props["shield,of"].to_node().name.partition("@")[0]
@@ -856,16 +1046,18 @@ def _parse_strap(node, shield_name: str) -> tuple[Strap, list[Diagnostic]]:
     dom = node.props["shield,domain"].to_nums()
     domain = [(dom[i], dom[i + 1]) for i in range(0, len(dom), 2)]
     label, diags = _require_label(node, "strap", shield_name)
-    return Strap(name=node.name, label=label, domain=domain,
-                sheet_label=_sheet_label(node), src=src_of(node)), diags
+    return Strap(
+        name=node.name, label=label, domain=domain, sheet_label=_sheet_label(node), src=src_of(node)
+    ), diags
 
 
 def _parse_jumper(node, shield_name: str) -> tuple[Jumper, list[Diagnostic]]:
     dom = node.props["shield,position-domain"].to_nums()
     domain = [(dom[i], dom[i + 1]) for i in range(0, len(dom), 2)]
     label, diags = _require_label(node, "jumper", shield_name)
-    return Jumper(name=node.name, label=label, domain=domain,
-                 sheet_label=_sheet_label(node), src=src_of(node)), diags
+    return Jumper(
+        name=node.name, label=label, domain=domain, sheet_label=_sheet_label(node), src=src_of(node)
+    ), diags
 
 
 def _sheet_label(node) -> str:

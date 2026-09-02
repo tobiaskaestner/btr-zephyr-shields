@@ -6,6 +6,7 @@ regardless of RIGC_LOG/-v/-vv (which govern the REAL stderr handler
 to tests/unit/ only: the frozen integration suite drives rigc as a
 subprocess, where caplog cannot observe anything anyway.
 """
+
 from __future__ import annotations
 
 import logging

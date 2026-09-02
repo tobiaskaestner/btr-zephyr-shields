@@ -37,6 +37,7 @@ in tests/unit/test_edt_build.py instead -- it has no rigc product
 dependency at all, so it travels with the BSD-3 reader layer rather than
 this file's product-layer guards.
 """
+
 from __future__ import annotations
 
 import pickle
@@ -55,8 +56,9 @@ from rigc.diag import render  # noqa: E402
 
 
 @pytest.fixture(params=BOARDS, ids=BOARDS)
-def plain_build(request: pytest.FixtureRequest,
-                tmp_path_factory: pytest.TempPathFactory) -> PlainBuild:
+def plain_build(
+    request: pytest.FixtureRequest, tmp_path_factory: pytest.TempPathFactory
+) -> PlainBuild:
     """Per-board plain build, session-memoized by corpus.plain_build_for
     -- other test files (test_emitted_corpus.py) request the SAME cached
     build for their own rigs naming this board, rather than configuring it
@@ -102,32 +104,34 @@ def test_edt_pickle_cross_check(plain_build: PlainBuild, tmp_path: Path) -> None
     recipe = edt_build.recipe_from_build_info(str(plain_build.build_info))
     dts_path = str(REPO_ROOT / BOARD_DTS[plain_build.board])
     standalone_board, diags, _deps = resolve.load_board(
-        plain_build.board, str(tmp_path / "resolve"),
-        board_dts=dts_path, recipe=recipe)
+        plain_build.board, str(tmp_path / "resolve"), board_dts=dts_path, recipe=recipe
+    )
     assert standalone_board is not None, (
-        f"resolve.load_board({plain_build.board!r}) failed:\n{render(diags)}")
+        f"resolve.load_board({plain_build.board!r}) failed:\n{render(diags)}"
+    )
 
     assert standalone_board.sockets.keys() == pass2_board.sockets.keys()
     for label, standalone_socket in standalone_board.sockets.items():
         pass2_socket = pass2_board.sockets[label]
         assert standalone_socket.path == pass2_socket.path, (
             f"{plain_build.board}/{label}: socket node path differs "
-            f"(standalone={standalone_socket.path} pass2={pass2_socket.path})")
+            f"(standalone={standalone_socket.path} pass2={pass2_socket.path})"
+        )
         assert standalone_socket.gpio_map == pass2_socket.gpio_map, (
-            f"{plain_build.board}/{label}: gpio-map entries differ from "
-            f"pass-2's edt.pickle")
+            f"{plain_build.board}/{label}: gpio-map entries differ from pass-2's edt.pickle"
+        )
         assert standalone_socket.buses == pass2_socket.buses, (
             f"{plain_build.board}/{label}: bus phandle targets (including "
             f"each bus's own cs_pool, a BusRef field) differ from "
-            f"pass-2's edt.pickle")
+            f"pass-2's edt.pickle"
+        )
 
 
 # ---------------------------------------------------------------- production-plumbing guard
 
 
 @pytest.mark.build
-def test_production_matches_direct_read(plain_build: PlainBuild,
-                                        tmp_path: Path) -> None:
+def test_production_matches_direct_read(plain_build: PlainBuild, tmp_path: Path) -> None:
     """resolve.load_board (what the expander actually calls) is a thin
     board-resolution wrapper over project.load_board -- assert they
     produce the identical model.Board, given the same board-dts + recipe,
@@ -137,13 +141,13 @@ def test_production_matches_direct_read(plain_build: PlainBuild,
     dts_path = str(REPO_ROOT / BOARD_DTS[plain_build.board])
 
     production, diags, _deps = resolve.load_board(
-        plain_build.board, str(tmp_path / "production"),
-        board_dts=dts_path, recipe=recipe)
+        plain_build.board, str(tmp_path / "production"), board_dts=dts_path, recipe=recipe
+    )
     assert production is not None, (
-        f"resolve.load_board({plain_build.board!r}) failed:\n{render(diags)}")
+        f"resolve.load_board({plain_build.board!r}) failed:\n{render(diags)}"
+    )
 
-    direct = project.load_board(
-        plain_build.board, dts_path, recipe, str(tmp_path / "direct"))
+    direct = project.load_board(plain_build.board, dts_path, recipe, str(tmp_path / "direct"))
 
     assert production == direct
 
@@ -166,24 +170,28 @@ def test_census_matches_real_board_devicetree(plain_build: PlainBuild) -> None:
         pass2_edt = pickle.load(f)
     pass2_board = project.project_edt(pass2_edt, plain_build.board)
 
-    censused = [cb for cb in census.census_boards()
-               if cb.target == plain_build.board]
+    censused = [cb for cb in census.census_boards() if cb.target == plain_build.board]
     assert len(censused) == 1, (
         f"expected exactly one census entry for board {plain_build.board!r}, "
-        f"got targets {[cb.target for cb in censused]}")
+        f"got targets {[cb.target for cb in censused]}"
+    )
     census_board = censused[0].board
 
     assert set(census_board.sockets) == set(pass2_board.sockets), (
         f"{plain_build.board}: census sockets {sorted(census_board.sockets)} "
-        f"!= real sockets {sorted(pass2_board.sockets)}")
+        f"!= real sockets {sorted(pass2_board.sockets)}"
+    )
     for label, socket in census_board.sockets.items():
         real = pass2_board.sockets[label]
         assert socket.type_name == real.type_name, (
             f"{plain_build.board}/{label}: census type_name "
-            f"{socket.type_name!r} != real {real.type_name!r}")
+            f"{socket.type_name!r} != real {real.type_name!r}"
+        )
         assert sorted(socket.buses) == sorted(real.buses), (
             f"{plain_build.board}/{label}: census bus kinds "
-            f"{sorted(socket.buses)} != real {sorted(real.buses)}")
+            f"{sorted(socket.buses)} != real {sorted(real.buses)}"
+        )
     assert census_board.aliases == pass2_board.aliases, (
         f"{plain_build.board}: census aliases {census_board.aliases} != "
-        f"real aliases {pass2_board.aliases}")
+        f"real aliases {pass2_board.aliases}"
+    )

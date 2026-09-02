@@ -13,6 +13,7 @@ lines here, and the duplication disappears entirely once the two trees
 actually separate (mechanics to bridle, hardware definitions staying
 here).
 """
+
 from __future__ import annotations
 
 import os
@@ -45,16 +46,17 @@ _ACCEPT_RIG = FIXTURES_DIR / "boards" / "rigs" / "multibus-sockets" / "rig.yml"
 
 
 def _run(rig_yml: Path, out_dir: Path) -> subprocess.CompletedProcess[str]:
-    assert_fixture_local([_BOARD_DTS, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE,
-                          _SHIELDS])
+    assert_fixture_local([_BOARD_DTS, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE, _SHIELDS])
     return run_expand(
-        rig_yml, out_dir,
+        rig_yml,
+        out_dir,
         board="multibus_fixture_board",
         shield_dirs=[_SHIELDS],
         board_dts=_BOARD_DTS,
         bindings_dirs=[_CONNECTOR_BINDINGS],
         include_dirs=[_CONNECTOR_INCLUDE],
-        connector_dirs=[_CONNECTOR_BINDINGS])
+        connector_dirs=[_CONNECTOR_BINDINGS],
+    )
 
 
 @pytest.mark.build
@@ -98,38 +100,51 @@ def test_multibus_expand_and_build_round_trip(tmp_path: Path) -> None:
     out_dir = tmp_path / "expand-out"
     expand_result = _run(_ACCEPT_RIG, out_dir)
     assert expand_result.returncode == 0, (
-        f"multibus_sockets: expected accept\n--- stderr ---\n{expand_result.stderr}")
+        f"multibus_sockets: expected accept\n--- stderr ---\n{expand_result.stderr}"
+    )
 
     # multibus_board.dts, minus its own leading "/dts-v1/;" (a version
     # marker legal only once per merged devicetree; the REAL base board
     # -b supplies its own) -- everything else is plain node text, valid
     # as an EXTRA_DTC_OVERLAY_FILE fragment exactly as authored.
     board_lines = _BOARD_DTS.read_text().splitlines(keepends=True)
-    board_overlay_text = "".join(
-        line for line in board_lines if line.strip() != "/dts-v1/;")
+    board_overlay_text = "".join(line for line in board_lines if line.strip() != "/dts-v1/;")
     combined = tmp_path / "multibus-combined.overlay"
-    combined.write_text(
-        board_overlay_text + "\n" + (out_dir / "rig-gen.overlay").read_text())
+    combined.write_text(board_overlay_text + "\n" + (out_dir / "rig-gen.overlay").read_text())
 
     zb = zephyr_base()
     env = dict(os.environ)
     env["ZEPHYR_BASE"] = zb
     build_dir = tmp_path / "build"
     cmd = [
-        WEST_EXE, "build", "-b", "nucleo_f401re/stm32f401xe/rig",
-        "zephyr/samples/hello_world", "--cmake-only", "-p", "always",
-        "-d", str(build_dir), "--",
+        WEST_EXE,
+        "build",
+        "-b",
+        "nucleo_f401re/stm32f401xe/rig",
+        "zephyr/samples/hello_world",
+        "--cmake-only",
+        "-p",
+        "always",
+        "-d",
+        str(build_dir),
+        "--",
         f"-DEXTRA_DTC_OVERLAY_FILE={combined}",
     ]
     write_rerun_script(build_dir, WEST_TOPDIR, cmd, env)
-    result = subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=env,
-                            capture_output=True, text=True,
-                            timeout=subprocess_timeout(600))
+    result = subprocess.run(
+        cmd,
+        cwd=str(WEST_TOPDIR),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=subprocess_timeout(600),
+    )
     assert result.returncode == 0, (
         "multibus_sockets: expected the combined fixture-board + rig-gen "
         "overlay to configure clean against a real toolchain\n"
         f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"--- stderr ---\n{result.stderr}"
+    )
 
     zephyr_dts = (build_dir / "zephyr" / "zephyr.dts").read_text()
     assert "multibus_socket" in zephyr_dts

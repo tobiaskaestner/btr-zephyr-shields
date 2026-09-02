@@ -6,6 +6,7 @@ against.
 builds the shield library and resolves every reference against it
 before an `Instance` ever exists, so nothing downstream carries an
 unresolved reference."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -23,7 +24,7 @@ class Position:
 
     name: str
     index: int
-    function: str          # gpio | analog
+    function: str  # gpio | analog
     optional: bool = False
 
 
@@ -31,11 +32,11 @@ class Position:
 class ConnectorType:
     """A connector type IS its binding pair + index header."""
 
-    name: str                          # "arduino-r3"
-    positions: dict[str, Position]     # claimable positions, by name
-    index2name: dict[int, str]         # ALL header indices (incl. bus copper)
-    bus_proxies: list[str]             # allowed shield proxy nodes
-    stackable: bool                    # mating multiplicity N vs 1
+    name: str  # "arduino-r3"
+    positions: dict[str, Position]  # claimable positions, by name
+    index2name: dict[int, str]  # ALL header indices (incl. bus copper)
+    bus_proxies: list[str]  # allowed shield proxy nodes
+    stackable: bool  # mating multiplicity N vs 1
     # default ordered CS candidates, keyed by the QUALIFIED bus name a
     # multi-bus connector type suffixes with a role ("spi" bare, or
     # "spi-sensors"/"spi-motors" once a type offers more than one SPI
@@ -70,28 +71,28 @@ class FunctionRef:
     flags: int
     src: SourceRef
     jumper: str | None = None
-    function: str = "gpio"          # gpio | pwm | adc
-    period: int | None = None    # pwm only: the period cell, passed through
+    function: str = "gpio"  # gpio | pwm | adc
+    period: int | None = None  # pwm only: the period cell, passed through
     plug: str = "plug"
 
 
 @dataclass
 class Device:
-    name: str                       # node name without unit-address
-    label: str                      # shield-local label (dl_rtc)
+    name: str  # node name without unit-address
+    label: str  # shield-local label (dl_rtc)
     compatible: str | None
-    bus: str | None              # "i2c" | "spi" | "uart" | None (plain group)
-    group: str | None            # non-bus group name ("gpio") for None-bus devices
-    reg: int | None              # authored = 1-element domain (address authority rule)
-    addr_from: str | None        # strap name -- deferred address, explicit not absent
-    cs_position: int | None      # copper-fixed CS (shield,cs-position)
+    bus: str | None  # "i2c" | "spi" | "uart" | None (plain group)
+    group: str | None  # non-bus group name ("gpio") for None-bus devices
+    reg: int | None  # authored = 1-element domain (address authority rule)
+    addr_from: str | None  # strap name -- deferred address, explicit not absent
+    cs_position: int | None  # copper-fixed CS (shield,cs-position)
     # the slot THIS device's own BUS group nests under -- None for a
     # plain (non-bus) group device, which is plug-agnostic (its own gpio
     # refs each carry their own plug instead); "plug" for any bus device
     # of a single-plug shield. Never consulted for a plain-group device
     # (nothing reads it without first checking `bus` is not None).
     plug: str | None = "plug"
-    collect: str | None = None   # collection compatible (gpio-keys/leds): this is an ENTRY
+    collect: str | None = None  # collection compatible (gpio-keys/leds): this is an ENTRY
     declared_params: list[str] = field(default_factory=list)  # shield,params: names
     # shield,param-includes: headers -- a macro-only header contributes no
     # node/property of its own, so it cannot be recovered from this
@@ -109,8 +110,8 @@ class Pad:
 
     name: str
     label: str
-    role: str                       # driver | listener | bidir
-    of: str | None               # device name it belongs to
+    role: str  # driver | listener | bidir
+    of: str | None  # device name it belongs to
     src: SourceRef | None = None
 
 
@@ -120,7 +121,7 @@ class Strap:
 
     name: str
     label: str
-    domain: list[tuple[int, int]]   # (address, strap state) pairs
+    domain: list[tuple[int, int]]  # (address, strap state) pairs
     sheet_label: str
     src: SourceRef | None = None
 
@@ -132,7 +133,7 @@ class Jumper:
 
     name: str
     label: str
-    domain: list[tuple[int, int]]   # (connector-position index, jumper state)
+    domain: list[tuple[int, int]]  # (connector-position index, jumper state)
     sheet_label: str
     src: SourceRef | None = None
 
@@ -151,9 +152,9 @@ class ExposedSocket:
     plugs, and each gpio-map row may resolve through a different plug
     too."""
 
-    name: str                       # node name -- what the rig references after the dot
+    name: str  # node name -- what the rig references after the dot
     label: str
-    type_name: str                  # from compatible "socket,<type>"
+    type_name: str  # from compatible "socket,<type>"
     # exposed position -> (parent SLOT, parent plug position, flags) --
     # the phandle a gpio-map row carries names WHICH of the carrier's
     # plugs the row resolves through; "plug" for every row of a
@@ -182,14 +183,14 @@ class ExposedSocket:
     # a bare "socket,cs-pool" property parses into the "spi" entry, since
     # CS only ever applies to SPI. Absent from the dict = no override.
     cs_pool: dict[str, list[int]] = field(default_factory=dict)
-    channel: int | None = None   # mux channel index (scope-creating interposer)
+    channel: int | None = None  # mux channel index (scope-creating interposer)
     src: SourceRef | None = None
 
 
 @dataclass
 class Shield:
-    name: str                       # node name: "adafruit-data-logger"
-    label: str                      # DTS label: data_logger
+    name: str  # node name: "adafruit-data-logger"
+    label: str  # DTS label: data_logger
     # slot name -> consumed connector type, in AUTHORING order. One entry
     # per plug NODE, keyed by that node's own name (conventionally
     # `"plug"` for a shield with one). Every consumer keys through this
@@ -201,7 +202,7 @@ class Shield:
     straps: dict[str, Strap] = field(default_factory=dict)
     jumpers: dict[str, Jumper] = field(default_factory=dict)
     exposes: dict[str, ExposedSocket] = field(default_factory=dict)
-    by_path: dict[str, object] = field(default_factory=dict)   # dtlib path -> element
+    by_path: dict[str, object] = field(default_factory=dict)  # dtlib path -> element
     # shield.yml's declared revision axis, and which one THIS Shield
     # represents -- both None for a shield with no revision: block.
     # `revision` is the RESOLVED value (what constructed this Shield's own
@@ -258,9 +259,11 @@ class Shield:
         """The `by_name` scope's own labels, for a wire-ref diagnostic's
         "valid names" listing -- pads UNION devices UNION straps, sorted,
         matching `by_name`'s own resolution scope exactly."""
-        return sorted([p.label for p in self.pads.values()]
-                     + [d.label for d in self.devices]
-                     + [s.label for s in self.straps.values()])
+        return sorted(
+            [p.label for p in self.pads.values()]
+            + [d.label for d in self.devices]
+            + [s.label for s in self.straps.values()]
+        )
 
 
 @dataclass
@@ -279,7 +282,7 @@ class WireEnd:
 class Wire:
     frm: WireEnd
     to: WireEnd
-    route: str | int          # "adhoc" | via: position name (raw)
+    route: str | int  # "adhoc" | via: position name (raw)
     src: SourceRef
 
 
@@ -295,10 +298,10 @@ class Instance:
     # itself, since it never sees the board. Keyed exactly as
     # `Shield.plugs` is.
     sockets: dict[str, str | None]
-    invert: bool = False            # flip the active level of the module's gpio signals
-    straps: dict[str, int] = field(default_factory=dict)        # strap name -> pinned address
+    invert: bool = False  # flip the active level of the module's gpio signals
+    straps: dict[str, int] = field(default_factory=dict)  # strap name -> pinned address
     strap_refs: dict[str, SourceRef] = field(default_factory=dict)
-    jumpers: dict[str, object] = field(default_factory=dict)    # jumper name -> raw position
+    jumpers: dict[str, object] = field(default_factory=dict)  # jumper name -> raw position
     jumper_refs: dict[str, SourceRef] = field(default_factory=dict)
     # rig params: -- per-instance property assignments, keyed by
     # shield-local DEVICE LABEL then property name; raw value TEXT
@@ -317,8 +320,8 @@ class Instance:
 
 @dataclass
 class BusRef:
-    label: str          # "i2c1" -- emission target &i2c1
-    path: str           # dtlib path, scope identity
+    label: str  # "i2c1" -- emission target &i2c1
+    path: str  # dtlib path, scope identity
     # CS numbering is a fact of THIS bus, not of the socket as a whole (a
     # socket offering two independent SPI buses gives each its own pool):
     # authored override for this bus, else None (the connector type's own
@@ -329,13 +332,17 @@ class BusRef:
 
 @dataclass
 class BoardSocket:
-    label: str                                  # "nucleo_ard" -- what rig socket: names
+    label: str  # "nucleo_ard" -- what rig socket: names
     path: str
-    type_name: str                               # from compatible "socket,<type>"
-    gpio_map: dict[int, tuple[str, int, int]]    # position -> (ctrl label, pin, flags)
-    buses: dict[str, BusRef]                     # qualified bus name (kind, or kind-role) present = offered subset
-    pwm_map: dict[int, tuple[str, int]] = field(default_factory=dict)  # position -> (ctrl label, channel)
-    adc_map: dict[int, tuple[str, int]] = field(default_factory=dict)  # position -> (ctrl label, channel)
+    type_name: str  # from compatible "socket,<type>"
+    gpio_map: dict[int, tuple[str, int, int]]  # position -> (ctrl label, pin, flags)
+    buses: dict[str, BusRef]  # qualified bus name (kind, or kind-role) present = offered subset
+    pwm_map: dict[int, tuple[str, int]] = field(
+        default_factory=dict
+    )  # position -> (ctrl label, channel)
+    adc_map: dict[int, tuple[str, int]] = field(
+        default_factory=dict
+    )  # position -> (ctrl label, channel)
     # This socket's OWN declared #pwm-cells / #io-channel-cells: for a
     # real board socket, board/project.py's checked read (never the discarded
     # period cell); for a synthesized carrier socket, compose_socket
@@ -349,7 +356,9 @@ class BoardSocket:
     # carrier's re-exported socket has no DT node of its own, so the
     # analyzer/emitter SYNTHESIZE one that chains to its parent's.
     nexus_label: str | None = None
-    nexus_rows: list[tuple[int, str, int]] | None = None  # [(child_pos, parent_nexus_label, parent_pos)]
+    nexus_rows: list[tuple[int, str, int]] | None = (
+        None  # [(child_pos, parent_nexus_label, parent_pos)]
+    )
     # PWM/ADC twins of nexus_rows above, kept SEPARATE (rather than
     # widening nexus_rows with a function tag) because a gpio-less,
     # analog-only exposed socket must still synthesize a nexus node --
@@ -381,7 +390,7 @@ class Board:
     sockets itself must not."""
 
     name: str
-    sockets: dict[str, BoardSocket] = field(default_factory=dict)   # by defining label
+    sockets: dict[str, BoardSocket] = field(default_factory=dict)  # by defining label
     aliases: dict[str, str] = field(default_factory=dict)  # additional label -> defining label
 
     def resolve(self, ref: str) -> BoardSocket | None:

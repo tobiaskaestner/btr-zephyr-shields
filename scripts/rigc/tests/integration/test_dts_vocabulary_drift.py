@@ -44,6 +44,7 @@ name in this schema is exactly the shape `(shield|plug|socket),<ident>`
 and never appears any other way,
 confirmed while re-deriving this page's own vocabulary from the parsers.
 """
+
 from __future__ import annotations
 
 import re
@@ -149,7 +150,8 @@ def test_dts_vocabulary_forward_every_code_literal_is_documented() -> None:
     missing = sorted(code - documented)
     assert not missing, (
         "propert(y/ies) used by scripts/rigc/ but with no dedicated entry "
-        f"on doc/reference/{{shield-template,board-socket}}.rst: {missing}")
+        f"on doc/reference/{{shield-template,board-socket}}.rst: {missing}"
+    )
 
 
 def test_dts_vocabulary_reverse_every_documented_property_is_real() -> None:
@@ -161,11 +163,12 @@ def test_dts_vocabulary_reverse_every_documented_property_is_real() -> None:
     types, _deps = load_types()
     documented = _doc_tokens(_doc_text())
     invented = sorted(
-        tok for tok in documented
-        if tok not in code and not _known_qualified(tok, set(types)))
+        tok for tok in documented if tok not in code and not _known_qualified(tok, set(types))
+    )
     assert not invented, (
         "doc/reference/{shield-template,board-socket}.rst documents "
-        f"propert(y/ies) that do not exist anywhere real: {invented}")
+        f"propert(y/ies) that do not exist anywhere real: {invented}"
+    )
 
 
 def test_dts_vocabulary_qualified_families_are_documented_by_pattern() -> None:
@@ -180,16 +183,19 @@ def test_dts_vocabulary_qualified_families_are_documented_by_pattern() -> None:
     headings = _heading_text()
     assert "socket,<kind>-<role>-cs-pool" in headings, (
         "the socket,<kind>-<role>-cs-pool qualified CS-pool family has no "
-        "dedicated heading on either reference page")
+        "dedicated heading on either reference page"
+    )
     assert "socket,<kind>-<role>" in headings, (
         "the socket,<kind>-<role> qualified bus-proxy family has no "
-        "dedicated heading on either reference page")
+        "dedicated heading on either reference page"
+    )
     documented = _doc_tokens(headings)
     for kind in BUS_KINDS:
         bare = f"socket,{kind}"
         assert bare in documented, (
             f"bare bus proxy '{bare}' (rigc.buskind.BUS_KINDS) has no "
-            "dedicated heading on either reference page")
+            "dedicated heading on either reference page"
+        )
 
 
 # ------------------------------------------------- the retired plug spelling
@@ -201,8 +207,8 @@ def test_dts_vocabulary_qualified_families_are_documented_by_pattern() -> None:
 # is the copy a reader actually pastes.
 
 _DEVICETREE_BLOCK = re.compile(
-    r"^([ \t]*)\.\. code-block:: devicetree[ \t]*\n(.*?)(?=\n\1\S|\Z)",
-    re.S | re.M)
+    r"^([ \t]*)\.\. code-block:: devicetree[ \t]*\n(.*?)(?=\n\1\S|\Z)", re.S | re.M
+)
 
 
 def _devicetree_blocks():
@@ -224,10 +230,12 @@ def test_no_doc_example_shows_the_retired_template_level_shield_plugs() -> None:
     offenders = [
         str(page.relative_to(REPO_ROOT))
         for page, block in _devicetree_blocks()
-        if "shield,plugs" in block and 'compatible = "shield,plug"' not in block]
+        if "shield,plugs" in block and 'compatible = "shield,plug"' not in block
+    ]
     assert offenders == [], (
         "doc example(s) show shield,plugs without the plug node's own "
-        f"compatible = \"shield,plug\": {offenders}")
+        f"compatible = \"shield,plug\": {offenders}"
+    )
 
 
 def test_no_doc_example_declares_cells_on_a_plug_node() -> None:
@@ -248,12 +256,10 @@ def test_no_doc_example_declares_cells_on_a_plug_node() -> None:
             for j in range(start, len(lines)):
                 depth += lines[j].count("{") - lines[j].count("}")
                 if any(c in lines[j] for c in cells):
-                    offenders.append(
-                        f"{page.relative_to(REPO_ROOT)}: {lines[j].strip()}")
+                    offenders.append(f"{page.relative_to(REPO_ROOT)}: {lines[j].strip()}")
                 if depth <= 0 and j > start:
                     break
-    assert offenders == [], (
-        f"doc example(s) declare cell counts on a plug node: {offenders}")
+    assert offenders == [], f"doc example(s) declare cell counts on a plug node: {offenders}"
 
 
 def test_the_devicetree_block_scan_finds_something() -> None:
@@ -269,4 +275,5 @@ def test_the_devicetree_block_scan_finds_something() -> None:
     with_plug = [b for _, b in blocks if 'compatible = "shield,plug"' in b]
     assert len(with_plug) >= 3, (
         f"only {len(with_plug)} block(s) show a plug node -- the cells law "
-        "has nothing to look inside")
+        "has nothing to look inside"
+    )

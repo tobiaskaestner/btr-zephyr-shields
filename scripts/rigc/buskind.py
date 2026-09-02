@@ -14,6 +14,7 @@ parsing), board/project.py (board-side projection) and registry.py
 a different input (a dtlib node, an edtlib.EDT, a raw binding dict), so
 the patterns themselves belong here rather than as separate verbatim
 copies drifting apart one edit at a time."""
+
 from __future__ import annotations
 
 import re

@@ -6,6 +6,7 @@ has a `board:`/`sockets:` grammar of its own; `resolve_board` is the
 one place the invocation's `--board` becomes `rig.board`, so a later
 change to how a board reaches this pipeline touches only this module.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field

@@ -20,6 +20,7 @@ returns `(Board | None, diagnostics, Deps)` rather than writing into
 accumulators handed in from outside -- the board's own .dts joins the
 same returned-value deps shape every other reader in this package
 already uses."""
+
 from __future__ import annotations
 
 import argparse
@@ -38,10 +39,12 @@ from .edt_build import BuildRecipe
 log = logging.getLogger(__name__)
 
 
-def load_board(name: str, workdir: str,
-               board_dts: str | None = None,
-               recipe: BuildRecipe | None = None,
-               ) -> tuple[Board | None, list[Diagnostic], Deps]:
+def load_board(
+    name: str,
+    workdir: str,
+    board_dts: str | None = None,
+    recipe: BuildRecipe | None = None,
+) -> tuple[Board | None, list[Diagnostic], Deps]:
     """Resolve board name to a model.Board, or (None, diagnostics) if it
     can't be read at all.
 
@@ -67,18 +70,27 @@ def load_board(name: str, workdir: str,
         if board_dts is None:
             return None, d, frozenset()
     elif not os.path.isfile(board_dts):
-        return None, [error(
-            "phys-board",
-            f"board '{name}': no such devicetree file\n  {board_dts}")], frozenset()
+        return (
+            None,
+            [error("phys-board", f"board '{name}': no such devicetree file\n  {board_dts}")],
+            frozenset(),
+        )
 
     if recipe is None:
-        return None, [error(
-            "phys-board",
-            f"board '{name}': no devicetree-reading recipe available "
-            f"({board_dts})\n"
-            "pass --include-dir/--bindings-dir (repeatable), or --build-info "
-            "<build_info.yml> from a real build, to read its devicetree — a "
-            "rig build (dts.cmake) supplies this automatically")], frozenset()
+        return (
+            None,
+            [
+                error(
+                    "phys-board",
+                    f"board '{name}': no devicetree-reading recipe available "
+                    f"({board_dts})\n"
+                    "pass --include-dir/--bindings-dir (repeatable), or --build-info "
+                    "<build_info.yml> from a real build, to read its devicetree — a "
+                    "rig build (dts.cmake) supplies this automatically",
+                )
+            ],
+            frozenset(),
+        )
 
     deps = touch(board_dts)
     try:
@@ -95,15 +107,22 @@ def load_board(name: str, workdir: str,
         # loader/__init__.py).
         return None, list(e.diags), deps
     if not board.sockets:
-        return None, [error(
-            "phys-board",
-            # anchor_path, not relpath: a cwd-relative path renders
-            # differently depending on where the tool was invoked from, so a
-            # reproduction of the same failure would not reproduce the same
-            # text (see the rerun-script note in the integration conftest).
-            f"board '{name}' has a devicetree ({anchor_path(board_dts)}) "
-            "but declares no socket,* nodes — it exists, but is not "
-            "rig-enabled (a board opts in with a typed socket node)")], deps
+        return (
+            None,
+            [
+                error(
+                    "phys-board",
+                    # anchor_path, not relpath: a cwd-relative path renders
+                    # differently depending on where the tool was invoked from, so a
+                    # reproduction of the same failure would not reproduce the same
+                    # text (see the rerun-script note in the integration conftest).
+                    f"board '{name}' has a devicetree ({anchor_path(board_dts)}) "
+                    "but declares no socket,* nodes — it exists, but is not "
+                    "rig-enabled (a board opts in with a typed socket node)",
+                )
+            ],
+            deps,
+        )
     log.info("board '%s' resolved: %s", name, board_dts)
     return board, [], deps
 
@@ -140,27 +159,29 @@ def _discover_board_dts(name: str) -> tuple[str | None, list[Diagnostic]]:
 
     board_name, _, qualifiers = name.partition("/")
     args = argparse.Namespace(
-        board_roots=[Path(MODULE_ROOT)], soc_roots=[Path(zephyr_base)],
-        board=None, board_dir=[])
+        board_roots=[Path(MODULE_ROOT)], soc_roots=[Path(zephyr_base)], board=None, board_dir=[]
+    )
     boards = list_boards.find_v2_boards(args)
     if board_name not in boards:
-        return None, [error(
-            "phys-board",
-            f"unknown board '{name}'\n"
-            # anchor_path, not relpath: a cwd-relative path renders
-            # differently depending on where the tool was invoked from, so a
-            # reproduction of the same failure would not reproduce the same
-            # text (see the rerun-script note in the integration conftest).
-            f"no such board directory under {anchor_path(MODULE_ROOT)}/boards\n"
-            "this standalone lookup only searches that one root; every "
-            "board this tooling can build today extends a base that lives "
-            "elsewhere (a real Zephyr board, or another Zephyr module), so "
-            "it is never listed here either way -- run west boards for "
-            "the full catalog, or pass --board-dts directly")]
+        return None, [
+            error(
+                "phys-board",
+                f"unknown board '{name}'\n"
+                # anchor_path, not relpath: a cwd-relative path renders
+                # differently depending on where the tool was invoked from, so a
+                # reproduction of the same failure would not reproduce the same
+                # text (see the rerun-script note in the integration conftest).
+                f"no such board directory under {anchor_path(MODULE_ROOT)}/boards\n"
+                "this standalone lookup only searches that one root; every "
+                "board this tooling can build today extends a base that lives "
+                "elsewhere (a real Zephyr board, or another Zephyr module), so "
+                "it is never listed here either way -- run west boards for "
+                "the full catalog, or pass --board-dts directly",
+            )
+        ]
 
     board = boards[board_name]
-    directories = (board.directories if isinstance(board.directories, list)
-                  else [board.directories])
+    directories = board.directories if isinstance(board.directories, list) else [board.directories]
     if not qualifiers:
         candidates = [board_name]
     else:
@@ -178,8 +199,11 @@ def _discover_board_dts(name: str) -> tuple[str | None, list[Diagnostic]]:
             if path.is_file():
                 return str(path), []
 
-    return None, [error(
-        "phys-board",
-        f"unknown board '{name}'\n"
-        f"no '{candidates[0]}.dts' (or short form) found in any of: "
-        f"{', '.join(str(d) for d in directories)}")]
+    return None, [
+        error(
+            "phys-board",
+            f"unknown board '{name}'\n"
+            f"no '{candidates[0]}.dts' (or short form) found in any of: "
+            f"{', '.join(str(d) for d in directories)}",
+        )
+    ]

@@ -24,6 +24,7 @@ calculated, split into a value-shaped contract:
                             the shared net-claim map before the final
                             conflict check, analyzer/gpio.py's
                             `check_nets`)."""
+
 from __future__ import annotations
 
 import logging
@@ -40,8 +41,7 @@ from .socketmap import Sockets, for_bus_device
 log = logging.getLogger(__name__)
 
 
-def effective_cs_pool(bus_cs_pool: list[int] | None,
-                      type_default_pool: list[int]) -> list[int]:
+def effective_cs_pool(bus_cs_pool: list[int] | None, type_default_pool: list[int]) -> list[int]:
     """The cs_pool None-if-absent merge: a real board socket whose
     connector type's binding declares a cs-pool default for this bus
     already has it backfilled by edtlib
@@ -75,8 +75,10 @@ class CsPlacement:
     fixed: bool
 
 
-def allocate_cs_positions(members: Sequence[CsMember], occupied: frozenset[object],
-                          ) -> tuple[list[CsPlacement], list[str]]:
+def allocate_cs_positions(
+    members: Sequence[CsMember],
+    occupied: frozenset[object],
+) -> tuple[list[CsPlacement], list[str]]:
     """The CS-allocation algorithm: given an ordered pool, the
     already-taken net identities, and the members of one SPI scope in
     allocation order (some copper-fixed), assign each a position -- or
@@ -107,10 +109,10 @@ def allocate_cs_positions(members: Sequence[CsMember], occupied: frozenset[objec
     return placements, exhausted
 
 
-def _cs_members_for_scope(members: Sequence[tuple[Instance, Device, BoardSocket]],
-                          types: dict[str, ConnectorType],
-                          ) -> tuple[list[CsMember],
-                                     dict[str, tuple[Instance, Device, BoardSocket]]]:
+def _cs_members_for_scope(
+    members: Sequence[tuple[Instance, Device, BoardSocket]],
+    types: dict[str, ConnectorType],
+) -> tuple[list[CsMember], dict[str, tuple[Instance, Device, BoardSocket]]]:
     """Build one scope's ordered `CsMember` list (allocate_cs's own
     per-scope wiring, lifted out) plus the identity -> (inst, dev,
     socket) lookup every later step needs, from members already in
@@ -123,23 +125,26 @@ def _cs_members_for_scope(members: Sequence[tuple[Instance, Device, BoardSocket]
         by_identity[identity] = (inst, dev, socket)
         if dev.cs_position is not None:
             pos = dev.cs_position
-            cs_members.append(CsMember(
-                identity=identity, fixed=(pos, soc_net(socket, pos))))
+            cs_members.append(CsMember(identity=identity, fixed=(pos, soc_net(socket, pos))))
         else:
-            assert dev.bus is not None   # narrowed by the scope-building filter above
+            assert dev.bus is not None  # narrowed by the scope-building filter above
             bus = socket.buses[dev.bus]
             pool = effective_cs_pool(bus.cs_pool, ctype.cs_pool.get(dev.bus, []))
-            cs_members.append(CsMember(
-                identity=identity,
-                pool=tuple((p, soc_net(socket, p)) for p in pool)))
+            cs_members.append(
+                CsMember(identity=identity, pool=tuple((p, soc_net(socket, p)) for p in pool))
+            )
     return cs_members, by_identity
 
 
-def _fold_cs_placements(bus_path: str, placements: list[CsPlacement],
-                        exhausted: list[str],
-                        by_identity: dict[str, tuple[Instance, Device, BoardSocket]],
-                        types: dict[str, ConnectorType], seen: set[NetKey],
-                        result: CsAllocation) -> list[Diagnostic]:
+def _fold_cs_placements(
+    bus_path: str,
+    placements: list[CsPlacement],
+    exhausted: list[str],
+    by_identity: dict[str, tuple[Instance, Device, BoardSocket]],
+    types: dict[str, ConnectorType],
+    seen: set[NetKey],
+    result: CsAllocation,
+) -> list[Diagnostic]:
     """The placements/exhausted -> `CsAllocation` translation (allocate_cs's
     own folding step, lifted out): an exhausted member becomes a phys-cs
     diagnostic; a placement becomes a NEW net claim (`seen` grows so a
@@ -149,29 +154,46 @@ def _fold_cs_placements(bus_path: str, placements: list[CsPlacement],
     for identity in exhausted:
         inst, dev, socket = by_identity[identity]
         ctype = types[socket.type_name]
-        assert dev.bus is not None   # narrowed by the scope-building filter above
+        assert dev.bus is not None  # narrowed by the scope-building filter above
         bus = socket.buses[dev.bus]
         pool = effective_cs_pool(bus.cs_pool, ctype.cs_pool.get(dev.bus, []))
-        diags.append(error(
-            "phys-cs",
-            f"CS pool of socket '{socket.label}' is exhausted for "
-            f"'{identity}': candidates "
-            f"{', '.join(ctype.posname(p) for p in pool)} are all claimed",
-            tuple(x for x in (dev.src, inst.src) if x)))
+        diags.append(
+            error(
+                "phys-cs",
+                f"CS pool of socket '{socket.label}' is exhausted for "
+                f"'{identity}': candidates "
+                f"{', '.join(ctype.posname(p) for p in pool)} are all claimed",
+                tuple(x for x in (dev.src, inst.src) if x),
+            )
+        )
 
     placed = []
     for placement in placements:
         inst, dev, socket = by_identity[placement.identity]
         ctype = types[socket.type_name]
-        what = (f"{dev.name}: CS copper-fixed at {ctype.posname(placement.position)} "
-               "(shield,cs-position)" if placement.fixed else
-               f"{dev.name}: CS allocated at {ctype.posname(placement.position)}")
-        log.debug("instance '%s': device '%s' allocated CS position %s (%s)",
-                 inst.name, dev.name, placement.position,
-                 "fixed" if placement.fixed else "pool")
+        what = (
+            f"{dev.name}: CS copper-fixed at {ctype.posname(placement.position)} "
+            "(shield,cs-position)"
+            if placement.fixed
+            else f"{dev.name}: CS allocated at {ctype.posname(placement.position)}"
+        )
+        log.debug(
+            "instance '%s': device '%s' allocated CS position %s (%s)",
+            inst.name,
+            dev.name,
+            placement.position,
+            "fixed" if placement.fixed else "pool",
+        )
         key = soc_net(socket, placement.position)
-        claim = NetClaim(instance=inst, device=dev, what=what, role="dedicated",
-                        socket=socket, position=placement.position, src=dev.src)
+        claim = NetClaim(
+            instance=inst,
+            device=dev,
+            what=what,
+            role="dedicated",
+            socket=socket,
+            position=placement.position,
+            src=dev.src,
+        )
         result.nets.setdefault(key, []).append(claim)
         seen.add(key)
         placed.append((inst, dev, socket, placement.position))
@@ -179,31 +201,41 @@ def _fold_cs_placements(bus_path: str, placements: list[CsPlacement],
     entries: list[tuple[BoardSocket, int]] = []
     for index, (inst, dev, socket, pos) in enumerate(placed):
         result.cs[(inst.name, dev.name)] = (index, pos)
-        if socket.gpio_map.get(pos) is None:     # must resolve to a real SoC pin
+        if socket.gpio_map.get(pos) is None:  # must resolve to a real SoC pin
             ctype = types[socket.type_name]
-            diags.append(error(
-                "phys-cs",
-                f"socket '{socket.label}' has no gpio-map entry for position "
-                f"{ctype.posname(pos)} — the board fragment "
-                "cannot route this CS",
-                tuple(x for x in (socket.src, dev.src) if x)))
+            diags.append(
+                error(
+                    "phys-cs",
+                    f"socket '{socket.label}' has no gpio-map entry for position "
+                    f"{ctype.posname(pos)} — the board fragment "
+                    "cannot route this CS",
+                    tuple(x for x in (socket.src, dev.src) if x),
+                )
+            )
             continue
-        entries.append((socket, pos))            # emitted through the nexus
+        entries.append((socket, pos))  # emitted through the nexus
     result.cs_gpios[bus_path] = entries
     return diags
 
 
 @dataclass
 class CsAllocation:
-    cs: dict[tuple[str, str], tuple[int, int]] = field(default_factory=dict)   # (inst, dev) -> (index, position)
-    cs_gpios: dict[str, list[tuple[BoardSocket, int]]] = field(default_factory=dict)  # bus path -> [(socket, pos)]
-    bus_label: dict[str, str] = field(default_factory=dict)                   # bus path -> label
-    nets: Nets = field(default_factory=dict)                                  # NEW claims only
+    cs: dict[tuple[str, str], tuple[int, int]] = field(
+        default_factory=dict
+    )  # (inst, dev) -> (index, position)
+    cs_gpios: dict[str, list[tuple[BoardSocket, int]]] = field(
+        default_factory=dict
+    )  # bus path -> [(socket, pos)]
+    bus_label: dict[str, str] = field(default_factory=dict)  # bus path -> label
+    nets: Nets = field(default_factory=dict)  # NEW claims only
 
 
-def allocate_cs(rig: Rig, sockets: Sockets,
-                types: dict[str, ConnectorType], nets_before: Nets,
-                ) -> tuple[CsAllocation, list[Diagnostic]]:
+def allocate_cs(
+    rig: Rig,
+    sockets: Sockets,
+    types: dict[str, ConnectorType],
+    nets_before: Nets,
+) -> tuple[CsAllocation, list[Diagnostic]]:
     diags: list[Diagnostic] = []
     result = CsAllocation()
     scopes: dict[str, list[tuple[Instance, Device, BoardSocket]]] = {}
@@ -233,7 +265,8 @@ def allocate_cs(rig: Rig, sockets: Sockets,
         occupied = frozenset(seen)
         placements, exhausted = allocate_cs_positions(cs_members, occupied)
 
-        diags += _fold_cs_placements(bus_path, placements, exhausted, by_identity,
-                                     types, seen, result)
+        diags += _fold_cs_placements(
+            bus_path, placements, exhausted, by_identity, types, seen, result
+        )
 
     return result, diags

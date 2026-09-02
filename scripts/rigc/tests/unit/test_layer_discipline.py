@@ -23,6 +23,7 @@ tree itself (recorded exemption in _META_MODULES below). It enforces:
     anywhere in the package or its tests (the dtsio.py:27 collection
     trap, designed out: pytest imports every module before deselection).
 """
+
 from __future__ import annotations
 
 import ast
@@ -53,8 +54,7 @@ _INTEGRATION_DIRS = ("integration", "integration_stay")
 
 #: Every directory a test module may live in, as the (top, layer) prefix of
 #: its rigc-relative path.
-_LAYER_DIRS = ((("tests", "unit"),)
-               + tuple(("tests", name) for name in _INTEGRATION_DIRS))
+_LAYER_DIRS = (("tests", "unit"),) + tuple(("tests", name) for name in _INTEGRATION_DIRS)
 
 
 def _python_files(root: Path) -> list[Path]:
@@ -72,7 +72,8 @@ def test_every_test_module_is_layer_classified() -> None:
     assert not offenders, (
         "test modules outside tests/unit/, tests/integration/ and "
         "tests/integration_stay/ (the directory IS the layer "
-        f"classification): {offenders}")
+        f"classification): {offenders}"
+    )
 
 
 def _top_level_units() -> set[str]:
@@ -81,9 +82,11 @@ def _top_level_units() -> set[str]:
     either way, a name a test module or a tests/unit/<name>/ sub-folder
     may claim as its subject."""
     units = {p.stem for p in RIGC_DIR.glob("*.py")}
-    units |= {p.name for p in RIGC_DIR.iterdir()
-             if p.is_dir() and (p / "__init__.py").is_file()
-             and p.name != "tests"}
+    units |= {
+        p.name
+        for p in RIGC_DIR.iterdir()
+        if p.is_dir() and (p / "__init__.py").is_file() and p.name != "tests"
+    }
     # conftest.py and compare.py are the tests package's own modules, not
     # production units -- both still get a named test module (test_conftest.py,
     # test_compare.py) under the same "test modules name their unit" rule.
@@ -101,18 +104,19 @@ def test_unit_test_modules_name_their_unit() -> None:
         if not path.name.startswith("test_"):
             continue
         rel = path.relative_to(TESTS_DIR / "unit")
-        if len(rel.parts) == 1:                       # directly under unit/
+        if len(rel.parts) == 1:  # directly under unit/
             subject = path.stem.removeprefix("test_")
             if subject not in units and path.stem not in _META_MODULES:
                 offenders.append(f"{rel}: no unit named '{subject}'")
-        else:                                         # unit/<subject>/...
+        else:  # unit/<subject>/...
             subject = rel.parts[0]
             if subject not in units:
                 offenders.append(f"{rel}: no unit named '{subject}'")
     assert not offenders, (
         "unit test modules must name the unit under test "
         f"(test_<module>.py, or a tests/unit/<module>/ sub-folder): "
-        f"{offenders}")
+        f"{offenders}"
+    )
 
 
 def test_unit_modules_import_no_subprocess() -> None:
@@ -126,12 +130,12 @@ def test_unit_modules_import_no_subprocess() -> None:
                 names = [node.module or ""]
             else:
                 continue
-            if any(n == "subprocess" or n.startswith("subprocess.")
-                   for n in names):
+            if any(n == "subprocess" or n.startswith("subprocess.") for n in names):
                 offenders.append(f"{path.name}:{node.lineno}")
     assert not offenders, (
         "tests/unit/ modules importing subprocess (reaching code through "
-        f"the CLI front door is integration by definition): {offenders}")
+        f"the CLI front door is integration by definition): {offenders}"
+    )
 
 
 def test_no_pytest_markers_under_tests_unit() -> None:
@@ -145,13 +149,17 @@ def test_no_pytest_markers_under_tests_unit() -> None:
     for path in _python_files(TESTS_DIR / "unit"):
         tree = ast.parse(path.read_text(), filename=str(path))
         for node in ast.walk(tree):
-            if (isinstance(node, ast.Attribute) and node.attr == "mark"
-                    and isinstance(node.value, ast.Name)
-                    and node.value.id == "pytest"):
+            if (
+                isinstance(node, ast.Attribute)
+                and node.attr == "mark"
+                and isinstance(node.value, ast.Name)
+                and node.value.id == "pytest"
+            ):
                 offenders.append(f"{path.relative_to(RIGC_DIR)}:{node.lineno}")
     assert not offenders, (
         "pytest markers found under tests/unit/ -- there the directory is "
-        f"the classification, markers are banned: {offenders}")
+        f"the classification, markers are banned: {offenders}"
+    )
 
 
 # ---------------------------------------------------------------- build-marker guard
@@ -168,13 +176,15 @@ def test_no_pytest_markers_under_tests_unit() -> None:
 # no successor entry for it; `_run_build` below is NOT its replacement,
 # it already existed and already used the surviving cmake entry point by
 # construction (see that command's own retired docstring).
-_BUILD_HELPERS = frozenset({
-    "plain_build_for",        # corpus.py: session-cached `west build --cmake-only` per board
-    "_run_plain_build",       # corpus.py: the plain `west build --cmake-only` itself
-    "_run_build",             # test_resolved_corpus.py: `west build --cmake-only -- -DRIG=`
-    "_build_and_freeze_dts",  # test_resolved_corpus.py: wraps _run_build
-    "_run_cmake_alone",       # test_cmake_alone_entry.py: a bare `cmake -S -B` configure
-})
+_BUILD_HELPERS = frozenset(
+    {
+        "plain_build_for",  # corpus.py: session-cached `west build --cmake-only` per board
+        "_run_plain_build",  # corpus.py: the plain `west build --cmake-only` itself
+        "_run_build",  # test_resolved_corpus.py: `west build --cmake-only -- -DRIG=`
+        "_build_and_freeze_dts",  # test_resolved_corpus.py: wraps _run_build
+        "_run_cmake_alone",  # test_cmake_alone_entry.py: a bare `cmake -S -B` configure
+    }
+)
 
 #: argv[0] values that ARE a build, however they are launched. A curated
 #: helper set can only ever list the launchers that exist when it is
@@ -258,12 +268,10 @@ def _launches_build_inline(node: ast.AST) -> bool:
 
 
 def _defs_by_name(tree: ast.Module) -> dict[str, _FuncDef]:
-    return {n.name: n for n in tree.body
-            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
+    return {n.name: n for n in tree.body if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
 
 
-def _reaches_build_helper(name: str, defs: dict[str, _FuncDef],
-                          memo: dict[str, bool]) -> bool:
+def _reaches_build_helper(name: str, defs: dict[str, _FuncDef], memo: dict[str, bool]) -> bool:
     """Whether the module-local def `name` -- a test, a fixture, or a
     plain helper -- transitively reaches a _BUILD_HELPERS entry: by
     calling one directly, by calling another module-local def that does,
@@ -280,16 +288,17 @@ def _reaches_build_helper(name: str, defs: dict[str, _FuncDef],
     memo[name] = False
     reached = _launches_build_inline(fn) or any(
         called in _BUILD_HELPERS or _reaches_build_helper(called, defs, memo)
-        for called in _call_targets(fn))
+        for called in _call_targets(fn)
+    )
     if not reached:
         # `p.arg in _BUILD_HELPERS` matters even though every helper is a
         # plain function today: turning one into a real pytest fixture is
         # the natural refactor, and it would otherwise blind every consumer
         # at once.
         params = fn.args.args + fn.args.kwonlyargs
-        reached = any(p.arg in _BUILD_HELPERS
-                      or _reaches_build_helper(p.arg, defs, memo)
-                      for p in params)
+        reached = any(
+            p.arg in _BUILD_HELPERS or _reaches_build_helper(p.arg, defs, memo) for p in params
+        )
     memo[name] = reached
     return reached
 
@@ -300,11 +309,13 @@ def _mark_names(nodes: list[ast.expr]) -> Iterator[str]:
     those) and a function's `@pytest.mark.x` decorators, both plain
     attribute-access expressions of the same shape."""
     for node in nodes:
-        if (isinstance(node, ast.Attribute)
-                and isinstance(node.value, ast.Attribute)
-                and isinstance(node.value.value, ast.Name)
-                and node.value.value.id == "pytest"
-                and node.value.attr == "mark"):
+        if (
+            isinstance(node, ast.Attribute)
+            and isinstance(node.value, ast.Attribute)
+            and isinstance(node.value.value, ast.Name)
+            and node.value.value.id == "pytest"
+            and node.value.attr == "mark"
+        ):
             yield node.attr
 
 
@@ -313,12 +324,11 @@ def _module_build_mark(tree: ast.Module) -> bool:
     pytest.mark.build -- applies to every test in the module regardless of
     its own decorators."""
     for stmt in tree.body:
-        if (isinstance(stmt, ast.Assign)
-                and any(isinstance(t, ast.Name) and t.id == "pytestmark"
-                       for t in stmt.targets)):
+        if isinstance(stmt, ast.Assign) and any(
+            isinstance(t, ast.Name) and t.id == "pytestmark" for t in stmt.targets
+        ):
             value = stmt.value
-            elts = (value.elts if isinstance(value, (ast.List, ast.Tuple))
-                   else [value])
+            elts = value.elts if isinstance(value, (ast.List, ast.Tuple)) else [value]
             if "build" in _mark_names(elts):
                 return True
     return False
@@ -338,8 +348,7 @@ def _collect_unmarked_build_tests(path: Path, offenders: list[str]) -> None:
     for fn_name, fn in defs.items():
         if not fn_name.startswith("test_"):
             continue
-        if (_reaches_build_helper(fn_name, defs, memo)
-                and not _is_build_marked(fn, module_marked)):
+        if _reaches_build_helper(fn_name, defs, memo) and not _is_build_marked(fn, module_marked):
             offenders.append(f"{path.relative_to(RIGC_DIR)}::{fn_name}")
 
 
@@ -362,7 +371,8 @@ def test_every_build_reaching_integration_test_is_marked_build() -> None:
             _collect_unmarked_build_tests(path, offenders)
     assert not offenders, (
         "integration tests that reach a west/cmake build but carry no "
-        f"@pytest.mark.build: {offenders}")
+        f"@pytest.mark.build: {offenders}"
+    )
 
 
 def test_the_build_helper_set_is_exactly_the_known_launchers() -> None:
@@ -382,21 +392,29 @@ def test_the_build_helper_set_is_exactly_the_known_launchers() -> None:
     }
     assert expected == _BUILD_HELPERS, (
         "the build-launcher set changed; add or remove its control here and "
-        "in the reachability cases below, deliberately")
+        "in the reachability cases below, deliberately"
+    )
 
 
 def test_each_known_launcher_is_acted_on_by_the_reachability_walk() -> None:
     """One synthetic module per launcher, names spelled out rather than
     read from _BUILD_HELPERS for the same reason as above."""
-    for helper in ("plain_build_for", "_run_plain_build", "_run_build",
-                   "_build_and_freeze_dts", "_run_cmake_alone"):
-        tree = ast.parse(textwrap.dedent(f"""
+    for helper in (
+        "plain_build_for",
+        "_run_plain_build",
+        "_run_build",
+        "_build_and_freeze_dts",
+        "_run_cmake_alone",
+    ):
+        tree = ast.parse(
+            textwrap.dedent(f"""
             def {helper}(*args, **kwargs):
                 return None
 
             def test_configures_clean():
                 {helper}("x", None)
-            """))
+            """)
+        )
         defs = _defs_by_name(tree)
         assert _reaches_build_helper("test_configures_clean", defs, {}), helper
 
@@ -407,10 +425,12 @@ def test_a_fixture_parameter_naming_a_launcher_reaches_a_build() -> None:
     of it at all -- pytest's own implicit call. Inert while every launcher
     is a plain function, but converting one into a real fixture is the
     natural refactor and would blind every consumer at once."""
-    tree = ast.parse(textwrap.dedent("""
+    tree = ast.parse(
+        textwrap.dedent("""
         def test_configures_clean(plain_build_for):
             return plain_build_for
-        """))
+        """)
+    )
     defs = _defs_by_name(tree)
     assert _reaches_build_helper("test_configures_clean", defs, {})
 
@@ -420,7 +440,8 @@ def test_an_indirect_two_hop_chain_still_reaches_a_build() -> None:
     nothing else exercises: every real chain in the tree happens to have a
     _BUILD_HELPERS entry at BOTH ends, so depth-1 alone would satisfy it
     and a broken recursion would go unnoticed."""
-    tree = ast.parse(textwrap.dedent("""
+    tree = ast.parse(
+        textwrap.dedent("""
         def _run_build(rig, out):
             return None
 
@@ -432,7 +453,8 @@ def test_an_indirect_two_hop_chain_still_reaches_a_build() -> None:
 
         def test_configures_clean():
             _wrapper("x")
-        """))
+        """)
+    )
     defs = _defs_by_name(tree)
     assert _reaches_build_helper("test_configures_clean", defs, {})
 
@@ -442,19 +464,23 @@ def test_an_inline_cmake_launch_counts_as_a_build() -> None:
     made eight real cmake-alone tests invisible to a purely helper-based
     guard, protected only by a module-level marker they did not have to
     carry."""
-    inline = ast.parse(textwrap.dedent("""
+    inline = ast.parse(
+        textwrap.dedent("""
         def test_configures_clean():
             cmd = ["cmake", "-S", "app", "-B", "out"]
             subprocess.run(cmd, capture_output=True)
-        """))
+        """)
+    )
     defs = _defs_by_name(inline)
     assert _reaches_build_helper("test_configures_clean", defs, {})
 
-    free = ast.parse(textwrap.dedent("""
+    free = ast.parse(
+        textwrap.dedent("""
         def test_rejects_cleanly():
             cmd = ["python3", "-m", "rigc", "expand", "rig.yml"]
             subprocess.run(cmd, capture_output=True)
-        """))
+        """)
+    )
     defs2 = _defs_by_name(free)
     assert not _reaches_build_helper("test_rejects_cleanly", defs2, {})
 
@@ -465,27 +491,33 @@ def test_an_inline_west_launch_only_counts_as_a_build_for_a_configuring_subcomma
     when its SECOND element names one of
     _WEST_BUILD_SUBCOMMANDS. A bare WEST_EXE with no subcommand at all is
     unknown, never a build (it cannot configure anything by itself)."""
-    configures = ast.parse(textwrap.dedent("""
+    configures = ast.parse(
+        textwrap.dedent("""
         def test_configures_clean():
             cmd = [WEST_EXE, "build", "-b", "x", "app"]
             subprocess.run(cmd, capture_output=True)
-        """))
+        """)
+    )
     defs = _defs_by_name(configures)
     assert _reaches_build_helper("test_configures_clean", defs, {})
 
-    queries = ast.parse(textwrap.dedent("""
+    queries = ast.parse(
+        textwrap.dedent("""
         def test_lists_boards():
             cmd = [WEST_EXE, "rigs", "--boards-for", "x"]
             subprocess.run(cmd, capture_output=True)
-        """))
+        """)
+    )
     defs2 = _defs_by_name(queries)
     assert not _reaches_build_helper("test_lists_boards", defs2, {})
 
-    bare = ast.parse(textwrap.dedent("""
+    bare = ast.parse(
+        textwrap.dedent("""
         def test_bare_west():
             cmd = [WEST_EXE]
             subprocess.run(cmd, capture_output=True)
-        """))
+        """)
+    )
     defs3 = _defs_by_name(bare)
     assert not _reaches_build_helper("test_bare_west", defs3, {})
 
@@ -496,19 +528,22 @@ def test_build_reaching_guard_detects_an_unmarked_build_test() -> None:
     reaching _run_build with no @pytest.mark.build must be flagged by the
     same primitives the real guard uses; the identical module WITH the
     marker must not."""
-    unmarked = ast.parse(textwrap.dedent("""
+    unmarked = ast.parse(
+        textwrap.dedent("""
         def _run_build(rig_name, build_dir):
             return None
 
         def test_configures_clean():
             _run_build("x", None)
-        """))
+        """)
+    )
     defs = _defs_by_name(unmarked)
     fn = defs["test_configures_clean"]
     assert _reaches_build_helper("test_configures_clean", defs, {})
     assert not _is_build_marked(fn, _module_build_mark(unmarked))
 
-    marked = ast.parse(textwrap.dedent("""
+    marked = ast.parse(
+        textwrap.dedent("""
         import pytest
 
         def _run_build(rig_name, build_dir):
@@ -517,7 +552,8 @@ def test_build_reaching_guard_detects_an_unmarked_build_test() -> None:
         @pytest.mark.build
         def test_configures_clean():
             _run_build("x", None)
-        """))
+        """)
+    )
     defs2 = _defs_by_name(marked)
     fn2 = defs2["test_configures_clean"]
     assert _reaches_build_helper("test_configures_clean", defs2, {})
@@ -525,7 +561,8 @@ def test_build_reaching_guard_detects_an_unmarked_build_test() -> None:
 
     # The fixture-parameter path: a test names a fixture, never calling
     # the build helper itself.
-    via_fixture = ast.parse(textwrap.dedent("""
+    via_fixture = ast.parse(
+        textwrap.dedent("""
         import pytest
 
         def _run_build(rig_name, build_dir):
@@ -536,7 +573,8 @@ def test_build_reaching_guard_detects_an_unmarked_build_test() -> None:
 
         def test_uses_plain_build(plain_build):
             assert plain_build is not None
-        """))
+        """)
+    )
     defs3 = _defs_by_name(via_fixture)
     fn3 = defs3["test_uses_plain_build"]
     assert _reaches_build_helper("test_uses_plain_build", defs3, {})
@@ -555,10 +593,12 @@ def _import_time_constants(tree: ast.Module) -> Iterator[ast.Constant]:
             if isinstance(stmt, ast.ClassDef):
                 yield from visit(stmt.body)
                 continue
-            if (isinstance(stmt, ast.Expr)
-                    and isinstance(stmt.value, ast.Constant)
-                    and isinstance(stmt.value.value, str)):
-                continue               # docstring
+            if (
+                isinstance(stmt, ast.Expr)
+                and isinstance(stmt.value, ast.Constant)
+                and isinstance(stmt.value.value, str)
+            ):
+                continue  # docstring
             for node in ast.walk(stmt):
                 if isinstance(node, ast.Constant):
                     yield node
@@ -567,8 +607,8 @@ def _import_time_constants(tree: ast.Module) -> Iterator[ast.Constant]:
 
 
 def test_no_module_scope_zephyr_tree_lookup() -> None:
-    forbidden = "ZEPHYR" + "_BASE"     # split so this file's own module
-    offenders = []                     # scope never carries the literal
+    forbidden = "ZEPHYR" + "_BASE"  # split so this file's own module
+    offenders = []  # scope never carries the literal
     for path in _python_files(RIGC_DIR):
         tree = ast.parse(path.read_text(), filename=str(path))
         for const in _import_time_constants(tree):
@@ -577,4 +617,5 @@ def test_no_module_scope_zephyr_tree_lookup() -> None:
     assert not offenders, (
         f"module-scope {forbidden} reference (breaks collection for "
         f"selections that never run it -- keep lookups inside functions): "
-        f"{offenders}")
+        f"{offenders}"
+    )

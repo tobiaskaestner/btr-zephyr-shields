@@ -6,6 +6,7 @@ under test never escape its own fixture tree. Golden/corpus plumbing
 lives in tests/integration/conftest.py instead -- this file must never
 grow a second copy of it.
 """
+
 from __future__ import annotations
 
 import os
@@ -18,8 +19,7 @@ from pathlib import Path
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 
 
-def assert_fixture_local(paths: Iterable[Path | str],
-                         fixtures_dir: Path = FIXTURES_DIR) -> None:
+def assert_fixture_local(paths: Iterable[Path | str], fixtures_dir: Path = FIXTURES_DIR) -> None:
     """Structural proof of hermeticity: every path a test hands to the
     code under test resolves under fixtures_dir -- never a real Zephyr
     tree, never repo-production devicetree content. Hermetic means "no
@@ -30,7 +30,7 @@ def assert_fixture_local(paths: Iterable[Path | str],
     root = fixtures_dir.resolve()
     for p in paths:
         resolved = Path(p).resolve()
-        assert resolved == root or str(resolved).startswith(
-            str(root) + os.sep), (
+        assert resolved == root or str(resolved).startswith(str(root) + os.sep), (
             f"{resolved} is outside {root} -- a test asserting hermeticity "
-            "must reference only its own fixture-tree paths")
+            "must reference only its own fixture-tree paths"
+        )

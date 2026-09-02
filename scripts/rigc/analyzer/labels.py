@@ -5,6 +5,7 @@ declared instance regardless of whether its socket resolved: a label
 collision is a property of two instance/device NAME pairs alone,
 needing no board/socket information at all, so it is not one of the
 passes skip-don't-abort applies to."""
+
 from __future__ import annotations
 
 from ..diag import Diagnostic, error
@@ -22,10 +23,14 @@ def check_labels(rig: Rig) -> list[Diagnostic]:
         for dev in inst.shield.devices:
             label = f"{inst.name}_{dev.label}"
             if label in seen:
-                diags.append(error(
-                    "phys-label",
-                    f"generated label '{label}' collides (instances '{inst.name}' "
-                    "twice in one rig?) — deterministic naming cannot "
-                    "disambiguate", (inst.src,) if inst.src else ()))
+                diags.append(
+                    error(
+                        "phys-label",
+                        f"generated label '{label}' collides (instances '{inst.name}' "
+                        "twice in one rig?) — deterministic naming cannot "
+                        "disambiguate",
+                        (inst.src,) if inst.src else (),
+                    )
+                )
             seen[label] = inst
     return diags

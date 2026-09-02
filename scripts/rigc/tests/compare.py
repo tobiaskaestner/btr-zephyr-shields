@@ -51,6 +51,7 @@ conftest seam that calls compare_context_cmake / compare_config_sheet,
 so this module needs no pytest import and a unit test can exercise it
 with no golden file and no subprocess.
 """
+
 from __future__ import annotations
 
 import itertools
@@ -120,14 +121,14 @@ def parse_context_cmake(text: str) -> dict[str, str]:
         match = _SET_HEAD_RE.match(line)
         if match is None:
             raise ContextCmakeParseError(
-                f"line {lineno}: not a comment or a set(VAR \"value\") "
-                f"assignment: {raw_line!r}")
+                f"line {lineno}: not a comment or a set(VAR \"value\") assignment: {raw_line!r}"
+            )
         name = match.group(1)
         value, end = _scan_quoted_value(line, match.end())
         if line[end:] != ")":
             raise ContextCmakeParseError(
-                f"line {lineno}: trailing content after the closing quote: "
-                f"{raw_line!r}")
+                f"line {lineno}: trailing content after the closing quote: {raw_line!r}"
+            )
         mapping[name] = value
     return mapping
 
@@ -203,8 +204,8 @@ def compare_context_cmake(expected: str, actual: str) -> str | None:
             continue
         if name not in expected_vars:
             problems.append(
-                f"{name}: absent from golden, present in actual "
-                f"({actual_vars[name]!r})")
+                f"{name}: absent from golden, present in actual ({actual_vars[name]!r})"
+            )
             continue
         if name in _UNORDERED_SET_VARS:
             expected_set = split_dependency_set(expected_vars[name])
@@ -220,8 +221,8 @@ def compare_context_cmake(expected: str, actual: str) -> str | None:
                 problems.append(f"{name}: " + "; ".join(parts))
         elif expected_vars[name] != actual_vars[name]:
             problems.append(
-                f"{name}: golden {expected_vars[name]!r} != actual "
-                f"{actual_vars[name]!r}")
+                f"{name}: golden {expected_vars[name]!r} != actual {actual_vars[name]!r}"
+            )
     if not problems:
         return None
     return "\n".join(problems)
@@ -272,18 +273,21 @@ _HEADING_RE = re.compile(r"^##\s+\S")
 
 _STRAP_RE = re.compile(
     r"^- \*\*(?P<inst>[^*]+)\*\* \((?P<socket>[^)]+)\): set \*\*(?P<label>[^*]+)\*\* "
-    r"to state (?P<state>\S+) → device address (?P<addr>0x[0-9a-fA-F]+)$")
+    r"to state (?P<state>\S+) → device address (?P<addr>0x[0-9a-fA-F]+)$"
+)
 _JUMPER_RE = re.compile(
     r"^- \*\*(?P<inst>[^*]+)\*\* \((?P<socket>[^)]+)\): set \*\*(?P<label>[^*]+)\*\* "
-    r"to state (?P<state>\S+) → routed to pin (?P<pos>\S+)$")
+    r"to state (?P<state>\S+) → routed to pin (?P<pos>\S+)$"
+)
 _PWM_RE = re.compile(
     r"^- (?P<inst>[^/]+)/(?P<dev>\S+) \((?P<socket>\S+) (?P<pos>[^)]+)\) → "
-    r"(?P<fn>[A-Z]+) (?P<ctrl>\S+) ch(?P<ch>\d+): mux the pin to the controller$")
-_WIRE_RE = re.compile(
-    r"^- connect \*\*(?P<frm>[^*]+)\*\* → \*\*(?P<to>[^*]+)\*\* — (?P<route>.+)$")
+    r"(?P<fn>[A-Z]+) (?P<ctrl>\S+) ch(?P<ch>\d+): mux the pin to the controller$"
+)
+_WIRE_RE = re.compile(r"^- connect \*\*(?P<frm>[^*]+)\*\* → \*\*(?P<to>[^*]+)\*\* — (?P<route>.+)$")
 _CS_RE = re.compile(
     r"^- (?P<inst>[^/]+)/(?P<dev>[^:]+): CS index (?P<index>\d+), (?P<pos>\S+)"
-    r"(?: → SoC (?P<ctrl>\S+) pin (?P<pin>\S+))?$")
+    r"(?: → SoC (?P<ctrl>\S+) pin (?P<pin>\S+))?$"
+)
 
 
 def _split_table_row(line: str, lineno: int) -> tuple[str, ...]:
@@ -318,39 +322,63 @@ def _match_bullet(line: str, lineno: int) -> tuple[str, tuple[str, ...]]:
     m = _STRAP_RE.match(line)
     if m is not None:
         return "straps_jumpers", (
-            "strap", m.group("inst"), m.group("socket"), m.group("label"),
-            m.group("state"), m.group("addr"))
+            "strap",
+            m.group("inst"),
+            m.group("socket"),
+            m.group("label"),
+            m.group("state"),
+            m.group("addr"),
+        )
     m = _JUMPER_RE.match(line)
     if m is not None:
         return "straps_jumpers", (
-            "jumper", m.group("inst"), m.group("socket"), m.group("label"),
-            m.group("state"), m.group("pos"))
+            "jumper",
+            m.group("inst"),
+            m.group("socket"),
+            m.group("label"),
+            m.group("state"),
+            m.group("pos"),
+        )
     m = _PWM_RE.match(line)
     if m is not None:
         return "pwm", (
-            m.group("inst"), m.group("dev"), m.group("socket"), m.group("pos"),
-            m.group("fn"), m.group("ctrl"), m.group("ch"))
+            m.group("inst"),
+            m.group("dev"),
+            m.group("socket"),
+            m.group("pos"),
+            m.group("fn"),
+            m.group("ctrl"),
+            m.group("ch"),
+        )
     m = _WIRE_RE.match(line)
     if m is not None:
         return "wires", (m.group("frm"), m.group("to"), m.group("route"))
     m = _CS_RE.match(line)
     if m is not None:
         return "chip_selects", (
-            m.group("inst"), m.group("dev"), m.group("index"), m.group("pos"),
-            m.group("ctrl") or "", m.group("pin") or "")
+            m.group("inst"),
+            m.group("dev"),
+            m.group("index"),
+            m.group("pos"),
+            m.group("ctrl") or "",
+            m.group("pin") or "",
+        )
     raise ConfigSheetParseError(f"line {lineno}: unrecognised bullet: {line!r}")
 
 
 def _parse_table_section(
-        lines: list[str], i: int, n: int,
-        ) -> tuple[str, tuple[tuple[str, ...], ...], int]:
+    lines: list[str],
+    i: int,
+    n: int,
+) -> tuple[str, tuple[tuple[str, ...], ...], int]:
     header_lineno = i + 1
     header_cells = _split_table_row(lines[i], i + 1)
     ncols = len(header_cells)
     i += 1
     if i >= n or not _is_table_separator(lines[i]):
         raise ConfigSheetParseError(
-            f"line {i + 1}: expected a table separator row after the header")
+            f"line {i + 1}: expected a table separator row after the header"
+        )
     i += 1
     rows: list[tuple[str, ...]] = []
     while i < n and lines[i].strip() != "" and lines[i].lstrip().startswith("|"):
@@ -358,7 +386,8 @@ def _parse_table_section(
         if len(row) != ncols:
             raise ConfigSheetParseError(
                 f"line {i + 1}: table row carries {len(row)} columns, "
-                f"header carries {ncols}: {lines[i]!r}")
+                f"header carries {ncols}: {lines[i]!r}"
+            )
         rows.append(row)
         i += 1
     if ncols == 3:
@@ -366,14 +395,15 @@ def _parse_table_section(
     elif ncols == 4:
         kind = "parameters"
     else:
-        raise ConfigSheetParseError(
-            f"line {header_lineno}: unrecognised {ncols}-column table")
+        raise ConfigSheetParseError(f"line {header_lineno}: unrecognised {ncols}-column table")
     return kind, tuple(rows), i
 
 
 def _parse_bullet_section(
-        lines: list[str], i: int, n: int,
-        ) -> tuple[str, tuple[tuple[str, ...], ...], int]:
+    lines: list[str],
+    i: int,
+    n: int,
+) -> tuple[str, tuple[tuple[str, ...], ...], int]:
     kind: str | None = None
     rows: list[tuple[str, ...]] = []
     while i < n and lines[i].strip() != "" and lines[i].lstrip().startswith("- "):
@@ -383,7 +413,8 @@ def _parse_bullet_section(
         elif bullet_kind != kind:
             raise ConfigSheetParseError(
                 f"line {i + 1}: bullet shape {bullet_kind!r} mixed into a "
-                f"{kind!r} section: {lines[i]!r}")
+                f"{kind!r} section: {lines[i]!r}"
+            )
         rows.append(fact)
         i += 1
     assert kind is not None  # caller only enters here on a line starting "- "
@@ -397,8 +428,10 @@ def _skip_blank(lines: list[str], i: int, n: int) -> int:
 
 
 def _parse_section_body(
-        lines: list[str], i: int, n: int,
-        ) -> tuple[str, tuple[tuple[str, ...], ...], int]:
+    lines: list[str],
+    i: int,
+    n: int,
+) -> tuple[str, tuple[tuple[str, ...], ...], int]:
     """Dispatch a section's body by its actual shape, never its heading
     text (heading wording is never the contract). A table starts with
     "|"; bullets start with "- ".
@@ -418,23 +451,28 @@ def _parse_section_body(
 
     prose_start = i
     j = i
-    while (j < n and lines[j].strip() != ""
-           and not lines[j].lstrip().startswith("- ")
-           and not lines[j].lstrip().startswith("|")
-           and not _HEADING_RE.match(lines[j])):
+    while (
+        j < n
+        and lines[j].strip() != ""
+        and not lines[j].lstrip().startswith("- ")
+        and not lines[j].lstrip().startswith("|")
+        and not _HEADING_RE.match(lines[j])
+    ):
         j += 1
     j = _skip_blank(lines, j, n)
     if j >= n or _HEADING_RE.match(lines[j]):
         raise ConfigSheetParseError(
             f"line {prose_start + 1}: prose paragraph not followed by any "
-            f"recognised table or bullet: {lines[prose_start]!r}")
+            f"recognised table or bullet: {lines[prose_start]!r}"
+        )
     if lines[j].lstrip().startswith("|"):
         return _parse_table_section(lines, j, n)
     if lines[j].lstrip().startswith("- "):
         return _parse_bullet_section(lines, j, n)
     raise ConfigSheetParseError(
         f"line {j + 1}: a section tolerates at most ONE intro paragraph "
-        f"before its rows: {lines[j]!r}")
+        f"before its rows: {lines[j]!r}"
+    )
 
 
 def parse_config_sheet(text: str) -> ConfigSheetFacts:
@@ -465,15 +503,15 @@ def parse_config_sheet(text: str) -> ConfigSheetFacts:
     m = _TITLE_RE.match(lines[i])
     if m is None:
         raise ConfigSheetParseError(
-            f"line {i + 1}: expected a title line carrying the rig name in "
-            f"backticks: {lines[i]!r}")
+            f"line {i + 1}: expected a title line carrying the rig name in backticks: {lines[i]!r}"
+        )
     rig_name = m.group("name")
     i = skip_blank(i + 1)
 
     if i >= n or _BANNER_RE.match(lines[i]) is None:
         raise ConfigSheetParseError(
-            "expected the provenance banner comment (<!-- ... -->) after "
-            "the title")
+            "expected the provenance banner comment (<!-- ... -->) after the title"
+        )
     i = skip_blank(i + 1)
 
     if i >= n:
@@ -481,7 +519,8 @@ def parse_config_sheet(text: str) -> ConfigSheetFacts:
     m = _BOARD_RE.match(lines[i])
     if m is None:
         raise ConfigSheetParseError(
-            f"line {i + 1}: expected a Board: **<board>** line: {lines[i]!r}")
+            f"line {i + 1}: expected a Board: **<board>** line: {lines[i]!r}"
+        )
     board = m.group("board")
     i = skip_blank(i + 1)
 
@@ -489,16 +528,15 @@ def parse_config_sheet(text: str) -> ConfigSheetFacts:
     while i < n:
         if not _HEADING_RE.match(lines[i]):
             raise ConfigSheetParseError(
-                f"line {i + 1}: expected a ## section heading: {lines[i]!r}")
+                f"line {i + 1}: expected a ## section heading: {lines[i]!r}"
+            )
         heading_lineno = i + 1
         i = skip_blank(i + 1)
         if i >= n:
-            raise ConfigSheetParseError(
-                f"section heading at line {heading_lineno} has no body")
+            raise ConfigSheetParseError(f"section heading at line {heading_lineno} has no body")
         kind, rows, i = _parse_section_body(lines, i, n)
         if kind in sections:
-            raise ConfigSheetParseError(
-                f"section kind {kind!r} appears more than once")
+            raise ConfigSheetParseError(f"section kind {kind!r} appears more than once")
         sections[kind] = rows
         i = skip_blank(i)
 
@@ -506,11 +544,12 @@ def parse_config_sheet(text: str) -> ConfigSheetFacts:
 
 
 def _describe_section_mismatch(
-        kind: str, expected_rows: tuple[tuple[str, ...], ...],
-        actual_rows: tuple[tuple[str, ...], ...]) -> str:
+    kind: str, expected_rows: tuple[tuple[str, ...], ...], actual_rows: tuple[tuple[str, ...], ...]
+) -> str:
     lines = [f"section {kind!r}: rows differ (order is contract)"]
     for idx, (exp, act) in enumerate(
-            itertools.zip_longest(expected_rows, actual_rows, fillvalue=None)):
+        itertools.zip_longest(expected_rows, actual_rows, fillvalue=None)
+    ):
         if exp != act:
             lines.append(f"  row {idx}: golden {exp!r} != actual {act!r}")
     return "\n".join(lines)
@@ -551,12 +590,10 @@ def compare_config_sheet(expected: str, actual: str) -> str | None:
     problems: list[str] = []
     if expected_facts.rig_name != actual_facts.rig_name:
         problems.append(
-            f"rig name: golden {expected_facts.rig_name!r} != actual "
-            f"{actual_facts.rig_name!r}")
+            f"rig name: golden {expected_facts.rig_name!r} != actual {actual_facts.rig_name!r}"
+        )
     if expected_facts.board != actual_facts.board:
-        problems.append(
-            f"board: golden {expected_facts.board!r} != actual "
-            f"{actual_facts.board!r}")
+        problems.append(f"board: golden {expected_facts.board!r} != actual {actual_facts.board!r}")
 
     expected_kinds = set(expected_facts.sections)
     actual_kinds = set(actual_facts.sections)
@@ -568,8 +605,7 @@ def compare_config_sheet(expected: str, actual: str) -> str | None:
         expected_rows = expected_facts.sections[kind]
         actual_rows = actual_facts.sections[kind]
         if expected_rows != actual_rows:
-            problems.append(
-                _describe_section_mismatch(kind, expected_rows, actual_rows))
+            problems.append(_describe_section_mismatch(kind, expected_rows, actual_rows))
 
     if not problems:
         return None
@@ -592,7 +628,8 @@ def compare_config_sheet(expected: str, actual: str) -> str | None:
 # (reg = <0x48>;, an int authored directly) and a phandle reference
 # (gpios = <&label ...>;, has a "&"), neither of which is this contract.
 _PARAM_TOKEN_RE = re.compile(
-    r"^\s*(?P<name>[\w,.\-]+) = <(?P<token>[A-Za-z_]\w*)>;\s*$", re.MULTILINE)
+    r"^\s*(?P<name>[\w,.\-]+) = <(?P<token>[A-Za-z_]\w*)>;\s*$", re.MULTILINE
+)
 
 # The quoted include that must open the file (emitter/overlay.py:
 # render_overlay, emitted iff emitter._needed_param_includes(rig) is
@@ -618,7 +655,8 @@ _INCLUDES_LINE = '#include "rig-gen-includes.dtsi"'
 # without binding it), which is what keeps the parked label scheme free.
 _ANNOTATION_RE = re.compile(
     r"^\s*(?P<prop>[\w,.\-]+) = <&\w+ (?P<pos>\d+)[^>]*>;\t(?P<comment>/\*[^*]*\*/)\s*$",
-    re.MULTILINE)
+    re.MULTILINE,
+)
 
 # emitter/overlay.py's cs-gpios cell list carries its own inline
 # "/* ACTIVE_LOW */" per entry -- inside the cell, not after a ">;", so the
@@ -635,7 +673,8 @@ _CS_FLAG_RE = re.compile(r"<&(?:\w+) \d+ 1 (/\* ACTIVE_LOW \*/)>")
 _PINCTRL_NOTE = (
     "/* PWM/ADC: enable the resolved controllers; the pin-mux (pinctrl)\n"
     " * for each muxed pin is board-provided and must be applied —\n"
-    " * stubbed here, see the config sheet. */")
+    " * stubbed here, see the config sheet. */"
+)
 
 # The one accept rig with a rig-gen.overlay golden but no zephyr.dts (no
 # tier-2 build), so under the split contract it would otherwise lose
@@ -667,9 +706,7 @@ def _param_tokens(text: str) -> frozenset[tuple[str, str]]:
     dropped outright, is simply absent from the returned set; there is
     nothing to parse-fail on, since this artifact is not otherwise parsed
     at all."""
-    return frozenset(
-        (m.group("name"), m.group("token"))
-        for m in _PARAM_TOKEN_RE.finditer(text))
+    return frozenset((m.group("name"), m.group("token")) for m in _PARAM_TOKEN_RE.finditer(text))
 
 
 def _annotation_comments(text: str) -> frozenset[tuple[str, str, str]]:
@@ -685,11 +722,9 @@ def _annotation_comments(text: str) -> frozenset[tuple[str, str, str]]:
     one it lost, since a spurious comment misinforms a reader exactly like
     a wrong one."""
     triples = {
-        (m.group("prop"), m.group("pos"), m.group("comment"))
-        for m in _ANNOTATION_RE.finditer(text)}
-    triples |= {
-        ("cs-gpios", m.group(0).split()[1], m.group(1))
-        for m in _CS_FLAG_RE.finditer(text)}
+        (m.group("prop"), m.group("pos"), m.group("comment")) for m in _ANNOTATION_RE.finditer(text)
+    }
+    triples |= {("cs-gpios", m.group(0).split()[1], m.group(1)) for m in _CS_FLAG_RE.finditer(text)}
     return frozenset(triples)
 
 
@@ -722,9 +757,9 @@ def compare_overlay(expected: str, actual: str) -> str | None:
     lost_tokens = _param_tokens(expected) - _param_tokens(actual)
     if lost_tokens:
         problems.append(
-            "verbatim param token(s) no longer emitted unresolved: " +
-            ", ".join(f"{name} = <{token}>"
-                     for name, token in sorted(lost_tokens)))
+            "verbatim param token(s) no longer emitted unresolved: "
+            + ", ".join(f"{name} = <{token}>" for name, token in sorted(lost_tokens))
+        )
 
     expected_lines = expected.splitlines()
     actual_lines = actual.splitlines()
@@ -732,7 +767,8 @@ def compare_overlay(expected: str, actual: str) -> str | None:
         if not actual_lines or actual_lines[0] != _INCLUDES_LINE:
             problems.append(
                 f"{_INCLUDES_LINE!r} must be the first line (quoted-include "
-                "resolution depends on it) but is missing or displaced")
+                "resolution depends on it) but is missing or displaced"
+            )
 
     expected_annotations = _annotation_comments(expected)
     actual_annotations = _annotation_comments(actual)
@@ -741,13 +777,14 @@ def compare_overlay(expected: str, actual: str) -> str | None:
         gained = sorted(actual_annotations - expected_annotations)
         parts = []
         if lost:
-            parts.append("dropped: " + ", ".join(
-                f"{prop}@{pos} {comment}" for prop, pos, comment in lost))
+            parts.append(
+                "dropped: " + ", ".join(f"{prop}@{pos} {comment}" for prop, pos, comment in lost)
+            )
         if gained:
-            parts.append("added: " + ", ".join(
-                f"{prop}@{pos} {comment}" for prop, pos, comment in gained))
-        problems.append(
-            "gpio/pwm/adc position annotation(s) differ -- " + "; ".join(parts))
+            parts.append(
+                "added: " + ", ".join(f"{prop}@{pos} {comment}" for prop, pos, comment in gained)
+            )
+        problems.append("gpio/pwm/adc position annotation(s) differ -- " + "; ".join(parts))
 
     if _PINCTRL_NOTE in expected and _PINCTRL_NOTE not in actual:
         problems.append("the PWM/ADC pinctrl note was dropped")
@@ -801,8 +838,8 @@ def parse_includes_dtsi(text: str) -> tuple[str, ...]:
         i += 1
     if i >= n or _INCLUDES_BANNER_RE.match(lines[i].strip()) is None:
         raise IncludesDtsiParseError(
-            "expected the provenance banner comment (/* ... */) as the "
-            "first non-blank line")
+            "expected the provenance banner comment (/* ... */) as the first non-blank line"
+        )
     i += 1
     headers: list[str] = []
     while i < n:
@@ -813,8 +850,8 @@ def parse_includes_dtsi(text: str) -> tuple[str, ...]:
         m = _INCLUDE_LINE_RE.match(line)
         if m is None:
             raise IncludesDtsiParseError(
-                f"line {i + 1}: not an angle-bracket #include <header> line: "
-                f"{lines[i]!r}")
+                f"line {i + 1}: not an angle-bracket #include <header> line: {lines[i]!r}"
+            )
         headers.append(m.group("header"))
         i += 1
     return tuple(headers)
@@ -846,4 +883,5 @@ def compare_includes_dtsi(expected: str, actual: str) -> str | None:
         return None
     return (
         "header list differs (declaration order is contract): golden "
-        f"{list(expected_headers)!r} != actual {list(actual_headers)!r}")
+        f"{list(expected_headers)!r} != actual {list(actual_headers)!r}"
+    )

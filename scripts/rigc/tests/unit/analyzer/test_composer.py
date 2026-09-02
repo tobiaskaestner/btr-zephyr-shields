@@ -8,6 +8,7 @@ over one tiny rig, pinning that Solved's fields actually come from the
 pass results (never a mutable accumulator any pass writes into from
 outside), that skip-don't-abort survives composition, and that
 diagnostics stay ordered pass-by-pass."""
+
 from __future__ import annotations
 
 from rigc.analyzer import analyze
@@ -15,13 +16,22 @@ from rigc.model import Board, BoardSocket, ConnectorType, Device, Instance, Rig,
 
 
 def _ctype() -> ConnectorType:
-    return ConnectorType(name="t", positions={}, index2name={}, bus_proxies=[],
-                        stackable=True, cs_pool={})
+    return ConnectorType(
+        name="t", positions={}, index2name={}, bus_proxies=[], stackable=True, cs_pool={}
+    )
 
 
 def _dev(name: str, reg=None) -> Device:
-    return Device(name=name, label=name, compatible=None, bus="i2c",
-                 group=None, reg=reg, addr_from=None, cs_position=None)
+    return Device(
+        name=name,
+        label=name,
+        compatible=None,
+        bus="i2c",
+        group=None,
+        reg=reg,
+        addr_from=None,
+        cs_position=None,
+    )
 
 
 def _inst(name: str, socket: str, *devices: Device) -> Instance:
@@ -32,9 +42,18 @@ def _inst(name: str, socket: str, *devices: Device) -> Instance:
 def test_analyze_assembles_every_pass_into_one_solved_value() -> None:
     from rigc.model import BusRef
 
-    board = Board(name="b", sockets={
-        "ard": BoardSocket(label="ard", path="/ard", type_name="t",
-                          gpio_map={}, buses={"i2c": BusRef("i2c1", "/i2c1")})})
+    board = Board(
+        name="b",
+        sockets={
+            "ard": BoardSocket(
+                label="ard",
+                path="/ard",
+                type_name="t",
+                gpio_map={},
+                buses={"i2c": BusRef("i2c1", "/i2c1")},
+            )
+        },
+    )
     inst = _inst("i1", "ard", _dev("sensor", reg=0x50))
     rig = Rig(name="r", instances=[inst])
 
@@ -49,7 +68,7 @@ def test_analyze_skip_dont_abort_across_the_whole_pipeline() -> None:
     """An instance whose mating fails is simply absent from every later
     field -- addresses, CS, nets -- never an exception, never a partial
     rig aborting analysis of the REST."""
-    board = Board(name="b", sockets={})   # no sockets at all -> every mating fails
+    board = Board(name="b", sockets={})  # no sockets at all -> every mating fails
     inst = _inst("orphan", "no-such-socket", _dev("sensor", reg=0x50))
     rig = Rig(name="r", instances=[inst])
 

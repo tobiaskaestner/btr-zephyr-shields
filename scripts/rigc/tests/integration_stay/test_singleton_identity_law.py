@@ -36,6 +36,7 @@ remaining sets are compared -- everything else in RIG_DEPENDS, the
 shield's own `.shield` template, its shield.yml, connector-type YAML,
 index headers, must be identical.
 """
+
 from __future__ import annotations
 
 import os
@@ -141,8 +142,7 @@ _SOCKET_ASSIGNMENTS: dict[str, dict[str, str]] = {
     "temp_click": {"plug": "nexus_mikrobus"},
     "temp_hum_click": {"plug": "nexus_mikrobus"},
     "can_span_click": {"left": "nexus_mikrobus", "right": "nexus_mikrobus2"},
-    "mikrobus_span_adapter": {"left": "nexus_mikrobus",
-                              "right": "nexus_mikrobus2"},
+    "mikrobus_span_adapter": {"left": "nexus_mikrobus", "right": "nexus_mikrobus2"},
 }
 
 # For a shield listed here, the census supplies exactly this config-
@@ -200,11 +200,12 @@ def _promotion_target(shield: str) -> str:
     never assign a different value without this module's own domain
     tables changing."""
     param_assignment = _REQUIRED_PARAM_ASSIGNMENTS.get(shield)
-    param_opts = [f"{dev_label}.{prop_name}={value}"
-                 for dev_label, props in (param_assignment or {}).items()
-                 for prop_name, value in props.items()]
-    opts = (_socket_promotion_opts(shield) + _config_promotion_opts(shield)
-           + param_opts)
+    param_opts = [
+        f"{dev_label}.{prop_name}={value}"
+        for dev_label, props in (param_assignment or {}).items()
+        for prop_name, value in props.items()
+    ]
+    opts = _socket_promotion_opts(shield) + _config_promotion_opts(shield) + param_opts
     if not opts:
         return shield
     return f"{shield}:{':'.join(opts)}"
@@ -248,12 +249,12 @@ def _normalize_reject_paths(text: str, fixture_rig_dir: Path) -> str:
     return text.replace(str(fixture_rig_dir), "<FIXTURE_RIG_DIR>")
 
 
-EMITTED_FILES = ("rig-gen.overlay", "config-sheet.md", "expectations.yml",
-                 "rig-gen-includes.dtsi")
+EMITTED_FILES = ("rig-gen.overlay", "config-sheet.md", "expectations.yml", "rig-gen-includes.dtsi")
 
 
 def _assignment_covers_every_required_param(
-        shield: Shield, assignment: dict[str, dict[str, str]]) -> bool:
+    shield: Shield, assignment: dict[str, dict[str, str]]
+) -> bool:
     """Whether `assignment` (a `_REQUIRED_PARAM_ASSIGNMENTS` entry) names
     every one of `shield`'s own required, no-default parameters -- the
     same per-device rule `check_param_invariant` applies, checked here so
@@ -262,7 +263,8 @@ def _assignment_covers_every_required_param(
     invariant downstream. Pure; shield is read-only."""
     return all(
         set(device_required_params(dev)) <= set(assignment.get(dev.label, {}))
-        for dev in shield.devices)
+        for dev in shield.devices
+    )
 
 
 def _census() -> tuple[list[str], set[str]]:
@@ -295,21 +297,20 @@ def _census() -> tuple[list[str], set[str]]:
     # out (a leaked workdir here is charged to RAM, since /tmp is tmpfs);
     # this runs at COLLECTION time, so a mkdtemp with no cleanup would
     # leak one directory per pytest run of the whole integration suite.
-    with tempfile.TemporaryDirectory(
-            prefix="rigc-singleton-law-census-") as workdir:
-        lib, _diags, _deps2 = load_shield_library(
-            workdir, _SHIELD_DIRS, types=types)
+    with tempfile.TemporaryDirectory(prefix="rigc-singleton-law-census-") as workdir:
+        lib, _diags, _deps2 = load_shield_library(workdir, _SHIELD_DIRS, types=types)
         for name in templated:
             shield, diags, _d = lib.resolve(
-                name, "singleton-law census",
-                SourceRef("<singleton-law-census>", 0))
+                name, "singleton-law census", SourceRef("<singleton-law-census>", 0)
+            )
             assert shield is not None, (
-                f"{name}: failed to resolve for the singleton-law census -- "
-                f"{diags}")
+                f"{name}: failed to resolve for the singleton-law census -- {diags}"
+            )
             assignment = _REQUIRED_PARAM_ASSIGNMENTS.get(name)
             required_param_gap = shield_declares_required_params(shield) and not (
-                assignment is not None and
-                _assignment_covers_every_required_param(shield, assignment))
+                assignment is not None
+                and _assignment_covers_every_required_param(shield, assignment)
+            )
             if required_param_gap:
                 excluded.add(name)
             else:
@@ -339,7 +340,8 @@ def test_excluded_set_is_now_empty() -> None:
         "non-empty set names a NEW required-param shield with no "
         "_REQUIRED_PARAM_ASSIGNMENTS entry yet (or an existing entry that "
         "stopped covering every one of its shield's required parameters -- "
-        "fix the entry, don't paper over it)")
+        "fix the entry, don't paper over it)"
+    )
 
 
 def _materialize_fixture(name: str, tmp_path: Path) -> Path:
@@ -417,15 +419,28 @@ def _run(*args: str, out_dir: Path) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     env["ZEPHYR_BASE"] = zb
     env["PYTHONPATH"] = str(REPO_ROOT / "scripts")
-    cmd = [sys.executable, "-m", RIG_EXPAND_COMPILE, "expand", *args,
-          "--board-dts", str(_BOARD_DTS),
-          "--bindings-dir", str(_CONNECTOR_BINDINGS),
-          "--bindings-dir", str(Path(zb) / "dts" / "bindings"),
-          "--include-dir", str(_MODULE_INCLUDE),
-          "--board", _BOARD_LABEL,
-          "--out-dir", str(out_dir)]
-    return subprocess.run(cmd, env=env, cwd=str(REPO_ROOT),
-                          capture_output=True, text=True, timeout=60)
+    cmd = [
+        sys.executable,
+        "-m",
+        RIG_EXPAND_COMPILE,
+        "expand",
+        *args,
+        "--board-dts",
+        str(_BOARD_DTS),
+        "--bindings-dir",
+        str(_CONNECTOR_BINDINGS),
+        "--bindings-dir",
+        str(Path(zb) / "dts" / "bindings"),
+        "--include-dir",
+        str(_MODULE_INCLUDE),
+        "--board",
+        _BOARD_LABEL,
+        "--out-dir",
+        str(out_dir),
+    ]
+    return subprocess.run(
+        cmd, env=env, cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=60
+    )
 
 
 def _context_cmake_mismatch(expected: str, actual: str, name: str) -> str | None:
@@ -445,8 +460,7 @@ def _context_cmake_mismatch(expected: str, actual: str, name: str) -> str | None
         return f"context.cmake failed to parse: {exc}"
 
     def _drop_own(raw: str) -> set[str]:
-        return {p for p in split_dependency_set(raw)
-               if os.path.basename(p) not in own}
+        return {p for p in split_dependency_set(raw) if os.path.basename(p) not in own}
 
     expected_deps = _drop_own(expected_vars.get("RIG_DEPENDS", ""))
     actual_deps = _drop_own(actual_vars.get("RIG_DEPENDS", ""))
@@ -466,7 +480,8 @@ def _context_cmake_mismatch(expected: str, actual: str, name: str) -> str | None
     actual_rest.pop("RIG_DEPENDS", None)
     rest_report = compare_context_cmake(
         "\n".join(f'set({k} "{v}")' for k, v in expected_rest.items()),
-        "\n".join(f'set({k} "{v}")' for k, v in actual_rest.items()))
+        "\n".join(f'set({k} "{v}")' for k, v in actual_rest.items()),
+    )
     if rest_report:
         problems.append(rest_report)
     if not problems:
@@ -490,15 +505,15 @@ def test_singleton_law_holds(shield: str, tmp_path: Path) -> None:
     fixture_rig = _materialize_fixture(shield, tmp_path)
 
     fixture_result = _run(str(fixture_rig), out_dir=fixture_out)
-    promoted_result = _run("--promote", _promotion_target(shield),
-                           out_dir=promoted_out)
+    promoted_result = _run("--promote", _promotion_target(shield), out_dir=promoted_out)
 
     assert fixture_result.returncode == promoted_result.returncode, (
         f"{shield}: verdict differs -- fixture exit "
         f"{fixture_result.returncode}, promoted exit "
         f"{promoted_result.returncode}\n--- fixture stderr ---\n"
         f"{fixture_result.stderr}\n--- promoted stderr ---\n"
-        f"{promoted_result.stderr}")
+        f"{promoted_result.stderr}"
+    )
 
     # Which BRANCH this shield takes is itself pinned. Both sides
     # rejecting identically satisfies the law, but compares stderr and
@@ -516,17 +531,17 @@ def test_singleton_law_holds(shield: str, tmp_path: Path) -> None:
         "it, but it stops proving what this module exists to prove. Update "
         "EXPECTED_REJECTING deliberately, with the reason, or fix what "
         "started rejecting.\n"
-        f"--- fixture stderr ---\n{fixture_result.stderr}")
+        f"--- fixture stderr ---\n{fixture_result.stderr}"
+    )
 
     if fixture_result.returncode != 0:
-        expected_err = _normalize_reject_paths(
-            fixture_result.stderr, fixture_rig.parent)
-        actual_err = _normalize_reject_paths(
-            promoted_result.stderr, fixture_rig.parent)
+        expected_err = _normalize_reject_paths(fixture_result.stderr, fixture_rig.parent)
+        actual_err = _normalize_reject_paths(promoted_result.stderr, fixture_rig.parent)
         assert expected_err == actual_err, (
             f"{shield}: both sides rejected, but for a DIFFERENT reason\n"
             f"--- fixture stderr ---\n{fixture_result.stderr}\n"
-            f"--- promoted stderr ---\n{promoted_result.stderr}")
+            f"--- promoted stderr ---\n{promoted_result.stderr}"
+        )
         return
 
     for fname in EMITTED_FILES:
@@ -535,7 +550,8 @@ def test_singleton_law_holds(shield: str, tmp_path: Path) -> None:
         assert fixture_file.is_file() == promoted_file.is_file(), (
             f"{shield}: {fname} present on one side only "
             f"(fixture={fixture_file.is_file()}, "
-            f"promoted={promoted_file.is_file()})")
+            f"promoted={promoted_file.is_file()})"
+        )
         if not fixture_file.is_file():
             continue
         expected = fixture_file.read_text()
@@ -547,13 +563,14 @@ def test_singleton_law_holds(shield: str, tmp_path: Path) -> None:
         # name, so nothing path-dependent ever enters rig-gen.overlay's
         # or config-sheet.md's own banner.
         assert expected == actual, (
-            f"{shield}: {fname} mismatch\n--- fixture ---\n{expected}\n"
-            f"--- promoted ---\n{actual}")
+            f"{shield}: {fname} mismatch\n--- fixture ---\n{expected}\n--- promoted ---\n{actual}"
+        )
 
     context_report = _context_cmake_mismatch(
         (fixture_out / "context.cmake").read_text(),
         (promoted_out / "context.cmake").read_text(),
-        shield)
+        shield,
+    )
     assert context_report is None, f"{shield}: context.cmake mismatch\n{context_report}"
 
 
@@ -576,8 +593,10 @@ def test_singleton_law_holds(shield: str, tmp_path: Path) -> None:
 # comparison law's reject branch checks nothing,
 # so which branch a case takes must be pinned, not merely observed.
 
-def _assert_list_law_holds(fixture_content: str, promoted_target: str,
-                           rig_name: str, tmp_path: Path) -> None:
+
+def _assert_list_law_holds(
+    fixture_content: str, promoted_target: str, rig_name: str, tmp_path: Path
+) -> None:
     """One list-law comparison: write `fixture_content` under a rig named
     `rig_name` (matching the promoted side's own desugared name, the
     same parity argument the singleton law already relies on), run both
@@ -597,33 +616,37 @@ def _assert_list_law_holds(fixture_content: str, promoted_target: str,
     assert fixture_result.returncode == 0, (
         f"{rig_name}: the fixture side must take the ACCEPT branch, or "
         f"this test proves nothing about the law's induction step\n"
-        f"--- stderr ---\n{fixture_result.stderr}")
+        f"--- stderr ---\n{fixture_result.stderr}"
+    )
     assert promoted_result.returncode == 0, (
         f"{rig_name}: the promoted list target must accept too\n"
-        f"--- stderr ---\n{promoted_result.stderr}")
+        f"--- stderr ---\n{promoted_result.stderr}"
+    )
 
     for fname in EMITTED_FILES:
         fixture_file = fixture_out / fname
         promoted_file = promoted_out / fname
         assert fixture_file.is_file() == promoted_file.is_file(), (
             f"{rig_name}: {fname} present on one side only "
-            f"(fixture={fixture_file.is_file()}, promoted={promoted_file.is_file()})")
+            f"(fixture={fixture_file.is_file()}, promoted={promoted_file.is_file()})"
+        )
         if not fixture_file.is_file():
             continue
         expected = fixture_file.read_text()
         actual = promoted_file.read_text()
         assert expected == actual, (
-            f"{rig_name}: {fname} mismatch\n--- fixture ---\n{expected}\n"
-            f"--- promoted ---\n{actual}")
+            f"{rig_name}: {fname} mismatch\n--- fixture ---\n{expected}\n--- promoted ---\n{actual}"
+        )
 
     context_report = _context_cmake_mismatch(
         (fixture_out / "context.cmake").read_text(),
-        (promoted_out / "context.cmake").read_text(), rig_name)
+        (promoted_out / "context.cmake").read_text(),
+        rig_name,
+    )
     assert context_report is None, f"{rig_name}: context.cmake mismatch\n{context_report}"
 
 
-def test_list_law_holds_for_two_single_plug_shields_with_explicit_sockets(
-        tmp_path: Path) -> None:
+def test_list_law_holds_for_two_single_plug_shields_with_explicit_sockets(tmp_path: Path) -> None:
     """Two single-plug shields (eth_click, flash_click),
     each with an explicit `socket:`, on the law fixture board's own two
     DISTINCT mikroBUS sockets (nexus_mikrobus/nexus_mikrobus2 -- the
@@ -641,11 +664,14 @@ def test_list_law_holds_for_two_single_plug_shields_with_explicit_sockets(
                 socket: nexus_mikrobus2
             """),
         "eth_click:socket=nexus_mikrobus;flash_click:socket=nexus_mikrobus2",
-        "eth_click+flash_click", tmp_path)
+        "eth_click+flash_click",
+        tmp_path,
+    )
 
 
 def test_list_law_holds_for_a_multiplug_element_composed_with_a_single_plug_one(
-        tmp_path: Path) -> None:
+    tmp_path: Path,
+) -> None:
     """can_span_click (a multi-plug shield, slot-optioned
     via the `socket.<slot>=` grammar) alongside grove_led (an ordinary single-
     plug shield, socket-LESS -- the fixture board's one grove socket
@@ -663,6 +689,7 @@ def test_list_law_holds_for_a_multiplug_element_composed_with_a_single_plug_one(
               - name: grove_led
                 shield: grove_led
             """),
-        "can_span_click:socket.left=nexus_mikrobus:socket.right=nexus_mikrobus2;"
-        "grove_led",
-        "can_span_click+grove_led", tmp_path)
+        "can_span_click:socket.left=nexus_mikrobus:socket.right=nexus_mikrobus2;grove_led",
+        "can_span_click+grove_led",
+        tmp_path,
+    )

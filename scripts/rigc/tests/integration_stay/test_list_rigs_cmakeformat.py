@@ -11,6 +11,7 @@ own `-DRIG=<target>` entry point; these tests are the falsifier that the
 a cmake `execute_process` call sees -- never exercised by an in-process
 call to `resolve_target` alone.
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -42,10 +43,10 @@ _CMAKEFORMAT = "{NAME};{DIR};{BOARD};{REVISION};{VARIANT};{PROMOTED}"
 
 
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
-    cmd = [str(_VENV_PYTHON), str(_LIST_RIGS),
-           f"--board-root={REPO_ROOT}", *args]
-    return subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True,
-                          text=True, timeout=subprocess_timeout(60))
+    cmd = [str(_VENV_PYTHON), str(_LIST_RIGS), f"--board-root={REPO_ROOT}", *args]
+    return subprocess.run(
+        cmd, cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=subprocess_timeout(60)
+    )
 
 
 def test_cmakeformat_line_for_a_promoted_shield() -> None:
@@ -53,7 +54,8 @@ def test_cmakeformat_line_for_a_promoted_shield() -> None:
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == (
         "NAME;adafruit_data_logger;DIR;NOTFOUND;BOARD;NOTFOUND;"
-        "REVISION;NOTFOUND;VARIANT;NOTFOUND;PROMOTED;adafruit_data_logger")
+        "REVISION;NOTFOUND;VARIANT;NOTFOUND;PROMOTED;adafruit_data_logger"
+    )
 
 
 def test_cmakeformat_line_for_a_revved_promoted_shield() -> None:
@@ -61,7 +63,8 @@ def test_cmakeformat_line_for_a_revved_promoted_shield() -> None:
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == (
         "NAME;i2c_sensor;DIR;NOTFOUND;BOARD;NOTFOUND;"
-        "REVISION;2;VARIANT;NOTFOUND;PROMOTED;i2c_sensor")
+        "REVISION;2;VARIANT;NOTFOUND;PROMOTED;i2c_sensor"
+    )
 
 
 def test_cmakeformat_line_for_a_slot_optioned_plural_shield_target() -> None:
@@ -73,15 +76,17 @@ def test_cmakeformat_line_for_a_slot_optioned_plural_shield_target() -> None:
     raw opts text VERBATIM into `PromotedTarget.promotion_target`
     (cmake never parses the option grammar -- rigc's own --promote does,
     once), so the socket.<slot>= spelling survives this seam untouched."""
-    result = _run("--rig=can_span_click:socket.left=quail_sock2:"
-                 "socket.right=quail_sock3",
-                 f"--cmakeformat={_CMAKEFORMAT}")
+    result = _run(
+        "--rig=can_span_click:socket.left=quail_sock2:socket.right=quail_sock3",
+        f"--cmakeformat={_CMAKEFORMAT}",
+    )
     assert result.returncode == 0, result.stderr
     assert result.stdout.strip() == (
         "NAME;can_span_click;DIR;NOTFOUND;BOARD;NOTFOUND;"
         "REVISION;NOTFOUND;VARIANT;NOTFOUND;"
         "PROMOTED;can_span_click:socket.left=quail_sock2:"
-        "socket.right=quail_sock3")
+        "socket.right=quail_sock3"
+    )
 
 
 def test_cmakeformat_line_for_a_bare_socket_on_a_plural_shield_is_refused() -> None:
@@ -89,8 +94,7 @@ def test_cmakeformat_line_for_a_bare_socket_on_a_plural_shield_is_refused() -> N
     test_boards_for.py pins at query level -- `resolve_target` reaches
     `parse_promotion_opts` with the resolved shield's real slots, so the
     plural-shield sentence fires here too, before any expander runs."""
-    result = _run("--rig=can_span_click:socket=quail_sock2",
-                  f"--cmakeformat={_CMAKEFORMAT}")
+    result = _run("--rig=can_span_click:socket=quail_sock2", f"--cmakeformat={_CMAKEFORMAT}")
     assert result.returncode != 0
     assert "plugs 2 sockets" in result.stderr
 
@@ -118,14 +122,12 @@ def test_cmakeformat_line_for_a_persisted_rig_is_unchanged() -> None:
 
 
 def test_a_variant_qualified_shield_target_is_refused() -> None:
-    result = _run("--rig=adafruit_data_logger/some_variant",
-                  f"--cmakeformat={_CMAKEFORMAT}")
+    result = _run("--rig=adafruit_data_logger/some_variant", f"--cmakeformat={_CMAKEFORMAT}")
     assert result.returncode != 0
     assert "variant" in result.stderr
 
 
-def test_a_name_that_is_both_a_rig_and_a_shield_is_the_explain_message(
-        tmp_path: Path) -> None:
+def test_a_name_that_is_both_a_rig_and_a_shield_is_the_explain_message(tmp_path: Path) -> None:
     """The SAME message `west rigs --explain` renders for the
     identical collision (test_explain.py's own fixture, reproduced here
     against this module's CLI instead) -- one namespace rule, not two
@@ -135,11 +137,19 @@ def test_a_name_that_is_both_a_rig_and_a_shield_is_the_explain_message(
     (rig_dir / "rig.yml").write_text("rig:\n  name: adafruit_data_logger\n")
 
     result = subprocess.run(
-        [str(_VENV_PYTHON), str(_LIST_RIGS), f"--board-root={REPO_ROOT}",
-         f"--board-root={tmp_path}", "--rig=adafruit_data_logger",
-         f"--cmakeformat={_CMAKEFORMAT}"],
-        cwd=str(REPO_ROOT), capture_output=True, text=True,
-        timeout=subprocess_timeout(60))
+        [
+            str(_VENV_PYTHON),
+            str(_LIST_RIGS),
+            f"--board-root={REPO_ROOT}",
+            f"--board-root={tmp_path}",
+            "--rig=adafruit_data_logger",
+            f"--cmakeformat={_CMAKEFORMAT}",
+        ],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+        text=True,
+        timeout=subprocess_timeout(60),
+    )
     assert result.returncode != 0
     assert "both" in result.stderr
     assert str(rig_dir) in result.stderr
@@ -165,6 +175,7 @@ def test_bare_rig_flag_with_no_cmakeformat_still_prints_just_the_name() -> None:
 
 # --------------------------------------------------- list promotion
 
+
 def test_cmakeformat_line_for_a_list_target() -> None:
     """The `{PROMOTED}` value for a list
     target is the raw `;`-joined text, escaped via `_cmake_list_escape`
@@ -177,7 +188,8 @@ def test_cmakeformat_line_for_a_list_target() -> None:
     assert result.stdout.strip() == (
         "NAME;eth_click+flash_click;DIR;NOTFOUND;BOARD;NOTFOUND;"
         "REVISION;NOTFOUND;VARIANT;NOTFOUND;"
-        f"PROMOTED;{_cmake_list_escape('eth_click;flash_click')}")
+        f"PROMOTED;{_cmake_list_escape('eth_click;flash_click')}"
+    )
 
 
 def test_cmakeformat_line_for_a_list_target_with_per_element_options() -> None:
@@ -187,7 +199,8 @@ def test_cmakeformat_line_for_a_list_target_with_per_element_options() -> None:
     assert result.stdout.strip() == (
         "NAME;eth_click+flash_click;DIR;NOTFOUND;BOARD;NOTFOUND;"
         "REVISION;NOTFOUND;VARIANT;NOTFOUND;"
-        f"PROMOTED;{_cmake_list_escape(raw)}")
+        f"PROMOTED;{_cmake_list_escape(raw)}"
+    )
 
 
 def test_a_list_target_with_a_duplicate_element_is_refused() -> None:
@@ -203,8 +216,7 @@ def test_a_list_target_with_a_persisted_rig_element_is_refused() -> None:
     "promotion options on a persisted rig" refusal a bare rig target
     hits (that refusal is about OPTIONS on a single rig target; this one
     is about a rig appearing as one element of a list at all)."""
-    result = _run("--rig=eth_click;nucleo_datalogger",
-                  f"--cmakeformat={_CMAKEFORMAT}")
+    result = _run("--rig=eth_click;nucleo_datalogger", f"--cmakeformat={_CMAKEFORMAT}")
     assert result.returncode != 0
     assert "nucleo_datalogger" in result.stderr
     assert "names a persisted rig" in result.stderr
@@ -212,8 +224,7 @@ def test_a_list_target_with_a_persisted_rig_element_is_refused() -> None:
 
 
 def test_a_list_target_with_an_unknown_element_is_refused() -> None:
-    result = _run("--rig=eth_click;no_such_shield_at_all",
-                  f"--cmakeformat={_CMAKEFORMAT}")
+    result = _run("--rig=eth_click;no_such_shield_at_all", f"--cmakeformat={_CMAKEFORMAT}")
     assert result.returncode != 0
     assert "no_such_shield_at_all" in result.stderr
     assert "does not name a discoverable shield" in result.stderr

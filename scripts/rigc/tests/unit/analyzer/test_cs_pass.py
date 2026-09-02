@@ -6,6 +6,7 @@ shaped, without a scenario, in test_cs.py; this module's subject is the
 WIRING -- so it necessarily needs a minimal constructed Rig/Instance/
 BoardSocket scope, the same shape test_addresses.py already uses for its
 own pass."""
+
 from __future__ import annotations
 
 from rigc.analyzer.cs import allocate_cs
@@ -13,18 +14,37 @@ from rigc.model import BoardSocket, BusRef, ConnectorType, Device, Instance, Rig
 
 
 def _socket(cs_pool=None, gpio_map=None, path="/spi0") -> BoardSocket:
-    return BoardSocket(label="sock", path=path, type_name="t", gpio_map=gpio_map or {},
-                      buses={"spi": BusRef(label="spi0", path=path, cs_pool=cs_pool)})
+    return BoardSocket(
+        label="sock",
+        path=path,
+        type_name="t",
+        gpio_map=gpio_map or {},
+        buses={"spi": BusRef(label="spi0", path=path, cs_pool=cs_pool)},
+    )
 
 
 def _ctype(cs_pool=None) -> ConnectorType:
-    return ConnectorType(name="t", positions={}, index2name={}, bus_proxies=[],
-                        stackable=True, cs_pool={"spi": cs_pool or [16, 15, 14]})
+    return ConnectorType(
+        name="t",
+        positions={},
+        index2name={},
+        bus_proxies=[],
+        stackable=True,
+        cs_pool={"spi": cs_pool or [16, 15, 14]},
+    )
 
 
 def _dev(name: str, cs_position=None) -> Device:
-    return Device(name=name, label=name, compatible=None, bus="spi", group=None,
-                 reg=None, addr_from=None, cs_position=cs_position)
+    return Device(
+        name=name,
+        label=name,
+        compatible=None,
+        bus="spi",
+        group=None,
+        reg=None,
+        addr_from=None,
+        cs_position=cs_position,
+    )
 
 
 def _inst(name: str, *devices: Device) -> Instance:
@@ -49,7 +69,7 @@ def test_pool_allocated_device_picks_the_type_default_pool() -> None:
     dev = _dev("eth")
     inst = _inst("adapter", dev)
     rig = Rig(name="r", instances=[inst])
-    socket = _socket(gpio_map={16: ("gpiod", 0, 0)})   # cs_pool=None -> ctype fallback
+    socket = _socket(gpio_map={16: ("gpiod", 0, 0)})  # cs_pool=None -> ctype fallback
 
     result, diags = allocate_cs(rig, {"adapter": {"plug": socket}}, {"t": _ctype()}, {})
 
@@ -69,7 +89,7 @@ def test_socket_cs_pool_override_wins_over_the_type_default() -> None:
 
 
 def test_exhaustion_across_a_shared_scope_is_phys_cs() -> None:
-    devs = [_dev(f"d{i}") for i in range(4)]      # 4 devices, pool of 3
+    devs = [_dev(f"d{i}") for i in range(4)]  # 4 devices, pool of 3
     insts = [_inst(f"i{i}", devs[i]) for i in range(4)]
     rig = Rig(name="r", instances=insts)
     socket = _socket(gpio_map={p: (f"gpio{p}", p, 0) for p in (16, 15, 14)})
@@ -90,7 +110,7 @@ def test_position_with_no_gpio_map_entry_is_phys_cs() -> None:
     dev = _dev("sdhc", cs_position=16)
     inst = _inst("logger", dev)
     rig = Rig(name="r", instances=[inst])
-    socket = _socket(gpio_map={})     # no entry for position 16
+    socket = _socket(gpio_map={})  # no entry for position 16
 
     result, diags = allocate_cs(rig, {"logger": {"plug": socket}}, {"t": _ctype()}, {})
 
@@ -110,14 +130,18 @@ def test_prior_nets_from_the_gpio_pass_count_as_already_taken() -> None:
     rig = Rig(name="r", instances=[inst])
     socket = _socket(gpio_map={16: ("gpiod", 0, 0), 15: ("gpiod", 1, 0)})
     taken_key = soc_net(socket, 16)
-    nets_before = {taken_key: [NetClaim(instance=inst, device=None, what="x",
-                                        role="listener", socket=socket,
-                                        position=16)]}
+    nets_before = {
+        taken_key: [
+            NetClaim(
+                instance=inst, device=None, what="x", role="listener", socket=socket, position=16
+            )
+        ]
+    }
 
     result, diags = allocate_cs(rig, {"adapter": {"plug": socket}}, {"t": _ctype()}, nets_before)
 
     assert diags == []
-    assert result.cs[("adapter", "eth")] == (0, 15)   # skipped the taken D10 (16)
+    assert result.cs[("adapter", "eth")] == (0, 15)  # skipped the taken D10 (16)
 
 
 def test_instances_without_a_resolved_socket_are_skipped() -> None:
@@ -141,23 +165,24 @@ def test_allocate_cs_never_mutates_the_gpio_passes_nets() -> None:
     corrupt the composer's merged net view)."""
     from rigc.analyzer.gpio import NetClaim, merge_nets, soc_net
 
-    dev = _dev("flash", cs_position=16)     # copper-fixed: placed regardless
+    dev = _dev("flash", cs_position=16)  # copper-fixed: placed regardless
     inst = _inst("logger", dev)
     rig = Rig(name="r", instances=[inst])
     socket = _socket(gpio_map={16: ("gpiod", 0, 0)})
     shared_key = soc_net(socket, 16)
-    gpio_claim = NetClaim(instance=inst, device=None, what="led: gpios",
-                          role="listener", socket=socket, position=16)
+    gpio_claim = NetClaim(
+        instance=inst, device=None, what="led: gpios", role="listener", socket=socket, position=16
+    )
     nets_before = {shared_key: [gpio_claim]}
 
-    result, _diags = allocate_cs(rig, {"logger": {"plug": socket}}, {"t": _ctype()},
-                                 nets_before)
+    result, _diags = allocate_cs(rig, {"logger": {"plug": socket}}, {"t": _ctype()}, nets_before)
 
     # The caller's value is untouched...
     assert nets_before == {shared_key: [gpio_claim]}
     # ...the CS claim exists exactly once, in THIS pass's own result...
     assert len(result.nets[shared_key]) == 1
     # ...and the merged view holds exactly the two real claimants.
-    assert [c.what for c in merge_nets(nets_before, result.nets)[shared_key]] \
-        == ["led: gpios",
-            "flash: CS copper-fixed at position 16 (shield,cs-position)"]
+    assert [c.what for c in merge_nets(nets_before, result.nets)[shared_key]] == [
+        "led: gpios",
+        "flash: CS copper-fixed at position 16 (shield,cs-position)",
+    ]

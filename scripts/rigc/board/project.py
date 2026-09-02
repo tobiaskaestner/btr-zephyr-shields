@@ -14,6 +14,7 @@ socket carries these maps (only PWM/ADC-capable ones do); node.maps simply
 omits the key for a ``*-map`` property the node doesn't author, so the loops
 below are no-ops for sockets without one.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
@@ -44,8 +45,7 @@ from ..model import Board, BoardSocket, BusRef
 #: -- see buskind.py for the regexes themselves and why they live there.
 
 
-def load_board(name: str, dts_path: str, recipe: BuildRecipe,
-               workdir: str) -> Board:
+def load_board(name: str, dts_path: str, recipe: BuildRecipe, workdir: str) -> Board:
     """Build a standalone edtlib.EDT over the board's OWN .dts (dts_path,
     no rig overlay, no shield/app context) and project every socket,* node
     into a model.Board -- the edtlib-side counterpart of
@@ -86,8 +86,8 @@ def project_edt(edt: edtlib.EDT, name: str) -> Board:
 def _project_socket(node: edtlib.Node, compat: str) -> BoardSocket:
     if not node.labels:
         raise ValueError(
-            f"socket node {node.path} has no label -- rig socket: "
-            "references sockets by label")
+            f"socket node {node.path} has no label -- rig socket: references sockets by label"
+        )
     label = node.labels[0]
     type_name = compat.split(",", 1)[1]
 
@@ -155,22 +155,30 @@ def _project_socket(node: edtlib.Node, compat: str) -> BoardSocket:
         # since it could not have been built or unpickled otherwise.
         ensure_devicetree_on_path()
         from devicetree import edtlib
+
         assert isinstance(bus_node, edtlib.Node)
         if not bus_node.labels:
             raise ValueError(f"bus controller {bus_node.path} has no label")
-        qualified = prop_name[len("socket,"):]
-        buses[qualified] = BusRef(label=bus_node.labels[0], path=bus_node.path,
-                                  cs_pool=cs_pools.get(qualified))
+        qualified = prop_name[len("socket,") :]
+        buses[qualified] = BusRef(
+            label=bus_node.labels[0], path=bus_node.path, cs_pool=cs_pools.get(qualified)
+        )
 
     pwm_map, pwm_cells = _project_channel_map(node, label, "pwm", "pwm")
     adc_map, adc_cells = _project_channel_map(node, label, "io-channel", "adc")
 
     return BoardSocket(
-        label=label, path=node.path, type_name=type_name,
-        gpio_map=gpio_map, buses=buses,
-        pwm_map=pwm_map, pwm_cells=pwm_cells,
-        adc_map=adc_map, adc_cells=adc_cells,
-        src=SourceRef(node.filename, node.lineno, label))
+        label=label,
+        path=node.path,
+        type_name=type_name,
+        gpio_map=gpio_map,
+        buses=buses,
+        pwm_map=pwm_map,
+        pwm_cells=pwm_cells,
+        adc_map=adc_map,
+        adc_cells=adc_cells,
+        src=SourceRef(node.filename, node.lineno, label),
+    )
 
 
 #: pwm/adc's shared checked-read table: the SET of parent (controller)
@@ -194,7 +202,8 @@ _CHANNEL_FN: dict[str, dict[str, object]] = {
             "only 2-cell (channel, period) and 3-cell (channel, period, "
             "flags) PWM parents (covering both lotus's atmel,sam0-tcc-pwm "
             "and upstream's common st,stm32-pwm/nxp,ftm-pwm shape) are "
-            "supported today"),
+            "supported today"
+        ),
     },
     "adc": {
         "cells_prop": "#io-channel-cells",
@@ -205,8 +214,9 @@ _CHANNEL_FN: dict[str, dict[str, object]] = {
 }
 
 
-def _project_channel_map(node: edtlib.Node, label: str, specifier_space: str,
-                         fn: str) -> tuple[dict[int, tuple[str, int]], int | None]:
+def _project_channel_map(
+    node: edtlib.Node, label: str, specifier_space: str, fn: str
+) -> tuple[dict[int, tuple[str, int]], int | None]:
     """pwm_map / adc_map's shared checked read: replaces a bare
     `pos, _pos_period = entry.child_specifiers` /
     `channel, _channel_period = entry.parent_specifiers` destructuring --
@@ -237,31 +247,40 @@ def _project_channel_map(node: edtlib.Node, label: str, specifier_space: str,
         child_n = len(entry.child_specifiers)
         parent_n = len(entry.parent_specifiers)
         if child_n not in supported:
-            raise LoadError(error(
-                "phys-board",
-                f"socket '{label}': its own {spec['cells_prop']} declares "
-                f"<{child_n}>, but rigc supports only a "
-                f"{spec['supported_desc']} {fn.upper()} socket nexus today",
-                (SourceRef(node.filename, node.lineno, label),)))
+            raise LoadError(
+                error(
+                    "phys-board",
+                    f"socket '{label}': its own {spec['cells_prop']} declares "
+                    f"<{child_n}>, but rigc supports only a "
+                    f"{spec['supported_desc']} {fn.upper()} socket nexus today",
+                    (SourceRef(node.filename, node.lineno, label),),
+                )
+            )
         if parent_n not in supported:
-            raise LoadError(error(
-                "phys-board",
-                f"socket '{label}': {fn.upper()} controller '{ctrl_label}' "
-                f"declares {spec['cells_prop']} = <{parent_n}>, "
-                f"but rigc supports only a "
-                f"{spec['supported_desc']} {fn.upper()} parent today -- "
-                f"{spec['unsupported_note']}",
-                (SourceRef(node.filename, node.lineno, label),)))
+            raise LoadError(
+                error(
+                    "phys-board",
+                    f"socket '{label}': {fn.upper()} controller '{ctrl_label}' "
+                    f"declares {spec['cells_prop']} = <{parent_n}>, "
+                    f"but rigc supports only a "
+                    f"{spec['supported_desc']} {fn.upper()} parent today -- "
+                    f"{spec['unsupported_note']}",
+                    (SourceRef(node.filename, node.lineno, label),),
+                )
+            )
         if child_n != parent_n:
-            raise LoadError(error(
-                "phys-board",
-                f"socket '{label}': its own {spec['cells_prop']} declares "
-                f"<{child_n}>, but {fn.upper()} controller '{ctrl_label}' "
-                f"declares {spec['cells_prop']} = <{parent_n}> -- a "
-                "socket's own declared cell count must equal its parent "
-                "controller's (rigc does not translate between "
-                "specifier widths)",
-                (SourceRef(node.filename, node.lineno, label),)))
+            raise LoadError(
+                error(
+                    "phys-board",
+                    f"socket '{label}': its own {spec['cells_prop']} declares "
+                    f"<{child_n}>, but {fn.upper()} controller '{ctrl_label}' "
+                    f"declares {spec['cells_prop']} = <{parent_n}> -- a "
+                    "socket's own declared cell count must equal its parent "
+                    "controller's (rigc does not translate between "
+                    "specifier widths)",
+                    (SourceRef(node.filename, node.lineno, label),),
+                )
+            )
         pos = entry.child_specifiers[0]
         channel = entry.parent_specifiers[0]
         result[pos] = (_controller_label(entry.parent), channel)

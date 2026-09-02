@@ -16,6 +16,7 @@ shield that declares a parameter declares the vocabulary that
 parameter is drawn from, so `check_param_token` takes the device's own
 header list, not something threaded down from rig.yml.
 """
+
 from __future__ import annotations
 
 from ..deps import Deps, touch, union
@@ -34,8 +35,11 @@ def device_required_params(dev: Device) -> list[str]:
     `shield_declares_required_params`) can ask the identical question
     without re-deriving "declared, no default" a second time. Pure; dev
     is read-only, returns a fresh list the caller owns."""
-    return [pname for pname in dev.declared_params
-            if not any(name == pname for name, _ in dev.extra_props)]
+    return [
+        pname
+        for pname in dev.declared_params
+        if not any(name == pname for name, _ in dev.extra_props)
+    ]
 
 
 def check_param_invariant(instances) -> list[Diagnostic]:
@@ -59,22 +63,32 @@ def check_param_invariant(instances) -> list[Diagnostic]:
             for pname in device_required_params(dev):
                 if pname in pset:
                     continue
-                diags.append(error(
-                    "lang-param",
-                    f"instance '{inst.name}': device '{dev.label}' of "
-                    f"shield '{shield.name}' declares '{pname}' as "
-                    "required (shield,params, no default authored) but "
-                    f"this instance does not assign it — add params: "
-                    f"{{{dev.label}: {{{pname}: <value>}}}}",
-                    refs))
+                diags.append(
+                    error(
+                        "lang-param",
+                        f"instance '{inst.name}': device '{dev.label}' of "
+                        f"shield '{shield.name}' declares '{pname}' as "
+                        "required (shield,params, no default authored) but "
+                        f"this instance does not assign it — add params: "
+                        f"{{{dev.label}: {{{pname}: <value>}}}}",
+                        refs,
+                    )
+                )
     return diags
 
 
-def check_param_token(raw: str, param_includes: list[str], workdir: str,
-                      tag: str, inst_name: str, dev_label: str,
-                      shield_name: str, prop_name: str, ref: SourceRef,
-                      include_dirs: list[str] | None = None,
-                      ) -> tuple[list[Diagnostic], Deps]:
+def check_param_token(
+    raw: str,
+    param_includes: list[str],
+    workdir: str,
+    tag: str,
+    inst_name: str,
+    dev_label: str,
+    shield_name: str,
+    prop_name: str,
+    ref: SourceRef,
+    include_dirs: list[str] | None = None,
+) -> tuple[list[Diagnostic], Deps]:
     """The per-instance-parameter header and token-resolution checks,
     collapsed into one shape now that the vocabulary is the owning
     device's own, not a rig-level list: every header in
@@ -104,38 +118,44 @@ def check_param_token(raw: str, param_includes: list[str], workdir: str,
     diags: list[Diagnostic] = []
     searched = ", ".join([*(include_dirs or []), zephyr_inc(), MODULE_INC])
     for i, header in enumerate(param_includes):
-        detail, files = check_include(
-            header, workdir, f"{tag}_{i}", include_dirs)
+        detail, files = check_include(header, workdir, f"{tag}_{i}", include_dirs)
         deps = union(deps, *(touch(f) for f in files))
         if detail is not None:
-            diags.append(error(
-                "lang-dt-include",
-                f"instance '{inst_name}': device '{dev_label}' of shield "
-                f"'{shield_name}' declares param-includes header "
-                f"'{header}' that is not found or fails to preprocess "
-                f"(searched {searched})\n{detail}",
-                (ref,)))
-    if resolve_token(raw, param_includes, workdir, tag,
-                     include_dirs) is not None:
+            diags.append(
+                error(
+                    "lang-dt-include",
+                    f"instance '{inst_name}': device '{dev_label}' of shield "
+                    f"'{shield_name}' declares param-includes header "
+                    f"'{header}' that is not found or fails to preprocess "
+                    f"(searched {searched})\n{detail}",
+                    (ref,),
+                )
+            )
+    if resolve_token(raw, param_includes, workdir, tag, include_dirs) is not None:
         return diags, deps
-    diags.append(error(
-        "lang-dt-include",
-        f"instance '{inst_name}': device '{dev_label}' property "
-        f"'{prop_name}' assigns '{raw}', which does not resolve against "
-        f"the param-includes shield '{shield_name}' declares for this "
-        f"device ({', '.join(param_includes) or 'none'}) — add the header "
-        f"that defines it to shield,param-includes on '{dev_label}'",
-        (ref,)))
+    diags.append(
+        error(
+            "lang-dt-include",
+            f"instance '{inst_name}': device '{dev_label}' property "
+            f"'{prop_name}' assigns '{raw}', which does not resolve against "
+            f"the param-includes shield '{shield_name}' declares for this "
+            f"device ({', '.join(param_includes) or 'none'}) — add the header "
+            f"that defines it to shield,param-includes on '{dev_label}'",
+            (ref,),
+        )
+    )
     return diags, deps
 
 
-def apply_params_block(params_v: Val | None, inst_name: str, shield: Shield,
-                       workdir: str, tag_prefix: str,
-                       unknown_device_context: str | None = None,
-                       include_dirs: list[str] | None = None,
-                       ) -> tuple[dict[str, dict[str, str]],
-                                 dict[str, dict[str, SourceRef]],
-                                 list[Diagnostic], Deps]:
+def apply_params_block(
+    params_v: Val | None,
+    inst_name: str,
+    shield: Shield,
+    workdir: str,
+    tag_prefix: str,
+    unknown_device_context: str | None = None,
+    include_dirs: list[str] | None = None,
+) -> tuple[dict[str, dict[str, str]], dict[str, dict[str, SourceRef]], list[Diagnostic], Deps]:
     """Parse ONE params: block -- the base assignment, OR a delta's
     wholesale replacement -- into (params, param_refs, diagnostics, deps),
     a PURE function of its inputs: never mutates the Instance it
@@ -170,24 +190,30 @@ def apply_params_block(params_v: Val | None, inst_name: str, shield: Shield,
         dev = devices_by_label.get(dev_label)
         if dev is None:
             context = f" ({unknown_device_context})" if unknown_device_context else ""
-            diags.append(error(
-                "lang-param",
-                f"instance '{inst_name}': params names no device "
-                f"'{dev_label}' of shield '{shield.name}'{context}\n"
-                f"devices of '{shield.name}': "
-                f"{', '.join(sorted(devices_by_label)) or 'none'}",
-                (props_v.src,)))
+            diags.append(
+                error(
+                    "lang-param",
+                    f"instance '{inst_name}': params names no device "
+                    f"'{dev_label}' of shield '{shield.name}'{context}\n"
+                    f"devices of '{shield.name}': "
+                    f"{', '.join(sorted(devices_by_label)) or 'none'}",
+                    (props_v.src,),
+                )
+            )
             continue
         for prop_name, val_v in props_v.value.items():
             if prop_name not in dev.declared_params:
-                diags.append(error(
-                    "lang-param",
-                    f"instance '{inst_name}': device '{dev_label}' of "
-                    f"shield '{shield.name}' declares no parameter "
-                    f"'{prop_name}' (shield,params)\n"
-                    f"declared parameters of '{dev_label}': "
-                    f"{', '.join(dev.declared_params) or 'none'}",
-                    (val_v.src,)))
+                diags.append(
+                    error(
+                        "lang-param",
+                        f"instance '{inst_name}': device '{dev_label}' of "
+                        f"shield '{shield.name}' declares no parameter "
+                        f"'{prop_name}' (shield,params)\n"
+                        f"declared parameters of '{dev_label}': "
+                        f"{', '.join(dev.declared_params) or 'none'}",
+                        (val_v.src,),
+                    )
+                )
                 continue
             raw = str(val_v.value)
             params.setdefault(dev_label, {})[prop_name] = raw
@@ -195,17 +221,29 @@ def apply_params_block(params_v: Val | None, inst_name: str, shield: Shield,
             if not is_int_literal(raw):
                 tag = f"{tag_prefix}_{dev_label}_{prop_name}"
                 d, tdeps = check_param_token(
-                    raw, dev.declared_param_includes, workdir, tag, inst_name,
-                    dev_label, shield.name, prop_name, val_v.src, include_dirs)
+                    raw,
+                    dev.declared_param_includes,
+                    workdir,
+                    tag,
+                    inst_name,
+                    dev_label,
+                    shield.name,
+                    prop_name,
+                    val_v.src,
+                    include_dirs,
+                )
                 diags += d
                 deps = union(deps, tdeps)
     return params, param_refs, diags, deps
 
 
-def apply_config_block(config_v: Val | None, inst_name: str, shield: Shield,
-                       ) -> tuple[dict[str, int], dict[str, SourceRef],
-                                 dict[str, object], dict[str, SourceRef],
-                                 list[Diagnostic]]:
+def apply_config_block(
+    config_v: Val | None,
+    inst_name: str,
+    shield: Shield,
+) -> tuple[
+    dict[str, int], dict[str, SourceRef], dict[str, object], dict[str, SourceRef], list[Diagnostic]
+]:
     """config: {config-element-LABEL: value} -- shared by the base parse
     and a delta's instances: patch (which resets straps/jumpers first, so
     this always starts from empty when called from a patch). PURE:
@@ -234,27 +272,33 @@ def apply_config_block(config_v: Val | None, inst_name: str, shield: Shield,
         # routing jumper) of the named shield, BY LABEL
         elem = shield.config_element(cfg_label)
         if elem is None:
-            labels = sorted([s.label for s in shield.straps.values()]
-                           + [j.label for j in shield.jumpers.values()])
-            diags.append(error(
-                "lang-config",
-                f"instance '{inst_name}': config names no config element "
-                f"'{cfg_label}' of shield '{shield.name}'\n"
-                f"config elements of '{shield.name}': "
-                f"{', '.join(labels) or 'none'}",
-                (val_v.src,)))
+            labels = sorted(
+                [s.label for s in shield.straps.values()]
+                + [j.label for j in shield.jumpers.values()]
+            )
+            diags.append(
+                error(
+                    "lang-config",
+                    f"instance '{inst_name}': config names no config element "
+                    f"'{cfg_label}' of shield '{shield.name}'\n"
+                    f"config elements of '{shield.name}': "
+                    f"{', '.join(labels) or 'none'}",
+                    (val_v.src,),
+                )
+            )
             continue
         if isinstance(elem, Strap):
             straps[elem.name] = val_v.value
             strap_refs[elem.name] = val_v.src
-        else:                                   # Jumper: position value
+        else:  # Jumper: position value
             jumpers[elem.name] = val_v.value
             jumper_refs[elem.name] = val_v.src
     return straps, strap_refs, jumpers, jumper_refs, diags
 
 
-def check_restate(params_v: Val, prior_params: dict[str, dict[str, str]],
-                  inst_name: str) -> list[Diagnostic]:
+def check_restate(
+    params_v: Val, prior_params: dict[str, dict[str, str]], inst_name: str
+) -> list[Diagnostic]:
     """The restate rule: if a delta supplies params for an instance whose
     shield it does NOT change, it must RESTATE every property the effective
     topology had already assigned; omitting one is an error naming it --
@@ -273,13 +317,16 @@ def check_restate(params_v: Val, prior_params: dict[str, dict[str, str]],
     for dev_label, props in prior_params.items():
         for prop_name in props:
             if (dev_label, prop_name) not in restated:
-                diags.append(error(
-                    "lang-param",
-                    f"instance '{inst_name}': this delta supplies params "
-                    f"for device '{dev_label}' without restating "
-                    f"'{prop_name}', which the effective topology already "
-                    "assigns -- wholesale replace means omitting it "
-                    "silently reverts to the shield default; restate it "
-                    "explicitly or remove it deliberately",
-                    (params_v.src,)))
+                diags.append(
+                    error(
+                        "lang-param",
+                        f"instance '{inst_name}': this delta supplies params "
+                        f"for device '{dev_label}' without restating "
+                        f"'{prop_name}', which the effective topology already "
+                        "assigns -- wholesale replace means omitting it "
+                        "silently reverts to the shield default; restate it "
+                        "explicitly or remove it deliberately",
+                        (params_v.src,),
+                    )
+                )
     return diags

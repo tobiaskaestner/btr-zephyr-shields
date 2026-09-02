@@ -12,6 +12,7 @@ decision rests on; going through `emit()` itself would also render
 config-sheet.md, which for a symbolic param value reaches cpp
 (dtsio.resolve_token) -- exactly what this module's other tests avoid.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -22,17 +23,26 @@ from rigc.model import BoardSocket, ConnectorType, Device, Instance, Rig, Shield
 
 
 def _device_declaring(header_list: list) -> Device:
-    return Device(name="d", label="d", compatible=None, bus=None, group=None,
-                 reg=None, addr_from=None, cs_position=None,
-                 declared_params=["zephyr,code"],
-                 declared_param_includes=list(header_list))
+    return Device(
+        name="d",
+        label="d",
+        compatible=None,
+        bus=None,
+        group=None,
+        reg=None,
+        addr_from=None,
+        cs_position=None,
+        declared_params=["zephyr,code"],
+        declared_param_includes=list(header_list),
+    )
 
 
 def test_needed_param_includes_is_empty_when_every_assigned_value_is_a_literal() -> None:
     dev = _device_declaring(["dt-bindings/input/input-event-codes.h"])
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
-    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"},
-                   params={"d": {"zephyr,code": "5"}})
+    inst = Instance(
+        name="i1", shield=shield, sockets={"plug": "sock"}, params={"d": {"zephyr,code": "5"}}
+    )
     rig = Rig(name="r", board="b", instances=[inst])
 
     assert _needed_param_includes(rig) == []
@@ -41,8 +51,12 @@ def test_needed_param_includes_is_empty_when_every_assigned_value_is_a_literal()
 def test_needed_param_includes_collects_headers_for_a_symbolic_value() -> None:
     dev = _device_declaring(["dt-bindings/input/input-event-codes.h"])
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
-    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"},
-                   params={"d": {"zephyr,code": "INPUT_KEY_0"}})
+    inst = Instance(
+        name="i1",
+        shield=shield,
+        sockets={"plug": "sock"},
+        params={"d": {"zephyr,code": "INPUT_KEY_0"}},
+    )
     rig = Rig(name="r", board="b", instances=[inst])
 
     assert _needed_param_includes(rig) == ["dt-bindings/input/input-event-codes.h"]
@@ -59,8 +73,12 @@ def test_needed_param_includes_keeps_the_devices_own_declaration_order() -> None
     vacuous."""
     dev = _device_declaring(["mmm/mid.h", "aaa/first.h", "zzz/last.h"])
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
-    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"},
-                   params={"d": {"zephyr,code": "INPUT_KEY_0"}})
+    inst = Instance(
+        name="i1",
+        shield=shield,
+        sockets={"plug": "sock"},
+        params={"d": {"zephyr,code": "INPUT_KEY_0"}},
+    )
     rig = Rig(name="r", board="b", instances=[inst])
 
     assert _needed_param_includes(rig) == ["mmm/mid.h", "aaa/first.h", "zzz/last.h"]
@@ -76,11 +94,7 @@ def test_render_includes_dtsi_preserves_declaration_order() -> None:
     only observed through emit()."""
     text = _render_includes_dtsi(["mmm/mid.h", "aaa/first.h", "zzz/last.h"])
     assert text == (
-        f"/* {GEN} */\n"
-        "\n"
-        "#include <mmm/mid.h>\n"
-        "#include <aaa/first.h>\n"
-        "#include <zzz/last.h>\n"
+        f"/* {GEN} */\n\n#include <mmm/mid.h>\n#include <aaa/first.h>\n#include <zzz/last.h>\n"
     )
 
 
@@ -93,8 +107,9 @@ def test_rig_gen_includes_dtsi_is_absent_when_every_param_value_is_a_literal() -
     appear."""
     dev = _device_declaring(["dt-bindings/input/input-event-codes.h"])
     shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
-    inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"},
-                   params={"d": {"zephyr,code": "5"}})
+    inst = Instance(
+        name="i1", shield=shield, sockets={"plug": "sock"}, params={"d": {"zephyr,code": "5"}}
+    )
     rig = Rig(name="r", board="b", instances=[inst])
 
     out = emit(rig, Solved(), {}, workdir="/does-not-matter")
@@ -127,19 +142,29 @@ def test_every_artifact_is_utf8_encoded_bytes() -> None:
 
 
 def test_emit_is_deterministic_under_a_shuffled_instance_order() -> None:
-    ctype = ConnectorType(name="t", positions={}, index2name={}, bus_proxies=[],
-                          stackable=False, cs_pool={})
+    ctype = ConnectorType(
+        name="t", positions={}, index2name={}, bus_proxies=[], stackable=False, cs_pool={}
+    )
 
     def make(order: list[str]) -> dict:
         insts = []
         sockets = {}
         for name in order:
-            dev = Device(name="d", label="d", compatible=None, bus=None,
-                        group=None, reg=None, addr_from=None, cs_position=None)
+            dev = Device(
+                name="d",
+                label="d",
+                compatible=None,
+                bus=None,
+                group=None,
+                reg=None,
+                addr_from=None,
+                cs_position=None,
+            )
             shield = Shield(name="sh", label="sh", plugs={"plug": "t"}, devices=[dev])
             insts.append(Instance(name=name, shield=shield, sockets={"plug": "sock"}))
-            sockets[name] = {"plug": BoardSocket(label="sock", path="/s", type_name="t",
-                                              gpio_map={}, buses={})}
+            sockets[name] = {
+                "plug": BoardSocket(label="sock", path="/s", type_name="t", gpio_map={}, buses={})
+            }
         rig = Rig(name="r", board="b", instances=insts)
         s = Solved(sockets=sockets)
         return emit(rig, s, {"t": ctype}, workdir="/does-not-matter")

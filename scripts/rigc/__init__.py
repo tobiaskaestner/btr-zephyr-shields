@@ -24,6 +24,7 @@ only when asked to: `-v`/`-vv` on the command line (INFO/DEBUG) or,
 absent either flag, the environment naming a level (`RIGC_LOG=<level>`)
 -- see `_configure_logging`'s own docstring for the stderr-purity
 tradeoff either knob makes deliberately."""
+
 import logging
 
 logging.getLogger(__name__).addHandler(logging.NullHandler())

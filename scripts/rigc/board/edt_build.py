@@ -24,6 +24,7 @@ a Zephyr checkout. That lookup is deferred to ensure_devicetree_on_path(),
 called from build_edt() rather than at import time, so a caller that only
 needs BuildRecipe / recipe_from_build_info / preprocess (none of which
 touch devicetree.edtlib) can use this module with $ZEPHYR_BASE unset."""
+
 from __future__ import annotations
 
 import logging
@@ -54,7 +55,8 @@ def ensure_devicetree_on_path() -> None:
         raise RuntimeError(
             "edt_build: $ZEPHYR_BASE is not set -- it is required to locate "
             "zephyr's devicetree library (scripts/dts/python-devicetree/"
-            "src). Export it (the zephyr-rigs tree) before building an EDT.")
+            "src). Export it (the zephyr-rigs tree) before building an EDT."
+        )
     dt_src = os.path.join(zephyr_base, "scripts", "dts", "python-devicetree", "src")
     if dt_src not in sys.path:
         sys.path.insert(0, dt_src)
@@ -71,6 +73,7 @@ class BuildRecipe:
     bindings_dirs:
       Directories edtlib recursively globs for .yaml binding files.
     """
+
     include_dirs: list[str]
     bindings_dirs: list[str]
 
@@ -105,7 +108,8 @@ def recipe_from_build_info(build_info_path: str) -> BuildRecipe:
         board_paths = [board_paths]
     return BuildRecipe(
         include_dirs=list(devicetree["include-dirs"]) + list(board_paths),
-        bindings_dirs=list(devicetree["bindings-dirs"]))
+        bindings_dirs=list(devicetree["bindings-dirs"]),
+    )
 
 
 def preprocess(dts_path: str, include_dirs: list[str], out_path: str) -> None:
@@ -137,11 +141,14 @@ def build_edt(dts_path: str, recipe: BuildRecipe, workdir: str) -> edtlib.EDT:
     workdir receives the intermediate file."""
     ensure_devicetree_on_path()
     from devicetree import edtlib
+
     os.makedirs(workdir, exist_ok=True)
     pre = os.path.join(workdir, os.path.basename(dts_path) + ".pre")
     log.debug("TU: %s (board dts %s)", pre, dts_path)
     preprocess(dts_path, recipe.include_dirs, pre)
     return edtlib.EDT(
-        pre, recipe.bindings_dirs,
+        pre,
+        recipe.bindings_dirs,
         default_prop_types=True,
-        infer_binding_for_paths=["/zephyr,user", "/cpus"])
+        infer_binding_for_paths=["/zephyr,user", "/cpus"],
+    )

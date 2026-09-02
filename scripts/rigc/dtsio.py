@@ -18,6 +18,7 @@ via `get_dtlib()`, called only from inside a function -- pytest imports
 every module in a directory before a marker expression (e.g. `-m "not
 build"`) deselects any one item, so a module-scope lookup would break
 collection for selections that never run it."""
+
 from __future__ import annotations
 
 import logging
@@ -48,7 +49,8 @@ def _zephyr_base() -> str:
             "rigc: $ZEPHYR_BASE is not set -- it is required to locate "
             "zephyr's devicetree library and includes. The build "
             "(dts.cmake) passes it automatically; for standalone use, "
-            "export ZEPHYR_BASE=<zephyr tree>.")
+            "export ZEPHYR_BASE=<zephyr tree>."
+        )
     return zb
 
 
@@ -61,11 +63,11 @@ def get_dtlib():
     $ZEPHYR_BASE at CALL time. Safe to call repeatedly (sys.path.insert
     is a no-op once the entry is already present; the module import
     itself is cached by Python regardless)."""
-    zephyr_dt_src = os.path.join(_zephyr_base(), "scripts", "dts",
-                                 "python-devicetree", "src")
+    zephyr_dt_src = os.path.join(_zephyr_base(), "scripts", "dts", "python-devicetree", "src")
     if zephyr_dt_src not in sys.path:
         sys.path.insert(0, zephyr_dt_src)
     from devicetree import dtlib
+
     return dtlib
 
 
@@ -74,15 +76,14 @@ def src_of(obj) -> SourceRef:
     Duck-typed on shape rather than `isinstance(obj, dtlib.Node)`, so this
     function needs no dtlib import of its own -- callers already have one
     live by the time they call this (they are holding a Node/Property)."""
-    if hasattr(obj, "props"):                      # Node: has child props/nodes
+    if hasattr(obj, "props"):  # Node: has child props/nodes
         label = obj.labels[0] if obj.labels else obj.path
         return SourceRef(obj.filename, obj.lineno, label)
-    label = f"{obj.node.path}: {obj.name}"          # Property
+    label = f"{obj.node.path}: {obj.name}"  # Property
     return SourceRef(obj.filename, obj.lineno, label)
 
 
-def run_cpp(dts_path: str, out_path: str,
-           include_dirs: list[str] | None = None) -> None:
+def run_cpp(dts_path: str, out_path: str, include_dirs: list[str] | None = None) -> None:
     """include_dirs is searched FIRST, in order, exactly as gcc searches a
     -I list; ZEPHYR_INC/MODULE_INC are always appended last, so a caller
     passing none sees exactly the two-directory search path.
@@ -103,23 +104,29 @@ def run_cpp(dts_path: str, out_path: str,
     for d in include_dirs or []:
         cmd += ["-I", d]
     cmd += [
-        "-I", zephyr_inc(), "-I", MODULE_INC,
-        "-undef", "-D__DTS__", dts_path,
+        "-I",
+        zephyr_inc(),
+        "-I",
+        MODULE_INC,
+        "-undef",
+        "-D__DTS__",
+        dts_path,
     ]
     log.debug("cpp argv: %s", shlex.join(cmd))
     res = subprocess.run(cmd, capture_output=True)
     with open(out_path, "wb") as f:
         f.write(res.stdout)
     if res.returncode != 0:
-        raise LoadError(error(
-            "lang-cpp",
-            "preprocessing failed\n"
-            + res.stderr.decode("utf-8", "replace").strip(),
-            (SourceRef(dts_path, 0),)))
+        raise LoadError(
+            error(
+                "lang-cpp",
+                "preprocessing failed\n" + res.stderr.decode("utf-8", "replace").strip(),
+                (SourceRef(dts_path, 0),),
+            )
+        )
 
 
-def parse_dts(dts_path: str, workdir: str,
-             include_dirs: list[str] | None = None):
+def parse_dts(dts_path: str, workdir: str, include_dirs: list[str] | None = None):
     """CPP + stock dtlib. dtlib reads the CPP linemarkers, so node/prop
     source references point at the ORIGINAL .shield files, not the
     generated translation unit -- free provenance for diagnostics.
@@ -136,8 +143,7 @@ def parse_dts(dts_path: str, workdir: str,
         raise LoadError(error("lang-parse", str(e))) from e
 
 
-def parse_tu(includes: list[str], workdir: str, name: str,
-            include_dirs: list[str] | None = None):
+def parse_tu(includes: list[str], workdir: str, name: str, include_dirs: list[str] | None = None):
     """Build + parse a one-off translation unit that includes the given
     files -- the shield-TU entry point (one base `.shield` plus an
     optional resolved revision fragment, cpp-included into ONE unit
@@ -160,9 +166,10 @@ def parse_tu(includes: list[str], workdir: str, name: str,
 _DEFINE_RE = re.compile(r"^\s*#define\s+(\w+)\s+(\d+|0x[0-9a-fA-F]+)\s*$", re.M)
 
 
-def parse_header_indices(type_name: str,
-                         header_dirs: list[str] | None = None,
-                         ) -> tuple[dict, Deps]:
+def parse_header_indices(
+    type_name: str,
+    header_dirs: list[str] | None = None,
+) -> tuple[dict, Deps]:
     """dt-bindings/connector/<type>.h -- the position-index single source
     of truth for connector type_name. Returns ({short position name:
     index}, Deps) with the common macro prefix stripped
@@ -174,12 +181,14 @@ def parse_header_indices(type_name: str,
     dirs = list(header_dirs) if header_dirs else []
     dirs.append(MODULE_INC)
     rel = os.path.join("dt-bindings", "connector", f"{type_name}.h")
-    path = next((os.path.join(d, rel) for d in dirs
-                if os.path.isfile(os.path.join(d, rel))), os.path.join(dirs[-1], rel))
+    path = next(
+        (os.path.join(d, rel) for d in dirs if os.path.isfile(os.path.join(d, rel))),
+        os.path.join(dirs[-1], rel),
+    )
     with open(path) as f:
         defines = {m[1]: int(m[2], 0) for m in _DEFINE_RE.finditer(f.read())}
     prefix = os.path.commonprefix(list(defines))
-    indices = {name[len(prefix):]: val for name, val in defines.items()}
+    indices = {name[len(prefix) :]: val for name, val in defines.items()}
     return indices, touch(path)
 
 
@@ -196,9 +205,12 @@ def source_files(dt, exclude_dir: str) -> list[str]:
         for prop in node.props.values():
             names.add(prop.filename)
     return sorted(
-        name for name in names
-        if name and os.path.realpath(name) != exclude
-        and not os.path.realpath(name).startswith(exclude + os.sep))
+        name
+        for name in names
+        if name
+        and os.path.realpath(name) != exclude
+        and not os.path.realpath(name).startswith(exclude + os.sep)
+    )
 
 
 #: GNU cpp's own file-change record: `# <line> "<file>" [flags...]`,
@@ -228,13 +240,14 @@ def linemarker_files(pre_text: str, exclude_dir: str) -> list[str]:
     result."""
     exclude = os.path.realpath(exclude_dir)
     names = {
-        m.group(1) for m in _LINEMARKER_RE.finditer(pre_text)
-        if not m.group(1).startswith("<")
+        m.group(1) for m in _LINEMARKER_RE.finditer(pre_text) if not m.group(1).startswith("<")
     }
     return sorted(
-        name for name in names
+        name
+        for name in names
         if os.path.realpath(name) != exclude
-        and not os.path.realpath(name).startswith(exclude + os.sep))
+        and not os.path.realpath(name).startswith(exclude + os.sep)
+    )
 
 
 def words(prop) -> list[int]:
@@ -242,7 +255,7 @@ def words(prop) -> list[int]:
     Type.PHANDLES_AND_NUMS -- dtlib has no typed accessor for that shape;
     every other cell shape goes through to_num/to_nums directly."""
     v = prop.value
-    return [int.from_bytes(v[i:i + 4], "big") for i in range(0, len(v) - len(v) % 4, 4)]
+    return [int.from_bytes(v[i : i + 4], "big") for i in range(0, len(v) - len(v) % 4, 4)]
 
 
 def render_prop(prop) -> str | None:
@@ -281,9 +294,12 @@ def is_int_literal(text: str) -> bool:
     return bool(_INT_LITERAL_RE.match(text))
 
 
-def check_include(header: str, workdir: str, tag: str,
-                  include_dirs: list[str] | None = None,
-                  ) -> tuple[str | None, list[str]]:
+def check_include(
+    header: str,
+    workdir: str,
+    tag: str,
+    include_dirs: list[str] | None = None,
+) -> tuple[str | None, list[str]]:
     """Confirm one declared header (a shield device's own
     shield,param-includes entry) is real and preprocesses cleanly on its
     own (the "lang-dt-include" diagnostic).
@@ -317,8 +333,9 @@ def check_include(header: str, workdir: str, tag: str,
     return detail, files
 
 
-def resolve_token(token: str, headers: list[str], workdir: str, tag: str,
-                  include_dirs: list[str] | None = None) -> int | None:
+def resolve_token(
+    token: str, headers: list[str], workdir: str, tag: str, include_dirs: list[str] | None = None
+) -> int | None:
     """cpp+dtlib-resolve one assigned parameter TOKEN against a synthetic
     TU that includes exactly headers -- the owning shield device's own
     declared_param_includes vocabulary, in order. Returns None if cpp

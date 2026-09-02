@@ -78,6 +78,7 @@ under tests/goldens/<rig-name>/ instead of asserting against them. Always
 inspect git diff tests/goldens before committing a refreeze -- it must
 reflect an INTENTIONAL, understood behavior change, never silent drift.
 """
+
 from __future__ import annotations
 
 import os
@@ -108,8 +109,12 @@ _BOARD = "emitted_rejects_board"
 _BOARD_DTS = FIXTURES_DIR / "boards" / "mainboards" / "emitted_rejects_board.dts"
 
 
-def _run_promoted(target: str, out_dir: Path, board: str, board_dts: Path,
-                  ) -> subprocess.CompletedProcess[str]:
+def _run_promoted(
+    target: str,
+    out_dir: Path,
+    board: str,
+    board_dts: Path,
+) -> subprocess.CompletedProcess[str]:
     """`python -m rigc expand --promote <target>`, the promoted-side
     counterpart to `run_expand`'s positional rig.yml path -- every OTHER
     reject fixture in this module compares an AUTHORED rig.yml by path,
@@ -125,11 +130,25 @@ def _run_promoted(target: str, out_dir: Path, board: str, board_dts: Path,
     env = dict(os.environ)
     env["ZEPHYR_BASE"] = zb
     env["PYTHONPATH"] = str(REPO_ROOT / "scripts")
-    cmd = [sys.executable, "-m", RIG_EXPAND_COMPILE, "expand",
-          "--promote", target, "--board", board, "--board-dts", str(board_dts),
-          "--shield-dir", str(_SHIELD_DIR), "--out-dir", str(out_dir)]
-    return subprocess.run(cmd, env=env, cwd=str(REPO_ROOT),
-                          capture_output=True, text=True, timeout=60)
+    cmd = [
+        sys.executable,
+        "-m",
+        RIG_EXPAND_COMPILE,
+        "expand",
+        "--promote",
+        target,
+        "--board",
+        board,
+        "--board-dts",
+        str(board_dts),
+        "--shield-dir",
+        str(_SHIELD_DIR),
+        "--out-dir",
+        str(out_dir),
+    ]
+    return subprocess.run(
+        cmd, env=env, cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=60
+    )
 
 
 def test_route_no_via_golden(tmp_path: Path) -> None:
@@ -141,8 +160,9 @@ def test_route_no_via_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "route-no-via" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR])
+    result = run_expand(
+        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+    )
 
     assert result.returncode != 0, "route:{} without via: must be rejected"
     assert "[lang-schema]" in result.stderr, result.stderr
@@ -162,8 +182,9 @@ def test_param_undeclared_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-undeclared" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR])
+    result = run_expand(
+        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+    )
 
     assert result.returncode != 0, "an undeclared params: property must be rejected"
     assert "[lang-param]" in result.stderr, result.stderr
@@ -182,8 +203,9 @@ def test_param_required_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-required" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR])
+    result = run_expand(
+        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+    )
 
     assert result.returncode != 0, "an unassigned required parameter must be rejected"
     assert "[lang-param]" in result.stderr, result.stderr
@@ -201,8 +223,9 @@ def test_param_unknown_device_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-unknown-device" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR])
+    result = run_expand(
+        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+    )
 
     assert result.returncode != 0, "an unknown params: device label must be rejected"
     assert "[lang-param]" in result.stderr, result.stderr
@@ -241,10 +264,14 @@ def test_promoted_param_undeclared_golden(tmp_path: Path) -> None:
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
     result = _run_promoted(
         "grove_btn:gb_key.bogus_prop=INPUT_KEY_0:gb_key.zephyr,code=INPUT_KEY_0",
-        out_dir, board=_BOARD, board_dts=_BOARD_DTS)
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+    )
 
     assert result.returncode != 0, (
-        "an undeclared params: property reached via promotion must be rejected")
+        "an undeclared params: property reached via promotion must be rejected"
+    )
     assert "[lang-param]" in result.stderr, result.stderr
     assert "declares no parameter" in result.stderr, result.stderr
 
@@ -262,8 +289,9 @@ def test_param_unresolvable_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "param-unresolvable" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR])
+    result = run_expand(
+        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+    )
 
     assert result.returncode != 0, "an unresolvable parameter token must be rejected"
     assert "[lang-dt-include]" in result.stderr, result.stderr
@@ -285,13 +313,17 @@ def test_param_shield_no_includes_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     fixture = FIXTURES_DIR / "boards" / "rigs" / "param-shield-no-includes"
     assert_fixture_local([_BOARD_DTS, fixture / "shields"])
-    result = run_expand(fixture / "rig.yml", out_dir,
-                        board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[fixture / "shields"])
+    result = run_expand(
+        fixture / "rig.yml",
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[fixture / "shields"],
+    )
 
     assert result.returncode != 0, (
-        "a symbolic token against a shield declaring no param-includes "
-        "must be rejected")
+        "a symbolic token against a shield declaring no param-includes must be rejected"
+    )
     assert "[lang-dt-include]" in result.stderr, result.stderr
     assert "does not resolve" in result.stderr, result.stderr
 
@@ -303,6 +335,7 @@ def test_param_shield_no_includes_golden(tmp_path: Path) -> None:
 
 # ---------------------------------------------------------------- qualifier rejects
 
+
 def test_unknown_revision_golden(tmp_path: Path) -> None:
     """Synthetic fixture: a --revision naming a value outside the
     declared revisions: list. Loader-level (fires before any board recipe
@@ -310,8 +343,14 @@ def test_unknown_revision_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "unknown-revision" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR], revision="99")
+    result = run_expand(
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        revision="99",
+    )
 
     assert result.returncode != 0, "an undeclared revision must be rejected"
     assert "[lang-rev]" in result.stderr, result.stderr
@@ -329,8 +368,14 @@ def test_unknown_variant_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "unknown-variant" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR], variant="nope")
+    result = run_expand(
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        variant="nope",
+    )
 
     assert result.returncode != 0, "an undeclared variant must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -349,8 +394,9 @@ def test_no_default_variant_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "no-default-variant" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR])
+    result = run_expand(
+        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+    )
 
     assert result.returncode != 0, "no selection + no default must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -371,8 +417,9 @@ def test_variant_revision_collision_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "variant-revision-collision" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR])
+    result = run_expand(
+        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+    )
 
     assert result.returncode != 0, "a variant/revision id collision must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -396,8 +443,14 @@ def test_variant_no_fragment_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "variant-no-fragment" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR], variant="ghost")
+    result = run_expand(
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        variant="ghost",
+    )
 
     assert result.returncode != 0, "a variant contributing nothing must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -422,8 +475,9 @@ def test_widened_variant_revision_collision_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "combined-fragment-collision" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR])
+    result = run_expand(
+        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+    )
 
     assert result.returncode != 0, "a combined-fragment stem collision must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -445,8 +499,14 @@ def test_no_such_axis_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "no-such-axis" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR], variant="anything")
+    result = run_expand(
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        variant="anything",
+    )
 
     assert result.returncode != 0, "a qualifier against an undeclared axis must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -468,8 +528,9 @@ def test_empty_revisions_list_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "empty-revisions-list" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR])
+    result = run_expand(
+        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+    )
 
     assert result.returncode != 0, "an empty revisions: list must be rejected"
     assert "[lang-schema]" in result.stderr, result.stderr
@@ -495,8 +556,9 @@ def test_instances_delta_unknown_instance_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "instances-delta-unknown-instance" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR], variant="b")
+    result = run_expand(
+        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR], variant="b"
+    )
 
     assert result.returncode != 0, "instances: naming an unknown instance must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -514,8 +576,9 @@ def test_add_instances_already_exists_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "add-instances-already-exists" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR], variant="b")
+    result = run_expand(
+        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR], variant="b"
+    )
 
     assert result.returncode != 0, "add-instances: naming an existing instance must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -535,8 +598,15 @@ def test_remove_instance_drift_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "remove-instance-drift" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR], variant="b", revision="2")
+    result = run_expand(
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        variant="b",
+        revision="2",
+    )
 
     assert result.returncode != 0, "remove-instances: naming an absent instance must be rejected"
     assert "[lang-rev]" in result.stderr, result.stderr
@@ -557,8 +627,9 @@ def test_remove_wire_missing_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "remove-wire-missing" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR], variant="b")
+    result = run_expand(
+        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR], variant="b"
+    )
 
     assert result.returncode != 0, "remove-wires: naming a nonexistent pair must be rejected"
     assert "[lang-variant]" in result.stderr, result.stderr
@@ -579,8 +650,9 @@ def test_restate_check_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "restate-check" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, variant="b",
-                        shield_dirs=[_SHIELD_DIR])
+    result = run_expand(
+        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, variant="b", shield_dirs=[_SHIELD_DIR]
+    )
 
     assert result.returncode != 0, "an un-restated optional parameter must be rejected"
     assert "[lang-param]" in result.stderr, result.stderr
@@ -601,8 +673,15 @@ def test_revision_crosses_variant_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "revision-crosses-variant" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, variant="hpm", revision="2",
-                        shield_dirs=[_SHIELD_DIR])
+    result = run_expand(
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        variant="hpm",
+        revision="2",
+        shield_dirs=[_SHIELD_DIR],
+    )
 
     assert result.returncode != 0, "a revision crossing a variant's shield swap must be rejected"
     assert "[lang-param]" in result.stderr, result.stderr
@@ -627,15 +706,22 @@ def test_dotted_revision_no_fragment_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "dotted-revision-no-fragment" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR], revision="1.5")
+    result = run_expand(
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[_SHIELD_DIR],
+        revision="1.5",
+    )
 
     assert result.returncode != 0, "a dotted revision contributing nothing must be rejected"
     assert "[lang-rev]" in result.stderr, result.stderr
     assert "dotted-revision-no-fragment_1_5_0_defconfig" in result.stderr, result.stderr
     assert "dotted-revision-no-fragment_1.5_defconfig" not in result.stderr, (
         "the dot must be NORMALIZED to an underscore, per hwmv2's own "
-        f"convention, not left literal\n{result.stderr}")
+        f"convention, not left literal\n{result.stderr}"
+    )
 
     zb = zephyr_base()
     golden_dir = GOLDENS_DIR / "dotted-revision-no-fragment"
@@ -644,6 +730,7 @@ def test_dotted_revision_no_fragment_golden(tmp_path: Path) -> None:
 
 
 # ---------------------------------------------------------------- shield revisions
+
 
 def test_shield_undeclared_revision_golden(tmp_path: Path) -> None:
     """Synthetic fixture: shield: <name>@<rev> naming a revision
@@ -654,8 +741,9 @@ def test_shield_undeclared_revision_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-undeclared-revision" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR])
+    result = run_expand(
+        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+    )
 
     assert result.returncode != 0, "an undeclared shield revision must be rejected"
     assert "[lang-rev]" in result.stderr, result.stderr
@@ -677,11 +765,13 @@ def test_shield_no_revisions_declared_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-no-revisions-declared" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR])
+    result = run_expand(
+        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+    )
 
     assert result.returncode != 0, (
-        "an @rev against a shield declaring no revisions: must be rejected")
+        "an @rev against a shield declaring no revisions: must be rejected"
+    )
     assert "[lang-rev]" in result.stderr, result.stderr
     assert "declares no revisions: at all" in result.stderr, result.stderr
 
@@ -700,14 +790,18 @@ def test_shield_missing_fragment_golden(tmp_path: Path) -> None:
     neither rev_fixture_2.shield nor rev_fixture_2.conf."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-missing-fragment" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, FIXTURES_DIR / "boards" / "rigs" /
-                          "shield-missing-fragment" / "shields"])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[FIXTURES_DIR / "boards" / "rigs" /
-                                     "shield-missing-fragment" / "shields"])
+    assert_fixture_local(
+        [_BOARD_DTS, FIXTURES_DIR / "boards" / "rigs" / "shield-missing-fragment" / "shields"]
+    )
+    result = run_expand(
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[FIXTURES_DIR / "boards" / "rigs" / "shield-missing-fragment" / "shields"],
+    )
 
-    assert result.returncode != 0, (
-        "a shield revision contributing nothing must be rejected")
+    assert result.returncode != 0, "a shield revision contributing nothing must be rejected"
     assert "[lang-rev]" in result.stderr, result.stderr
     assert "contributes nothing" in result.stderr, result.stderr
     assert "rev_fixture_2.shield" in result.stderr, result.stderr
@@ -730,15 +824,25 @@ def test_shield_revision_param_invariant_golden(tmp_path: Path) -> None:
     assigns it."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-revision-param-invariant" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, FIXTURES_DIR / "boards" / "rigs" /
-                          "shield-revision-param-invariant" / "shields"])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[FIXTURES_DIR / "boards" / "rigs" /
-                                     "shield-revision-param-invariant" / "shields"])
+    assert_fixture_local(
+        [
+            _BOARD_DTS,
+            FIXTURES_DIR / "boards" / "rigs" / "shield-revision-param-invariant" / "shields",
+        ]
+    )
+    result = run_expand(
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[
+            FIXTURES_DIR / "boards" / "rigs" / "shield-revision-param-invariant" / "shields"
+        ],
+    )
 
     assert result.returncode != 0, (
-        "a shield-revision-introduced required parameter must be rejected "
-        "when unassigned")
+        "a shield-revision-introduced required parameter must be rejected when unassigned"
+    )
     assert "[lang-param]" in result.stderr, result.stderr
     assert "declares 'vnd,threshold' as" in result.stderr, result.stderr
     assert "required" in result.stderr, result.stderr
@@ -760,8 +864,9 @@ def test_missing_content_file_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "missing-content-file" / "rig.yml"
     assert_fixture_local([_BOARD_DTS, _SHIELD_DIR])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[_SHIELD_DIR])
+    result = run_expand(
+        rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS, shield_dirs=[_SHIELD_DIR]
+    )
 
     assert result.returncode != 0, "a missing content file must be rejected"
     assert "[lang-content]" in result.stderr, result.stderr
@@ -787,16 +892,23 @@ def test_shield_bad_revisions_block_golden(tmp_path: Path) -> None:
     fixture's output too."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-bad-revisions-block" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, FIXTURES_DIR / "boards" / "rigs" / "shield-bad-revisions-block" / "shields"])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[FIXTURES_DIR / "boards" / "rigs" / "shield-bad-revisions-block" / "shields"])
+    assert_fixture_local(
+        [_BOARD_DTS, FIXTURES_DIR / "boards" / "rigs" / "shield-bad-revisions-block" / "shields"]
+    )
+    result = run_expand(
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[FIXTURES_DIR / "boards" / "rigs" / "shield-bad-revisions-block" / "shields"],
+    )
 
-    assert result.returncode != 0, (
-        "a malformed shield.yml revisions: block must be rejected")
+    assert result.returncode != 0, "a malformed shield.yml revisions: block must be rejected"
     assert "[lang-schema]" in result.stderr, result.stderr
     assert "shield 'badyml_fixture' revisions:" in result.stderr, result.stderr
     assert "rig revisions:" not in result.stderr, (
-        f"a shield.yml defect must not be blamed on the rig\n{result.stderr}")
+        f"a shield.yml defect must not be blamed on the rig\n{result.stderr}"
+    )
 
     zb = zephyr_base()
     golden_dir = GOLDENS_DIR / "shield-bad-revisions-block"
@@ -815,12 +927,18 @@ def test_shield_node_name_mismatch_golden(tmp_path: Path) -> None:
     and the node name disagreeing about what was built."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-node-name-mismatch" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, FIXTURES_DIR / "boards" / "rigs" / "shield-node-name-mismatch" / "shields"])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[FIXTURES_DIR / "boards" / "rigs" / "shield-node-name-mismatch" / "shields"])
+    assert_fixture_local(
+        [_BOARD_DTS, FIXTURES_DIR / "boards" / "rigs" / "shield-node-name-mismatch" / "shields"]
+    )
+    result = run_expand(
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[FIXTURES_DIR / "boards" / "rigs" / "shield-node-name-mismatch" / "shields"],
+    )
 
-    assert result.returncode != 0, (
-        "a .shield node name not matching its folder must be rejected")
+    assert result.returncode != 0, "a .shield node name not matching its folder must be rejected"
     assert "[lang-shield-name]" in result.stderr, result.stderr
     assert "misnamed_fixture" in result.stderr, result.stderr
     assert "other_name" in result.stderr, result.stderr
@@ -842,12 +960,17 @@ def test_shield_template_missing_file_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-template-missing-file"
     assert_fixture_local([_BOARD_DTS, fixture / "shields"])
-    result = run_expand(fixture / "rig.yml", out_dir,
-                        board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[fixture / "shields"])
+    result = run_expand(
+        fixture / "rig.yml",
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[fixture / "shields"],
+    )
 
     assert result.returncode != 0, (
-        "a template: true entry with no matching <name>.shield must be rejected")
+        "a template: true entry with no matching <name>.shield must be rejected"
+    )
     assert "[lang-shield-template]" in result.stderr, result.stderr
     assert "ghost_template" in result.stderr, result.stderr
     assert "does not exist" in result.stderr, result.stderr
@@ -869,13 +992,17 @@ def test_shield_plural_node_name_mismatch_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-plural-node-name-mismatch"
     assert_fixture_local([_BOARD_DTS, fixture / "shields"])
-    result = run_expand(fixture / "rig.yml", out_dir,
-                        board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[fixture / "shields"])
+    result = run_expand(
+        fixture / "rig.yml",
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[fixture / "shields"],
+    )
 
     assert result.returncode != 0, (
-        "a shields: entry's declared name not matching its own .shield "
-        "node name must be rejected")
+        "a shields: entry's declared name not matching its own .shield node name must be rejected"
+    )
     assert "[lang-shield-name]" in result.stderr, result.stderr
     assert "decl_beta" in result.stderr, result.stderr
     assert "wrong_node" in result.stderr, result.stderr
@@ -898,12 +1025,15 @@ def test_shield_plural_duplicate_name_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-plural-duplicate-name"
     assert_fixture_local([_BOARD_DTS, fixture / "shields"])
-    result = run_expand(fixture / "rig.yml", out_dir,
-                        board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[fixture / "shields"])
+    result = run_expand(
+        fixture / "rig.yml",
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[fixture / "shields"],
+    )
 
-    assert result.returncode != 0, (
-        "a name repeated within one shields: list must be rejected")
+    assert result.returncode != 0, "a name repeated within one shields: list must be rejected"
     assert "[lang-schema]" in result.stderr, result.stderr
     assert "dup_name" in result.stderr, result.stderr
     assert "declared more than once" in result.stderr, result.stderr
@@ -924,12 +1054,15 @@ def test_shield_plural_not_a_list_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-plural-not-a-list"
     assert_fixture_local([_BOARD_DTS, fixture / "shields"])
-    result = run_expand(fixture / "rig.yml", out_dir,
-                        board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[fixture / "shields"])
+    result = run_expand(
+        fixture / "rig.yml",
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[fixture / "shields"],
+    )
 
-    assert result.returncode != 0, (
-        "a shields: block that is not a list must be rejected")
+    assert result.returncode != 0, "a shields: block that is not a list must be rejected"
     assert "[lang-schema]" in result.stderr, result.stderr
     assert "must be a list" in result.stderr, result.stderr
 
@@ -949,12 +1082,15 @@ def test_shield_plural_missing_name_golden(tmp_path: Path) -> None:
     out_dir = tmp_path / "out"
     fixture = FIXTURES_DIR / "boards" / "rigs" / "shield-plural-missing-name"
     assert_fixture_local([_BOARD_DTS, fixture / "shields"])
-    result = run_expand(fixture / "rig.yml", out_dir,
-                        board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[fixture / "shields"])
+    result = run_expand(
+        fixture / "rig.yml",
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[fixture / "shields"],
+    )
 
-    assert result.returncode != 0, (
-        "a shields: entry with no name: must be rejected")
+    assert result.returncode != 0, "a shields: entry with no name: must be rejected"
     assert "[lang-schema]" in result.stderr, result.stderr
     assert "required key 'name' is missing" in result.stderr, result.stderr
 
@@ -998,15 +1134,19 @@ def test_unmapped_socket_golden(tmp_path: Path) -> None:
     assert_fixture_local([board_dts, *bindings_dirs, *include_dirs, _SHIELD_DIR])
     out_dir = tmp_path / "out"
     result = run_expand(
-        fixture / "rig.yml", out_dir,
+        fixture / "rig.yml",
+        out_dir,
         board="unmapped_socket_board",
         board_dts=board_dts,
-        bindings_dirs=bindings_dirs, include_dirs=include_dirs,
-        shield_dirs=[_SHIELD_DIR])
+        bindings_dirs=bindings_dirs,
+        include_dirs=include_dirs,
+        shield_dirs=[_SHIELD_DIR],
+    )
 
     assert result.returncode != 0, (
         "an instance socket name absent from the declared map must be "
-        "rejected against the board's own socket set")
+        "rejected against the board's own socket set"
+    )
     assert "[phys-socket]" in result.stderr, result.stderr
     assert "no socket 'other'" in result.stderr, result.stderr
 
@@ -1072,17 +1212,31 @@ def test_shield_revisions_mapping_entry_golden(tmp_path: Path) -> None:
     reported at library-scan time for every folder scanned."""
     out_dir = tmp_path / "out"
     rig_yml = FIXTURES_DIR / "boards" / "rigs" / "shield-revisions-mapping-entry" / "rig.yml"
-    assert_fixture_local([_BOARD_DTS, FIXTURES_DIR / "boards" / "rigs" / "shield-revisions-mapping-entry" / "shields"])
-    result = run_expand(rig_yml, out_dir, board=_BOARD, board_dts=_BOARD_DTS,
-                        shield_dirs=[FIXTURES_DIR / "boards" / "rigs" / "shield-revisions-mapping-entry" / "shields"])
+    assert_fixture_local(
+        [
+            _BOARD_DTS,
+            FIXTURES_DIR / "boards" / "rigs" / "shield-revisions-mapping-entry" / "shields",
+        ]
+    )
+    result = run_expand(
+        rig_yml,
+        out_dir,
+        board=_BOARD,
+        board_dts=_BOARD_DTS,
+        shield_dirs=[
+            FIXTURES_DIR / "boards" / "rigs" / "shield-revisions-mapping-entry" / "shields"
+        ],
+    )
 
     assert result.returncode != 0, (
-        "a mapping entry in a shield's own revisions: list must be rejected")
+        "a mapping entry in a shield's own revisions: list must be rejected"
+    )
     assert "[lang-schema]" in result.stderr, result.stderr
     assert "shield 'mapentry_fixture' revisions:" in result.stderr, result.stderr
     assert "legal only in a rig's variants: list" in result.stderr, result.stderr
     assert "rig revisions:" not in result.stderr, (
-        f"a shield.yml defect must not be blamed on the rig\n{result.stderr}")
+        f"a shield.yml defect must not be blamed on the rig\n{result.stderr}"
+    )
 
     zb = zephyr_base()
     golden_dir = GOLDENS_DIR / "shield-revisions-mapping-entry"

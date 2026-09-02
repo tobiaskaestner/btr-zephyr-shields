@@ -6,6 +6,7 @@ already-preprocessed text -- no cpp, no subprocess (the cpp/unit-test
 seam) -- and every connector type is a PURPOSE-BUILT synthetic value,
 never a real corpus one.
 """
+
 from __future__ import annotations
 
 from rigc.dtsio import get_dtlib

@@ -3,6 +3,7 @@ this command touches no cmake, no
 cpp, no board -- a promoted shield's two documents are pure text and a
 persisted rig's are read verbatim off disk.
 """
+
 from __future__ import annotations
 
 import os
@@ -16,8 +17,13 @@ from harness import REPO_ROOT, WEST_EXE, WEST_TOPDIR, subprocess_timeout
 def _run(*args: str) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     return subprocess.run(
-        [WEST_EXE, "rigs", *args], cwd=str(WEST_TOPDIR), env=env,
-        capture_output=True, text=True, timeout=subprocess_timeout(60))
+        [WEST_EXE, "rigs", *args],
+        cwd=str(WEST_TOPDIR),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=subprocess_timeout(60),
+    )
 
 
 def test_explain_a_promoted_shield_prints_the_desugared_pair() -> None:
@@ -45,9 +51,8 @@ def test_explain_a_persisted_rig_prints_its_two_files_verbatim() -> None:
     result = _run("--explain", "nucleo_datalogger")
     assert result.returncode == 0, result.stderr
     assert result.stdout == (
-        f"# rig.yml\n{rig_yml_text}\n"
-        "\n"
-        f"# nucleo_datalogger.yml\n{content_text}\n")
+        f"# rig.yml\n{rig_yml_text}\n\n# nucleo_datalogger.yml\n{content_text}\n"
+    )
 
 
 def test_explain_a_name_that_is_neither_a_rig_nor_a_shield_reuses_the_existing_message() -> None:
@@ -59,8 +64,7 @@ def test_explain_a_name_that_is_neither_a_rig_nor_a_shield_reuses_the_existing_m
     assert "does not resolve to a rig" in result.stderr
 
 
-def test_explain_a_name_that_is_both_a_rig_and_a_shield_is_an_error_naming_both(
-        tmp_path) -> None:
+def test_explain_a_name_that_is_both_a_rig_and_a_shield_is_an_error_naming_both(tmp_path) -> None:
     """The "both" branch. No natural collision exists in the
     tree, so this constructs one: a scratch --board-root carrying a rig
     folder named after a REAL shield (adafruit_data_logger) -- additive
@@ -69,8 +73,7 @@ def test_explain_a_name_that_is_both_a_rig_and_a_shield_is_an_error_naming_both(
     rig_dir.mkdir(parents=True)
     (rig_dir / "rig.yml").write_text("rig:\n  name: adafruit_data_logger\n")
 
-    result = _run("--explain", "adafruit_data_logger",
-                  "--board-root", str(tmp_path))
+    result = _run("--explain", "adafruit_data_logger", "--board-root", str(tmp_path))
     assert result.returncode != 0
     assert "adafruit_data_logger" in result.stderr
     assert "both" in result.stderr
@@ -98,7 +101,8 @@ def test_west_rigs_with_no_flag_is_unaffected_by_explain_landing() -> None:
     assert result.returncode == 0
     expected = sorted(
         yaml.safe_load(p.read_text())["rig"]["name"]
-        for p in (REPO_ROOT / "boards" / "rigs").rglob("rig.yml"))
+        for p in (REPO_ROOT / "boards" / "rigs").rglob("rig.yml")
+    )
     assert sorted(result.stdout.split()) == expected
 
 
@@ -150,8 +154,7 @@ def test_explain_a_promoted_plural_shield_with_slot_options_shows_the_sockets_ma
     a plural shield's sockets: block actually desugars to -- and this is
     the one caller of that threading (`_explain`'s own promote_shield
     call) the other query-surface tests do not reach."""
-    result = _run("--explain",
-                 "can_span_click:socket.left=quail_sock2:socket.right=quail_sock3")
+    result = _run("--explain", "can_span_click:socket.left=quail_sock2:socket.right=quail_sock3")
     assert result.returncode == 0, result.stderr
     assert result.stdout == textwrap.dedent("""\
         # rig.yml
@@ -188,14 +191,13 @@ def test_explain_promotion_options_on_a_persisted_rig_are_refused() -> None:
 
 # --------------------------------------------------- list promotion
 
+
 def test_explain_a_list_target_prints_the_desugared_n_instance_pair() -> None:
     """--explain prints the N-instance
     desugared pair -- the rig's own name is every element's shield name
     joined with `+`, and the content file carries one instance per
     element, each with its own socket, in order."""
-    result = _run(
-        "--explain",
-        "eth_click:socket=quail_sock1;flash_click:socket=quail_sock2")
+    result = _run("--explain", "eth_click:socket=quail_sock1;flash_click:socket=quail_sock2")
     assert result.returncode == 0, result.stderr
     assert result.stdout == textwrap.dedent("""\
         # rig.yml
@@ -239,7 +241,8 @@ def test_explain_a_list_target_with_a_multiplug_element_composes() -> None:
     result = _run(
         "--explain",
         "can_span_click:socket.left=quail_sock2:socket.right=quail_sock3;"
-        "flash_click:socket=quail_sock1")
+        "flash_click:socket=quail_sock1",
+    )
     assert result.returncode == 0, result.stderr
     assert result.stdout == textwrap.dedent("""\
         # rig.yml

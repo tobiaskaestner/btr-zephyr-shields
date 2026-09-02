@@ -36,6 +36,7 @@ golden, test_emitted_corpus.py), which only surfaced against a real
 binding. The corpus rigs under boards/rigs/ remain the proof that real
 hardware works.
 """
+
 from __future__ import annotations
 
 import sys
@@ -61,21 +62,23 @@ def test_reference_shields_accept(tmp_path: Path) -> None:
     include_dirs = [_CONNECTOR_INCLUDE]
     connector_dirs = [_CONNECTOR_BINDINGS]
     shield_dirs = [_FIXTURE / "shields"]
-    assert_fixture_local(
-        [board_dts, *bindings_dirs, *include_dirs, *connector_dirs, *shield_dirs])
+    assert_fixture_local([board_dts, *bindings_dirs, *include_dirs, *connector_dirs, *shield_dirs])
 
     out_dir = tmp_path / "out"
     result = run_expand(
-        _FIXTURE / "rig.yml", out_dir,
+        _FIXTURE / "rig.yml",
+        out_dir,
         board="reference_board",
         shield_dirs=shield_dirs,
         board_dts=board_dts,
         bindings_dirs=bindings_dirs,
         include_dirs=include_dirs,
-        connector_dirs=connector_dirs)
+        connector_dirs=connector_dirs,
+    )
 
     assert result.returncode == 0, (
-        f"reference-shields: expected accept\n--- stderr ---\n{result.stderr}")
+        f"reference-shields: expected accept\n--- stderr ---\n{result.stderr}"
+    )
 
     overlay = (out_dir / "rig-gen.overlay").read_text()
 

@@ -12,6 +12,7 @@ single-sourced for both the caller's probes and this module's own
 message text, since duplicated stem construction is where
 variant/revision normalization drift hides.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -21,19 +22,25 @@ from ..model import Rig
 from .axes import normalize_revision
 
 
-def variant_contribution_names(rig_name: str, variant: str,
-                               ) -> tuple[str, str, str]:
+def variant_contribution_names(
+    rig_name: str,
+    variant: str,
+) -> tuple[str, str, str]:
     """Returns the three artifact names a selected variant may contribute
     via, in message order: (overlay, defconfig, yml delta). Pure
     construction from the SELECTED value -- raw, never normalized
     (normalization is a revision concept)."""
-    return (f"{rig_name}_{variant}.overlay",
-            f"{rig_name}_{variant}_defconfig",
-            f"{rig_name}_{variant}.yml")
+    return (
+        f"{rig_name}_{variant}.overlay",
+        f"{rig_name}_{variant}_defconfig",
+        f"{rig_name}_{variant}.yml",
+    )
 
 
-def revision_contribution_names(rig_name: str, revision: str,
-                                ) -> tuple[str, str]:
+def revision_contribution_names(
+    rig_name: str,
+    revision: str,
+) -> tuple[str, str]:
     """Returns the two artifact names a selected revision may contribute
     via, in message order: (defconfig, yml delta) -- stems built from the
     NORMALIZED revision (the one place dots become underscores,
@@ -57,9 +64,11 @@ class FragmentPresence:
     revision_defconfig: bool = False
 
 
-def check_fragment_presence(rig: Rig, src: SourceRef,
-                            present: FragmentPresence,
-                            ) -> list[Diagnostic]:
+def check_fragment_presence(
+    rig: Rig,
+    src: SourceRef,
+    present: FragmentPresence,
+) -> list[Diagnostic]:
     """A selected NON-DEFAULT axis value naming the fragment files it
     was expected to contribute via (naming what was looked for) when
     NONE of them exist. The declared DEFAULT of an axis is exempt: the
@@ -68,25 +77,31 @@ def check_fragment_presence(rig: Rig, src: SourceRef,
     order); never mutates its inputs."""
     diags: list[Diagnostic] = []
     if rig.variant is not None and not (
-            rig.variants is not None and rig.variant == rig.variants.default):
-        overlay, defconfig, delta = variant_contribution_names(
-            rig.name, rig.variant)
-        if not (present.variant_delta or present.variant_overlay
-                or present.variant_defconfig):
-            diags.append(error(
-                "lang-variant",
-                f"rig '{rig.name}': variant '{rig.variant}' contributes "
-                f"nothing -- looked for {overlay}, {defconfig} and {delta}, "
-                f"none exist",
-                (src,)))
+        rig.variants is not None and rig.variant == rig.variants.default
+    ):
+        overlay, defconfig, delta = variant_contribution_names(rig.name, rig.variant)
+        if not (present.variant_delta or present.variant_overlay or present.variant_defconfig):
+            diags.append(
+                error(
+                    "lang-variant",
+                    f"rig '{rig.name}': variant '{rig.variant}' contributes "
+                    f"nothing -- looked for {overlay}, {defconfig} and {delta}, "
+                    f"none exist",
+                    (src,),
+                )
+            )
     if rig.revision is not None and not (
-            rig.revisions is not None and rig.revision == rig.revisions.default):
+        rig.revisions is not None and rig.revision == rig.revisions.default
+    ):
         defconfig, delta = revision_contribution_names(rig.name, rig.revision)
         if not (present.revision_delta or present.revision_defconfig):
-            diags.append(error(
-                "lang-rev",
-                f"rig '{rig.name}': revision '{rig.revision}' contributes "
-                f"nothing -- looked for {defconfig} and {delta}, neither "
-                "exists",
-                (src,)))
+            diags.append(
+                error(
+                    "lang-rev",
+                    f"rig '{rig.name}': revision '{rig.revision}' contributes "
+                    f"nothing -- looked for {defconfig} and {delta}, neither "
+                    "exists",
+                    (src,),
+                )
+            )
     return diags

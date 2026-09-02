@@ -9,6 +9,7 @@ sockets; test_shields_elements.py holds pads/straps/jumpers and the
 shared label requirement) -- see tests/unit/loader/conftest.py for the
 synthetic connector-type/DT fixtures every module here shares.
 """
+
 from __future__ import annotations
 
 from rigc.loader.shields import parse_shields
@@ -20,7 +21,9 @@ from .conftest import _dt, _one_shield
 
 
 def test_device_bus_membership_by_parentage(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -31,7 +34,8 @@ def test_device_bus_membership_by_parentage(tmp_path) -> None:
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert diags == []
     dev = shields["fx"].devices[0]
     assert dev.name == "dev"
@@ -49,9 +53,16 @@ def test_device_bus_membership_by_a_qualified_named_bus_proxy(tmp_path) -> None:
     recognize one: a device group node literally named "spi-motors"
     matches it exactly as "spi"/"i2c" match today)."""
     named_type = ConnectorType(
-        name="fixture-multibus", positions={}, index2name={},
-        bus_proxies=["spi-sensors", "spi-motors"], stackable=False, cs_pool={})
-    dt = _dt(tmp_path, """
+        name="fixture-multibus",
+        positions={},
+        index2name={},
+        bus_proxies=["spi-sensors", "spi-motors"],
+        stackable=False,
+        cs_pool={},
+    )
+    dt = _dt(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -62,7 +73,8 @@ def test_device_bus_membership_by_a_qualified_named_bus_proxy(tmp_path) -> None:
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     shields, diags = parse_shields(dt, {"fixture-multibus": named_type})
 
     assert diags == []
@@ -72,7 +84,9 @@ def test_device_bus_membership_by_a_qualified_named_bus_proxy(tmp_path) -> None:
 
 
 def test_device_in_a_non_bus_group_gets_the_group_name(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -84,7 +98,8 @@ def test_device_in_a_non_bus_group_gets_the_group_name(tmp_path) -> None:
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert diags == []
     dev = shields["fx"].devices[0]
     assert dev.bus is None
@@ -95,7 +110,9 @@ def test_unrecognized_bus_proxy_group_is_rejected(tmp_path) -> None:
     """A group named like a bus (i2c/spi/uart) that the plug binding does
     NOT allow as a proxy -- lang-shield-proxy, a hand-differential rule
     with no frozen golden behind it."""
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -106,7 +123,8 @@ def test_unrecognized_bus_proxy_group_is_rejected(tmp_path) -> None:
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert len(diags) == 1
     assert diags[0].code == "lang-shield-proxy"
 
@@ -119,9 +137,16 @@ def test_unrecognized_qualified_bus_proxy_group_is_rejected(tmp_path) -> None:
     "spi-nonexistent-role" as bus-shaped at all must not stop at the
     three bare kind names."""
     named_type = ConnectorType(
-        name="fixture-multibus", positions={}, index2name={},
-        bus_proxies=["spi-sensors", "spi-motors"], stackable=False, cs_pool={})
-    dt = _dt(tmp_path, """
+        name="fixture-multibus",
+        positions={},
+        index2name={},
+        bus_proxies=["spi-sensors", "spi-motors"],
+        stackable=False,
+        cs_pool={},
+    )
+    dt = _dt(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -132,7 +157,8 @@ def test_unrecognized_qualified_bus_proxy_group_is_rejected(tmp_path) -> None:
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     shields, diags = parse_shields(dt, {"fixture-multibus": named_type})
 
     assert len(diags) == 1
@@ -143,7 +169,9 @@ def test_unrecognized_qualified_bus_proxy_group_is_rejected(tmp_path) -> None:
 
 
 def test_declared_params_from_shield_params(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -158,7 +186,8 @@ def test_declared_params_from_shield_params(tmp_path) -> None:
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert diags == []
     dev = shields["fx"].devices[0]
     assert dev.declared_params == ["vnd,threshold"]
@@ -166,7 +195,9 @@ def test_declared_params_from_shield_params(tmp_path) -> None:
 
 
 def test_declared_param_includes_from_shield_param_includes(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -182,7 +213,8 @@ def test_declared_param_includes_from_shield_param_includes(tmp_path) -> None:
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert diags == []
     dev = shields["fx"].devices[0]
     assert dev.declared_param_includes == ["vnd/threshold.h"]
@@ -195,7 +227,9 @@ def test_authored_default_shows_up_in_extra_props(tmp_path) -> None:
     """A declared param WITH an authored default is OPTIONAL: its name
     appears among extra_props too -- the invariant check's own "may be
     omitted" signal."""
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -211,7 +245,8 @@ def test_authored_default_shows_up_in_extra_props(tmp_path) -> None:
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert diags == []
     dev = shields["fx"].devices[0]
     names = [n for n, _ in dev.extra_props]
@@ -219,7 +254,9 @@ def test_authored_default_shows_up_in_extra_props(tmp_path) -> None:
 
 
 def test_addr_authority_rejects_both_reg_and_addr_from(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -239,14 +276,17 @@ def test_addr_authority_rejects_both_reg_and_addr_from(tmp_path) -> None:
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert len(diags) == 1
     assert diags[0].code == "lang-addr-authority"
     assert "both" in diags[0].message
 
 
 def test_addr_authority_rejects_neither_reg_nor_addr_from(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -257,7 +297,8 @@ def test_addr_authority_rejects_neither_reg_nor_addr_from(tmp_path) -> None:
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert len(diags) == 1
     assert diags[0].code == "lang-addr-authority"
     assert "neither" in diags[0].message
@@ -270,9 +311,16 @@ def test_addr_authority_rule_applies_to_a_qualified_named_i2c_bus(tmp_path) -> N
     ("i2c-sensors") must be checked exactly like a device on bare "i2c",
     never silently skipped because the literal string differs."""
     named_type = ConnectorType(
-        name="fixture-multibus", positions={}, index2name={},
-        bus_proxies=["i2c-sensors"], stackable=False, cs_pool={})
-    dt = _dt(tmp_path, """
+        name="fixture-multibus",
+        positions={},
+        index2name={},
+        bus_proxies=["i2c-sensors"],
+        stackable=False,
+        cs_pool={},
+    )
+    dt = _dt(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -283,7 +331,8 @@ def test_addr_authority_rule_applies_to_a_qualified_named_i2c_bus(tmp_path) -> N
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     shields, diags = parse_shields(dt, {"fixture-multibus": named_type})
 
     assert len(diags) == 1
@@ -293,7 +342,9 @@ def test_addr_authority_rule_applies_to_a_qualified_named_i2c_bus(tmp_path) -> N
 
 
 def test_addr_from_must_point_at_a_strap(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -307,12 +358,15 @@ def test_addr_from_must_point_at_a_strap(tmp_path) -> None:
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert diags[0].code == "lang-addr-from"
 
 
 def test_unit_address_must_match_authored_reg(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -323,14 +377,17 @@ def test_unit_address_must_match_authored_reg(tmp_path) -> None:
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert len(diags) == 1
     assert diags[0].code == "lang-unit-addr"
     assert "!=" in diags[0].message
 
 
 def test_symbolic_unit_address_with_authored_reg_is_rejected(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -341,18 +398,20 @@ def test_symbolic_unit_address_with_authored_reg_is_rejected(tmp_path) -> None:
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert len(diags) == 1
     assert diags[0].code == "lang-unit-addr"
     assert "symbolic markers are for deferred" in diags[0].message
-
 
 
 # ---------------------------------------------------------------- position refs
 
 
 def test_gpio_position_ref_on_the_plug(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -362,7 +421,8 @@ def test_gpio_position_ref_on_the_plug(tmp_path) -> None:
 \t\t\t\tbtn: button { gpios = <&plug 0 3>; };
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert diags == []
     dev = shields["fx"].devices[0]
     ref = dev.function_refs[0]
@@ -373,7 +433,9 @@ def test_gpio_position_ref_on_the_plug(tmp_path) -> None:
 
 
 def test_gpio_position_ref_deferred_to_a_jumper(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -389,7 +451,8 @@ def test_gpio_position_ref_deferred_to_a_jumper(tmp_path) -> None:
 \t\t\t\tbtn: button { gpios = <&irq_jmp 1>; };
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert diags == []
     ref = shields["fx"].devices[0].function_refs[0]
     assert ref.position is None
@@ -398,7 +461,9 @@ def test_gpio_position_ref_deferred_to_a_jumper(tmp_path) -> None:
 
 
 def test_position_ref_must_target_the_plug_or_a_jumper(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -412,14 +477,17 @@ def test_position_ref_must_target_the_plug_or_a_jumper(tmp_path) -> None:
 \t\t\t\tbtn: button { gpios = <&other 0 1>; };
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert len(diags) == 1
     assert diags[0].code == "lang-pos-ref"
     assert "must reference THIS shield's plug node" in diags[0].message
 
 
 def test_position_index_must_exist_on_the_connector_type(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -429,7 +497,8 @@ def test_position_index_must_exist_on_the_connector_type(tmp_path) -> None:
 \t\t\t\tbtn: button { gpios = <&plug 99 1>; };
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert len(diags) == 1
     assert diags[0].code == "lang-position"
     assert "does not exist" in diags[0].message
@@ -438,7 +507,9 @@ def test_position_index_must_exist_on_the_connector_type(tmp_path) -> None:
 def test_position_must_be_claimable_not_bus_copper(tmp_path) -> None:
     """index 2 (BUS_COPPER) exists on the header but is not a claimable
     plug,positions entry -- electrical realization is not modeled."""
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -448,9 +519,8 @@ def test_position_must_be_claimable_not_bus_copper(tmp_path) -> None:
 \t\t\t\tbtn: button { gpios = <&plug 2 1>; };
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert len(diags) == 1
     assert diags[0].code == "lang-position"
     assert "bus copper" in diags[0].message
-
-

@@ -25,6 +25,7 @@ copy of this module's own fixture-path constants and _run helper (see that
 module's own docstring for why duplicating rather than importing across
 the split was the right call here).
 """
+
 from __future__ import annotations
 
 import subprocess
@@ -42,21 +43,21 @@ _CONNECTOR_BINDINGS = FIXTURES_DIR / "dts" / "multibus-connectors"
 _CONNECTOR_INCLUDE = FIXTURES_DIR / "include"
 _SHIELDS = FIXTURES_DIR / "boards" / "rigs" / "multibus-sockets" / "shields"
 _ACCEPT_RIG = FIXTURES_DIR / "boards" / "rigs" / "multibus-sockets" / "rig.yml"
-_REJECT_RIG = (FIXTURES_DIR / "boards" / "rigs" / "multibus-sockets-reject"
-               / "rig.yml")
+_REJECT_RIG = FIXTURES_DIR / "boards" / "rigs" / "multibus-sockets-reject" / "rig.yml"
 
 
 def _run(rig_yml: Path, out_dir: Path) -> subprocess.CompletedProcess[str]:
-    assert_fixture_local([_BOARD_DTS, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE,
-                          _SHIELDS])
+    assert_fixture_local([_BOARD_DTS, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE, _SHIELDS])
     return run_expand(
-        rig_yml, out_dir,
+        rig_yml,
+        out_dir,
         board="multibus_fixture_board",
         shield_dirs=[_SHIELDS],
         board_dts=_BOARD_DTS,
         bindings_dirs=[_CONNECTOR_BINDINGS],
         include_dirs=[_CONNECTOR_INCLUDE],
-        connector_dirs=[_CONNECTOR_BINDINGS])
+        connector_dirs=[_CONNECTOR_BINDINGS],
+    )
 
 
 def test_multibus_accept_both_devices_land_at_cs_index_zero(tmp_path: Path) -> None:
@@ -76,7 +77,8 @@ def test_multibus_accept_both_devices_land_at_cs_index_zero(tmp_path: Path) -> N
     result = _run(_ACCEPT_RIG, out_dir)
 
     assert result.returncode == 0, (
-        f"multibus_sockets: expected accept\n--- stderr ---\n{result.stderr}")
+        f"multibus_sockets: expected accept\n--- stderr ---\n{result.stderr}"
+    )
 
     overlay = (out_dir / "rig-gen.overlay").read_text()
     assert "&multibus_spi_sensors {" in overlay
@@ -102,7 +104,6 @@ def test_multibus_reject_unknown_named_bus_is_phys_subset(tmp_path: Path) -> Non
     out_dir = tmp_path / "out"
     result = _run(_REJECT_RIG, out_dir)
 
-    assert result.returncode != 0, (
-        "multibus_sockets_reject: expected reject (phys-subset)")
+    assert result.returncode != 0, "multibus_sockets_reject: expected reject (phys-subset)"
     assert "phys-subset" in result.stderr
     assert "spi-unknown-name" in result.stderr

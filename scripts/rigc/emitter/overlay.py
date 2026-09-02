@@ -12,6 +12,7 @@ rig-gen.overlay stays readable (zephyr,code = <INPUT_KEY_1>;, not a bare
 number). Resolving those tokens is sheet.py's concern (the config
 sheet's human-facing display value), not this module's.
 """
+
 from __future__ import annotations
 
 from collections.abc import Iterator
@@ -42,8 +43,7 @@ def _instance_extra_props(inst: Instance, dev: Device) -> list[tuple[str, str]]:
     assigned = inst.params.get(dev.label, {})
     if not assigned:
         return dev.extra_props
-    kept = [(name, rendered) for name, rendered in dev.extra_props
-            if name not in assigned]
+    kept = [(name, rendered) for name, rendered in dev.extra_props if name not in assigned]
     added = [(name, f"{name} = <{value}>;") for name, value in sorted(assigned.items())]
     return kept + added
 
@@ -62,7 +62,7 @@ def _i2c_scopes(rig: Rig, s: Solved, types: dict[str, ConnectorType]) -> list[st
     for path, (root, channel) in s.scopes.items():
         mux_channels.setdefault(root, []).append((channel, path))
     for bus_path in sorted(s.bus_label):
-        if bus_path in s.scopes:                     # a mux channel -- emitted nested
+        if bus_path in s.scopes:  # a mux channel -- emitted nested
             continue
         devs = list(_bus_devices(rig, s, "i2c", bus_path))
         if not devs:
@@ -71,12 +71,10 @@ def _i2c_scopes(rig: Rig, s: Solved, types: dict[str, ConnectorType]) -> list[st
         for inst, dev, _socket in sorted(devs, key=lambda m: s.addr[(m[0].name, m[1].name)]):
             addr = s.addr[(inst.name, dev.name)]
             label = f"{inst.name}_{dev.label}"
-            if label in mux_channels:                # scope-creating interposer
-                out += _mux_node(rig, s, types, inst, dev, addr,
-                                 mux_channels[label])
+            if label in mux_channels:  # scope-creating interposer
+                out += _mux_node(rig, s, types, inst, dev, addr, mux_channels[label])
             else:
-                out += _device_node(s, types, inst, dev,
-                                    unit=f"{addr:x}", reg=f"<{addr:#04x}>")
+                out += _device_node(s, types, inst, dev, unit=f"{addr:x}", reg=f"<{addr:#04x}>")
         out.append("};")
         out.append("")
     return out
@@ -95,13 +93,11 @@ def _spi_scopes(rig: Rig, s: Solved, types: dict[str, ConnectorType]) -> list[st
         if not devs:
             continue
         out.append(f"&{s.bus_label[bus_path]} {{")
-        cs = ", ".join(f"<&{_nexus(sock)} {pos} 1 /* ACTIVE_LOW */>"
-                       for sock, pos in entries)
+        cs = ", ".join(f"<&{_nexus(sock)} {pos} 1 /* ACTIVE_LOW */>" for sock, pos in entries)
         out.append(f"\tcs-gpios = {cs};")
         for inst, dev, _socket in sorted(devs, key=lambda m: s.cs[(m[0].name, m[1].name)][0]):
             index, _pos = s.cs[(inst.name, dev.name)]
-            out += _device_node(s, types, inst, dev,
-                                unit=str(index), reg=f"<{index}>")
+            out += _device_node(s, types, inst, dev, unit=str(index), reg=f"<{index}>")
         out.append("};")
         out.append("")
     return out
@@ -114,22 +110,21 @@ def _plain_groups(rig: Rig, s: Solved, types: dict[str, ConnectorType]) -> list[
     when no instance has a plain device."""
     root_nodes: list[str] = []
     for inst in sorted(rig.instances, key=lambda i: i.name):
-        plain_devs = [d for d in inst.shield.devices
-                     if d.bus is None and d.collect is None]
+        plain_devs = [d for d in inst.shield.devices if d.bus is None and d.collect is None]
         if not plain_devs or not slots_of(s.sockets, inst):
             continue
         root_nodes.append(f"\t{inst.name} {{")
         for plain_dev in sorted(plain_devs, key=lambda d: d.name):
-            root_nodes += ["\t" + line
-                           for line in _device_node(s, types, inst, plain_dev)]
+            root_nodes += ["\t" + line for line in _device_node(s, types, inst, plain_dev)]
         root_nodes.append("\t};")
     if not root_nodes:
         return []
     return ["/ {", *root_nodes, "};", ""]
 
 
-def render_overlay(rig: Rig, s: Solved, types: dict[str, ConnectorType],
-                   needed_includes: list[str] | None = None) -> str:
+def render_overlay(
+    rig: Rig, s: Solved, types: dict[str, ConnectorType], needed_includes: list[str] | None = None
+) -> str:
     """rig-gen.overlay's full text. rig/s/types are read-only; returns a
     fresh string the caller owns. `needed_includes`
     (`emitter._needed_param_includes`) is the caller's own decision about
@@ -166,9 +161,11 @@ def _controllers(s: Solved) -> list[str]:
     stubbed here)."""
     if not s.controllers:
         return []
-    out = ["/* PWM/ADC: enable the resolved controllers; the pin-mux (pinctrl)",
-           " * for each muxed pin is board-provided and must be applied —",
-           " * stubbed here, see the config sheet. */"]
+    out = [
+        "/* PWM/ADC: enable the resolved controllers; the pin-mux (pinctrl)",
+        " * for each muxed pin is board-provided and must be applied —",
+        " * stubbed here, see the config sheet. */",
+    ]
     for ctrl in sorted(s.controllers):
         out.append(f"&{ctrl} {{ status = \"okay\"; }};")
     out.append("")
@@ -205,8 +202,9 @@ def _collections(rig: Rig, s: Solved, types: dict[str, ConnectorType]) -> list[s
     return out
 
 
-def _collection_entry(s: Solved, types: dict[str, ConnectorType], inst: Instance,
-                      dev: Device) -> list[str]:
+def _collection_entry(
+    s: Solved, types: dict[str, ConnectorType], inst: Instance, dev: Device
+) -> list[str]:
     """One child of a collection node: the module's function ref(s) (gpio,
     pwm, or adc). Node name and label are the composed <instance>_<shield
     label> -- unique per (instance, device), so an instance may contribute
@@ -226,8 +224,12 @@ def _collection_entry(s: Solved, types: dict[str, ConnectorType], inst: Instance
     return lines
 
 
-def _bus_devices(rig: Rig, s: Solved, kind: str, bus_path: str,
-                 ) -> Iterator[tuple[Instance, Device, BoardSocket]]:
+def _bus_devices(
+    rig: Rig,
+    s: Solved,
+    kind: str,
+    bus_path: str,
+) -> Iterator[tuple[Instance, Device, BoardSocket]]:
     """Every (instance, device, socket) of `kind` ("i2c" or "spi") whose
     device sits on the physical bus `bus_path` identifies -- matched
     through the device's OWN qualified Device.bus name against its
@@ -266,8 +268,9 @@ def _ref_socket(s: Solved, inst: Instance, ref: FunctionRef) -> BoardSocket:
     return socket
 
 
-def _render_ref(s: Solved, types: dict[str, ConnectorType], inst: Instance,
-                dev: Device, ref: FunctionRef) -> str:
+def _render_ref(
+    s: Solved, types: dict[str, ConnectorType], inst: Instance, dev: Device, ref: FunctionRef
+) -> str:
     """One rendered property line for a single device reference (gpio, pwm,
     or adc) -- the per-ref half of a device node's body, shared by every
     caller that renders a device node's refs (`_device_node`, `_mux_node`'s
@@ -299,8 +302,10 @@ def _render_ref(s: Solved, types: dict[str, ConnectorType], inst: Instance,
         # ref (adc has no flags cell at all), even on a collected entry
         # whose instance sets invert: true.
         flags = ref.flags ^ 0x1 if inst.invert else ref.flags
-        return (f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {flags:#x}>;"
-                f"\t/* {ctype.posname(pos)}{' inverted' if inst.invert else ''} */")
+        return (
+            f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {flags:#x}>;"
+            f"\t/* {ctype.posname(pos)}{' inverted' if inst.invert else ''} */"
+        )
     # pwm/adc: socket-relative, unified with the gpio idiom above -- dtc
     # chases the socket's real pwm-map/io-channel-map nexus to the
     # controller and channel; the expander does not resolve the channel
@@ -321,7 +326,7 @@ def _render_ref(s: Solved, types: dict[str, ConnectorType], inst: Instance,
         # its own pass-thru carries it exactly like period.
         assert socket.pwm_cells is not None
         if socket.pwm_cells == 2:
-            if res.flags:   # not assert -- must survive python -O
+            if res.flags:  # not assert -- must survive python -O
                 # Nonzero PWM flags on a 2-cell socket are rejected
                 # upstream, by the analyzer (analyzer/gpio.py, category
                 # phys-function, conditional on socket.pwm_cells == 2) --
@@ -337,52 +342,74 @@ def _render_ref(s: Solved, types: dict[str, ConnectorType], inst: Instance,
                     f"{inst.name}/{dev.name}: {ref.prop} reached the "
                     f"emitter with nonzero PWM flags {res.flags:#x} on a "
                     "2-cell socket — the analyzer should have rejected "
-                    "this (phys-function) before emission")
-            return (f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {res.period}>;"
-                    f"\t/* {ctype.posname(pos)} */")
+                    "this (phys-function) before emission"
+                )
+            return (
+                f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {res.period}>;"
+                f"\t/* {ctype.posname(pos)} */"
+            )
         # socket.pwm_cells == 3 (the only other supported count,
         # board/project.py's _CHANNEL_FN) -- the shield's own plug always
         # declares #pwm-cells = <3> today (grove_servo, grove_pwm_led,
         # every corpus consumer), so ref.flags is always a real value
         # here, never a placeholder.
-        return (f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {res.period} "
-                f"{res.flags:#x}>;\t/* {ctype.posname(pos)} */")
+        return (
+            f"\t\t{ref.prop} = <&{_nexus(socket)} {pos} {res.period} "
+            f"{res.flags:#x}>;\t/* {ctype.posname(pos)} */"
+        )
     # adc: #io-channel-cells is 1 (channel only) -- one cell, no flags, no
     # period; emitting the gpio-shaped two cells here would be a hard
     # EDTError against a 1-cell map, not merely a wrong value.
     return f"\t\t{ref.prop} = <&{_nexus(socket)} {pos}>;\t/* {ctype.posname(pos)} */"
 
 
-def _mux_node(rig: Rig, s: Solved, types: dict[str, ConnectorType], inst: Instance,
-             dev: Device, addr: int,
-             channels: list[tuple[int, str]]) -> list[str]:
+def _mux_node(
+    rig: Rig,
+    s: Solved,
+    types: dict[str, ConnectorType],
+    inst: Instance,
+    dev: Device,
+    addr: int,
+    channels: list[tuple[int, str]],
+) -> list[str]:
     """A scope-creating interposer device (an I2C mux): the device node on
     the parent bus, with one child channel bus per scope, each hosting that
     scope's modules. Per-scope address uniqueness means 0x48 can recur
     across channels."""
     label = f"{inst.name}_{dev.label}"
     lines = [f"\t{label}: {dev.name}@{addr:x} {{"]
-    for _pname, rendered in _instance_extra_props(inst, dev):   # compatible, ...
+    for _pname, rendered in _instance_extra_props(inst, dev):  # compatible, ...
         lines.append(f"\t\t{rendered}")
-    lines += [f"\t\treg = <{addr:#04x}>;", "\t\t#address-cells = <1>;",
-              "\t\t#size-cells = <0>;"]
+    lines += [f"\t\treg = <{addr:#04x}>;", "\t\t#address-cells = <1>;", "\t\t#size-cells = <0>;"]
     for channel, scope_path in sorted(channels):
-        lines += [f"\t\tchannel@{channel} {{", f"\t\t\treg = <{channel}>;",
-                  "\t\t\t#address-cells = <1>;", "\t\t\t#size-cells = <0>;"]
-        members = sorted(_bus_devices(rig, s, "i2c", scope_path),
-                         key=lambda m: s.addr[(m[0].name, m[1].name)])
+        lines += [
+            f"\t\tchannel@{channel} {{",
+            f"\t\t\treg = <{channel}>;",
+            "\t\t\t#address-cells = <1>;",
+            "\t\t\t#size-cells = <0>;",
+        ]
+        members = sorted(
+            _bus_devices(rig, s, "i2c", scope_path), key=lambda m: s.addr[(m[0].name, m[1].name)]
+        )
         for si, sd, _ss in members:
             sa = s.addr[(si.name, sd.name)]
-            lines += ["\t\t" + ln for ln in _device_node(
-                s, types, si, sd, unit=f"{sa:x}", reg=f"<{sa:#04x}>")]
+            lines += [
+                "\t\t" + ln
+                for ln in _device_node(s, types, si, sd, unit=f"{sa:x}", reg=f"<{sa:#04x}>")
+            ]
         lines.append("\t\t};")
     lines.append("\t};")
     return lines
 
 
-def _device_node(s: Solved, types: dict[str, ConnectorType], inst: Instance,
-                 dev: Device, unit: str | None = None,
-                 reg: str | None = None) -> list[str]:
+def _device_node(
+    s: Solved,
+    types: dict[str, ConnectorType],
+    inst: Instance,
+    dev: Device,
+    unit: str | None = None,
+    reg: str | None = None,
+) -> list[str]:
     label = f"{inst.name}_{dev.label}"
     name = f"{dev.name}@{unit}" if unit is not None else dev.name
     lines = [f"\t{label}: {name} {{"]
@@ -434,13 +461,15 @@ def _synth_nexus_nodes(s: Solved) -> list[str]:
         # no digital pass-through) must NOT be skipped here: checking
         # nexus_rows alone would drop it, since gpio is not the only kind
         # of row a nexus can carry.
-        if (sock is None
-                or not (sock.nexus_rows or sock.pwm_nexus_rows or sock.adc_nexus_rows)
-                or sock.nexus_label in synth):
+        if (
+            sock is None
+            or not (sock.nexus_rows or sock.pwm_nexus_rows or sock.adc_nexus_rows)
+            or sock.nexus_label in synth
+        ):
             return
         assert sock.nexus_label is not None
         synth[sock.nexus_label] = sock
-        for parent in sock.parents.values():   # a carrier stacked on carrier(s)
+        for parent in sock.parents.values():  # a carrier stacked on carrier(s)
             visit(parent)
 
     for per_inst in s.sockets.values():
@@ -449,40 +478,42 @@ def _synth_nexus_nodes(s: Solved) -> list[str]:
     if not synth:
         return []
 
-    out = ["/* carrier-exported sockets, synthesized as gpio-nexus nodes */",
-           "/ {"]
+    out = ["/* carrier-exported sockets, synthesized as gpio-nexus nodes */", "/ {"]
     for label in sorted(synth):
         sock = synth[label]
         out += [f"\t{label}: {label} {{"]
         if sock.nexus_rows:
             rows = ",\n\t\t\t   ".join(
-                f"<{child} 0 &{parent} {ppos} 0>"
-                for child, parent, ppos in sock.nexus_rows)
-            out += ["\t\t#gpio-cells = <2>;",
-                    # Match on the position cell only; mask the GPIO flag bits
-                    # out of matching and pass them through to the parent --
-                    # the same nexus idiom the board's own typed socket uses.
-                    # Without this edtlib demands an exact specifier match, so
-                    # a consumer's <&nexus pos GPIO_ACTIVE_LOW> would fail
-                    # against the stored <pos 0> row.
-                    "\t\tgpio-map-mask = <0xffffffff 0xffffffc0>;",
-                    "\t\tgpio-map-pass-thru = <0 0x3f>;",
-                    f"\t\tgpio-map = {rows};"]
+                f"<{child} 0 &{parent} {ppos} 0>" for child, parent, ppos in sock.nexus_rows
+            )
+            out += [
+                "\t\t#gpio-cells = <2>;",
+                # Match on the position cell only; mask the GPIO flag bits
+                # out of matching and pass them through to the parent --
+                # the same nexus idiom the board's own typed socket uses.
+                # Without this edtlib demands an exact specifier match, so
+                # a consumer's <&nexus pos GPIO_ACTIVE_LOW> would fail
+                # against the stored <pos 0> row.
+                "\t\tgpio-map-mask = <0xffffffff 0xffffffc0>;",
+                "\t\tgpio-map-pass-thru = <0 0x3f>;",
+                f"\t\tgpio-map = {rows};",
+            ]
         if sock.pwm_nexus_rows:
             assert sock.pwm_cells is not None
-            out += _channel_nexus_block(
-                "pwm", "pwm-map", sock.pwm_cells, sock.pwm_nexus_rows)
+            out += _channel_nexus_block("pwm", "pwm-map", sock.pwm_cells, sock.pwm_nexus_rows)
         if sock.adc_nexus_rows:
             assert sock.adc_cells is not None
             out += _channel_nexus_block(
-                "io-channel", "io-channel-map", sock.adc_cells, sock.adc_nexus_rows)
+                "io-channel", "io-channel-map", sock.adc_cells, sock.adc_nexus_rows
+            )
         out.append("\t};")
     out += ["};", ""]
     return out
 
 
-def _channel_nexus_block(cells_prop_base: str, map_prop: str, cells: int,
-                         rows: list[tuple[int, str, int]]) -> list[str]:
+def _channel_nexus_block(
+    cells_prop_base: str, map_prop: str, cells: int, rows: list[tuple[int, str, int]]
+) -> list[str]:
     """The pwm-map / io-channel-map lines of a synthesized nexus node: the
     same mask/pass-thru idiom `boards/extend/seeed/seeeduino_lotus/
     grove_sockets.dtsi` authors by hand on a real board socket, generated
@@ -501,8 +532,11 @@ def _channel_nexus_block(cells_prop_base: str, map_prop: str, cells: int,
     map_rows = ",\n\t\t\t   ".join(
         f"<{child}{(' ' + row_words) if row_words else ''} &{parent} {ppos}"
         f"{(' ' + row_words) if row_words else ''}>"
-        for child, parent, ppos in rows)
-    return [f"\t\t#{cells_prop_base}-cells = <{cells}>;",
-            f"\t\t{map_prop}-mask = <{mask}>;",
-            f"\t\t{map_prop}-pass-thru = <{pass_thru}>;",
-            f"\t\t{map_prop} = {map_rows};"]
+        for child, parent, ppos in rows
+    )
+    return [
+        f"\t\t#{cells_prop_base}-cells = <{cells}>;",
+        f"\t\t{map_prop}-mask = <{mask}>;",
+        f"\t\t{map_prop}-pass-thru = <{pass_thru}>;",
+        f"\t\t{map_prop} = {map_rows};",
+    ]

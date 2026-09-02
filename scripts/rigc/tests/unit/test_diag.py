@@ -10,11 +10,13 @@ rendering (the module-agnostic rule: a path under a
 anything else renders unchanged — a pure function of the path value,
 exercised with synthetic roots).
 """
+
 from __future__ import annotations
 
 from rigc.diag import Diagnostic, SourceRef, anchor_path, error, has_errors, render
 
 # ------------------------------------------------ the frozen render format
+
 
 def test_single_error_no_refs() -> None:
     assert render([error("x-code", "the claim")]) == "error[x-code]: the claim"
@@ -22,9 +24,7 @@ def test_single_error_no_refs() -> None:
 
 def test_message_continuation_lines_indent_four() -> None:
     out = render([error("x-code", "the claim\nfirst detail\nsecond detail")])
-    assert out == ("error[x-code]: the claim\n"
-                   "    first detail\n"
-                   "    second detail")
+    assert out == ("error[x-code]: the claim\n    first detail\n    second detail")
 
 
 def test_anchor_line_shape_with_key() -> None:
@@ -43,8 +43,7 @@ def test_duplicate_anchors_render_once_order_kept() -> None:
     a = SourceRef("/syn/a.yml", 1, "k")
     b = SourceRef("/syn/b.yml", 2)
     out = render([error("x-code", "claim", (a, b, a))])
-    assert out.splitlines()[1:] == ["    at /syn/a.yml:1 (k)",
-                                    "    at /syn/b.yml:2"]
+    assert out.splitlines()[1:] == ["    at /syn/a.yml:1 (k)", "    at /syn/b.yml:2"]
 
 
 def test_warning_severity_renders_as_warning() -> None:
@@ -66,9 +65,12 @@ def test_has_errors_distinguishes_severity() -> None:
 
 # ------------------------------------------------- anchor-path rendering
 
+
 def test_under_a_scripts_module_renders_relative() -> None:
-    assert (anchor_path("/syn/repo/scripts/rigexp/tests/fixtures/r/rig.yml")
-            == "tests/fixtures/r/rig.yml")
+    assert (
+        anchor_path("/syn/repo/scripts/rigexp/tests/fixtures/r/rig.yml")
+        == "tests/fixtures/r/rig.yml"
+    )
 
 
 def test_module_agnostic_any_module_name() -> None:
@@ -76,13 +78,13 @@ def test_module_agnostic_any_module_name() -> None:
     path: the same relative-rendering rule applies under any
     scripts/<module>/ path, so the reject goldens' anchor lines don't
     move when fixtures relocate between modules."""
-    assert (anchor_path("/syn/repo/scripts/rigc/tests/fixtures/r/rig.yml")
-            == "tests/fixtures/r/rig.yml")
+    assert (
+        anchor_path("/syn/repo/scripts/rigc/tests/fixtures/r/rig.yml") == "tests/fixtures/r/rig.yml"
+    )
 
 
 def test_outside_scripts_renders_unchanged() -> None:
-    assert (anchor_path("/syn/repo/boards/rigs/r/rig.yml")
-            == "/syn/repo/boards/rigs/r/rig.yml")
+    assert anchor_path("/syn/repo/boards/rigs/r/rig.yml") == "/syn/repo/boards/rigs/r/rig.yml"
 
 
 def test_file_directly_under_scripts_renders_unchanged() -> None:
@@ -104,12 +106,14 @@ def test_relative_input_with_scripts_component() -> None:
 
 # ------------------------------------------------------------------ LoadError
 
+
 def test_load_error_carries_every_diagnostic_it_unwound_past() -> None:
     """The fatal-path contract: a LoadError renders as if
     every finding had been returned normally -- so boundaries prepend
     their accumulated diagnostics and NOTHING is lost to the raise. The
     exception's own message is the fatal (last) finding's."""
     from rigc.diag import LoadError, error
+
     prior = error("lang-shield-name", "scanned earlier, must survive")
     fatal = error("lang-parse", "the fatal finding")
     e = LoadError(prior, fatal)

@@ -22,6 +22,7 @@ test_vendored_connector_drift.py is what keeps that copy honest: the
 production-tethered assertions (the real four-type census, BINDINGS'
 own path) and the byte-identity drift guard both live there instead.
 """
+
 from __future__ import annotations
 
 import glob
@@ -63,8 +64,7 @@ def test_unified_connector_bindings_are_valid_edtlib_bindings() -> None:
     assert files, f"no vendored connector-type bindings found under {_VENDORED}"
 
     fname2path = _fname2path()
-    types, deps = load_types(connector_dirs=[str(_VENDORED)],
-                             header_dirs=[str(_HEADER_DIR)])
+    types, deps = load_types(connector_dirs=[str(_VENDORED)], header_dirs=[str(_HEADER_DIR)])
     assert set(types) == {"arduino-r3", "grove", "i2c-port", "mikrobus"}
 
     # One trap this vendored copy is exposed to that the production
@@ -105,7 +105,8 @@ def test_fixture_nexus_type_is_registry_visible() -> None:
     production content."""
     fixture_types, _deps = load_types(
         connector_dirs=[str(FIXTURES_DIR / "dts" / "connectors")],
-        header_dirs=[str(FIXTURES_DIR / "include")])
+        header_dirs=[str(FIXTURES_DIR / "include")],
+    )
     assert set(fixture_types) == {"fixture-nexus"}
     ctype = fixture_types["fixture-nexus"]
     assert set(ctype.positions) == {"D0", "D1", "CS"}

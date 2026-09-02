@@ -15,6 +15,7 @@ assert_fixture_local).
 devicetree PACKAGE (pure Python, no Zephyr DATA): "no Zephyr DATA" is
 not "no $ZEPHYR_BASE".
 """
+
 from __future__ import annotations
 
 import os
@@ -62,61 +63,79 @@ def _dt(tmp_path, text: str):
 
 
 def test_words_reads_raw_32bit_cells(tmp_path) -> None:
-    dt = _dt(tmp_path, """/dts-v1/;
+    dt = _dt(
+        tmp_path,
+        """/dts-v1/;
 / {
     p { v = <1 2 3>; };
 };
-""")
+""",
+    )
     prop = dt.get_node("/p").props["v"]
     assert words(prop) == [1, 2, 3]
 
 
 def test_render_prop_num(tmp_path) -> None:
-    dt = _dt(tmp_path, """/dts-v1/;
+    dt = _dt(
+        tmp_path,
+        """/dts-v1/;
 / {
     p { v = <8000000>; };
 };
-""")
+""",
+    )
     prop = dt.get_node("/p").props["v"]
     assert render_prop(prop) == "v = <8000000>;"
 
 
 def test_render_prop_nums(tmp_path) -> None:
-    dt = _dt(tmp_path, """/dts-v1/;
+    dt = _dt(
+        tmp_path,
+        """/dts-v1/;
 / {
     p { v = <1 2 3>; };
 };
-""")
+""",
+    )
     prop = dt.get_node("/p").props["v"]
     assert render_prop(prop) == "v = <1 2 3>;"
 
 
 def test_render_prop_string(tmp_path) -> None:
-    dt = _dt(tmp_path, """/dts-v1/;
+    dt = _dt(
+        tmp_path,
+        """/dts-v1/;
 / {
     p { compatible = "vnd,thing"; };
 };
-""")
+""",
+    )
     prop = dt.get_node("/p").props["compatible"]
     assert render_prop(prop) == 'compatible = "vnd,thing";'
 
 
 def test_render_prop_bytes(tmp_path) -> None:
-    dt = _dt(tmp_path, """/dts-v1/;
+    dt = _dt(
+        tmp_path,
+        """/dts-v1/;
 / {
     p { v = [c8 40 15]; };
 };
-""")
+""",
+    )
     prop = dt.get_node("/p").props["v"]
     assert render_prop(prop) == "v = [c8 40 15];"
 
 
 def test_render_prop_empty(tmp_path) -> None:
-    dt = _dt(tmp_path, """/dts-v1/;
+    dt = _dt(
+        tmp_path,
+        """/dts-v1/;
 / {
     p { empty-flag; };
 };
-""")
+""",
+    )
     prop = dt.get_node("/p").props["empty-flag"]
     assert render_prop(prop) == "empty-flag;"
 
@@ -125,22 +144,28 @@ def test_render_prop_phandle_returns_none(tmp_path) -> None:
     """The None-for-phandles branch is load-bearing (dtsio.py's own
     docstring): a phandle-typed value the model didn't interpret is
     dropped, never rendered via its DTS label."""
-    dt = _dt(tmp_path, """/dts-v1/;
+    dt = _dt(
+        tmp_path,
+        """/dts-v1/;
 / {
     plug: plug { #gpio-cells = <2>; };
     p { some-ref = <&plug 1 2>; };
 };
-""")
+""",
+    )
     prop = dt.get_node("/p").props["some-ref"]
     assert render_prop(prop) is None
 
 
 def test_src_of_node_uses_the_label(tmp_path) -> None:
-    dt = _dt(tmp_path, """/dts-v1/;
+    dt = _dt(
+        tmp_path,
+        """/dts-v1/;
 / {
     p: p { v = <1>; };
 };
-""")
+""",
+    )
     node = dt.get_node("/p")
     ref = src_of(node)
     assert ref.file == str(tmp_path / "synthetic.dts")
@@ -148,21 +173,27 @@ def test_src_of_node_uses_the_label(tmp_path) -> None:
 
 
 def test_src_of_node_falls_back_to_path_with_no_label(tmp_path) -> None:
-    dt = _dt(tmp_path, """/dts-v1/;
+    dt = _dt(
+        tmp_path,
+        """/dts-v1/;
 / {
     p { v = <1>; };
 };
-""")
+""",
+    )
     node = dt.get_node("/p")
     assert src_of(node).key == "/p"
 
 
 def test_src_of_property_names_node_path_and_prop_name(tmp_path) -> None:
-    dt = _dt(tmp_path, """/dts-v1/;
+    dt = _dt(
+        tmp_path,
+        """/dts-v1/;
 / {
     p { v = <1>; };
 };
-""")
+""",
+    )
     prop = dt.get_node("/p").props["v"]
     ref = src_of(prop)
     assert ref.key == "/p: v"
@@ -170,6 +201,7 @@ def test_src_of_property_names_node_path_and_prop_name(tmp_path) -> None:
 
 def test_module_root_is_the_repo_root() -> None:
     from rigc.dtsio import MODULE_ROOT
+
     assert os.path.isdir(os.path.join(MODULE_ROOT, "scripts", "rigc"))
     assert os.path.isdir(os.path.join(MODULE_ROOT, "boards", "shields"))
 
@@ -244,8 +276,7 @@ def test_linemarker_files_recovers_a_nested_include(tmp_path) -> None:
         # 3 "{inner}" 2
         # 2 "{outer}" 2
         """)
-    assert linemarker_files(pre_text, str(tmp_path / "workdir")) == sorted(
-        [str(outer), str(inner)])
+    assert linemarker_files(pre_text, str(tmp_path / "workdir")) == sorted([str(outer), str(inner)])
 
 
 def test_linemarker_files_deduplicates_repeated_markers(tmp_path) -> None:

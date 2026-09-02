@@ -55,6 +55,7 @@ the lazy-parse MEMOIZATION cache the whole design requires, a
 self-contained value the library keeps about itself, not a side
 channel written into by many unrelated callers.
 """
+
 from __future__ import annotations
 
 import glob
@@ -147,8 +148,12 @@ class ShieldLibrary:
     # vocabulary for the same defect.
     promotable: dict[str, bool] = field(default_factory=dict)
 
-    def resolve(self, ref: str, ctx: str, src: SourceRef,
-               ) -> tuple[Shield | None, list[Diagnostic], Deps]:
+    def resolve(
+        self,
+        ref: str,
+        ctx: str,
+        src: SourceRef,
+    ) -> tuple[Shield | None, list[Diagnostic], Deps]:
         """`<name>` or `<name>@<rev>` -> the Shield, parsing a
         not-yet-parsed template on first use --
         the base template of an axis-less shield exactly like a
@@ -169,11 +174,18 @@ class ShieldLibrary:
         deps."""
         name, sep, rev = ref.partition("@")
         if name not in self.axes:
-            return None, [error(
-                "lang-instance-shield",
-                f"{ctx}: unknown shield '{name}'\n"
-                f"known shields: {', '.join(sorted(self.axes))}",
-                (src,))], frozenset()
+            return (
+                None,
+                [
+                    error(
+                        "lang-instance-shield",
+                        f"{ctx}: unknown shield '{name}'\n"
+                        f"known shields: {', '.join(sorted(self.axes))}",
+                        (src,),
+                    )
+                ],
+                frozenset(),
+            )
         # This reference makes the shield's OWN shield.yml load-bearing
         # for this rig: recorded here (not at scan time) so a rig depends
         # only on the metadata of shields it actually names.
@@ -194,7 +206,8 @@ class ShieldLibrary:
         # matching the actual YAML key a shield.yml declares (its own
         # pre-hwmv2 shape) -- NOT the rig's singular "revision".
         value, verdict = resolve_axis_selection(
-            "shield", name, "revision", "revisions", decl, requested, src)
+            "shield", name, "revision", "revisions", decl, requested, src
+        )
         if verdict:
             return None, verdict, deps
         if value is None:
@@ -202,9 +215,15 @@ class ShieldLibrary:
                 return None, [], deps
             pending = self.pending[name]
             shield, parse_diags, pdeps = _parse_shield_template(
-                name, pending.base_file, [pending.base_file],
-                f"shield-{name}.dts", self.workdir, self.include_dirs,
-                self.types, pending.yml_path)
+                name,
+                pending.base_file,
+                [pending.base_file],
+                f"shield-{name}.dts",
+                self.workdir,
+                self.include_dirs,
+                self.types,
+                pending.yml_path,
+            )
             deps = union(deps, touch(pending.base_file), pdeps)
             if shield is None:
                 self.failed.add(name)
@@ -219,9 +238,14 @@ class ShieldLibrary:
         shield, d, rdeps = self._resolve_revision(name, value, requested, decl, src)
         return shield, d, union(deps, rdeps)
 
-    def _resolve_revision(self, name: str, rev: str, requested: str | None,
-                          decl: AxisDecl, src: SourceRef,
-                          ) -> tuple[Shield | None, list[Diagnostic], Deps]:
+    def _resolve_revision(
+        self,
+        name: str,
+        rev: str,
+        requested: str | None,
+        decl: AxisDecl,
+        src: SourceRef,
+    ) -> tuple[Shield | None, list[Diagnostic], Deps]:
         """A single revision's own lazy parse -- deliberately UNMEMOIZED
         on failure (unlike the axis-less base parse `resolve()` handles
         directly): a bad revision re-reports on every reference. This is
@@ -247,12 +271,19 @@ class ShieldLibrary:
         # contributes NOTHING is an authoring error; the default is
         # exempt (the base template IS its content).
         if not is_default and not (has_rev_file or os.path.isfile(rev_conf)):
-            return None, [error(
-                "lang-rev",
-                f"shield '{name}': revision '{rev}' contributes nothing "
-                f"-- looked for {name}_{rev_norm}.shield and "
-                f"{name}_{rev_norm}.conf, neither exists",
-                (src,))], frozenset()
+            return (
+                None,
+                [
+                    error(
+                        "lang-rev",
+                        f"shield '{name}': revision '{rev}' contributes nothing "
+                        f"-- looked for {name}_{rev_norm}.shield and "
+                        f"{name}_{rev_norm}.conf, neither exists",
+                        (src,),
+                    )
+                ],
+                frozenset(),
+            )
         includes = [pending.base_file] + ([rev_file] if has_rev_file else [])
         # The base template is touched explicitly (not left to cpp
         # linemarker recovery alone): a revision fragment that defines no
@@ -263,9 +294,15 @@ class ShieldLibrary:
         if has_rev_file:
             deps = union(deps, touch(rev_file))
         shield, diags, pdeps = _parse_shield_template(
-            name, pending.base_file, includes,
-            f"shield-{name}-{rev_norm}.dts", self.workdir, self.include_dirs,
-            self.types, pending.yml_path)
+            name,
+            pending.base_file,
+            includes,
+            f"shield-{name}-{rev_norm}.dts",
+            self.workdir,
+            self.include_dirs,
+            self.types,
+            pending.yml_path,
+        )
         deps = union(deps, pdeps)
         if shield is None:
             return None, diags, deps
@@ -278,12 +315,16 @@ class ShieldLibrary:
         return shield, diags, deps
 
 
-def _parse_shield_template(name: str, template: str, includes: list[str],
-                          dts_name: str, workdir: str,
-                          include_dirs: list[str] | None,
-                          types: dict[str, ConnectorType],
-                          yml_path: str | None,
-                          ) -> tuple[Shield | None, list[Diagnostic], Deps]:
+def _parse_shield_template(
+    name: str,
+    template: str,
+    includes: list[str],
+    dts_name: str,
+    workdir: str,
+    include_dirs: list[str] | None,
+    types: dict[str, ConnectorType],
+    yml_path: str | None,
+) -> tuple[Shield | None, list[Diagnostic], Deps]:
     """Build one shield translation unit (`parse_tu`) and pick its node
     (`_pick_shield`) -- the parse body `resolve()`'s axis-less path and
     `_resolve_revision` both need, factored so neither hand-duplicates
@@ -307,9 +348,12 @@ def _parse_shield_template(name: str, template: str, includes: list[str],
     return shield, diags + pd, deps
 
 
-def _pick_shield(parsed: dict[str, Shield], name: str, template: str,
-                 yml_path: str | None = None,
-                 ) -> tuple[Shield | None, list[Diagnostic]]:
+def _pick_shield(
+    parsed: dict[str, Shield],
+    name: str,
+    template: str,
+    yml_path: str | None = None,
+) -> tuple[Shield | None, list[Diagnostic]]:
     """The shield a template's translation unit defines, looked up by
     `name` -- the shield's DECLARED name, never whatever node name
     `parse_shields` happened to return. `yml_path`, when given, says
@@ -321,21 +365,27 @@ def _pick_shield(parsed: dict[str, Shield], name: str, template: str,
     if shield is not None:
         return shield, []
     defined = ", ".join(sorted(parsed)) or "none"
-    source = ("the name shield.yml itself declares" if yml_path is not None
-             else "the folder it lives in (it declares no shield.yml)")
-    return None, [error(
-        "lang-shield-name",
-        f"shield template {os.path.basename(template)} defines no shield "
-        f"node named '{name}' -- a .shield node name must match the name "
-        f"declared for the shield, which here is {source}: that name is "
-        "what shield discovery and an instance's shield: reference both "
-        f"resolve against\nnodes defined here: {defined}",
-        (SourceRef(template, 1),))]
+    source = (
+        "the name shield.yml itself declares"
+        if yml_path is not None
+        else "the folder it lives in (it declares no shield.yml)"
+    )
+    return None, [
+        error(
+            "lang-shield-name",
+            f"shield template {os.path.basename(template)} defines no shield "
+            f"node named '{name}' -- a .shield node name must match the name "
+            f"declared for the shield, which here is {source}: that name is "
+            "what shield discovery and an instance's shield: reference both "
+            f"resolve against\nnodes defined here: {defined}",
+            (SourceRef(template, 1),),
+        )
+    ]
 
 
-def _shield_yml_entries(shield_dir: str,
-                        ) -> tuple[str | None, list[tuple[str, Val, bool]],
-                                   list[Diagnostic]]:
+def _shield_yml_entries(
+    shield_dir: str,
+) -> tuple[str | None, list[tuple[str, Val, bool]], list[Diagnostic]]:
     """The declared names one folder's shield.yml carries, if it has one
     at all -- the SOLE IO this discovery rule performs per folder beside
     the `<name>.shield` presence probes its own caller does. One entry
@@ -362,9 +412,9 @@ def _shield_yml_entries(shield_dir: str,
     yml_path = os.path.join(shield_dir, "shield.yml")
     if not os.path.isfile(yml_path):
         return None, [], []
-    doc = parse_marked(yml_path)      # Unimplemented on a YAML parse
-                                       # failure -- no frozen golden
-                                       # covers this shape
+    doc = parse_marked(yml_path)  # Unimplemented on a YAML parse
+    # failure -- no frozen golden
+    # covers this shape
     diags: list[Diagnostic] = []
     out: list[tuple[str, Val, bool]] = []
     shield_v = doc.value.get("shield")
@@ -384,11 +434,14 @@ def _shield_yml_entries(shield_dir: str,
                 # every name in this folder is lost by it -- the shield
                 # simply ceases to exist, with nothing else in the scan
                 # able to notice the folder ever meant to declare one.
-                diags.append(error(
-                    "lang-schema",
-                    "shield.yml: 'shields' must be a list of shield "
-                    "entries -- use 'shield' for a single shield",
-                    (plural_v.src,)))
+                diags.append(
+                    error(
+                        "lang-schema",
+                        "shield.yml: 'shields' must be a list of shield "
+                        "entries -- use 'shield' for a single shield",
+                        (plural_v.src,),
+                    )
+                )
     seen: set[str] = set()
     for key, entry_v in raw:
         name_v, d = require(entry_v, "name", f"shield.yml {key} entry")
@@ -397,11 +450,13 @@ def _shield_yml_entries(shield_dir: str,
             continue
         name = str(name_v.value)
         if name in seen:
-            diags.append(error(
-                "lang-schema",
-                f"shield.yml: '{name}' is declared more than once in this "
-                f"{key}: list",
-                (name_v.src,)))
+            diags.append(
+                error(
+                    "lang-schema",
+                    f"shield.yml: '{name}' is declared more than once in this {key}: list",
+                    (name_v.src,),
+                )
+            )
             continue
         seen.add(name)
         template_v = entry_v.value.get("template")
@@ -410,10 +465,12 @@ def _shield_yml_entries(shield_dir: str,
     return yml_path, out, diags
 
 
-def load_shield_library(workdir: str, shield_dirs: list[str] | None = None,
-                        types: dict[str, ConnectorType] | None = None,
-                        include_dirs: list[str] | None = None,
-                        ) -> tuple[ShieldLibrary, list[Diagnostic], Deps]:
+def load_shield_library(
+    workdir: str,
+    shield_dirs: list[str] | None = None,
+    types: dict[str, ConnectorType] | None = None,
+    include_dirs: list[str] | None = None,
+) -> tuple[ShieldLibrary, list[Diagnostic], Deps]:
     """Load every shield template. Each `.shield` file (base + any
     resolved revision fragment) is its OWN translation unit -- labels
     are shield-scoped, no cross-shield prefix discipline needed.
@@ -475,26 +532,37 @@ def load_shield_library(workdir: str, shield_dirs: list[str] | None = None,
                     ymls[name] = yml_path
                     promotable[name] = entry_promotable
                     if not entry_promotable:
-                        continue     # a legacy shield carrying metadata
+                        continue  # a legacy shield carrying metadata
                     base_file = os.path.join(shield_dir, name + ".shield")
                     if not os.path.isfile(base_file):
-                        diags.append(error(
-                            "lang-shield-template",
-                            f"shield.yml declares '{name}' with template: "
-                            f"true, but {base_file} does not exist -- a rig "
-                            "template needs its own <name>.shield beside "
-                            "shield.yml",
-                            (entry_v.src,)))
+                        diags.append(
+                            error(
+                                "lang-shield-template",
+                                f"shield.yml declares '{name}' with template: "
+                                f"true, but {base_file} does not exist -- a rig "
+                                "template needs its own <name>.shield beside "
+                                "shield.yml",
+                                (entry_v.src,),
+                            )
+                        )
                         continue
                     decl, d = parse_legacy_revision_decl(
-                        entry_v, "revisions", owner=f"shield '{name}'")
+                        entry_v, "revisions", owner=f"shield '{name}'"
+                    )
                     diags += d
                     axes[name] = decl
                     pending[name] = _Pending(shield_dir, base_file, decl, yml_path)
     except LoadError as e:
         raise LoadError(*diags, *e.diags) from None
     log.info("shield library: %d shields discovered", len(pending))
-    lib = ShieldLibrary(shields=shields, axes=axes, pending=pending,
-                       ymls=ymls, types=types, workdir=workdir,
-                       include_dirs=include_dirs, promotable=promotable)
+    lib = ShieldLibrary(
+        shields=shields,
+        axes=axes,
+        pending=pending,
+        ymls=ymls,
+        types=types,
+        workdir=workdir,
+        include_dirs=include_dirs,
+        promotable=promotable,
+    )
     return lib, diags, deps

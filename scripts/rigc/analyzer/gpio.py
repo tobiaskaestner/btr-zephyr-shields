@@ -15,6 +15,7 @@ collection happens before CS allocation, but net CONFLICT checking
 happens after, since CS allocation contributes further claims into the
 same net-claim map -- see analyzer/cs.py and analyzer/__init__.py's
 composer, which merges the two claim sets before calling check_nets."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -48,8 +49,8 @@ NetKey = tuple[object, ...]
 class NetClaim:
     instance: Instance
     device: Device | None
-    what: str                       # "rtc@…: int1-gpios" / "sdhc: CS (copper-fixed)" / pad name
-    role: str                       # driver | listener | dedicated
+    what: str  # "rtc@…: int1-gpios" / "sdhc: CS (copper-fixed)" / pad name
+    role: str  # driver | listener | dedicated
     socket: BoardSocket
     position: int
     src: SourceRef | None = None
@@ -83,8 +84,8 @@ def role_of(prop_name: str) -> str:
     through this function)."""
     stem = prop_name[:-6] if prop_name.endswith("-gpios") else prop_name
     if any(h in stem for h in _DRIVER_HINTS):
-        return "driver"       # device output (interrupt line etc.)
-    return "listener"         # MCU-driven towards the device
+        return "driver"  # device output (interrupt line etc.)
+    return "listener"  # MCU-driven towards the device
 
 
 def soc_net(socket: BoardSocket, position: int) -> NetKey:
@@ -105,6 +106,7 @@ class ChannelResolution(NamedTuple):
     `GpioNets.channels`/`Solved.channels` (keyed by (instance, device,
     prop)). `fn` is "pwm" or "adc"; `period` is populated only for pwm
     (an ADC io-channel-map row carries no period cell)."""
+
     fn: str
     ctrl: str
     channel: int
@@ -117,15 +119,16 @@ class ChannelResolution(NamedTuple):
 class GpioNets:
     nets: Nets = field(default_factory=dict)
     positions: dict[tuple[str, str, str], int] = field(default_factory=dict)
-    jumpers_set: list[tuple[Instance, Jumper, int | None, int]] = field(
-        default_factory=list)
+    jumpers_set: list[tuple[Instance, Jumper, int | None, int]] = field(default_factory=list)
     channels: dict[tuple[str, str, str], ChannelResolution] = field(default_factory=dict)
     controllers: dict[str, str] = field(default_factory=dict)
 
 
-def collect_gpio_nets(rig: Rig, sockets: Sockets,
-                      types: dict[str, ConnectorType],
-                      ) -> tuple[GpioNets, list[Diagnostic]]:
+def collect_gpio_nets(
+    rig: Rig,
+    sockets: Sockets,
+    types: dict[str, ConnectorType],
+) -> tuple[GpioNets, list[Diagnostic]]:
     """The gpio/pwm/adc claim-collection pass: every device ref resolves
     through ITS OWN plug's socket (`ref.plug`, PER-REFERENCE granularity)
     into net claims -- a device sitting on one plug's bus may still
@@ -136,12 +139,27 @@ def collect_gpio_nets(rig: Rig, sockets: Sockets,
     diags: list[Diagnostic] = []
     result = GpioNets()
 
-    def claim(key: NetKey, socket: BoardSocket, position: int,
-             inst: Instance, device: Device | None, what: str, role: str,
-             src: SourceRef | None) -> None:
-        result.nets.setdefault(key, []).append(NetClaim(
-            instance=inst, device=device, what=what, role=role,
-            socket=socket, position=position, src=src))
+    def claim(
+        key: NetKey,
+        socket: BoardSocket,
+        position: int,
+        inst: Instance,
+        device: Device | None,
+        what: str,
+        role: str,
+        src: SourceRef | None,
+    ) -> None:
+        result.nets.setdefault(key, []).append(
+            NetClaim(
+                instance=inst,
+                device=device,
+                what=what,
+                role=role,
+                socket=socket,
+                position=position,
+                src=src,
+            )
+        )
 
     for inst in rig.instances:
         for dev in inst.shield.devices:
@@ -157,9 +175,16 @@ def collect_gpio_nets(rig: Rig, sockets: Sockets,
     return result, diags
 
 
-def _collect_gpio(inst: Instance, dev: Device, ref: FunctionRef, socket: BoardSocket,
-                  ctype: ConnectorType, result: GpioNets, claim, diags: list[Diagnostic],
-                  ) -> None:
+def _collect_gpio(
+    inst: Instance,
+    dev: Device,
+    ref: FunctionRef,
+    socket: BoardSocket,
+    ctype: ConnectorType,
+    result: GpioNets,
+    claim,
+    diags: list[Diagnostic],
+) -> None:
     pos = ref.position
     if ref.jumper is not None:
         resolved = _resolve_jumper(inst, dev, ref, ctype, result, diags)
@@ -168,13 +193,28 @@ def _collect_gpio(inst: Instance, dev: Device, ref: FunctionRef, socket: BoardSo
         pos = resolved
         result.positions[(inst.name, dev.name, ref.prop)] = pos
     assert pos is not None
-    claim(soc_net(socket, pos), socket, pos, inst, dev,
-         f"{dev.name}: {ref.prop}", role_of(ref.prop), ref.src)
+    claim(
+        soc_net(socket, pos),
+        socket,
+        pos,
+        inst,
+        dev,
+        f"{dev.name}: {ref.prop}",
+        role_of(ref.prop),
+        ref.src,
+    )
 
 
-def _collect_channel(inst: Instance, dev: Device, ref: FunctionRef, socket: BoardSocket,
-                     ctype: ConnectorType, result: GpioNets, claim,
-                     diags: list[Diagnostic]) -> None:
+def _collect_channel(
+    inst: Instance,
+    dev: Device,
+    ref: FunctionRef,
+    socket: BoardSocket,
+    ctype: ConnectorType,
+    result: GpioNets,
+    claim,
+    diags: list[Diagnostic],
+) -> None:
     """PWM/ADC: the same position is reachable as a channel of a
     controller. Register TWO net claims -- the PIN (exclusive: the pin
     can't also be GPIO or another function) and the CHANNEL (exclusive:
@@ -187,65 +227,99 @@ def _collect_channel(inst: Instance, dev: Device, ref: FunctionRef, socket: Boar
     fmap = socket.pwm_map if fn == "pwm" else socket.adc_map
     resolved = fmap.get(pos)
     if resolved is None:
-        diags.append(error(
-            "phys-function",
-            f"'{inst.name}/{dev.name}: {ref.prop}' uses position "
-            f"{ctype.posname(pos)} as {fn.upper()}, but socket "
-            f"'{socket.label}' offers no {fn} on it (no {_MAP_PROP[fn]} entry)",
-            tuple(x for x in (ref.src, socket.src) if x)))
+        diags.append(
+            error(
+                "phys-function",
+                f"'{inst.name}/{dev.name}: {ref.prop}' uses position "
+                f"{ctype.posname(pos)} as {fn.upper()}, but socket "
+                f"'{socket.label}' offers no {fn} on it (no {_MAP_PROP[fn]} entry)",
+                tuple(x for x in (ref.src, socket.src) if x),
+            )
+        )
         return
     if fn == "pwm" and ref.flags and socket.pwm_cells == 2:
         # CONDITIONAL on the SOCKET's own cell count, never a blanket
         # refusal: a 2-cell socket (lotus's atmel,sam0-tcc-pwm shape)
         # has genuinely nowhere to put a flags value, but a 3-cell one
         # (the common upstream shape) has a real cell for it.
-        diags.append(error(
-            "phys-function",
-            f"'{inst.name}/{dev.name}: {ref.prop}' authors PWM flags "
-            f"{ref.flags:#x} at position {ctype.posname(pos)}, "
-            f"but socket '{socket.label}' is a {socket.pwm_cells}-cell "
-            "(channel, period) PWM socket — there is no cell for flags",
-            tuple(x for x in (ref.src, socket.src) if x)))
+        diags.append(
+            error(
+                "phys-function",
+                f"'{inst.name}/{dev.name}: {ref.prop}' authors PWM flags "
+                f"{ref.flags:#x} at position {ctype.posname(pos)}, "
+                f"but socket '{socket.label}' is a {socket.pwm_cells}-cell "
+                "(channel, period) PWM socket — there is no cell for flags",
+                tuple(x for x in (ref.src, socket.src) if x),
+            )
+        )
         return
     ctrl, channel = resolved
     result.channels[(inst.name, dev.name, ref.prop)] = ChannelResolution(
-        fn=fn, ctrl=ctrl, channel=channel, period=ref.period,
-        flags=ref.flags, position=pos)
+        fn=fn, ctrl=ctrl, channel=channel, period=ref.period, flags=ref.flags, position=pos
+    )
     result.controllers[ctrl] = fn
     label = "PWM" if fn == "pwm" else "ADC"
     # PIN net -- exclusive use of the physical pin
-    claim(soc_net(socket, pos), socket, pos, inst, dev,
-         f"{dev.name}: {ref.prop} ({label} pin)", "dedicated", ref.src)
+    claim(
+        soc_net(socket, pos),
+        socket,
+        pos,
+        inst,
+        dev,
+        f"{dev.name}: {ref.prop} ({label} pin)",
+        "dedicated",
+        ref.src,
+    )
     # CHANNEL net -- exclusive use of the controller channel
-    claim(("chan", ctrl, channel), socket, pos, inst, dev,
-         f"{dev.name}: {ref.prop} ({label} {ctrl} ch{channel})", "dedicated",
-         ref.src)
+    claim(
+        ("chan", ctrl, channel),
+        socket,
+        pos,
+        inst,
+        dev,
+        f"{dev.name}: {ref.prop} ({label} {ctrl} ch{channel})",
+        "dedicated",
+        ref.src,
+    )
 
 
-def _resolve_jumper(inst: Instance, dev: Device, ref: FunctionRef, ctype: ConnectorType,
-                    result: GpioNets, diags: list[Diagnostic]) -> int | None:
+def _resolve_jumper(
+    inst: Instance,
+    dev: Device,
+    ref: FunctionRef,
+    ctype: ConnectorType,
+    result: GpioNets,
+    diags: list[Diagnostic],
+) -> int | None:
     """A routing jumper's position must be pinned by the rig (explicit
     config:; non-CS positions are never auto-allocated). Returns the
     resolved index or None (+ diagnostic)."""
-    assert ref.jumper is not None      # only called when the caller already checked
+    assert ref.jumper is not None  # only called when the caller already checked
     jmp = inst.shield.jumpers[ref.jumper]
     dom = ", ".join(ctype.posname(p) for p in jmp.positions())
     sel = inst.jumpers.get(ref.jumper)
     if sel is None:
-        diags.append(error(
-            "phys-position",
-            f"'{inst.name}/{dev.name}: {ref.prop}' routes through jumper "
-            f"'{ref.jumper}' whose position must be selected — add "
-            f"config: {{ {jmp.label}: <position> }} to the instance "
-            f"(domain: {dom})", tuple(x for x in (ref.src, jmp.src) if x)))
+        diags.append(
+            error(
+                "phys-position",
+                f"'{inst.name}/{dev.name}: {ref.prop}' routes through jumper "
+                f"'{ref.jumper}' whose position must be selected — add "
+                f"config: {{ {jmp.label}: <position> }} to the instance "
+                f"(domain: {dom})",
+                tuple(x for x in (ref.src, jmp.src) if x),
+            )
+        )
         return None
     pos = ctype.positions[sel].index if sel in ctype.positions else sel
     if pos not in jmp.positions():
-        diags.append(error(
-            "phys-position",
-            f"instance '{inst.name}': jumper '{ref.jumper}' selection '{sel}' is "
-            f"not in its position domain ({dom}) — the copper cannot route it",
-            tuple(x for x in (inst.jumper_refs.get(ref.jumper), jmp.src) if x)))
+        diags.append(
+            error(
+                "phys-position",
+                f"instance '{inst.name}': jumper '{ref.jumper}' selection '{sel}' is "
+                f"not in its position domain ({dom}) — the copper cannot route it",
+                tuple(x for x in (inst.jumper_refs.get(ref.jumper), jmp.src) if x),
+            )
+        )
         return None
     result.jumpers_set.append((inst, jmp, jmp.state_of(pos), pos))
     return pos
@@ -260,7 +334,9 @@ def _net_descr(key: NetKey, claims: list[NetClaim], types: dict[str, ConnectorTy
     where = {(c.socket.label, c.position) for c in claims}
     if len(where) == 1:
         c = claims[0]
-        return f"position {types[c.socket.type_name].posname(c.position)} of socket '{c.socket.label}'"
+        return (
+            f"position {types[c.socket.type_name].posname(c.position)} of socket '{c.socket.label}'"
+        )
     if key[0] == "soc":
         return f"the shared SoC net {key[1]} pin {key[2]}"
     return "a shared net"
@@ -271,8 +347,9 @@ def _claim_line(c: NetClaim, types: dict[str, ConnectorType]) -> str:
     return f"- {c.instance.name} (socket {c.socket.label}, {pos}): {c.what}"
 
 
-def _exclusive_verdict(key: NetKey, descr: str, claims: list[NetClaim],
-                       types: dict[str, ConnectorType]) -> list[Diagnostic] | None:
+def _exclusive_verdict(
+    key: NetKey, descr: str, claims: list[NetClaim], types: dict[str, ConnectorType]
+) -> list[Diagnostic] | None:
     """The exclusive-resource half of one net's verdict: two exclusive
     claims conflict outright; one exclusive claim plus any signal claims
     on the same net is also a conflict, since an exclusive resource
@@ -283,38 +360,44 @@ def _exclusive_verdict(key: NetKey, descr: str, claims: list[NetClaim],
         return [_exclusive_conflict(key, descr, dedicated, types)]
     if dedicated and len(claims) > 1:
         others = [c for c in claims if c.role != "dedicated"]
-        return [error(
-            "phys-net",
-            f"{descr} is claimed exclusively "
-            f"({dedicated[0].instance.name}: {dedicated[0].what}) but is also "
-            "claimed as a signal by:\n"
-            + "\n".join(_claim_line(c, types) for c in others),
-            tuple(c.src for c in claims if c.src))]
+        return [
+            error(
+                "phys-net",
+                f"{descr} is claimed exclusively "
+                f"({dedicated[0].instance.name}: {dedicated[0].what}) but is also "
+                "claimed as a signal by:\n" + "\n".join(_claim_line(c, types) for c in others),
+                tuple(c.src for c in claims if c.src),
+            )
+        ]
     return None
 
 
-def _driver_verdict(descr: str, claims: list[NetClaim],
-                    types: dict[str, ConnectorType]) -> list[Diagnostic]:
+def _driver_verdict(
+    descr: str, claims: list[NetClaim], types: dict[str, ConnectorType]
+) -> list[Diagnostic]:
     """The shared-net half of one net's verdict, reached only once the
     exclusive-resource check above found nothing: more than one DRIVER
     on a shared net is a conflict; 1 driver + N listeners, or MCU-driven
     + N listeners, is a net and legal."""
     drivers = [c for c in claims if c.role == "driver"]
     if len(drivers) > 1:
-        return [error(
-            "phys-net",
-            f"{len(drivers)} drivers on one net — {descr}:\n"
-            + "\n".join(_claim_line(c, types) + " (device output)"
-                        for c in drivers)
-            + "\nnote: if these outputs are open-drain, wired-AND sharing is "
-            "physically legal — drive-type on roles is a pending refinement "
-            "(would downgrade this to a warning).",
-            tuple(c.src for c in drivers if c.src))]
+        return [
+            error(
+                "phys-net",
+                f"{len(drivers)} drivers on one net — {descr}:\n"
+                + "\n".join(_claim_line(c, types) + " (device output)" for c in drivers)
+                + "\nnote: if these outputs are open-drain, wired-AND sharing is "
+                "physically legal — drive-type on roles is a pending refinement "
+                "(would downgrade this to a warning).",
+                tuple(c.src for c in drivers if c.src),
+            )
+        ]
     return []
 
 
-def _net_verdict(key: NetKey, descr: str, claims: list[NetClaim],
-                 types: dict[str, ConnectorType]) -> list[Diagnostic]:
+def _net_verdict(
+    key: NetKey, descr: str, claims: list[NetClaim], types: dict[str, ConnectorType]
+) -> list[Diagnostic]:
     """One net's verdict (`check_nets`' own per-key logic, lifted out).
     At most one finding per net -- the driver check never runs once the
     exclusive-resource check already fired, matching `check_nets`' own
@@ -333,21 +416,32 @@ def check_nets(nets: Nets, types: dict[str, ConnectorType]) -> list[Diagnostic]:
     return diags
 
 
-def _exclusive_conflict(key: NetKey, descr: str, claims: list[NetClaim],
-                        types: dict[str, ConnectorType]) -> Diagnostic:
+def _exclusive_conflict(
+    key: NetKey, descr: str, claims: list[NetClaim], types: dict[str, ConnectorType]
+) -> Diagnostic:
     """Two exclusive claims on one resource. The resource kind (from the
     net key) tailors the code and the fix hint."""
     if key[0] == "chan":
-        code, tail = "phys-channel", (
-            "\ntwo consumers need the same controller channel — it cannot drive "
-            "both independently. Use a different socket/channel, or one device.")
+        code, tail = (
+            "phys-channel",
+            (
+                "\ntwo consumers need the same controller channel — it cannot drive "
+                "both independently. Use a different socket/channel, or one device."
+            ),
+        )
     else:
-        code, tail = "phys-cs", (
-            "\ntwo exclusive claims resolve to the same pin — shorted together, "
-            "not realizable. If a CS is copper-fixed the pool cannot route around "
-            "it: use different sockets, positions, or rework the copper.")
+        code, tail = (
+            "phys-cs",
+            (
+                "\ntwo exclusive claims resolve to the same pin — shorted together, "
+                "not realizable. If a CS is copper-fixed the pool cannot route around "
+                "it: use different sockets, positions, or rework the copper."
+            ),
+        )
     return error(
         code,
         f"exclusive-resource conflict at {descr}:\n"
-        + "\n".join(_claim_line(c, types) for c in claims) + tail,
-        tuple(c.src for c in claims if c.src))
+        + "\n".join(_claim_line(c, types) for c in claims)
+        + tail,
+        tuple(c.src for c in claims if c.src),
+    )

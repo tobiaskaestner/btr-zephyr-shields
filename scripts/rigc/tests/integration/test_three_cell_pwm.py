@@ -35,6 +35,7 @@ Five rigs, each driven through the real CLI (`python -m rigc expand`):
     "not supported yet" wording still applies to a genuinely unsupported
     count.
 """
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -51,38 +52,37 @@ _MISMATCH_BOARD = _BOARDS_DIR / "three_cell_pwm_mismatch_board.dts"
 _UNSUPPORTED_BOARD = _BOARDS_DIR / "three_cell_pwm_unsupported_board.dts"
 
 
-def _run(rig_dir_name: str, board_dts: Path, board_name: str,
-         out_dir: Path, shields: bool = True):
+def _run(rig_dir_name: str, board_dts: Path, board_name: str, out_dir: Path, shields: bool = True):
     fixture_dir = _RIGS_DIR / rig_dir_name
     shield_dirs = [fixture_dir / "shields"] if shields else []
-    assert_fixture_local(
-        [board_dts, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE] + shield_dirs)
+    assert_fixture_local([board_dts, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE] + shield_dirs)
     return run_expand(
-        fixture_dir / "rig.yml", out_dir,
+        fixture_dir / "rig.yml",
+        out_dir,
         board=board_name,
         shield_dirs=shield_dirs,
         board_dts=board_dts,
         bindings_dirs=[_CONNECTOR_BINDINGS],
         include_dirs=[_CONNECTOR_INCLUDE],
-        connector_dirs=[_CONNECTOR_BINDINGS])
+        connector_dirs=[_CONNECTOR_BINDINGS],
+    )
 
 
 # ----------------------------------------------------------- plain shield (accept)
 
 
-def test_accept_plain_shield_on_3cell_socket_emits_four_word_pwms(
-        tmp_path: Path) -> None:
+def test_accept_plain_shield_on_3cell_socket_emits_four_word_pwms(tmp_path: Path) -> None:
     """A 3-cell PWM controller resolves end to
     end, proven by an emitted overlay containing a four-word pwms
     property (position, period, flags -- FOUR words counting the
     phandle). The flags word is nonzero,
     carried rather than refused, because the socket itself is 3-cell."""
     out_dir = tmp_path / "out"
-    result = _run("three-cell-pwm-plain", _GOOD_BOARD,
-                  "three_cell_pwm_fixture_board", out_dir)
+    result = _run("three-cell-pwm-plain", _GOOD_BOARD, "three_cell_pwm_fixture_board", out_dir)
 
     assert result.returncode == 0, (
-        f"three_cell_pwm_plain: expected accept\n--- stderr ---\n{result.stderr}")
+        f"three_cell_pwm_plain: expected accept\n--- stderr ---\n{result.stderr}"
+    )
 
     overlay = (out_dir / "rig-gen.overlay").read_text()
     assert "pwms = <&tc_socket3 0 20000000 0x1>;" in overlay
@@ -100,11 +100,11 @@ def test_accept_through_carrier_synthesizes_a_3cell_nexus(tmp_path: Path) -> Non
     The row is SEVEN words: 3 child (pos, 0, 0) + phandle + 3 parent
     (channel, 0, 0)."""
     out_dir = tmp_path / "out"
-    result = _run("three-cell-pwm-carrier", _GOOD_BOARD,
-                  "three_cell_pwm_fixture_board", out_dir)
+    result = _run("three-cell-pwm-carrier", _GOOD_BOARD, "three_cell_pwm_fixture_board", out_dir)
 
     assert result.returncode == 0, (
-        f"three_cell_pwm_carrier: expected accept\n--- stderr ---\n{result.stderr}")
+        f"three_cell_pwm_carrier: expected accept\n--- stderr ---\n{result.stderr}"
+    )
 
     overlay = (out_dir / "rig-gen.overlay").read_text()
     assert overlay.count("carrier_tc_out: carrier_tc_out {") == 1
@@ -126,16 +126,16 @@ def test_accept_through_carrier_synthesizes_a_3cell_nexus(tmp_path: Path) -> Non
 # ----------------------------------------------------------- 2-cell socket (reject)
 
 
-def test_reject_nonzero_flags_on_a_2cell_socket_names_socket_and_count(
-        tmp_path: Path) -> None:
+def test_reject_nonzero_flags_on_a_2cell_socket_names_socket_and_count(tmp_path: Path) -> None:
     """The IDENTICAL nonzero-flags
     claim, on the SAME board's 2-cell socket, is still refused --
     analyzer/gpio.py's _collect_channel, now conditional on the socket's
     own pwm_cells rather than unconditional. The refusal names the
     socket and its cell count."""
     out_dir = tmp_path / "out"
-    result = _run("three-cell-pwm-2cell-reject", _GOOD_BOARD,
-                  "three_cell_pwm_fixture_board", out_dir)
+    result = _run(
+        "three-cell-pwm-2cell-reject", _GOOD_BOARD, "three_cell_pwm_fixture_board", out_dir
+    )
 
     assert result.returncode != 0, "nonzero PWM flags on a 2-cell socket must be rejected"
     assert "[phys-function]" in result.stderr
@@ -147,16 +147,20 @@ def test_reject_nonzero_flags_on_a_2cell_socket_names_socket_and_count(
 # ----------------------------------------------------------- child/parent mismatch
 
 
-def test_reject_child_parent_cell_count_mismatch_names_both_counts(
-        tmp_path: Path) -> None:
+def test_reject_child_parent_cell_count_mismatch_names_both_counts(tmp_path: Path) -> None:
     """A socket declaring #pwm-cells
     = <3> whose own pwm-map's target controller declares <2> is refused
     at board-load time, naming both counts. No shield/instance is
     needed: board/project.py's project_edt walks every socket,* node
     unconditionally."""
     out_dir = tmp_path / "out"
-    result = _run("three-cell-pwm-mismatch", _MISMATCH_BOARD,
-                  "three_cell_pwm_mismatch_fixture_board", out_dir, shields=False)
+    result = _run(
+        "three-cell-pwm-mismatch",
+        _MISMATCH_BOARD,
+        "three_cell_pwm_mismatch_fixture_board",
+        out_dir,
+        shields=False,
+    )
 
     assert result.returncode != 0, "a child/parent cell-count mismatch must be rejected"
     assert "[phys-board]" in result.stderr
@@ -174,8 +178,13 @@ def test_reject_unsupported_cell_count_keeps_old_style_wording(tmp_path: Path) -
     refused with the existing phys-board wording -- only the accepted
     set of cell counts widens."""
     out_dir = tmp_path / "out"
-    result = _run("three-cell-pwm-unsupported", _UNSUPPORTED_BOARD,
-                  "three_cell_pwm_unsupported_fixture_board", out_dir, shields=False)
+    result = _run(
+        "three-cell-pwm-unsupported",
+        _UNSUPPORTED_BOARD,
+        "three_cell_pwm_unsupported_fixture_board",
+        out_dir,
+        shields=False,
+    )
 
     assert result.returncode != 0, "an unsupported PWM cell count must be rejected"
     assert "[phys-board]" in result.stderr

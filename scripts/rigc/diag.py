@@ -16,6 +16,7 @@ Anchor-path rule, module-agnostic: if the path lies under a
 otherwise it renders absolute. anchor_path() is a pure function of the
 path value alone -- deliberately no module-scope dirname(__file__)
 constant -- so unit tests exercise it with synthetic roots."""
+
 from __future__ import annotations
 
 import os
@@ -48,7 +49,7 @@ class Diagnostic:
     following lines are detail (rendered indented)."""
 
     severity: Severity
-    code: str                           # "lang-*" | "phys-*"
+    code: str  # "lang-*" | "phys-*"
     message: str
     # None entries are LEGAL and skipped at render time: callers pass
     # (dev.src, inst.src)-shaped tuples whose members may be absent
@@ -56,15 +57,13 @@ class Diagnostic:
     refs: tuple[SourceRef | None, ...] = ()
 
 
-def error(code: str, message: str,
-          refs: Sequence[SourceRef | None] = ()) -> Diagnostic:
+def error(code: str, message: str, refs: Sequence[SourceRef | None] = ()) -> Diagnostic:
     """Returns one ERROR-severity Diagnostic value; refs may contain
     None entries (skipped at render time). The caller owns the value."""
     return Diagnostic(ERROR, code, message, tuple(refs))
 
 
-def warning(code: str, message: str,
-           refs: Sequence[SourceRef | None] = ()) -> Diagnostic:
+def warning(code: str, message: str, refs: Sequence[SourceRef | None] = ()) -> Diagnostic:
     """Returns one WARNING-severity Diagnostic value; same refs contract
     as error()."""
     return Diagnostic(WARNING, code, message, tuple(refs))
@@ -84,7 +83,7 @@ def anchor_path(path: str) -> str:
     # Need parts[i] == "scripts", a module at i+1, and content below it.
     for i in range(len(parts) - 3, -1, -1):
         if parts[i] == "scripts":
-            return os.sep.join(parts[i + 2:])
+            return os.sep.join(parts[i + 2 :])
     return path
 
 
@@ -94,12 +93,12 @@ def _render_one(diag: Diagnostic) -> str:
     lines += [f"    {line}" for line in rest]
     seen: set[str] = set()
     for ref in diag.refs:
-        if ref is None:                 # legal absent anchor (see Diagnostic.refs)
+        if ref is None:  # legal absent anchor (see Diagnostic.refs)
             continue
         anchor = f"{anchor_path(ref.file)}:{ref.line}"
         if ref.key:
             anchor = f"{anchor} ({ref.key})"
-        if anchor not in seen:          # duplicates render once, order kept
+        if anchor not in seen:  # duplicates render once, order kept
             seen.add(anchor)
             lines.append(f"    at {anchor}")
     return "\n".join(lines)

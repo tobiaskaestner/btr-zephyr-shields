@@ -13,6 +13,7 @@ and cli.py's unreachable unknown-subcommand branch.
 
 Raised anywhere inside the pipeline, caught ONCE in cli.main().
 """
+
 from __future__ import annotations
 
 

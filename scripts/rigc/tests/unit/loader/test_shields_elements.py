@@ -8,6 +8,7 @@ Split out of the former test_shields.py -- see
 tests/unit/loader/conftest.py for the synthetic connector-type/DT
 fixtures every module here shares.
 """
+
 from __future__ import annotations
 
 from rigc.loader.shields import parse_shields
@@ -24,7 +25,9 @@ def test_pads_straps_jumpers_and_lookup_helpers(tmp_path) -> None:
     `addr-strap` and `irq_jmp`/`irq-jmp`, which deliberately differ (the
     real corpus's own naming convention), so a same-spelling coincidence
     can never hide a label-vs-name bug."""
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -45,7 +48,8 @@ def test_pads_straps_jumpers_and_lookup_helpers(tmp_path) -> None:
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert diags == []
     shield = shields["fx"]
     assert isinstance(shield.pads["sq"], Pad)
@@ -76,7 +80,9 @@ def test_pads_straps_jumpers_and_lookup_helpers(tmp_path) -> None:
 
 
 def test_unlabeled_device_is_a_loud_error(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -87,7 +93,8 @@ def test_unlabeled_device_is_a_loud_error(tmp_path) -> None:
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert len(diags) == 1
     assert diags[0].code == "lang-shield-label"
     assert "device 'dev@50'" in diags[0].message
@@ -96,7 +103,9 @@ def test_unlabeled_device_is_a_loud_error(tmp_path) -> None:
 
 
 def test_unlabeled_pad_is_a_loud_error(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -106,7 +115,8 @@ def test_unlabeled_pad_is_a_loud_error(tmp_path) -> None:
 \t\t\t\tsq { shield,role = "driver"; };
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert len(diags) == 1
     assert diags[0].code == "lang-shield-label"
     assert "pad 'sq'" in diags[0].message
@@ -114,7 +124,9 @@ def test_unlabeled_pad_is_a_loud_error(tmp_path) -> None:
 
 
 def test_unlabeled_strap_is_a_loud_error(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -126,7 +138,8 @@ def test_unlabeled_strap_is_a_loud_error(tmp_path) -> None:
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert len(diags) == 1
     assert diags[0].code == "lang-shield-label"
     assert "strap 'addr-strap'" in diags[0].message
@@ -134,7 +147,9 @@ def test_unlabeled_strap_is_a_loud_error(tmp_path) -> None:
 
 
 def test_unlabeled_jumper_is_a_loud_error(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -147,7 +162,8 @@ def test_unlabeled_jumper_is_a_loud_error(tmp_path) -> None:
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert len(diags) == 1
     assert diags[0].code == "lang-shield-label"
     assert "jumper 'irq-jmp'" in diags[0].message
@@ -159,7 +175,9 @@ def test_unlabeled_exposed_socket_is_a_loud_error(tmp_path) -> None:
     socket with no DTS label goes through the same `_require_label`
     helper devices/pads/straps/jumpers do, rather than falling back to
     the node name silently."""
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -171,7 +189,8 @@ def test_unlabeled_exposed_socket_is_a_loud_error(tmp_path) -> None:
 \t\t\t\tsocket,i2c = <&plug>;
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert len(diags) == 1
     assert diags[0].code == "lang-shield-label"
     assert "exposed socket 'mb1'" in diags[0].message
@@ -185,7 +204,9 @@ def test_exposed_socket_label_is_the_naming_authority(tmp_path) -> None:
     labelling `ch0`), since the real corpus's own 8 exposed nodes all
     happen to share the two spellings and so cannot show which one
     actually resolves."""
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -197,7 +218,8 @@ def test_exposed_socket_label_is_the_naming_authority(tmp_path) -> None:
 \t\t\t\tsocket,i2c = <&plug>;
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert diags == []
     shield = shields["fx"]
     assert shield.exposes["ch0"].label == "span_ch0"
@@ -207,7 +229,9 @@ def test_exposed_socket_label_is_the_naming_authority(tmp_path) -> None:
 
 
 def test_invalid_pad_role_is_rejected(tmp_path) -> None:
-    shields, diags = _one_shield(tmp_path, """
+    shields, diags = _one_shield(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tplug: plug {
 \t\t\t\tcompatible = "shield,plug";
@@ -217,7 +241,8 @@ def test_invalid_pad_role_is_rejected(tmp_path) -> None:
 \t\t\t\tsq: sq { shield,role = "nonsense"; };
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     assert len(diags) == 1
     assert diags[0].code == "lang-pad-role"
 
@@ -225,7 +250,9 @@ def test_invalid_pad_role_is_rejected(tmp_path) -> None:
 def test_plural_shield_straps_are_unaffected_template_level_facts(tmp_path) -> None:
     """Straps (address-domain, bus-scoped) are NOT refused on a plural
     shield -- only routing jumpers are."""
-    dt = _dt(tmp_path, """
+    dt = _dt(
+        tmp_path,
+        """
 \t\tfx: fx {
 \t\t\tleft_plug: left {
 \t\t\t\tcompatible = "shield,plug";
@@ -247,8 +274,8 @@ def test_plural_shield_straps_are_unaffected_template_level_facts(tmp_path) -> N
 \t\t\t\t};
 \t\t\t};
 \t\t};
-""")
+""",
+    )
     shields, diags = parse_shields(dt, _PLURAL_TYPES)
     assert diags == []
     assert "addr-strap" in shields["fx"].straps
-

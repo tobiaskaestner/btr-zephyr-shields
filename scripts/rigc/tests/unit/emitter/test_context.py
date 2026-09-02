@@ -6,16 +6,17 @@ sorted, and `_cmake_list_escape` over the one input shape no real path
 produces but a caller could (`;`, `"`, `\\`) -- hand-differential
 territory made a unit test.
 """
+
 from __future__ import annotations
 
 from rigc.emitter.context import _cmake_list_escape, render
 from rigc.model import AxisDecl, Instance, Rig, Shield
 
 
-def _shield(name: str, revisions: AxisDecl | None = None,
-           revision: str | None = None) -> Shield:
-    return Shield(name=name, label=name, plugs={"plug": "t"},
-                 revisions=revisions, revision=revision)
+def _shield(name: str, revisions: AxisDecl | None = None, revision: str | None = None) -> Shield:
+    return Shield(
+        name=name, label=name, plugs={"plug": "t"}, revisions=revisions, revision=revision
+    )
 
 
 def test_cmake_list_escape_backslash_quote_and_semicolon() -> None:
@@ -55,12 +56,17 @@ def test_axis_less_rig_omits_revision_variant_and_shield_revisions() -> None:
 
 
 def test_declared_axes_and_shield_revision_all_appear_resolved() -> None:
-    shield = _shield("sh", revisions=AxisDecl(values=["1", "2"], default="1"),
-                     revision="2")
+    shield = _shield("sh", revisions=AxisDecl(values=["1", "2"], default="1"), revision="2")
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
-    rig = Rig(name="r", board="b", instances=[inst],
-             revisions=AxisDecl(values=["1", "2"], default="1"), revision="2",
-             variants=AxisDecl(values=["x"], default="x"), variant="x")
+    rig = Rig(
+        name="r",
+        board="b",
+        instances=[inst],
+        revisions=AxisDecl(values=["1", "2"], default="1"),
+        revision="2",
+        variants=AxisDecl(values=["x"], default="x"),
+        variant="x",
+    )
 
     out = render(rig, frozenset()).decode("utf-8")
 
@@ -71,9 +77,11 @@ def test_declared_axes_and_shield_revision_all_appear_resolved() -> None:
 
 def test_rig_shields_is_distinct_in_rig_declaration_order() -> None:
     sh_a, sh_b = _shield("a"), _shield("b")
-    insts = [Instance(name="i1", shield=sh_b, sockets={"plug": "s"}),
-            Instance(name="i2", shield=sh_a, sockets={"plug": "s"}),
-            Instance(name="i3", shield=sh_b, sockets={"plug": "s"})]   # repeats "b"
+    insts = [
+        Instance(name="i1", shield=sh_b, sockets={"plug": "s"}),
+        Instance(name="i2", shield=sh_a, sockets={"plug": "s"}),
+        Instance(name="i3", shield=sh_b, sockets={"plug": "s"}),
+    ]  # repeats "b"
     rig = Rig(name="r", board="board", instances=insts)
 
     out = render(rig, frozenset()).decode("utf-8")

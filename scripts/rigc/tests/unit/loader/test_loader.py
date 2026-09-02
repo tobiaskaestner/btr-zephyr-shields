@@ -13,6 +13,7 @@ cpp-reaching branch -- a lazily-resolved shield revision -- is
 integration-only by construction, same seam as `loader.library`'s own
 eager-parse branch); every scenario here stays inside the cpp-free
 subset on purpose, so the unit suite's hermeticity holds."""
+
 from __future__ import annotations
 
 from pathlib import Path
@@ -43,12 +44,11 @@ def _rig(**kwargs: object) -> Rig:
     set (phase 1 always does, from rig.yml's own `rig:` key), which
     `_gather_content` relies on for its own diagnostics' anchors."""
     kwargs.setdefault("src", _SRC)
-    return Rig(name="r", **kwargs)   # type: ignore[arg-type]
+    return Rig(name="r", **kwargs)  # type: ignore[arg-type]
 
 
 def _empty_lib(workdir: str) -> ShieldLibrary:
-    return ShieldLibrary(shields={}, axes={}, pending={}, ymls={}, types={},
-                         workdir=workdir)
+    return ShieldLibrary(shields={}, axes={}, pending={}, ymls={}, types={}, workdir=workdir)
 
 
 # ---------------------------------------------------------------- _resolve_metadata
@@ -82,11 +82,12 @@ def test_resolve_metadata_happy_path_with_no_axes(tmp_path: Path) -> None:
     assert meta.rig.revision is None
     assert meta.rig.variant is None
     assert isinstance(meta.binding, SocketBinding)
-    assert meta.binding.get("x") == "x"          # lookup-else-identity
+    assert meta.binding.get("x") == "x"  # lookup-else-identity
 
 
 def test_resolve_metadata_board_absent_is_the_empty_string_with_no_diagnostic(
-        tmp_path: Path) -> None:
+    tmp_path: Path,
+) -> None:
     """The negative control: omitting `board` is legal, not an error --
     rig.yml has no grammar left to declare one from, and this loader
     phase never needed a real board to assemble a topology. A caller
@@ -99,10 +100,10 @@ def test_resolve_metadata_board_absent_is_the_empty_string_with_no_diagnostic(
     assert meta.rig.board == ""
 
 
-def test_resolve_metadata_resolves_the_declared_default_revision(
-        tmp_path: Path) -> None:
+def test_resolve_metadata_resolves_the_declared_default_revision(tmp_path: Path) -> None:
     doc = _parsed(
-        tmp_path, "rig.yml",
+        tmp_path,
+        "rig.yml",
         "rig:\n"
         "  name: r\n"
         "  revision:\n"
@@ -110,7 +111,8 @@ def test_resolve_metadata_resolves_the_declared_default_revision(
         "    default: '1'\n"
         "    revisions:\n"
         "      - name: '1'\n"
-        "      - name: '2'\n")
+        "      - name: '2'\n",
+    )
     meta, diags = _resolve_metadata(doc, None, None)
     assert diags == []
     assert meta.rig is not None
@@ -119,9 +121,11 @@ def test_resolve_metadata_resolves_the_declared_default_revision(
 
 
 def test_resolve_metadata_an_explicit_revision_selection_wins_over_the_default(
-        tmp_path: Path) -> None:
+    tmp_path: Path,
+) -> None:
     doc = _parsed(
-        tmp_path, "rig.yml",
+        tmp_path,
+        "rig.yml",
         "rig:\n"
         "  name: r\n"
         "  revision:\n"
@@ -129,7 +133,8 @@ def test_resolve_metadata_an_explicit_revision_selection_wins_over_the_default(
         "    default: '1'\n"
         "    revisions:\n"
         "      - name: '1'\n"
-        "      - name: '2'\n")
+        "      - name: '2'\n",
+    )
     meta, diags = _resolve_metadata(doc, "2", None)
     assert diags == []
     assert meta.rig is not None
@@ -138,13 +143,15 @@ def test_resolve_metadata_an_explicit_revision_selection_wins_over_the_default(
 
 
 def test_resolve_metadata_nearest_lower_match_keeps_requested_for_provenance(
-        tmp_path: Path) -> None:
+    tmp_path: Path,
+) -> None:
     """The requested/resolved split: a nearest-lower match resolves
     DOWN, but the RAW requested string survives on `revision_requested`
     -- what a caller (the configure-log "requested -> resolved" line)
     needs to tell the two apart."""
     doc = _parsed(
-        tmp_path, "rig.yml",
+        tmp_path,
+        "rig.yml",
         "rig:\n"
         "  name: r\n"
         "  revision:\n"
@@ -152,7 +159,8 @@ def test_resolve_metadata_nearest_lower_match_keeps_requested_for_provenance(
         "    default: '1'\n"
         "    revisions:\n"
         "      - name: '1'\n"
-        "      - name: '2'\n")
+        "      - name: '2'\n",
+    )
     meta, diags = _resolve_metadata(doc, "99", None)
     assert diags == []
     assert meta.rig is not None
@@ -167,7 +175,8 @@ def test_resolve_metadata_reports_an_axis_collision(tmp_path: Path) -> None:
     than a word: a variant name has no format constraint, but a revision
     id must match its own declared format (number here)."""
     doc = _parsed(
-        tmp_path, "rig.yml",
+        tmp_path,
+        "rig.yml",
         "rig:\n"
         "  name: r\n"
         "  variants:\n"
@@ -177,7 +186,8 @@ def test_resolve_metadata_reports_an_axis_collision(tmp_path: Path) -> None:
         "    format: number\n"
         "    default: '9'\n"
         "    revisions:\n"
-        "      - name: '9'\n")
+        "      - name: '9'\n",
+    )
     meta, diags = _resolve_metadata(doc, None, None)
     assert meta.rig is not None
     assert any(d.code == "lang-variant" for d in diags)
@@ -196,9 +206,13 @@ def test_gather_content_rejects_a_missing_content_file(tmp_path: Path) -> None:
 
 
 def test_gather_content_reads_an_empty_content_file(tmp_path: Path) -> None:
-    content_path = _write(tmp_path, "r.yml", """\
+    content_path = _write(
+        tmp_path,
+        "r.yml",
+        """\
         instances: []
-        """)
+        """,
+    )
     rig = _rig()
     content, diags, deps = _gather_content(rig, str(tmp_path))
     assert diags == []
@@ -208,10 +222,15 @@ def test_gather_content_reads_an_empty_content_file(tmp_path: Path) -> None:
 
 
 def test_gather_content_a_nondefault_variant_contributing_nothing_is_rejected(
-        tmp_path: Path) -> None:
-    _write(tmp_path, "r.yml", """\
+    tmp_path: Path,
+) -> None:
+    _write(
+        tmp_path,
+        "r.yml",
+        """\
         instances: []
-        """)
+        """,
+    )
     rig = _rig(variant="b", variants=AxisDecl(values=["a", "b"], default="a"))
     _content, diags, _deps = _gather_content(rig, str(tmp_path))
     assert len(diags) == 1
@@ -219,14 +238,21 @@ def test_gather_content_a_nondefault_variant_contributing_nothing_is_rejected(
     assert "contributes nothing" in diags[0].message
 
 
-def test_gather_content_finds_and_carries_the_variant_delta_fragment(
-        tmp_path: Path) -> None:
-    content_path = _write(tmp_path, "r.yml", """\
+def test_gather_content_finds_and_carries_the_variant_delta_fragment(tmp_path: Path) -> None:
+    content_path = _write(
+        tmp_path,
+        "r.yml",
+        """\
         instances: []
-        """)
-    fragment_path = _write(tmp_path, "r_b.yml", """\
+        """,
+    )
+    fragment_path = _write(
+        tmp_path,
+        "r_b.yml",
+        """\
         instances: []
-        """)
+        """,
+    )
     rig = _rig(variant="b", variants=AxisDecl(values=["a", "b"], default="a"))
     content, diags, deps = _gather_content(rig, str(tmp_path))
     assert diags == []
@@ -236,14 +262,21 @@ def test_gather_content_finds_and_carries_the_variant_delta_fragment(
     assert deps == frozenset((str(content_path), str(fragment_path)))
 
 
-def test_gather_content_finds_and_carries_the_revision_delta_fragment(
-        tmp_path: Path) -> None:
-    content_path = _write(tmp_path, "r.yml", """\
+def test_gather_content_finds_and_carries_the_revision_delta_fragment(tmp_path: Path) -> None:
+    content_path = _write(
+        tmp_path,
+        "r.yml",
+        """\
         instances: []
-        """)
-    fragment_path = _write(tmp_path, "r_2.yml", """\
+        """,
+    )
+    fragment_path = _write(
+        tmp_path,
+        "r_2.yml",
+        """\
         instances: []
-        """)
+        """,
+    )
     rig = _rig(revision="2", revisions=AxisDecl(values=["1", "2"], default="1"))
     content, diags, deps = _gather_content(rig, str(tmp_path))
     assert diags == []
@@ -256,36 +289,49 @@ def test_gather_content_finds_and_carries_the_revision_delta_fragment(
 # ---------------------------------------------------------------- _build_topology
 
 
-def test_build_topology_resolves_an_instance_from_an_already_cached_shield(
-        tmp_path: Path) -> None:
+def test_build_topology_resolves_an_instance_from_an_already_cached_shield(tmp_path: Path) -> None:
     """`ShieldLibrary.resolve` cache-hits on a shield already present in
     `.shields` (`.axes[name] is None` -- no declared revisions: axis)
     without ever calling `parse_tu` (cpp) -- so a real Instance parse,
     including a wire between two of its nodes, stays cpp-free here."""
     from rigc.model import Pad, Shield
 
-    shield = Shield(name="sh", label="sh", plugs={"plug": "fixture-type"},
-                    pads={"a": Pad(name="a", label="a", role="driver", of=None),
-                          "b": Pad(name="b", label="b", role="listener", of=None)})
-    lib = ShieldLibrary(shields={"sh": shield}, axes={"sh": None}, pending={},
-                        ymls={}, types={}, workdir=str(tmp_path))
+    shield = Shield(
+        name="sh",
+        label="sh",
+        plugs={"plug": "fixture-type"},
+        pads={
+            "a": Pad(name="a", label="a", role="driver", of=None),
+            "b": Pad(name="b", label="b", role="listener", of=None),
+        },
+    )
+    lib = ShieldLibrary(
+        shields={"sh": shield},
+        axes={"sh": None},
+        pending={},
+        ymls={},
+        types={},
+        workdir=str(tmp_path),
+    )
     content_v = _parsed(
-        tmp_path, "content.yml",
+        tmp_path,
+        "content.yml",
         "instances:\n"
         "  - {name: i1, shield: sh, socket: s1}\n"
         "wires:\n"
-        "  - {from: i1.a, to: i1.b, route: adhoc}\n")
+        "  - {from: i1.a, to: i1.b, route: adhoc}\n",
+    )
     content = ContentResult(content_v=content_v, deltas=Deltas())
     rig = _rig()
     topology, diags, _deps = _build_topology(
-        rig, SocketBinding(), lib, content, str(tmp_path), None)
+        rig, SocketBinding(), lib, content, str(tmp_path), None
+    )
     assert diags == []
     assert [i.name for i in topology.instances()] == ["i1"]
     assert len(topology.wires) == 1
 
 
-def test_build_topology_unions_deps_across_variant_substitution(
-        tmp_path: Path) -> None:
+def test_build_topology_unions_deps_across_variant_substitution(tmp_path: Path) -> None:
     """RIG_DEPENDS records RESOLUTION HISTORY, not final topology --
     a variant stage that substitutes one
     instance's shield away must still leave the base stage's own
@@ -299,24 +345,21 @@ def test_build_topology_unions_deps_across_variant_substitution(
     sh_a = Shield(name="sh_a", label="sh_a", plugs={"plug": "fixture-type"})
     sh_b = Shield(name="sh_b", label="sh_b", plugs={"plug": "fixture-type"})
     lib = ShieldLibrary(
-        shields={"sh_a": sh_a, "sh_b": sh_b}, axes={"sh_a": None, "sh_b": None},
-        pending={}, ymls={"sh_a": "/fake/sh_a/shield.yml",
-                          "sh_b": "/fake/sh_b/shield.yml"},
-        types={}, workdir=str(tmp_path))
+        shields={"sh_a": sh_a, "sh_b": sh_b},
+        axes={"sh_a": None, "sh_b": None},
+        pending={},
+        ymls={"sh_a": "/fake/sh_a/shield.yml", "sh_b": "/fake/sh_b/shield.yml"},
+        types={},
+        workdir=str(tmp_path),
+    )
     content_v = _parsed(
-        tmp_path, "content.yml",
-        "instances:\n"
-        "  - {name: i1, shield: sh_a, socket: s1}\n")
-    variant_v = _parsed(
-        tmp_path, "variant.yml",
-        "instances:\n"
-        "  - {name: i1, shield: sh_b}\n")
-    content = ContentResult(content_v=content_v,
-                            deltas=Deltas(variant_v=variant_v))
+        tmp_path, "content.yml", "instances:\n  - {name: i1, shield: sh_a, socket: s1}\n"
+    )
+    variant_v = _parsed(tmp_path, "variant.yml", "instances:\n  - {name: i1, shield: sh_b}\n")
+    content = ContentResult(content_v=content_v, deltas=Deltas(variant_v=variant_v))
     rig = _rig(variant="v", variants=AxisDecl(values=["v"], default="v"))
 
-    topology, diags, deps = _build_topology(
-        rig, SocketBinding(), lib, content, str(tmp_path), None)
+    topology, diags, deps = _build_topology(rig, SocketBinding(), lib, content, str(tmp_path), None)
 
     assert diags == []
     assert [i.shield.name for i in topology.instances()] == ["sh_b"]
@@ -328,26 +371,23 @@ def test_build_topology_of_an_empty_content_document(tmp_path: Path) -> None:
     content = ContentResult(content_v=content_v, deltas=Deltas())
     rig = _rig()
     topology, diags, deps = _build_topology(
-        rig, SocketBinding(), _empty_lib(str(tmp_path)), content,
-        str(tmp_path), None)
+        rig, SocketBinding(), _empty_lib(str(tmp_path)), content, str(tmp_path), None
+    )
     assert diags == []
     assert topology.instances() == []
     assert topology.wires == []
     assert deps == frozenset()
 
 
-def test_build_topology_a_wire_naming_an_unknown_instance_is_rejected(
-        tmp_path: Path) -> None:
+def test_build_topology_a_wire_naming_an_unknown_instance_is_rejected(tmp_path: Path) -> None:
     content_v = _parsed(
-        tmp_path, "content.yml",
-        "instances: []\n"
-        "wires:\n"
-        "  - {from: a.x, to: b.y, route: adhoc}\n")
+        tmp_path, "content.yml", "instances: []\nwires:\n  - {from: a.x, to: b.y, route: adhoc}\n"
+    )
     content = ContentResult(content_v=content_v, deltas=Deltas())
     rig = _rig()
     topology, diags, _deps = _build_topology(
-        rig, SocketBinding(), _empty_lib(str(tmp_path)), content,
-        str(tmp_path), None)
+        rig, SocketBinding(), _empty_lib(str(tmp_path)), content, str(tmp_path), None
+    )
     assert topology.wires == []
     # both endpoints name an instance the (empty) topology doesn't have
     assert len(diags) == 2

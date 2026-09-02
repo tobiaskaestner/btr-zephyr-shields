@@ -15,6 +15,7 @@ name disagrees with the folder's basename; a duplicate name within one
 cases instead, and live alongside their siblings in
 test_emitted_rejects.py rather than here.
 """
+
 from __future__ import annotations
 
 import sys
@@ -33,8 +34,7 @@ _CONNECTOR_BINDINGS = FIXTURES_DIR / "dts" / "connectors"
 _CONNECTOR_INCLUDE = FIXTURES_DIR / "include"
 
 
-def test_two_names_from_one_folder_resolve_to_two_distinct_templates(
-        tmp_path: Path) -> None:
+def test_two_names_from_one_folder_resolve_to_two_distinct_templates(tmp_path: Path) -> None:
     """`shields/plural_pair/` declares `fx_alpha` and
     `fx_beta` -- a folder named neither -- and a rig instancing both by
     name loads, expands and emits, each resolving to its OWN `<name>.
@@ -45,21 +45,23 @@ def test_two_names_from_one_folder_resolve_to_two_distinct_templates(
     include_dirs = [_CONNECTOR_INCLUDE]
     connector_dirs = [_CONNECTOR_BINDINGS]
     shield_dirs = [_FIXTURE / "shields"]
-    assert_fixture_local(
-        [board_dts, *bindings_dirs, *include_dirs, *connector_dirs, *shield_dirs])
+    assert_fixture_local([board_dts, *bindings_dirs, *include_dirs, *connector_dirs, *shield_dirs])
 
     out_dir = tmp_path / "out"
     result = run_expand(
-        _FIXTURE / "rig.yml", out_dir,
+        _FIXTURE / "rig.yml",
+        out_dir,
         board="reference_board",
         shield_dirs=shield_dirs,
         board_dts=board_dts,
         bindings_dirs=bindings_dirs,
         include_dirs=include_dirs,
-        connector_dirs=connector_dirs)
+        connector_dirs=connector_dirs,
+    )
 
     assert result.returncode == 0, (
-        f"shield-plurality-accept: expected accept\n--- stderr ---\n{result.stderr}")
+        f"shield-plurality-accept: expected accept\n--- stderr ---\n{result.stderr}"
+    )
 
     overlay = (out_dir / "rig-gen.overlay").read_text()
     # Each instance's own device, resolved against its OWN socket -- proof

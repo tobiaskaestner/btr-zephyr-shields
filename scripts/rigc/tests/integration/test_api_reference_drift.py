@@ -38,6 +38,7 @@ law.py, test_dts_vocabulary_drift.py, test_golden_path_hygiene.py) rather
 than in a test_<module>.py, because its subject is the corpus (docs +
 source, together) rather than any one unit.
 """
+
 from __future__ import annotations
 
 import re
@@ -48,8 +49,7 @@ PROD_ROOT = REPO_ROOT / "scripts" / "rigc"
 API_DIR = REPO_ROOT / "doc" / "reference" / "api"
 
 #: `.. automodule:: rigc.some.module`, the only form these pages use.
-_AUTOMODULE_RE = re.compile(r"^\.\.\s+automodule::\s+([A-Za-z_][\w.]*)\s*$",
-                            re.MULTILINE)
+_AUTOMODULE_RE = re.compile(r"^\.\.\s+automodule::\s+([A-Za-z_][\w.]*)\s*$", re.MULTILINE)
 
 
 def _production_modules() -> set[str]:
@@ -101,7 +101,8 @@ def test_api_reference_forward_every_module_is_documented() -> None:
     missing = sorted(_production_modules() - set(_documented_modules()))
     assert not missing, (
         "module(s) under scripts/rigc/ with no `.. automodule::` on any "
-        f"doc/reference/api/ page: {missing}")
+        f"doc/reference/api/ page: {missing}"
+    )
 
 
 def test_api_reference_reverse_every_documented_module_exists() -> None:
@@ -110,11 +111,12 @@ def test_api_reference_reverse_every_documented_module_exists() -> None:
     suite too."""
     real = _production_modules()
     documented = _documented_modules()
-    invented = sorted(f"{name} ({', '.join(documented[name])})"
-                      for name in documented if name not in real)
+    invented = sorted(
+        f"{name} ({', '.join(documented[name])})" for name in documented if name not in real
+    )
     assert not invented, (
-        "doc/reference/api/ names module(s) that do not exist under "
-        f"scripts/rigc/: {invented}")
+        f"doc/reference/api/ names module(s) that do not exist under scripts/rigc/: {invented}"
+    )
 
 
 def test_api_reference_documents_each_module_exactly_once() -> None:
@@ -122,7 +124,7 @@ def test_api_reference_documents_each_module_exactly_once() -> None:
     twice, and every `:py:mod:`/`:py:func:` reference into it would then
     have two equally good targets."""
     documented = _documented_modules()
-    duplicated = sorted(f"{name} ({', '.join(pages)})"
-                        for name, pages in documented.items() if len(pages) > 1)
-    assert not duplicated, (
-        f"module(s) named by more than one doc/reference/api/ page: {duplicated}")
+    duplicated = sorted(
+        f"{name} ({', '.join(pages)})" for name, pages in documented.items() if len(pages) > 1
+    )
+    assert not duplicated, f"module(s) named by more than one doc/reference/api/ page: {duplicated}"

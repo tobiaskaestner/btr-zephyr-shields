@@ -29,6 +29,7 @@ returns NEW Wire values with the route resolved to a connector-type
 position INDEX, held only on `Solved.wires`. Every renderer below takes
 `solved` and never reaches back through `rig.wires`.
 """
+
 from __future__ import annotations
 
 import logging
@@ -56,8 +57,13 @@ from .sheet import render_sheet
 __all__ = ["emit", "write_artifacts"]
 
 
-def emit(rig: Rig, solved: Solved, types: dict[str, ConnectorType], workdir: str,
-         include_dirs: list[str] | None = None) -> dict[str, bytes]:
+def emit(
+    rig: Rig,
+    solved: Solved,
+    types: dict[str, ConnectorType],
+    workdir: str,
+    include_dirs: list[str] | None = None,
+) -> dict[str, bytes]:
     """Compute the rig artifacts (never context.cmake -- that is
     `context.render`, a build-glue concern kept out of this function by
     design) as a `{filename: bytes}` mapping. `include_dirs` is the cpp
@@ -76,15 +82,12 @@ def emit(rig: Rig, solved: Solved, types: dict[str, ConnectorType], workdir: str
     log.info("emit(): rig '%s'", rig.name)
     needed_includes = _needed_param_includes(rig)
     outputs = {
-        "rig-gen.overlay": render_overlay(
-            rig, solved, types, needed_includes).encode("utf-8"),
-        "config-sheet.md": render_sheet(rig, solved, types, workdir,
-                                        include_dirs).encode("utf-8"),
+        "rig-gen.overlay": render_overlay(rig, solved, types, needed_includes).encode("utf-8"),
+        "config-sheet.md": render_sheet(rig, solved, types, workdir, include_dirs).encode("utf-8"),
         "expectations.yml": render_expectations(rig, solved).encode("utf-8"),
     }
     if needed_includes:
-        outputs["rig-gen-includes.dtsi"] = _render_includes_dtsi(
-            needed_includes).encode("utf-8")
+        outputs["rig-gen-includes.dtsi"] = _render_includes_dtsi(needed_includes).encode("utf-8")
     for fname, content in outputs.items():
         log.debug("emit(): rendered %s (%d bytes)", fname, len(content))
     return outputs

@@ -29,6 +29,7 @@ from production on three of its four files -- see that directory's own
 comments) -- that copy predates this guard and is deliberately out of
 scope for it (see its own comments for why refreshing it is not a
 cleanup)."""
+
 from __future__ import annotations
 
 import sys
@@ -83,13 +84,15 @@ def test_vendored_connector_membership_matches_production() -> None:
         f"dts/bindings/connectors/ now holds {sorted(production)}, expected "
         f"{sorted(_EXPECTED_TYPES)} -- a connector type was added or removed; "
         "update _EXPECTED_TYPES deliberately, and vendor (or un-vendor) the "
-        f"matching copy under {_VENDORED_YAML_DIR}")
+        f"matching copy under {_VENDORED_YAML_DIR}"
+    )
     vendored = _yaml_stems(_VENDORED_YAML_DIR)
     assert vendored == production, (
         f"vendored connector set {sorted(vendored)} != production "
         f"{sorted(production)} under {_PRODUCTION_YAML_DIR} -- a connector "
         f"type was added to production with no matching vendored copy under "
-        f"{_VENDORED_YAML_DIR} (see that directory's own README.md)")
+        f"{_VENDORED_YAML_DIR} (see that directory's own README.md)"
+    )
 
 
 def test_vendored_connector_bindings_are_byte_identical_to_production() -> None:
@@ -105,11 +108,13 @@ def test_vendored_connector_bindings_are_byte_identical_to_production() -> None:
         assert vend_yaml.read_bytes() == prod_yaml.read_bytes(), (
             f"{vend_yaml} has drifted from {prod_yaml} -- refresh the "
             "vendored copy deliberately, or investigate why production "
-            "changed")
+            "changed"
+        )
 
         prod_header = _PRODUCTION_HEADER_DIR / f"{name}.h"
         vend_header = _VENDORED_HEADER_DIR / f"{name}.h"
         assert vend_header.read_bytes() == prod_header.read_bytes(), (
             f"{vend_header} has drifted from {prod_header} -- refresh the "
             "vendored copy deliberately, or investigate why production "
-            "changed")
+            "changed"
+        )

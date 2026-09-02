@@ -15,6 +15,7 @@ below derives the python-devicetree path from it).
 NOTE ON LOCATION: this lives in the source tree (btr-shields/scripts/), NOT in
 a `west build -d` output directory — build dirs are wiped by `-p always`.
 """
+
 from __future__ import annotations
 
 import os
@@ -24,8 +25,10 @@ import sys
 # ZEPHYR_BASE (pointing at your zephyr tree) before running this tool.
 _ZEPHYR_BASE = os.environ.get("ZEPHYR_BASE")
 if not _ZEPHYR_BASE:
-    sys.exit("dts_equiv: $ZEPHYR_BASE is not set — export it (pointing at your "
-             "zephyr tree) so dtlib can be located.")
+    sys.exit(
+        "dts_equiv: $ZEPHYR_BASE is not set — export it (pointing at your "
+        "zephyr tree) so dtlib can be located."
+    )
 _DTLIB_SRC = os.path.join(_ZEPHYR_BASE, "scripts", "dts", "python-devicetree", "src")
 if _DTLIB_SRC not in sys.path:
     sys.path.insert(0, _DTLIB_SRC)
@@ -35,7 +38,7 @@ from devicetree.dtlib import DT, Type, _MarkerType  # noqa: E402
 
 def _words(value: bytes):
     for i in range(0, len(value) - len(value) % 4, 4):
-        yield i, int.from_bytes(value[i:i + 4], "big")
+        yield i, int.from_bytes(value[i : i + 4], "big")
 
 
 def canon_prop(prop, dt):
@@ -64,8 +67,7 @@ def canon_prop(prop, dt):
         return ("refs", tuple(n.path for n in prop.to_nodes()))
     # PHANDLES_AND_NUMS / COMPOUND: walk the raw cells, resolving the
     # word-offsets that carry a phandle to their target node PATH.
-    phandle_offsets = {m[0] for m in prop._markers
-                       if m[1] == _MarkerType.PHANDLE}
+    phandle_offsets = {m[0] for m in prop._markers if m[1] == _MarkerType.PHANDLE}
     seq = []
     for off, word in _words(prop.value):
         if off in phandle_offsets:
@@ -77,8 +79,7 @@ def canon_prop(prop, dt):
 
 def node_props(node, dt):
     # `phandle` is bookkeeping (the integer identity), never structural.
-    return {name: canon_prop(p, dt)
-            for name, p in node.props.items() if name != "phandle"}
+    return {name: canon_prop(p, dt) for name, p in node.props.items() if name != "phandle"}
 
 
 def index(dt):
@@ -112,15 +113,17 @@ def main(argv):
     print(f"nodes only in candidate (added by the rig): {len(only_c)}")
     for p in only_c:
         print(f"    + {p}")
-    print(f"shared nodes with property differences: "
-          f"{len({p for p, *_ in prop_diffs})}")
+    print(f"shared nodes with property differences: {len({p for p, *_ in prop_diffs})}")
     for path, name, gv, cv in prop_diffs:
-        print(f"    ~ {path}  '{name}'\n        golden:    {gv}\n"
-              f"        candidate: {cv}")
+        print(f"    ~ {path}  '{name}'\n        golden:    {gv}\n        candidate: {cv}")
 
     equivalent = not only_g and not only_c and not prop_diffs
-    print("\nVERDICT:", "EQUIVALENT" if equivalent else
-          "DIFFERENCES REMAIN (see above; some may be justified divergences)")
+    print(
+        "\nVERDICT:",
+        "EQUIVALENT"
+        if equivalent
+        else "DIFFERENCES REMAIN (see above; some may be justified divergences)",
+    )
     return 0 if equivalent else 1
 
 

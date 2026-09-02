@@ -10,6 +10,7 @@ introduces it), a sequence item's own line -- proven byte-exact against
 the frozen goldens, which this module's diagnostics depend on staying
 that way.
 """
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -51,8 +52,7 @@ def _walk(node: Any, path: str, fname: str) -> Val:
             m[key] = _walk(v, f"{path}.{key}" if path else key, fname)
         return Val(m, src)
     if isinstance(node, yaml.SequenceNode):
-        return Val([_walk(v, f"{path}[{i}]", fname)
-                    for i, v in enumerate(node.value)], src)
+        return Val([_walk(v, f"{path}[{i}]", fname) for i, v in enumerate(node.value)], src)
     return Val(_scalar(node), src)
 
 
@@ -95,9 +95,9 @@ def require(mapping: Val, key: str, ctx: str) -> tuple[Val | None, list[Diagnost
     single missing-key error."""
     m = as_mapping(mapping, ctx)
     if key not in m:
-        return None, [error(
-            "lang-schema", f"{ctx}: required key '{key}' is missing",
-            (mapping.src,))]
+        return None, [
+            error("lang-schema", f"{ctx}: required key '{key}' is missing", (mapping.src,))
+        ]
     return m[key], []
 
 

@@ -3,6 +3,7 @@ allocation order is socket, then instance, then device, never rig-file
 declaration order. It needs only a plain Instance/Device pair plus the
 instance's own resolved BoardSocket -- no Shield/Rig/Board -- so ordering
 is asserted directly against constructed values, not a scenario."""
+
 from __future__ import annotations
 
 from rigc.analyzer.ordering import allocation_key
@@ -10,23 +11,30 @@ from rigc.model import BoardSocket, Device, Instance, Shield
 
 
 def _inst(name: str, socket: str | None) -> Instance:
-    return Instance(name=name, shield=Shield(name="s", label="s", plugs={"plug": "t"}),
-                    sockets={"plug": socket})
+    return Instance(
+        name=name, shield=Shield(name="s", label="s", plugs={"plug": "t"}), sockets={"plug": socket}
+    )
 
 
 def _dev(name: str) -> Device:
-    return Device(name=name, label=name, compatible=None, bus=None,
-                 group=None, reg=None, addr_from=None, cs_position=None)
+    return Device(
+        name=name,
+        label=name,
+        compatible=None,
+        bus=None,
+        group=None,
+        reg=None,
+        addr_from=None,
+        cs_position=None,
+    )
 
 
 def _socket(label: str) -> BoardSocket:
-    return BoardSocket(label=label, path=f"/{label}", type_name="t",
-                       gpio_map={}, buses={})
+    return BoardSocket(label=label, path=f"/{label}", type_name="t", gpio_map={}, buses={})
 
 
 def test_key_is_socket_then_instance_then_device() -> None:
-    assert allocation_key(_inst("i", "sock"), _dev("d"), _socket("sock")) == (
-        "sock", "i", "d")
+    assert allocation_key(_inst("i", "sock"), _dev("d"), _socket("sock")) == ("sock", "i", "d")
 
 
 def test_ordering_is_by_socket_first_regardless_of_declaration_order() -> None:
@@ -51,8 +59,7 @@ def test_ordering_breaks_ties_by_instance_name_then_device_name() -> None:
 
     ordered = sorted(members, key=lambda m: allocation_key(m[0], m[1], m[2]))
 
-    assert [(i.name, d.name) for i, d, _sock in ordered] == [
-        ("a", "z"), ("b", "x"), ("b", "y")]
+    assert [(i.name, d.name) for i, d, _sock in ordered] == [("a", "z"), ("b", "x"), ("b", "y")]
 
 
 def test_ordering_never_reads_rig_file_declaration_order() -> None:
@@ -74,5 +81,4 @@ def test_key_falls_back_to_the_resolved_socket_label_when_none_was_declared() ->
     only fallback that keeps allocation order stable and independent of
     which physical socket inference happened to pick (declared-else-
     resolved, the same shape config-sheet.md uses)."""
-    assert allocation_key(_inst("i", None), _dev("d"), _socket("ard")) == (
-        "ard", "i", "d")
+    assert allocation_key(_inst("i", None), _dev("d"), _socket("ard")) == ("ard", "i", "d")

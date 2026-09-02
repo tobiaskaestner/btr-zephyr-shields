@@ -32,6 +32,7 @@ Refreeze: RIGC_REFREEZE=1 rewrites tests/goldens/<rig-name>/zephyr.dts
 (ACCEPT rigs only) instead of comparing — inspect the diff before committing,
 same rule as an emitted golden.
 """
+
 from __future__ import annotations
 
 import os
@@ -81,9 +82,9 @@ pytestmark = pytest.mark.build
 _APP = "zephyr/samples/hello_world"
 
 
-def _run_build(rig_name: str, build_dir: Path,
-                extra_defines: list[str] | None = None,
-                board: str | None = None) -> subprocess.CompletedProcess[str]:
+def _run_build(
+    rig_name: str, build_dir: Path, extra_defines: list[str] | None = None, board: str | None = None
+) -> subprocess.CompletedProcess[str]:
     """west build --cmake-only for one rig, with -DRIG=<rig_name> threaded
     after -- -- the surviving cmake entry point now that `west build-rig`
     is retired. Equivalent BY CONSTRUCTION, not merely by intent: that
@@ -107,14 +108,25 @@ def _run_build(rig_name: str, build_dir: Path,
     if board is not None:
         cmd += ["-b", board]
     cmd += [
-        _APP, "--cmake-only", "-p", "always", "-d", str(build_dir),
-        "--", f"-DRIG={rig_name}",
+        _APP,
+        "--cmake-only",
+        "-p",
+        "always",
+        "-d",
+        str(build_dir),
+        "--",
+        f"-DRIG={rig_name}",
     ]
     if extra_defines:
         cmd += extra_defines
-    return subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=dict(os.environ),
-                           capture_output=True, text=True,
-                           timeout=subprocess_timeout(600))
+    return subprocess.run(
+        cmd,
+        cwd=str(WEST_TOPDIR),
+        env=dict(os.environ),
+        capture_output=True,
+        text=True,
+        timeout=subprocess_timeout(600),
+    )
 
 
 @pytest.mark.parametrize("case", ACCEPT_CASES, ids=lambda c: c.name)
@@ -125,7 +137,8 @@ def test_resolved_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
     assert result.returncode == 0, (
         f"{case.name}: expected `west build --cmake-only` to configure "
         f"clean (an ACCEPT rig)\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"--- stderr ---\n{result.stderr}"
+    )
 
     candidate = build_dir / "zephyr" / "zephyr.dts"
     assert candidate.is_file(), f"{case.name}: no zephyr.dts at {candidate}"
@@ -137,23 +150,25 @@ def test_resolved_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
         return
 
     if not golden.is_file():
-        pytest.fail(
-            f"golden missing: {golden} (run with RIGC_REFREEZE=1 to create it)")
+        pytest.fail(f"golden missing: {golden} (run with RIGC_REFREEZE=1 to create it)")
 
     zb = zephyr_base()
     check = subprocess.run(
         [sys.executable, str(DTS_EQUIV), str(golden), str(candidate)],
         env={**os.environ, "ZEPHYR_BASE": zb},
-        capture_output=True, text=True)
+        capture_output=True,
+        text=True,
+    )
     assert check.returncode == 0, (
         f"{case.name}: zephyr.dts not structurally equivalent to the golden "
-        f"(dts_equiv.py):\n--- argv ---\n{render_argv(check)}\n{check.stdout}\n{check.stderr}")
+        f"(dts_equiv.py):\n--- argv ---\n{render_argv(check)}\n{check.stdout}\n{check.stderr}"
+    )
 
 
 # ---------------------------------------------------------------- qualified pilot builds
 
-def _build_and_freeze_dts(rig_target: str, golden_name: str, board: str,
-                          tmp_path: Path) -> Path:
+
+def _build_and_freeze_dts(rig_target: str, golden_name: str, board: str, tmp_path: Path) -> Path:
     """Shared body for the pilot family's three NON-default qualified tuples
     (the bare tuple already rides test_resolved_accept_zephyr_dts via
     ACCEPT_CASES's pilot_variants entry, above) -- -DRIG= accepts a FULL
@@ -173,7 +188,8 @@ def _build_and_freeze_dts(rig_target: str, golden_name: str, board: str,
     result = _run_build(rig_target, build_dir, board=board)
     assert result.returncode == 0, (
         f"{rig_target}: expected `west build --cmake-only` to configure "
-        f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+        f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
+    )
 
     candidate = build_dir / "zephyr" / "zephyr.dts"
     assert candidate.is_file(), f"{rig_target}: no zephyr.dts at {candidate}"
@@ -185,17 +201,19 @@ def _build_and_freeze_dts(rig_target: str, golden_name: str, board: str,
         return build_dir
 
     if not golden.is_file():
-        pytest.fail(
-            f"golden missing: {golden} (run with RIGC_REFREEZE=1 to create it)")
+        pytest.fail(f"golden missing: {golden} (run with RIGC_REFREEZE=1 to create it)")
 
     zb = zephyr_base()
     check = subprocess.run(
         [sys.executable, str(DTS_EQUIV), str(golden), str(candidate)],
         env={**os.environ, "ZEPHYR_BASE": zb},
-        capture_output=True, text=True)
+        capture_output=True,
+        text=True,
+    )
     assert check.returncode == 0, (
         f"{rig_target}: zephyr.dts not structurally equivalent to the "
-        f"golden (dts_equiv.py):\n--- argv ---\n{render_argv(check)}\n{check.stdout}\n{check.stderr}")
+        f"golden (dts_equiv.py):\n--- argv ---\n{render_argv(check)}\n{check.stdout}\n{check.stderr}"
+    )
     return build_dir
 
 
@@ -203,15 +221,19 @@ def test_resolved_pilot_variant_b(tmp_path: Path) -> None:
     """variant_b @ revision 1: the variant's own .overlay must actually
     reach the real build (dts_equiv.py's structural comparison is what
     proves it, not just a text diff on the generated overlay)."""
-    _build_and_freeze_dts("pilot_variants/variant_b",
-                          "pilot_variants_variant_b",
-                          RIG_BOARD["pilot_variants"], tmp_path)
+    _build_and_freeze_dts(
+        "pilot_variants/variant_b",
+        "pilot_variants_variant_b",
+        RIG_BOARD["pilot_variants"],
+        tmp_path,
+    )
 
 
 def test_resolved_pilot_revision_2(tmp_path: Path) -> None:
     """variant_a (default) @ revision 2."""
-    _build_and_freeze_dts("pilot_variants@2", "pilot_variants_2",
-                          RIG_BOARD["pilot_variants"], tmp_path)
+    _build_and_freeze_dts(
+        "pilot_variants@2", "pilot_variants_2", RIG_BOARD["pilot_variants"], tmp_path
+    )
 
 
 def test_resolved_pilot_variant_b_revision_2(tmp_path: Path) -> None:
@@ -228,29 +250,37 @@ def test_resolved_pilot_variant_b_revision_2(tmp_path: Path) -> None:
     variant_b's own overlay marker node AND the combined fragment's own
     marker node must be visible in the generated zephyr.dts."""
     build_dir = _build_and_freeze_dts(
-        "pilot_variants@2/variant_b", "pilot_variants_variant_b_2",
-        RIG_BOARD["pilot_variants"], tmp_path)
+        "pilot_variants@2/variant_b",
+        "pilot_variants_variant_b_2",
+        RIG_BOARD["pilot_variants"],
+        tmp_path,
+    )
 
     dotconfig = (build_dir / "zephyr" / ".config").read_text()
     assert "CONFIG_MAIN_STACK_SIZE=2222" in dotconfig, (
         "variant_b's own _defconfig symbol is missing from .config -- the "
-        f"variant Kconfig fragment was not collected\n--- .config ---\n{dotconfig}")
+        f"variant Kconfig fragment was not collected\n--- .config ---\n{dotconfig}"
+    )
     assert "CONFIG_HEAP_MEM_POOL_SIZE=256" in dotconfig, (
         "revision 2's own _defconfig symbol is missing from .config -- the "
-        f"revision Kconfig fragment was not collected\n--- .config ---\n{dotconfig}")
+        f"revision Kconfig fragment was not collected\n--- .config ---\n{dotconfig}"
+    )
     assert "CONFIG_ISR_STACK_SIZE=3333" in dotconfig, (
         "the COMBINED (variant, revision) _defconfig symbol is missing "
         f"from .config -- the combined fragment was not collected\n"
-        f"--- .config ---\n{dotconfig}")
+        f"--- .config ---\n{dotconfig}"
+    )
 
     zephyr_dts = (build_dir / "zephyr" / "zephyr.dts").read_text()
     assert "pilot-variant-b-marker" in zephyr_dts, (
         "variant_b's own .overlay marker node is missing from zephyr.dts -- "
-        f"the variant DT fragment was not collected\n--- zephyr.dts ---\n{zephyr_dts}")
+        f"the variant DT fragment was not collected\n--- zephyr.dts ---\n{zephyr_dts}"
+    )
     assert "pilot-combined-marker" in zephyr_dts, (
         "the COMBINED (variant, revision) .overlay marker node is missing "
         f"from zephyr.dts -- the combined DT fragment was not collected\n"
-        f"--- zephyr.dts ---\n{zephyr_dts}")
+        f"--- zephyr.dts ---\n{zephyr_dts}"
+    )
 
 
 def test_resolved_shield_rev_family_revision_2(tmp_path: Path) -> None:
@@ -262,20 +292,22 @@ def test_resolved_shield_rev_family_revision_2(tmp_path: Path) -> None:
     reports the resolved shield revision through context.cmake, dts.cmake
     turns that into a collected <name>_<rev>.conf), not just the loader."""
     build_dir = _build_and_freeze_dts(
-        "shield_rev_family@2", "shield_rev_family_2",
-        RIG_BOARD["shield_rev_family"], tmp_path)
+        "shield_rev_family@2", "shield_rev_family_2", RIG_BOARD["shield_rev_family"], tmp_path
+    )
 
     zephyr_dts = (build_dir / "zephyr" / "zephyr.dts").read_text()
     assert "vnd,temp0x48v2" in zephyr_dts, (
         "the shield's revision-2 compatible is missing from zephyr.dts -- "
         f"the rig revision's delta did not select it\n"
-        f"--- zephyr.dts ---\n{zephyr_dts}")
+        f"--- zephyr.dts ---\n{zephyr_dts}"
+    )
 
     dotconfig = (build_dir / "zephyr" / ".config").read_text()
     assert "CONFIG_MAIN_STACK_SIZE=2600" in dotconfig, (
         "i2c_sensor_2.conf's own symbol is missing from .config -- a shield "
         "revision selected BY A RIG REVISION did not reach the shield "
-        f"Kconfig tail\n--- .config ---\n{dotconfig}")
+        f"Kconfig tail\n--- .config ---\n{dotconfig}"
+    )
 
 
 def test_resolved_pilot_variant_c_shield_substitution(tmp_path: Path) -> None:
@@ -287,25 +319,32 @@ def test_resolved_pilot_variant_c_shield_substitution(tmp_path: Path) -> None:
     the SUBSTITUTED shield's own node/property must be present, and the
     ORIGINAL shield's devices must be completely gone."""
     build_dir = _build_and_freeze_dts(
-        "pilot_variants/variant_c", "pilot_variants_variant_c",
-        RIG_BOARD["pilot_variants"], tmp_path)
+        "pilot_variants/variant_c",
+        "pilot_variants_variant_c",
+        RIG_BOARD["pilot_variants"],
+        tmp_path,
+    )
 
     zephyr_dts = (build_dir / "zephyr" / "zephyr.dts").read_text()
     assert "logger_pab_key" in zephyr_dts, (
         "the substituted shield's own device (logger_pab_key) is missing "
-        f"from zephyr.dts\n--- zephyr.dts ---\n{zephyr_dts}")
+        f"from zephyr.dts\n--- zephyr.dts ---\n{zephyr_dts}"
+    )
     # dtc always renders integers as hex in its own output.
     assert "zephyr,code = < 0x5 >;" in zephyr_dts, (
         "the variant delta's own wholesale params replace (zephyr,code=5) "
-        f"did not reach the real build\n--- zephyr.dts ---\n{zephyr_dts}")
+        f"did not reach the real build\n--- zephyr.dts ---\n{zephyr_dts}"
+    )
     assert "logger_dl_rtc" not in zephyr_dts, (
         "the ORIGINAL shield's device (logger_dl_rtc, Adafruit Data "
         "Logger's RTC) is still present -- the shield substitution did "
-        f"not actually replace the topology\n--- zephyr.dts ---\n{zephyr_dts}")
+        f"not actually replace the topology\n--- zephyr.dts ---\n{zephyr_dts}"
+    )
     assert "logger_dl_sd" not in zephyr_dts, (
         "the ORIGINAL shield's SD device is still present -- the shield "
         f"substitution did not actually replace the topology\n"
-        f"--- zephyr.dts ---\n{zephyr_dts}")
+        f"--- zephyr.dts ---\n{zephyr_dts}"
+    )
 
 
 def test_resolved_pilot_build_info_provenance(tmp_path: Path) -> None:
@@ -314,12 +353,12 @@ def test_resolved_pilot_build_info_provenance(tmp_path: Path) -> None:
     same assertion shape as test_resolved_build_info_rig_provenance above,
     the established pattern for inspecting this block."""
     build_dir = tmp_path / "build"
-    result = _run_build("pilot_variants@2/variant_b", build_dir,
-                        board=RIG_BOARD["pilot_variants"])
+    result = _run_build("pilot_variants@2/variant_b", build_dir, board=RIG_BOARD["pilot_variants"])
     assert result.returncode == 0, (
         f"pilot_variants@2/variant_b: expected `west build --cmake-only` "
         f"to configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"--- stderr ---\n{result.stderr}"
+    )
 
     with open(build_dir / "build_info.yml") as f:
         build_info = yaml.safe_load(f)
@@ -336,6 +375,7 @@ def test_resolved_pilot_build_info_provenance(tmp_path: Path) -> None:
 
 # ---------------------------------------------------------------- shield revisions
 
+
 def test_resolved_shield_revision_conf_collected(tmp_path: Path) -> None:
     """THE EVIDENCE the shield-revision Kconfig-collection claim needs:
     inspects the real build's OWN
@@ -345,25 +385,26 @@ def test_resolved_shield_revision_conf_collected(tmp_path: Path) -> None:
     revision after, matching the DT layering) -- distinguishable from any
     rig-level fragment's own MAIN_STACK_SIZE choice by its value alone."""
     build_dir = tmp_path / "build"
-    result = _run_build("shield_rev_pilot", build_dir,
-                        board=RIG_BOARD["shield_rev_pilot"])
+    result = _run_build("shield_rev_pilot", build_dir, board=RIG_BOARD["shield_rev_pilot"])
     assert result.returncode == 0, (
         f"shield_rev_pilot: expected `west build --cmake-only` to "
         f"configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"--- stderr ---\n{result.stderr}"
+    )
 
     dotconfig = (build_dir / "zephyr" / ".config").read_text()
     assert "CONFIG_MAIN_STACK_SIZE=2600" in dotconfig, (
         "i2c_sensor_2.conf's own symbol is missing from .config -- the "
         f"selected shield revision's Kconfig fragment was not collected\n"
-        f"--- .config ---\n{dotconfig}")
+        f"--- .config ---\n{dotconfig}"
+    )
 
     with open(build_dir / "build_info.yml") as f:
         build_info = yaml.safe_load(f)
     rig = build_info["cmake"]["vendor-specific"]["rig"]
     assert rig["shield-revisions"] == "i2c_sensor@2", (
-        f"build_info rig.shield-revisions must record the selected shield "
-        f"revision: {rig!r}")
+        f"build_info rig.shield-revisions must record the selected shield revision: {rig!r}"
+    )
 
 
 @pytest.mark.parametrize("case", REJECT_CASES, ids=lambda c: c.name)
@@ -372,15 +413,16 @@ def test_resolved_reject_configure_fails(case: RigCase, tmp_path: Path) -> None:
     extra = board_extra_defines(case.board)
     result = _run_build(case.name, build_dir, extra, board=case.board)
     assert result.returncode != 0, (
-        f"{case.name}: expected `west build --cmake-only` to FAIL (a "
-        f"REJECT rig) but it exited 0")
+        f"{case.name}: expected `west build --cmake-only` to FAIL (a REJECT rig) but it exited 0"
+    )
 
     combined = f"{render_argv(result)}\n" + result.stdout + result.stderr
-    assert case.category is not None   # every REJECT case declares one
+    assert case.category is not None  # every REJECT case declares one
     assert f"[{case.category}]" in combined, (
         f"{case.name}: expected diagnostic category [{case.category}] in "
         f"the build output -- the same category must surface through the "
-        f"full west/CMake path, not just the standalone expander\n{combined}")
+        f"full west/CMake path, not just the standalone expander\n{combined}"
+    )
 
 
 def test_resolved_user_extra_conf_wins_over_rig(tmp_path: Path) -> None:
@@ -401,22 +443,28 @@ def test_resolved_user_extra_conf_wins_over_rig(tmp_path: Path) -> None:
     user_conf.write_text("CONFIG_I2C_TCA954X_ROOT_INIT_PRIO=55\n")
 
     build_dir = tmp_path / "build"
-    result = _run_build("nucleo_mux_farm", build_dir,
-                        [f"-DEXTRA_CONF_FILE={user_conf}"],
-                        board=RIG_BOARD["nucleo_mux_farm"])
+    result = _run_build(
+        "nucleo_mux_farm",
+        build_dir,
+        [f"-DEXTRA_CONF_FILE={user_conf}"],
+        board=RIG_BOARD["nucleo_mux_farm"],
+    )
     assert result.returncode == 0, (
         f"nucleo_mux_farm: expected `west build --cmake-only` with a "
         f"user -DEXTRA_CONF_FILE to configure clean\n--- stdout ---\n"
-        f"{result.stdout}\n--- stderr ---\n{result.stderr}")
+        f"{result.stdout}\n--- stderr ---\n{result.stderr}"
+    )
 
     dotconfig = (build_dir / "zephyr" / ".config").read_text()
     assert "CONFIG_I2C_TCA954X_ROOT_INIT_PRIO=55" in dotconfig, (
         "user -DEXTRA_CONF_FILE must win over the rig's own "
         "nucleo_mux_farm_defconfig (CONFIG_I2C_TCA954X_ROOT_INIT_PRIO=61)\n"
-        f"--- .config ---\n{dotconfig}")
+        f"--- .config ---\n{dotconfig}"
+    )
     assert "CONFIG_I2C_TCA954X_ROOT_INIT_PRIO=61" not in dotconfig, (
         f"the rig's own value leaked into .config alongside the user's\n"
-        f"--- .config ---\n{dotconfig}")
+        f"--- .config ---\n{dotconfig}"
+    )
 
 
 def test_resolved_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
@@ -436,7 +484,8 @@ def test_resolved_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
     result = _run_build("lotus_pwm", build_dir, extra, board=RIG_BOARD["lotus_pwm"])
     assert result.returncode == 0, (
         f"lotus_pwm: expected `west build --cmake-only` to configure "
-        f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+        f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
+    )
 
     with open(build_dir / "zephyr" / "edt.pickle", "rb") as f:
         edt = pickle.load(f)
@@ -445,22 +494,27 @@ def test_resolved_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
     servo = nodes["/servo_1/servo"]
     assert len(servo.props["pwms"].val) == 1, (
         "servo pwms must resolve to exactly ONE entry — a trailing bogus "
-        "element means a flags cell crept back into the 2-cell emission")
+        "element means a flags cell crept back into the 2-cell emission"
+    )
     pwm_spec = servo.props["pwms"].val[0]
     assert "tcc0" in pwm_spec.controller.labels, (
-        f"servo pwms resolved to {pwm_spec.controller!r}, expected tcc0")
+        f"servo pwms resolved to {pwm_spec.controller!r}, expected tcc0"
+    )
     assert pwm_spec.data == {"channel": 0, "period": 20000000}, (
-        f"servo pwms resolved to {pwm_spec.data!r}, expected "
-        "channel 0 / period 20000000ns")
+        f"servo pwms resolved to {pwm_spec.data!r}, expected channel 0 / period 20000000ns"
+    )
 
     light = nodes["/light_1/light"]
     assert len(light.props["io-channels"].val) == 1, (
-        "light io-channels must resolve to exactly ONE entry")
+        "light io-channels must resolve to exactly ONE entry"
+    )
     adc_spec = light.props["io-channels"].val[0]
     assert "adc0" in adc_spec.controller.labels, (
-        f"light io-channels resolved to {adc_spec.controller!r}, expected adc0")
+        f"light io-channels resolved to {adc_spec.controller!r}, expected adc0"
+    )
     assert adc_spec.data == {"input": 0}, (
-        f"light io-channels resolved to {adc_spec.data!r}, expected input 0")
+        f"light io-channels resolved to {adc_spec.data!r}, expected input 0"
+    )
 
 
 def test_resolved_build_info_rig_provenance(tmp_path: Path) -> None:
@@ -478,7 +532,8 @@ def test_resolved_build_info_rig_provenance(tmp_path: Path) -> None:
     result = _run_build("frdm_eth_nest", build_dir, board=RIG_BOARD["frdm_eth_nest"])
     assert result.returncode == 0, (
         f"frdm_eth_nest: expected `west build --cmake-only` to configure "
-        f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+        f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
+    )
 
     with open(build_dir / "build_info.yml") as f:
         build_info = yaml.safe_load(f)
@@ -493,15 +548,14 @@ def test_resolved_build_info_rig_provenance(tmp_path: Path) -> None:
     # variants: axis at all, unlike RIG_REVISION/RIG_VARIANT's "no
     # declaration, no key" precedent, since every rig has exactly one
     # content file regardless of what axes it declares.
-    assert rig["content-yml"].endswith(
-        "boards/rigs/frdm_eth_nest/frdm_eth_nest.yml")
-    assert rig["board-dts"].endswith(
-        "boards/extend/nxp/frdm_k64f/frdm_k64f_mk64f12_rig.dts")
+    assert rig["content-yml"].endswith("boards/rigs/frdm_eth_nest/frdm_eth_nest.yml")
+    assert rig["board-dts"].endswith("boards/extend/nxp/frdm_k64f/frdm_k64f_mk64f12_rig.dts")
 
     shields = {s.strip() for s in rig["shields"].split(",")}
     assert shields == {"arduino_uno_click", "eth_click"}, (
         f"rig-provenance 'shields' must list BOTH distinct shields "
-        f"(not truncated to the first): {rig['shields']!r}")
+        f"(not truncated to the first): {rig['shields']!r}"
+    )
     assert "arduino_uno_click" in rig["shield-dirs"]
     assert "eth_click" in rig["shield-dirs"]
     assert Path(rig["out-dir"]).is_dir()
@@ -529,11 +583,14 @@ def test_resolved_build_info_shield_dir_collision(tmp_path: Path) -> None:
     assert result.returncode == 0, (
         f"nucleo_datalogger: expected `west build --cmake-only` to "
         f"configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"--- stderr ---\n{result.stderr}"
+    )
     assert "shield name 'adafruit_data_logger' is offered by" not in (
-        result.stdout + result.stderr), (
+        result.stdout + result.stderr
+    ), (
         "unexpected ambiguity warning -- the marker-preference rule should "
-        "have resolved this collision silently")
+        "have resolved this collision silently"
+    )
 
     with open(build_dir / "build_info.yml") as f:
         build_info = yaml.safe_load(f)
@@ -545,12 +602,14 @@ def test_resolved_build_info_shield_dir_collision(tmp_path: Path) -> None:
         f"shield-dirs must record btr-shields' OWN adafruit_data_logger "
         f"folder (the rig-template one, marked by "
         f"adafruit_data_logger.shield), not $ZEPHYR_BASE's stock shield of "
-        f"the same name: {shield_dir!r}")
+        f"the same name: {shield_dir!r}"
+    )
     zb = zephyr_base()
     assert not shield_dir.startswith(zb), (
         f"shield-dirs resolved into $ZEPHYR_BASE ({zb}) -- the stock, "
         f"non-rig-template adafruit_data_logger folder won the collision: "
-        f"{shield_dir!r}")
+        f"{shield_dir!r}"
+    )
 
 
 def test_resolved_rig_depends_provenance(tmp_path: Path) -> None:
@@ -575,21 +634,22 @@ def test_resolved_rig_depends_provenance(tmp_path: Path) -> None:
     result = _run_build("lotus_pwm", build_dir, extra, board=RIG_BOARD["lotus_pwm"])
     assert result.returncode == 0, (
         f"lotus_pwm: expected `west build --cmake-only` to configure "
-        f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}")
+        f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
+    )
 
     context_cmake = (build_dir / "rig" / "context.cmake").read_text()
     depends_line = next(
-        (line for line in context_cmake.splitlines() if "RIG_DEPENDS" in line),
-        None)
-    assert depends_line is not None, (
-        f"no RIG_DEPENDS in generated context.cmake:\n{context_cmake}")
+        (line for line in context_cmake.splitlines() if "RIG_DEPENDS" in line), None
+    )
+    assert depends_line is not None, f"no RIG_DEPENDS in generated context.cmake:\n{context_cmake}"
 
     assert "boards/rigs/lotus_pwm/rig.yml" in depends_line
     assert "boards/rigs/lotus_pwm/lotus_pwm.yml" in depends_line
     assert "boards/shields/grove_servo/grove_servo.shield" in depends_line
     assert "dts/bindings/connectors/grove.yaml" in depends_line
-    assert ("boards/extend/seeed/seeeduino_lotus/"
-            "seeeduino_lotus_samd21g18a_rig.dts") in depends_line
+    assert (
+        "boards/extend/seeed/seeeduino_lotus/seeeduino_lotus_samd21g18a_rig.dts"
+    ) in depends_line
 
 
 # ---------------------------------------------------------------- dual-host
@@ -603,8 +663,9 @@ def test_resolved_ard_datalogger_frdm(tmp_path: Path) -> None:
     no variants: axis at all, just a different --board on
     the identical rig -- with no fragment file collected for
     it at all (there is none to collect)."""
-    _build_and_freeze_dts("ard_datalogger", "ard_datalogger_frdm",
-                          ARD_DATALOGGER_FRDM_BOARD, tmp_path)
+    _build_and_freeze_dts(
+        "ard_datalogger", "ard_datalogger_frdm", ARD_DATALOGGER_FRDM_BOARD, tmp_path
+    )
 
 
 def test_resolved_ard_datalogger_dual_host_d10(tmp_path: Path) -> None:
@@ -619,21 +680,21 @@ def test_resolved_ard_datalogger_dual_host_d10(tmp_path: Path) -> None:
     via each build's own edt.pickle (pass-2 ground truth), not the
     generated overlay's text."""
     nucleo_dir = tmp_path / "build-nucleo"
-    result = _run_build("ard_datalogger", nucleo_dir,
-                        board=RIG_BOARD["ard_datalogger"])
+    result = _run_build("ard_datalogger", nucleo_dir, board=RIG_BOARD["ard_datalogger"])
     assert result.returncode == 0, (
         f"ard_datalogger: expected `west build --cmake-only` to "
         f"configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"--- stderr ---\n{result.stderr}"
+    )
 
     frdm_dir = tmp_path / "build-frdm"
-    result = _run_build("ard_datalogger", frdm_dir,
-                        board=ARD_DATALOGGER_FRDM_BOARD)
+    result = _run_build("ard_datalogger", frdm_dir, board=ARD_DATALOGGER_FRDM_BOARD)
     assert result.returncode == 0, (
         f"ard_datalogger@{ARD_DATALOGGER_FRDM_BOARD}: expected `west "
         f"build --cmake-only` to configure clean\n--- argv ---\n"
         f"{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"--- stderr ---\n{result.stderr}"
+    )
 
     def cs_pin(build_dir: Path):
         with open(build_dir / "zephyr" / "edt.pickle", "rb") as f:
@@ -651,14 +712,17 @@ def test_resolved_ard_datalogger_dual_host_d10(tmp_path: Path) -> None:
     frdm_labels, frdm_pin = cs_pin(frdm_dir)
 
     assert "gpiob" in nucleo_labels, (
-        f"nucleo D10 resolved to controller {nucleo_labels!r}, expected gpiob")
+        f"nucleo D10 resolved to controller {nucleo_labels!r}, expected gpiob"
+    )
     assert nucleo_pin == 6, f"nucleo D10 resolved to pin {nucleo_pin!r}, expected 6"
     assert "gpiod" in frdm_labels, (
-        f"frdm D10 resolved to controller {frdm_labels!r}, expected gpiod")
+        f"frdm D10 resolved to controller {frdm_labels!r}, expected gpiod"
+    )
     assert frdm_pin == 0, f"frdm D10 resolved to pin {frdm_pin!r}, expected 0"
     assert (nucleo_labels, nucleo_pin) != (frdm_labels, frdm_pin), (
         "D10 resolved to the SAME (controller, pin) on both hosts -- the "
-        "dual-host portability claim is not actually exercised")
+        "dual-host portability claim is not actually exercised"
+    )
 
 
 # ---------------------------------------------------------------- identity laws
@@ -672,7 +736,8 @@ _EMPTY_RIG_BOARD = "nucleo_f401re/stm32f401xe/rig"
 
 
 def test_resolved_empty_rig_equals_plain_board(
-        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
+    tmp_path: Path, tmp_path_factory: pytest.TempPathFactory
+) -> None:
     """A rig declaring `instances: []` must configure clean
     and produce a zephyr.dts structurally EQUIVALENT (dts_equiv.py) to a
     PLAIN `west build` of the same board target -- no --shield, no -DRIG
@@ -698,7 +763,8 @@ def test_resolved_empty_rig_equals_plain_board(
         f"empty_rig: expected `west build --cmake-only` to configure "
         f"clean (an empty rig is a valid, ACCEPT rig)\n--- argv ---\n"
         f"{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
-        f"--- stderr ---\n{result.stderr}")
+        f"--- stderr ---\n{result.stderr}"
+    )
 
     rig_dts = build_dir / "zephyr" / "zephyr.dts"
     assert rig_dts.is_file(), f"empty_rig: no zephyr.dts at {rig_dts}"
@@ -711,9 +777,12 @@ def test_resolved_empty_rig_equals_plain_board(
     check = subprocess.run(
         [sys.executable, str(DTS_EQUIV), str(plain_dts), str(rig_dts)],
         env={**os.environ, "ZEPHYR_BASE": zb},
-        capture_output=True, text=True)
+        capture_output=True,
+        text=True,
+    )
     assert check.returncode == 0, (
         "empty rig == plain board VIOLATED -- empty_rig's "
         "resolved zephyr.dts is not structurally equivalent to the same "
         f"board's plain build (dts_equiv.py):\n--- argv ---\n"
-        f"{render_argv(check)}\n{check.stdout}\n{check.stderr}")
+        f"{render_argv(check)}\n{check.stdout}\n{check.stderr}"
+    )
