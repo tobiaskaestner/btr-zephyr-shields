@@ -48,6 +48,7 @@ import yaml
 from corpus import (
     ACCEPT_CASES,
     ARD_DATALOGGER_FRDM_BOARD,
+    DTS_EQUIV,
     REJECT_CASES,
     RIG_BOARD,
     RigCase,
@@ -55,7 +56,6 @@ from corpus import (
     plain_build_for,
 )
 from harness import (
-    DTS_EQUIV,
     FIXTURES_DIR,
     GOLDENS_DIR,
     REFREEZE,

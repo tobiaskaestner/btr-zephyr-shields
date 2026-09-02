@@ -66,9 +66,8 @@ from pathlib import Path
 
 import pytest
 import yaml
-from corpus import RIG_BOARD
+from corpus import DTS_EQUIV, RIG_BOARD
 from harness import (
-    DTS_EQUIV,
     FIXTURES_DIR,
     REPO_ROOT,
     WEST_TOPDIR,

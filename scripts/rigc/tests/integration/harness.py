@@ -45,7 +45,6 @@ TESTS_DIR = Path(__file__).resolve().parent.parent
 REPO_ROOT = TESTS_DIR.parents[2]  # scripts/rigc/tests -> btr-shields
 GOLDENS_DIR = TESTS_DIR / "goldens"
 FIXTURES_DIR = TESTS_DIR / "fixtures"
-DTS_EQUIV = REPO_ROOT / "scripts" / "dts_equiv.py"
 
 
 def assert_fixture_local(paths: list[Path | str]) -> None:

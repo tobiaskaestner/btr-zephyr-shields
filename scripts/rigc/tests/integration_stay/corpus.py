@@ -69,6 +69,13 @@ SHIELD_DIR = REPO_ROOT / "boards" / "shields"
 RIGS_DIR = REPO_ROOT / "boards" / "rigs"
 
 
+#: scripts/dts_equiv.py, the structural .dts comparison the resolved-corpus
+#: tests shell out to. It lives here rather than in harness.py because it
+#: names a path OUTSIDE scripts/rigc/ -- harness travels to bridle and must
+#: never name one, the same rule scripts/rigc/check.sh is held to.
+DTS_EQUIV = REPO_ROOT / "scripts" / "dts_equiv.py"
+
+
 @functools.cache
 def rig_dir(name: str) -> Path:
     """The on-disk directory for corpus rig `name`, wherever it actually
