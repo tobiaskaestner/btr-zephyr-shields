@@ -96,7 +96,7 @@ def test_parse_instance_resolves_the_shield_against_the_library(tmp_path) -> Non
         socket: nucleo_ard
         """,
     )
-    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
+    inst, diags, _deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
     assert diags == []
     assert inst is not None
     assert inst.name == "a"
@@ -114,7 +114,7 @@ def test_parse_instance_unknown_shield_is_rejected(tmp_path) -> None:
         socket: s
         """,
     )
-    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
+    inst, diags, _deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
     assert inst is None
     assert len(diags) == 1
     assert diags[0].code == "lang-instance-shield"
@@ -130,7 +130,7 @@ def test_parse_instance_applies_the_socket_binding(tmp_path) -> None:
         socket: ard
         """,
     )
-    inst, diags, deps = parse_instance(
+    inst, _diags, _deps = parse_instance(
         item, SocketBinding({"ard": "nucleo_ard"}), lib, "rig", str(tmp_path)
     )
     assert inst is not None
@@ -149,7 +149,7 @@ def test_parse_instance_socket_is_optional(tmp_path) -> None:
         shield: sh
         """,
     )  # no socket:
-    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
+    inst, diags, _deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
     assert diags == []
     assert inst is not None
     assert inst.sockets["plug"] is None
@@ -163,7 +163,7 @@ def test_parse_instance_missing_required_key_returns_diagnostic(tmp_path) -> Non
         socket: s
         """,
     )  # no shield:
-    inst, diags, deps = parse_instance(item, _BINDING, _library(), "rig", str(tmp_path))
+    inst, diags, _deps = parse_instance(item, _BINDING, _library(), "rig", str(tmp_path))
     assert inst is None
     assert len(diags) == 1
     assert diags[0].code == "lang-schema"
@@ -184,7 +184,7 @@ def test_parse_instance_plural_shield_builds_the_sockets_map(tmp_path) -> None:
           right: quail_sock3
         """,
     )
-    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
+    inst, diags, _deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
     assert diags == []
     assert inst is not None
     assert inst.sockets == {"left": "quail_sock2", "right": "quail_sock3"}
@@ -201,7 +201,7 @@ def test_parse_instance_plural_shield_omitted_slot_carries_none(tmp_path) -> Non
           left: quail_sock2
         """,
     )  # "right" omitted -> None, left to per-slot inference
-    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
+    inst, diags, _deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
     assert diags == []
     assert inst is not None
     assert inst.sockets == {"left": "quail_sock2", "right": None}
@@ -217,7 +217,7 @@ def test_parse_instance_socket_on_a_plural_shield_is_rejected(tmp_path) -> None:
         socket: quail_sock2
         """,
     )
-    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
+    inst, diags, _deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
     assert inst is not None
     assert len(diags) == 1
     assert diags[0].code == "lang-instance-socket"
@@ -235,7 +235,7 @@ def test_parse_instance_sockets_on_a_single_plug_shield_is_rejected(tmp_path) ->
           plug: quail_sock1
         """,
     )
-    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
+    inst, diags, _deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
     assert inst is not None
     assert len(diags) == 1
     assert diags[0].code == "lang-instance-socket"
@@ -254,7 +254,7 @@ def test_parse_instance_both_socket_and_sockets_keys_is_rejected(tmp_path) -> No
           left: quail_sock2
         """,
     )
-    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
+    inst, diags, _deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
     assert inst is not None
     assert len(diags) == 1
     assert diags[0].code == "lang-instance-socket"
@@ -272,7 +272,7 @@ def test_parse_instance_sockets_unknown_slot_is_rejected(tmp_path) -> None:
           bogus: quail_sock2
         """,
     )
-    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
+    inst, diags, _deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
     assert inst is not None
     assert len(diags) == 1
     assert diags[0].code == "lang-instance-socket"
@@ -301,7 +301,7 @@ def test_parse_instance_single_plug_shield_named_other_than_plug_keys_by_its_own
         socket: quail_sock
         """,
     )
-    inst, diags, deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
+    inst, diags, _deps = parse_instance(item, _BINDING, lib, "rig", str(tmp_path))
     assert diags == []
     assert inst is not None
     assert inst.sockets == {"north": "quail_sock"}
@@ -325,7 +325,7 @@ def test_apply_delta_sockets_patch_replaces_wholesale_never_merges(tmp_path) -> 
         src=SourceRef("synthetic", 1, "a"),
     )
     topology = Topology(effective={"a": base}, order=["a"])
-    new_topology, diags, deps = apply_delta(
+    new_topology, diags, _deps = apply_delta(
         delta, "variant", "b", topology, _BINDING, lib, None, "rig", str(tmp_path)
     )
     assert diags == []
@@ -549,7 +549,7 @@ def test_instances_patch_matching_by_name_replaces_socket(tmp_path) -> None:
         """,
     )
     topology = _topology_with("a")
-    new_topology, diags, deps = _apply(delta, "variant", "b", topology)
+    new_topology, diags, _deps = _apply(delta, "variant", "b", topology)
     assert diags == []
     assert new_topology.effective["a"].sockets["plug"] == "new_ard"
     # the ORIGINAL topology's instance is untouched -- a new value, not a
@@ -574,7 +574,7 @@ def test_instances_patch_config_replaces_pins(tmp_path) -> None:
         name="addr-strap", label="addr_strap", domain=[(0x48, 0), (0x49, 1)], sheet_label=""
     )
     topology = _topology_with("a", shield=shield)
-    new_topology, diags, deps = _apply(delta, "variant", "b", topology)
+    new_topology, diags, _deps = _apply(delta, "variant", "b", topology)
     assert diags == []
     assert new_topology.effective["a"].straps == {"addr-strap": 73}
 
@@ -591,7 +591,7 @@ def test_instances_patch_config_rejects_node_name(tmp_path) -> None:
         name="addr-strap", label="addr_strap", domain=[(0x48, 0), (0x49, 1)], sheet_label=""
     )
     topology = _topology_with("a", shield=shield)
-    _, diags, deps = _apply(delta, "variant", "b", topology)
+    _, diags, _deps = _apply(delta, "variant", "b", topology)
     assert len(diags) == 1
     assert diags[0].code == "lang-config"
 
@@ -604,7 +604,7 @@ def test_instances_patch_unknown_name_is_rejected(tmp_path) -> None:
         """,
     )
     topology = _topology_with("a")
-    _, diags, deps = _apply(delta, "variant", "b", topology)
+    _, diags, _deps = _apply(delta, "variant", "b", topology)
     assert len(diags) == 1
     assert diags[0].code == "lang-variant"
     assert "does not have" in diags[0].message
@@ -619,7 +619,7 @@ def test_instances_patch_can_swap_the_shield(tmp_path) -> None:
     )
     topology = _topology_with("a")
     lib = _library(_shield("sh"), _shield("sh2"))
-    new_topology, diags, deps = _apply(delta, "variant", "b", topology, lib=lib)
+    new_topology, diags, _deps = _apply(delta, "variant", "b", topology, lib=lib)
     assert diags == []
     assert new_topology.effective["a"].shield.name == "sh2"
 
@@ -632,7 +632,7 @@ def test_instances_patch_unknown_shield_is_rejected(tmp_path) -> None:
         """,
     )
     topology = _topology_with("a")
-    _, diags, deps = _apply(delta, "variant", "b", topology)
+    _, diags, _deps = _apply(delta, "variant", "b", topology)
     assert len(diags) == 1
     assert diags[0].code == "lang-instance-shield"
 
@@ -645,7 +645,7 @@ def test_add_instances_new_name_is_appended_to_order(tmp_path) -> None:
         """,
     )
     topology = _topology_with("a")
-    new_topology, diags, deps = _apply(delta, "variant", "b", topology)
+    new_topology, diags, _deps = _apply(delta, "variant", "b", topology)
     assert diags == []
     assert new_topology.order == ["a", "c"]
     assert "c" in new_topology.effective
@@ -659,7 +659,7 @@ def test_add_instances_existing_name_is_rejected(tmp_path) -> None:
         """,
     )
     topology = _topology_with("a")
-    _, diags, deps = _apply(delta, "variant", "b", topology)
+    _, diags, _deps = _apply(delta, "variant", "b", topology)
     assert len(diags) == 1
     assert diags[0].code == "lang-variant"
     assert "already exists" in diags[0].message
@@ -673,7 +673,7 @@ def test_remove_instances_removes_and_records_removed_by(tmp_path) -> None:
         """,
     )
     topology = _topology_with("a")
-    new_topology, diags, deps = _apply(delta, "variant", "b", topology)
+    new_topology, diags, _deps = _apply(delta, "variant", "b", topology)
     assert diags == []
     assert "a" not in new_topology.effective
     assert new_topology.removed_by["a"] == "b"
@@ -687,7 +687,7 @@ def test_remove_instances_absent_name_is_rejected_and_names_prior_remover(tmp_pa
         """,
     )
     topology = Topology(removed_by={"a": "b"})  # already removed by variant b
-    _, diags, deps = _apply(delta, "revision", "2", topology)
+    _, diags, _deps = _apply(delta, "revision", "2", topology)
     assert len(diags) == 1
     assert diags[0].code == "lang-rev"
     # The prior remover is NAMED (data presence, not wording -- the exact
@@ -706,7 +706,7 @@ def test_remove_wires_matches_endpoint_pair(tmp_path) -> None:
     end_b = WireEnd(instance_name="y", node="led-1", src=SourceRef("s", 1))
     wire = Wire(frm=end_a, to=end_b, route="adhoc", src=SourceRef("s", 1))
     topology = Topology(wires=[wire])
-    new_topology, diags, deps = _apply(delta, "variant", "b", topology)
+    new_topology, diags, _deps = _apply(delta, "variant", "b", topology)
     assert diags == []
     assert new_topology.wires == []
 
@@ -719,7 +719,7 @@ def test_remove_wires_missing_pair_is_rejected(tmp_path) -> None:
         """,
     )
     topology = Topology()
-    _, diags, deps = _apply(delta, "variant", "b", topology)
+    _, diags, _deps = _apply(delta, "variant", "b", topology)
     assert len(diags) == 1
     assert diags[0].code == "lang-variant"
     assert "does not exist" in diags[0].message
@@ -734,7 +734,7 @@ def test_add_wires_parses_like_base_wires(tmp_path) -> None:
     )
     shield = _shield("sh", pads=["sq", "led"])
     topology = _topology_with("a", "b", shield=shield)
-    new_topology, diags, deps = _apply(delta, "variant", "b", topology)
+    new_topology, diags, _deps = _apply(delta, "variant", "b", topology)
     assert diags == []
     assert len(new_topology.wires) == 1
 
@@ -751,7 +751,7 @@ def test_multiple_delta_errors_compose_in_document_order(tmp_path) -> None:
         """,
     )
     topology = _topology_with("a")
-    _, diags, deps = _apply(delta, "variant", "b", topology)
+    _, diags, _deps = _apply(delta, "variant", "b", topology)
     assert len(diags) == 2
     assert "ghost1" in diags[0].message
     assert "ghost2" in diags[1].message
@@ -799,7 +799,7 @@ def test_instance_patch_shield_swap_drops_the_old_params(tmp_path) -> None:
         """,
     )
     lib = _library(old_shield, new_shield)
-    new_topology, diags, deps = _apply(delta, "variant", "b", topology, lib=lib)
+    new_topology, diags, _deps = _apply(delta, "variant", "b", topology, lib=lib)
     assert diags == []
     assert new_topology.effective["a"].params == {}
 
@@ -824,7 +824,7 @@ def test_instance_patch_shield_swap_to_differently_shaped_shield_resets_stale_so
         """,
     )
     lib = _library(old_shield, new_shield)
-    new_topology, diags, deps = _apply(delta, "variant", "b", topology, lib=lib)
+    new_topology, diags, _deps = _apply(delta, "variant", "b", topology, lib=lib)
     assert diags == []
     assert new_topology.effective["a"].sockets == {"plug": None}
 
@@ -845,7 +845,7 @@ def test_instance_patch_shield_swap_to_same_shaped_shield_carries_sockets_forwar
         """,
     )
     lib = _library(old_shield, new_shield)
-    new_topology, diags, deps = _apply(delta, "variant", "b", topology, lib=lib)
+    new_topology, diags, _deps = _apply(delta, "variant", "b", topology, lib=lib)
     assert diags == []
     assert new_topology.effective["a"].sockets == {"left": "quail_sock2", "right": "quail_sock3"}
 
@@ -876,7 +876,7 @@ def test_instance_patch_params_without_shield_change_runs_the_restate_check(tmp_
         """,
     )
     lib = _library(shield)
-    _, diags, deps = _apply(delta, "variant", "b", topology, lib=lib)
+    _, diags, _deps = _apply(delta, "variant", "b", topology, lib=lib)
     assert len(diags) == 1
     assert diags[0].code == "lang-param"
     assert "without restating" in diags[0].message

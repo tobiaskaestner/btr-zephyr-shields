@@ -794,7 +794,7 @@ def test_a_promoted_shield_missing_its_required_param_still_rejects(tmp_path: Pa
     (rig_dir / promoted.content_name).write_text(promoted.content)
 
     types, _deps = load_types()
-    rig, diags, _load_deps = loader.load(
+    _rig, diags, _load_deps = loader.load(
         str(rig_dir / "rig.yml"), str(tmp_path / "workdir"), types=types, board="some_board"
     )
 

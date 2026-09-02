@@ -110,7 +110,7 @@ def test_unrecognized_bus_proxy_group_is_rejected(tmp_path) -> None:
     """A group named like a bus (i2c/spi/uart) that the plug binding does
     NOT allow as a proxy -- lang-shield-proxy, a hand-differential rule
     with no frozen golden behind it."""
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -254,7 +254,7 @@ def test_authored_default_shows_up_in_extra_props(tmp_path) -> None:
 
 
 def test_addr_authority_rejects_both_reg_and_addr_from(tmp_path) -> None:
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -284,7 +284,7 @@ def test_addr_authority_rejects_both_reg_and_addr_from(tmp_path) -> None:
 
 
 def test_addr_authority_rejects_neither_reg_nor_addr_from(tmp_path) -> None:
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -342,7 +342,7 @@ def test_addr_authority_rule_applies_to_a_qualified_named_i2c_bus(tmp_path) -> N
 
 
 def test_addr_from_must_point_at_a_strap(tmp_path) -> None:
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -364,7 +364,7 @@ def test_addr_from_must_point_at_a_strap(tmp_path) -> None:
 
 
 def test_unit_address_must_match_authored_reg(tmp_path) -> None:
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -385,7 +385,7 @@ def test_unit_address_must_match_authored_reg(tmp_path) -> None:
 
 
 def test_symbolic_unit_address_with_authored_reg_is_rejected(tmp_path) -> None:
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -461,7 +461,7 @@ def test_gpio_position_ref_deferred_to_a_jumper(tmp_path) -> None:
 
 
 def test_position_ref_must_target_the_plug_or_a_jumper(tmp_path) -> None:
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -485,7 +485,7 @@ def test_position_ref_must_target_the_plug_or_a_jumper(tmp_path) -> None:
 
 
 def test_position_index_must_exist_on_the_connector_type(tmp_path) -> None:
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -507,7 +507,7 @@ def test_position_index_must_exist_on_the_connector_type(tmp_path) -> None:
 def test_position_must_be_claimable_not_bus_copper(tmp_path) -> None:
     """index 2 (BUS_COPPER) exists on the header but is not a claimable
     plug,positions entry -- electrical realization is not modeled."""
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {

@@ -362,6 +362,51 @@ def _run_plain_build(board: str, build_dir: Path) -> subprocess.CompletedProcess
     )
 
 
+def configure_with_overlay(
+    board: str, overlay: Path, build_dir: Path
+) -> subprocess.CompletedProcess[str]:
+    """west build --cmake-only of hello_world for `board`, with an
+    already-emitted rig-gen.overlay threaded in as EXTRA_DTC_OVERLAY_FILE.
+
+    The second half of the emit-then-configure shape: a test expands a rig
+    to its own out-dir, then hands the overlay here to prove the real board
+    .dts plus that overlay configure clean against a real toolchain. Unlike
+    _run_plain_build this deliberately carries NO board_extra_defines --
+    every caller so far is a quail case, whose board needs none, and adding
+    them silently would change what the configure proves.
+
+    Returns the completed process; the caller owns the assertion, because
+    the failure message that helps names the rig, which is not known here.
+    A rerun script is written beside the build dir either way.
+    """
+    env = dict(os.environ)
+    env["ZEPHYR_BASE"] = zephyr_base()
+    cmd = [
+        WEST_EXE,
+        "build",
+        "-b",
+        board,
+        _PLAIN_BUILD_APP,
+        "--cmake-only",
+        "-p",
+        "always",
+        "-d",
+        str(build_dir),
+        "--",
+        f"-DEXTRA_DTC_OVERLAY_FILE={overlay}",
+    ]
+    _LOGGER.info("overlay configure argv: %s", shlex.join(cmd))
+    write_rerun_script(build_dir, WEST_TOPDIR, cmd, env)
+    return subprocess.run(
+        cmd,
+        cwd=str(WEST_TOPDIR),
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=subprocess_timeout(600),
+    )
+
+
 def plain_build_for(board: str, tmp_path_factory: pytest.TempPathFactory) -> PlainBuild:
     """The cached-plain-build pattern: build board once per test session
     (memoized across every test in every file that asks for it — a plain

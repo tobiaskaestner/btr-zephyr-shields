@@ -11,6 +11,11 @@ file never reaches a rendered artifact.
 
 .. automodule:: rigc.emitter
 
+``rigc.emitter.banner``
+-------------------------
+
+.. automodule:: rigc.emitter.banner
+
 ``rigc.emitter.overlay``
 --------------------------
 

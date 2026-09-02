@@ -12,7 +12,7 @@ from __future__ import annotations
 from ..analyzer import Solved
 from ..analyzer.socketmap import for_bus_device
 from ..model import Device, Instance, Rig
-from . import GEN
+from .banner import GEN
 
 
 def _find_instance_device(

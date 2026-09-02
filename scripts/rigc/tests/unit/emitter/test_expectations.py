@@ -84,8 +84,8 @@ def test_addr_and_cs_entries_are_sorted_and_carry_the_probe_check() -> None:
 
     text = render_expectations(rig, s)
 
-    assert ("instance: i1, device: sensor, bus: i2c1, address: 0x50, check: probe") in text
-    assert ("instance: i1, device: flash, bus: spi1, cs-index: 0, check: probe") in text
+    assert "instance: i1, device: sensor, bus: i2c1, address: 0x50, check: probe" in text
+    assert "instance: i1, device: flash, bus: spi1, cs-index: 0, check: probe" in text
 
 
 def test_cs_entry_resolves_a_named_bus_through_the_backing_device() -> None:
@@ -120,7 +120,7 @@ def test_cs_entry_resolves_a_named_bus_through_the_backing_device() -> None:
 
     text = render_expectations(rig, s)
 
-    assert ("instance: i1, device: drv8825, bus: spi2, cs-index: 0, check: probe") in text
+    assert "instance: i1, device: drv8825, bus: spi2, cs-index: 0, check: probe" in text
 
 
 def test_banner_and_rig_identity_lines() -> None:

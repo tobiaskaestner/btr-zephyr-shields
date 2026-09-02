@@ -95,9 +95,16 @@ def test_wire_with_two_drivers_is_phys_wire() -> None:
 
 
 def test_route_via_a_position_name_resolves_to_its_index() -> None:
-    from rigc.analyzer.sockets import SocketResolution  # noqa: F401 (doc anchor)
+    from rigc.analyzer.sockets import SocketResolution
     from rigc.analyzer.wires import check_wires
     from rigc.model import BoardSocket
+
+    # An anchor, not a dependency: SocketResolution is what the docstring
+    # above names, and asserting on it means a rename breaks this test
+    # rather than rotting the prose silently. Naming it in an assertion
+    # rather than importing it unused also spares the file one suppression
+    # comment per linter -- ruff's F401 and pylint's W0611 both.
+    assert SocketResolution.__name__ == "SocketResolution"
 
     a = _inst("a", _shield_with_pads(x="driver"))
     b = _inst("b", _shield_with_pads(y="listener"))

@@ -112,7 +112,7 @@ def test_load_error_carries_every_diagnostic_it_unwound_past() -> None:
     every finding had been returned normally -- so boundaries prepend
     their accumulated diagnostics and NOTHING is lost to the raise. The
     exception's own message is the fatal (last) finding's."""
-    from rigc.diag import LoadError, error
+    from rigc.diag import LoadError
 
     prior = error("lang-shield-name", "scanned earlier, must survive")
     fatal = error("lang-parse", "the fatal finding")

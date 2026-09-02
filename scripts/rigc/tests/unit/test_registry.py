@@ -62,7 +62,7 @@ def test_load_types_assembles_one_synthetic_type(tmp_path: Path) -> None:
         stackable=True,
         cs_pool=[0],
     )
-    types, deps = load_types(
+    types, _deps = load_types(
         connector_dirs=[str(tmp_path / "connectors")], header_dirs=[str(tmp_path / "include")]
     )
     assert set(types) == {"fixture_type"}
@@ -81,7 +81,7 @@ def test_load_types_assembles_one_synthetic_type(tmp_path: Path) -> None:
 
 def test_load_types_records_every_file_it_opened_as_deps(tmp_path: Path) -> None:
     _write_type(tmp_path, "fixture_type", positions={"SIG0": "gpio"})
-    types, deps = load_types(
+    _types, deps = load_types(
         connector_dirs=[str(tmp_path / "connectors")], header_dirs=[str(tmp_path / "include")]
     )
     yaml_path = str((tmp_path / "connectors" / "fixture_type.yaml").resolve())

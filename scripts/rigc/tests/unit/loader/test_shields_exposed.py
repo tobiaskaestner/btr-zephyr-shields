@@ -97,7 +97,7 @@ def test_exposed_socket_new_scope_on_a_device(tmp_path) -> None:
 
 
 def test_exposed_socket_bus_prop_must_be_plug_or_device(tmp_path) -> None:
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -213,7 +213,7 @@ def test_exposed_socket_pwm_map_without_pwm_cells_is_rejected(tmp_path) -> None:
 def test_exposed_socket_pwm_cells_without_pwm_map_is_rejected(tmp_path) -> None:
     """The reverse pairing -- #pwm-cells with no pwm-map -- is equally a
     parse-time lang-exposed error."""
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -268,7 +268,7 @@ def test_exposed_socket_pwm_map_parent_must_be_a_plug(tmp_path) -> None:
     no #pwm-cells of its own -- so the row's parent side is read at the
     3-cell generic Zephyr default, _FUNCTION_DEFAULT_CELLS) is rejected
     the same way."""
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {

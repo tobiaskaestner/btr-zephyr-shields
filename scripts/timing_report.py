@@ -89,7 +89,9 @@ def diff_against_baseline(times: dict[str, float], baseline_path: Path, threshol
 
 def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(
-        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+        description=__doc__,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        allow_abbrev=False,
     )
     parser.add_argument("junitxml", type=Path)
     parser.add_argument("--baseline", type=Path, help="baseline json to diff the run against")

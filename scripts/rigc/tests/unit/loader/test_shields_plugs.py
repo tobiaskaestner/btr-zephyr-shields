@@ -59,7 +59,7 @@ def test_basic_identity(tmp_path) -> None:
 
 
 def test_unknown_connector_type_is_rejected(tmp_path) -> None:
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -257,7 +257,7 @@ def test_plural_shield_unknown_connector_type_on_one_plug(tmp_path) -> None:
 \t\t};
 """,
     )
-    shields, diags = parse_shields(dt, _PLURAL_TYPES)
+    _shields, diags = parse_shields(dt, _PLURAL_TYPES)
     assert len(diags) == 1
     assert diags[0].code == "lang-shield-type"
     assert "left" in diags[0].message
@@ -366,7 +366,7 @@ def test_plural_shield_template_level_bus_group_is_rejected(tmp_path) -> None:
 \t\t};
 """,
     )
-    shields, diags = parse_shields(dt, _PLURAL_TYPES)
+    _shields, diags = parse_shields(dt, _PLURAL_TYPES)
     assert len(diags) == 1
     assert diags[0].code == "lang-shield-proxy"
     assert "template level" in diags[0].message
@@ -416,7 +416,7 @@ def test_plural_shield_plain_group_nested_under_a_plug_is_rejected(tmp_path) -> 
 def test_one_plug_template_level_bus_group_is_rejected(tmp_path) -> None:
     """A bus group beside the plug rather than under it is refused. The
     message names the plug it should have nested under."""
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -440,7 +440,7 @@ def test_one_plug_nested_plain_group_is_rejected(tmp_path) -> None:
     """And the reverse, at one plug: a plain group stays at template
     level whatever the count, so nesting one is refused rather than
     silently attributed to the plug."""
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -502,7 +502,7 @@ def test_cells_on_a_plug_node_are_rejected(tmp_path) -> None:
     value declared there, and a wrong value would silently change a
     reference's arity. One diagnostic per property, each naming the
     property."""
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {

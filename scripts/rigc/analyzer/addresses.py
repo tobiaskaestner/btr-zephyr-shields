@@ -200,7 +200,7 @@ def _how(
 ) -> str:
     """How one member came to hold its address, for a conflict/exhaustion
     diagnostic's own two-sided listing."""
-    inst, dev, _socket = by_identity[identity]
+    _inst, dev, _socket = by_identity[identity]
     kind = kind_of[identity]
     if kind == "fixed":
         return f"address domain {{{dev.reg:#04x}}}, fixed by copper (no address-select)"

@@ -147,7 +147,7 @@ def test_apply_params_block_assigns_a_declared_bare_int(tmp_path) -> None:
 def test_apply_params_block_unknown_device_is_rejected(tmp_path) -> None:
     dev = _device("d", declared_params=["x"])
     params_v = _val(tmp_path, "v: {ghost: {x: 5}}\n")
-    params, refs, diags, deps = apply_params_block(
+    _params, _refs, diags, _deps = apply_params_block(
         params_v, "a", _shield(dev), "/nonexistent", "tag"
     )
     assert len(diags) == 1
@@ -172,7 +172,7 @@ def test_apply_params_block_unknown_device_context_is_folded_into_the_message(tm
 def test_apply_params_block_undeclared_property_is_rejected(tmp_path) -> None:
     dev = _device("d", declared_params=["x"])
     params_v = _val(tmp_path, "v: {d: {y: 5}}\n")
-    params, refs, diags, deps = apply_params_block(
+    params, _refs, diags, _deps = apply_params_block(
         params_v, "a", _shield(dev), "/nonexistent", "tag"
     )
     assert len(diags) == 1
@@ -184,7 +184,7 @@ def test_apply_params_block_undeclared_property_is_rejected(tmp_path) -> None:
 def test_apply_params_block_one_bad_property_does_not_block_the_others(tmp_path) -> None:
     dev = _device("d", declared_params=["x", "y"])
     params_v = _val(tmp_path, "v: {d: {x: 1, z: 2}}\n")
-    params, refs, diags, deps = apply_params_block(
+    params, _refs, diags, _deps = apply_params_block(
         params_v, "a", _shield(dev), "/nonexistent", "tag"
     )
     assert len(diags) == 1
@@ -209,7 +209,7 @@ def test_apply_config_block_assigns_a_strap_by_label(tmp_path) -> None:
         name="addr-strap", label="addr_strap", domain=[(0x48, 0), (0x49, 1)], sheet_label=""
     )
     config_v = _val(tmp_path, "v: {addr_strap: 73}\n")
-    straps, strap_refs, jumpers, jumper_refs, diags = apply_config_block(config_v, "a", shield)
+    straps, _strap_refs, jumpers, _jumper_refs, diags = apply_config_block(config_v, "a", shield)
     assert diags == []
     assert straps == {"addr-strap": 73}
     assert jumpers == {}
@@ -221,7 +221,7 @@ def test_apply_config_block_assigns_a_jumper_by_label(tmp_path) -> None:
         name="irq-jmp", label="irq_jmp", domain=[(0, 0), (1, 1)], sheet_label=""
     )
     config_v = _val(tmp_path, "v: {irq_jmp: 1}\n")
-    straps, strap_refs, jumpers, jumper_refs, diags = apply_config_block(config_v, "a", shield)
+    straps, _strap_refs, jumpers, _jumper_refs, diags = apply_config_block(config_v, "a", shield)
     assert diags == []
     assert jumpers == {"irq-jmp": 1}
     assert straps == {}

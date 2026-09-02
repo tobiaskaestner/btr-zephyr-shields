@@ -21,7 +21,7 @@ from ..analyzer import ChannelResolution, Solved
 from ..analyzer.socketmap import for_bus_device, for_ref, slots_of
 from ..buskind import is_bus_kind
 from ..model import BoardSocket, ConnectorType, Device, FunctionRef, Instance, Rig
-from . import GEN
+from .banner import GEN
 
 
 def _nexus(socket: BoardSocket) -> str:

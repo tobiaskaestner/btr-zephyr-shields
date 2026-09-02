@@ -276,7 +276,7 @@ def test_resolve_a_declared_default_axis_shield_returns_the_cached_value() -> No
         types={},
         workdir="/nonexistent",
     )
-    shield, diags, deps = lib.resolve("plain", "instance 'x'", _SRC)
+    shield, diags, _deps = lib.resolve("plain", "instance 'x'", _SRC)
     assert shield is sh
     assert diags == []
 
@@ -295,7 +295,7 @@ def test_resolve_bare_name_with_no_declared_axis_and_a_memoized_failure_returns_
         workdir="/nonexistent",
         failed={"plain"},
     )
-    shield, diags, deps = lib.resolve("plain", "instance 'x'", _SRC)
+    shield, diags, _deps = lib.resolve("plain", "instance 'x'", _SRC)
     assert shield is None
     assert diags == []
 
@@ -304,7 +304,7 @@ def test_resolve_at_rev_against_undeclared_axis() -> None:
     lib = ShieldLibrary(
         shields={}, axes={"fx": None}, pending={}, ymls={}, types={}, workdir="/nonexistent"
     )
-    shield, diags, deps = lib.resolve("fx@1", "instance 'x'", _SRC)
+    shield, diags, _deps = lib.resolve("fx@1", "instance 'x'", _SRC)
     assert shield is None
     assert diags[0].code == "lang-rev"
     assert "declares no revisions: at all" in diags[0].message
@@ -319,7 +319,7 @@ def test_resolve_at_rev_not_a_declared_member() -> None:
     lib = ShieldLibrary(
         shields={}, axes={"fx": decl}, pending={}, ymls={}, types={}, workdir="/nonexistent"
     )
-    shield, diags, deps = lib.resolve("fx@99", "instance 'x'", _SRC)
+    shield, diags, _deps = lib.resolve("fx@99", "instance 'x'", _SRC)
     assert shield is None
     assert diags[0].code == "lang-rev"
     # Full text, same reasoning as the no-default case below: the owner
@@ -352,7 +352,7 @@ def test_resolve_at_rev_nearest_lower_match_is_owner_agnostic_in_the_shared_func
         types={},
         workdir="/nonexistent",
     )
-    shield, diags, deps = lib.resolve("fx@99", "instance 'x'", _SRC)
+    shield, diags, _deps = lib.resolve("fx@99", "instance 'x'", _SRC)
     assert shield is cached
     assert diags == []
 
@@ -375,7 +375,7 @@ def test_resolve_bare_name_with_a_declared_axis_but_no_default() -> None:
     lib = ShieldLibrary(
         shields={}, axes={"fx": decl}, pending={}, ymls={}, types={}, workdir="/nonexistent"
     )
-    shield, diags, deps = lib.resolve("fx", "instance 'x'", _SRC)
+    shield, diags, _deps = lib.resolve("fx", "instance 'x'", _SRC)
     assert shield is None
     assert diags[0].code == "lang-rev"
     assert diags[0].message == (
@@ -418,7 +418,7 @@ def test_resolve_records_the_shield_yml_dependency_when_referenced() -> None:
         types={},
         workdir="/nonexistent",
     )
-    shield, diags, deps = lib.resolve("fx", "instance 'x'", _SRC)
+    shield, _diags, deps = lib.resolve("fx", "instance 'x'", _SRC)
     assert shield is cached
     assert deps == frozenset({"/some/fx/shield.yml"})
 
@@ -621,7 +621,7 @@ def test_resolve_shield_side_nearest_lower_stem_follows_the_resolved_value(
         workdir="/nonexistent",
     )
 
-    shield, diags, deps = lib.resolve("fx@1.5", "instance 'x'", _SRC)
+    shield, diags, _deps = lib.resolve("fx@1.5", "instance 'x'", _SRC)
 
     assert diags == []
     assert shield is not None
@@ -707,7 +707,7 @@ def test_scan_discovers_exactly_basename_dot_shield(tmp_path: Path) -> None:
         # not a shield template
         """)
     )
-    lib, diags, deps = load_shield_library(
+    lib, diags, _deps = load_shield_library(
         str(tmp_path / "work"), shield_dirs=[str(root)], types={}
     )
     assert diags == []
@@ -725,7 +725,7 @@ def test_scan_skips_a_folder_with_no_matching_dot_shield_file(tmp_path: Path) ->
         # no not_a_shield.shield beside it
         """)
     )
-    lib, diags, deps = load_shield_library(
+    lib, diags, _deps = load_shield_library(
         str(tmp_path / "work"), shield_dirs=[str(root)], types={}
     )
     assert diags == []
@@ -738,7 +738,7 @@ def test_scan_unions_multiple_shield_dirs(tmp_path: Path) -> None:
     root_b = tmp_path / "b"
     _declared_shield_folder(root_a, "from_a")
     _declared_shield_folder(root_b, "from_b")
-    lib, diags, deps = load_shield_library(
+    lib, _diags, _deps = load_shield_library(
         str(tmp_path / "work"), shield_dirs=[str(root_a), str(root_b)], types={}
     )
     assert set(lib.pending) == {"from_a", "from_b"}
@@ -766,7 +766,7 @@ def test_scan_is_eager_and_complete_for_axis_less_shields_too(tmp_path: Path) ->
     _axisless_shield_folder(root, "fx_a")
     _axisless_shield_folder(root, "fx_b")
     _declared_shield_folder(root, "fx_c")
-    lib, diags, deps = load_shield_library(
+    lib, diags, _deps = load_shield_library(
         str(tmp_path / "work"), shield_dirs=[str(root)], types={}
     )
     assert diags == []
@@ -800,7 +800,7 @@ def test_unreferenced_broken_axis_less_template_is_silent(tmp_path: Path) -> Non
     content."""
     root = tmp_path / "shields"
     _axisless_shield_folder(root, "broken")
-    lib, diags, deps = load_shield_library(
+    lib, diags, _deps = load_shield_library(
         str(tmp_path / "work"), shield_dirs=[str(root)], types={}
     )
     assert diags == []

@@ -80,7 +80,7 @@ def test_pads_straps_jumpers_and_lookup_helpers(tmp_path) -> None:
 
 
 def test_unlabeled_device_is_a_loud_error(tmp_path) -> None:
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -103,7 +103,7 @@ def test_unlabeled_device_is_a_loud_error(tmp_path) -> None:
 
 
 def test_unlabeled_pad_is_a_loud_error(tmp_path) -> None:
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -124,7 +124,7 @@ def test_unlabeled_pad_is_a_loud_error(tmp_path) -> None:
 
 
 def test_unlabeled_strap_is_a_loud_error(tmp_path) -> None:
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -147,7 +147,7 @@ def test_unlabeled_strap_is_a_loud_error(tmp_path) -> None:
 
 
 def test_unlabeled_jumper_is_a_loud_error(tmp_path) -> None:
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -175,7 +175,7 @@ def test_unlabeled_exposed_socket_is_a_loud_error(tmp_path) -> None:
     socket with no DTS label goes through the same `_require_label`
     helper devices/pads/straps/jumpers do, rather than falling back to
     the node name silently."""
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {
@@ -229,7 +229,7 @@ def test_exposed_socket_label_is_the_naming_authority(tmp_path) -> None:
 
 
 def test_invalid_pad_role_is_rejected(tmp_path) -> None:
-    shields, diags = _one_shield(
+    _shields, diags = _one_shield(
         tmp_path,
         """
 \t\tfx: fx {

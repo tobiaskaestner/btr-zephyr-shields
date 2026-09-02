@@ -21,7 +21,7 @@ from ..analyzer import Solved
 from ..analyzer.socketmap import for_bus_device, for_ref, for_slot
 from ..dtsio import is_int_literal, resolve_token
 from ..model import BoardSocket, ConnectorType, Device, Instance, Rig, Strap
-from . import GEN
+from .banner import GEN
 
 
 def _socket_display(inst: Instance, s: Solved, slot: str) -> str:

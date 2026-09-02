@@ -190,7 +190,7 @@ def test_compose_socket_pwm_row_the_parent_does_not_route_is_an_error_not_a_sile
         pwm_cells=2,
     )
 
-    socket, diags, _scopes = compose_socket(
+    socket, _diags, _scopes = compose_socket(
         "carrier_1.a0", "carrier_1", exposed, {"plug": parent}, None
     )
 

@@ -153,6 +153,7 @@ def build_parser() -> argparse.ArgumentParser:
         prog="rigc",
         description="Compile a rig file: reject invalid input or emit the "
         "devicetree overlay + build artifacts.",
+        allow_abbrev=False,
     )
     sub = ap.add_subparsers(dest="command", required=True)
     p = sub.add_parser(

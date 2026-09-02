@@ -26,24 +26,18 @@ tests) are the only tests in this module that launch a real toolchain.
 
 from __future__ import annotations
 
-import os
 import subprocess
 import sys
 from pathlib import Path
 from textwrap import dedent
 
 import pytest
-from corpus import SHIELD_DIR, plain_build_for, run_expand
+from corpus import SHIELD_DIR, configure_with_overlay, plain_build_for, run_expand
 from harness import (
     FIXTURES_DIR,
     REPO_ROOT,
-    WEST_EXE,
-    WEST_TOPDIR,
     assert_fixture_local,
     render_argv,
-    subprocess_timeout,
-    write_rerun_script,
-    zephyr_base,
 )
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
@@ -252,33 +246,8 @@ def test_mikrobus_span_adapter_build_round_trip(
         f"mikrobus_span_adapter on quail: expected accept\n--- stderr ---\n{expand_result.stderr}"
     )
 
-    zb = zephyr_base()
-    env = dict(os.environ)
-    env["ZEPHYR_BASE"] = zb
     build_dir = tmp_path / "build"
-    cmd = [
-        WEST_EXE,
-        "build",
-        "-b",
-        _QUAIL_BOARD,
-        "zephyr/samples/hello_world",
-        "--cmake-only",
-        "-p",
-        "always",
-        "-d",
-        str(build_dir),
-        "--",
-        f"-DEXTRA_DTC_OVERLAY_FILE={out_dir / 'rig-gen.overlay'}",
-    ]
-    write_rerun_script(build_dir, WEST_TOPDIR, cmd, env)
-    result = subprocess.run(
-        cmd,
-        cwd=str(WEST_TOPDIR),
-        env=env,
-        capture_output=True,
-        text=True,
-        timeout=subprocess_timeout(600),
-    )
+    result = configure_with_overlay(_QUAIL_BOARD, out_dir / "rig-gen.overlay", build_dir)
     assert result.returncode == 0, (
         "mikrobus_span_adapter: expected quail's own board.dts + "
         "rig-gen.overlay to configure clean against a real toolchain\n"

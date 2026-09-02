@@ -404,13 +404,12 @@ def _stub_board_reading(monkeypatch: pytest.MonkeyPatch) -> None:
     """Board reading is integration-only by construction (the same
     cpp/unit-test seam that applies to the shield side) -- stubbed
     rather than exercised via a real board .dts + cpp."""
-    import rigc.cli
     from rigc.model import Board
 
     def fake_load_board(name: str, workdir: str, board_dts=None, recipe=None):
         return Board(name=name, sockets={}), [], frozenset()
 
-    monkeypatch.setattr(rigc.cli, "load_board", fake_load_board)
+    monkeypatch.setattr(cli, "load_board", fake_load_board)
 
 
 def test_accept_path_now_accepts_and_writes_artifacts(
@@ -478,7 +477,7 @@ def test_accept_path_keeps_the_workdir(
     _stub_board_reading(monkeypatch)
 
     out_dir = tmp_path / "out"
-    ret, err = _run(
+    ret, _err = _run(
         capsys,
         [
             "expand",
@@ -511,7 +510,7 @@ def test_reject_path_keeps_the_workdir(
     _write_zero_instance_rig(tmp_path)
     out_dir = tmp_path / "out"
 
-    ret, err = _run(
+    ret, _err = _run(
         capsys,
         [
             "expand",
@@ -551,7 +550,7 @@ def test_entry_wipe_clears_a_previous_runs_workdir(
     stale.parent.mkdir(parents=True)
     stale.write_text("/* the run before this one */\n")
 
-    ret, err = _run(
+    ret, _err = _run(
         capsys,
         [
             "expand",
@@ -586,7 +585,7 @@ def test_promote_writes_promote_shields_own_documents_verbatim(
     from rigc.promote import promote_shield
 
     out_dir = tmp_path / "out"
-    ret, err = _run(
+    ret, _err = _run(
         capsys,
         [
             "expand",
@@ -616,7 +615,7 @@ def test_promote_with_revision_bakes_the_shields_own_revision(
     from rigc.promote import promote_shield
 
     out_dir = tmp_path / "out"
-    ret, err = _run(
+    ret, _err = _run(
         capsys,
         [
             "expand",
@@ -655,7 +654,7 @@ def test_promote_with_a_dotted_config_opt_writes_a_config_block_verbatim(
     from rigc.promote import promote_shield
 
     out_dir = tmp_path / "out"
-    ret, err = _run(
+    ret, _err = _run(
         capsys,
         [
             "expand",
