@@ -312,8 +312,15 @@ def _resolve_jumper(
             )
         )
         return None
-    pos = ctype.positions[sel].index if sel in ctype.positions else sel
-    if pos not in jmp.positions():
+    # `sel` is the RAW rig-file value (Instance.jumpers is dict[str, object] on
+    # purpose): either a position NAME to look up, or a position index given
+    # directly. Anything else -- and any index outside the jumper's domain --
+    # falls through to the one domain diagnostic below, which is why the
+    # isinstance guard joins that condition rather than raising its own.
+    pos: object = (
+        ctype.positions[sel].index if isinstance(sel, str) and sel in ctype.positions else sel
+    )
+    if not isinstance(pos, int) or pos not in jmp.positions():
         diags.append(
             error(
                 "phys-position",

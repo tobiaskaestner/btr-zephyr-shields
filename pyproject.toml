@@ -15,6 +15,16 @@ ignore_missing_imports = true
 module = ["devicetree.*"]
 ignore_errors = true
 
+# PyYAML ships no inline types; its stubs are a separate types-PyYAML package
+# that this gate does not require anyone to install. mypy >= 1.x reports that
+# as `import-untyped`, which the global ignore_missing_imports above does NOT
+# silence (that one covers imports it cannot resolve at all). Named explicitly
+# so the gate gives the same answer with or without the stub package present.
+[[tool.mypy.overrides]]
+module = ["yaml"]
+ignore_missing_imports = true
+disable_error_code = ["import-untyped"]
+
 # Coverage of rigc's UNIT suite only (check.sh drives `coverage run -m
 # pytest scripts/rigc/tests` directly — no pytest-cov dependency, the
 # recorded T3 decision). This is the coverage the frozen suite's own
