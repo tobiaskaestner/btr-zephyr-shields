@@ -57,7 +57,8 @@
 
 	/* Negative variant for the "parent lacks the KIND" reject fixture
 	 * (Sec 7): a THIRD socket of the same type that simply never wires
-	 * socket,spi at all (subset exposure by absence). */
+	 * socket,spi at all (subset exposure by absence).
+	 */
 	fx_right_no_spi: connector_fx_right_no_spi {
 		compatible = "socket,fixture-mp-spi";
 		#gpio-cells = <2>;

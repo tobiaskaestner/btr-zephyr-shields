@@ -66,7 +66,7 @@ def emit(
     ZEPHYR_INC/MODULE_INC-only search, unchanged.
 
     Returns a fresh mapping the caller owns; `rig`/`solved`/`types` are
-    read-only. `rig-gen-includes.dtsi` appears iff `_needed_param_includes`
+    read-only. `rig-gen-includes.dtsi` appears if and only if `_needed_param_includes`
     is non-empty (the common corpus case gets no extra artifact and no
     include line, zero churn); `rig-gen.conf` never appears (no
     corpus/fixture rig produces per-instance Kconfig fragments yet);

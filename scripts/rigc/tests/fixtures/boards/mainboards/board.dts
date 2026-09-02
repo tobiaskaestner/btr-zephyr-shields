@@ -36,7 +36,8 @@
 
 	/* Full-featured socket: I2C + SPI + every claimable GPIO position --
 	 * mated by fixture_logger (fixed-address I2C device, CS-position SPI
-	 * device). */
+	 * device).
+	 */
 	fixture_socket_a: connector_a {
 		compatible = "socket,fixture-nexus";
 		#gpio-cells = <2>;
@@ -53,7 +54,8 @@
 	 * collection + a required per-instance parameter), one socket each so
 	 * neither needs the connector type's socket,stackable fact -- see
 	 * boards/extend/st/nucleo_f401re/arduino_r3_socket.dtsi for a REAL
-	 * stackable socket, where several shields mate the same connector. */
+	 * stackable socket, where several shields mate the same connector.
+	 */
 	fixture_socket_b: connector_b {
 		compatible = "socket,fixture-nexus";
 		#gpio-cells = <2>;

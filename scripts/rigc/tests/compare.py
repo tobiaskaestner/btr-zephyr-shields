@@ -634,7 +634,7 @@ _PARAM_TOKEN_RE = re.compile(
 )
 
 # The quoted include that must open the file (emitter/overlay.py:
-# render_overlay, emitted iff emitter._needed_param_includes(rig) is
+# render_overlay, emitted if and only if emitter._needed_param_includes(rig) is
 # non-empty) -- quoted-include resolution against the file's OWN directory
 # is what lets rig-gen.overlay
 # and rig-gen-includes.dtsi simply sit side by side in <build>/rig/ with
@@ -802,7 +802,7 @@ def compare_overlay(expected: str, actual: str) -> str | None:
 # --------------------------------------------------------------------------
 # rig-gen-includes.dtsi: nothing but the headers the rig's own parameter
 # assignments actually need (emitter._needed_param_includes -- the union
-# of the owning shield devices' own declared_param_includes), emitted iff
+# of the owning shield devices' own declared_param_includes), emitted if and only if
 # that list is non-empty (today, only lotus_buttons). Unlike RIG_DEPENDS,
 # this is compared as an ORDERED list -- it is the declaring shield
 # device's own header order, and cpp include order can matter (a later

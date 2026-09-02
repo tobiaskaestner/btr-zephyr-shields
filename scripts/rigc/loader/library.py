@@ -5,12 +5,12 @@
 
 **Discovery**, per folder under a shield-library root:
   - no shield.yml -> the name is this folder's own basename; it is a
-    rig template iff `<dir>/<name>.shield` exists, silently skipped
+    rig template if and only if `<dir>/<name>.shield` exists, silently skipped
     otherwise (a legacy shield, or not a shield at all).
   - shield.yml present -> one name per `shield:` (a single mapping) or
     `shields:` (a list, the mutually exclusive plural form upstream
     `b836fcdd709` added) entry -- NAME comes from the entry's own `name:`
-    now, never the folder. An entry is a rig template iff it declares
+    now, never the folder. An entry is a rig template if and only if it declares
     `template: true` AND `<dir>/<name>.shield` exists; one that declares
     `template: true` with no matching file is a loud `lang-shield-template`
     finding, not a silent skip (this folder's authoring intent is known,

@@ -294,7 +294,7 @@ class Instance:
     shield: Shield
     # slot name -> authored reference, each already resolved through a
     # SocketBinding. A slot mapped to None means the author declared no
-    # reference for that slot: the analyzer infers it iff exactly one
+    # reference for that slot: the analyzer infers it if and only if exactly one
     # board socket mates the slot's own connector type. The loader
     # carries the absence through unresolved rather than picking one
     # itself, since it never sees the board. Keyed exactly as

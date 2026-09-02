@@ -56,7 +56,8 @@
 	 * than the shared-controller variant (quail_sock1/quail_sock2) --
 	 * the more representative case for a fixture that exists to prove
 	 * per-slot CS/bus independence, not re-prove the shared-controller
-	 * contract test_multiplug_shield.py's own build tests already own. */
+	 * contract test_multiplug_shield.py's own build tests already own.
+	 */
 	nexus_i2c2: i2c_ctrl2 { };
 	nexus_spi2: spi_ctrl2 { };
 	nexus_gpio: gpio_ctrl { #gpio-cells = <2>; };
@@ -69,7 +70,8 @@
 	 * SoC pins. socket,cs-pool is left at the type's own schema default
 	 * ([16, 15, 14] = D10, D9, D8), which is what adafruit_winc1500's
 	 * pool-allocated CS and adafruit_data_logger's copper-fixed
-	 * shield,cs-position (D10) both resolve against. */
+	 * shield,cs-position (D10) both resolve against.
+	 */
 	nexus_arduino_r3: connector_arduino_r3 {
 		compatible = "socket,arduino-r3";
 		#gpio-cells = <2>;
@@ -107,7 +109,8 @@
 	 * as the arduino-r3 one above). socket,cs-pool stays at the type's
 	 * own default ([2] = MIKROBUS_CS), which eth_click's and
 	 * flash_click's pool-allocated CS (neither authors shield,cs-
-	 * position) resolve against. */
+	 * position) resolve against.
+	 */
 	nexus_mikrobus: connector_mikrobus {
 		compatible = "socket,mikrobus";
 		#gpio-cells = <2>;
@@ -131,7 +134,8 @@
 	 * (_SOCKET_ASSIGNMENTS, below), not unique-by-type inference,
 	 * since a second mikroBUS candidate would otherwise make that
 	 * inference ambiguous for all four. The resolved physical socket
-	 * is unchanged, so their emitted artifacts do not move. */
+	 * is unchanged, so their emitted artifacts do not move.
+	 */
 	nexus_mikrobus2: connector_mikrobus2 {
 		compatible = "socket,mikrobus";
 		#gpio-cells = <2>;
@@ -156,7 +160,8 @@
 	 * its own dedicated I2C controller (m5stack_nanoc6's i2c0), but
 	 * sharing here is harmless: no eligible mikrobus/arduino shield and
 	 * grove_sens ever mate the SAME socket, so there is no cross-type
-	 * address-scope collision to hide. */
+	 * address-scope collision to hide.
+	 */
 	nexus_grove: connector_grove {
 		compatible = "socket,grove";
 		#gpio-cells = <2>;
@@ -184,7 +189,8 @@
 	 * compiled with this compatible" in PRODUCTION -- a fixture is
 	 * exactly where a hypothetical direct one is legitimate, since
 	 * i2c_sensor is a real corpus shield that must still be exercisable
-	 * standalone, not only behind i2c_mux's synthesized channels). */
+	 * standalone, not only behind i2c_mux's synthesized channels).
+	 */
 	nexus_i2c_port: connector_i2c_port {
 		compatible = "socket,i2c-port";
 		socket,i2c = <&nexus_i2c>;
