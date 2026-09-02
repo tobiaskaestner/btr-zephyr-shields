@@ -28,7 +28,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 from ..diag import Diagnostic
 from ..model import Board, BoardSocket, ConnectorType, Instance, Jumper, Rig, Strap, Wire

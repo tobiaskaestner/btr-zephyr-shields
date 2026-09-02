@@ -106,11 +106,17 @@ def rig_dir(name: str) -> Path:
 # -DEXTRA_ZEPHYR_MODULES=<bridle_root()> (see board_extra_defines
 # below), or the board does not exist at all.
 BOARD_DTS: dict[str, str] = {
-    "nucleo_f401re/stm32f401xe/rig": "boards/extend/st/nucleo_f401re/nucleo_f401re_stm32f401xe_rig.dts",
+    "nucleo_f401re/stm32f401xe/rig": (
+        "boards/extend/st/nucleo_f401re/nucleo_f401re_stm32f401xe_rig.dts"
+    ),
     "mikroe_quail/stm32f427xx/rig": "boards/extend/mikroe/quail/mikroe_quail_stm32f427xx_rig.dts",
     "frdm_k64f/mk64f12/rig": "boards/extend/nxp/frdm_k64f/frdm_k64f_mk64f12_rig.dts",
-    "seeeduino_lotus/samd21g18a/rig": "boards/extend/seeed/seeeduino_lotus/seeeduino_lotus_samd21g18a_rig.dts",
-    "m5stack_nanoc6/esp32c6/hpcore/rig": "boards/extend/m5stack/m5stack_nanoc6/m5stack_nanoc6_esp32c6_hpcore_rig.dts",
+    "seeeduino_lotus/samd21g18a/rig": (
+        "boards/extend/seeed/seeeduino_lotus/seeeduino_lotus_samd21g18a_rig.dts"
+    ),
+    "m5stack_nanoc6/esp32c6/hpcore/rig": (
+        "boards/extend/m5stack/m5stack_nanoc6/m5stack_nanoc6_esp32c6_hpcore_rig.dts"
+    ),
 }
 BOARDS: list[str] = list(BOARD_DTS)
 

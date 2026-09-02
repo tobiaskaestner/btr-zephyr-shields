@@ -742,6 +742,10 @@ def _self_consistent_adc_edt(tmp_path: Path, cells: int):
     dts_path = tmp_path / "ncell_adc.dts"
     child_words = " ".join(["0"] * (cells - 1))
     parent_words = " ".join(["0"] * (cells - 1))
+    # Pre-joined so the io-channel-map template line stays inside the
+    # line limit; a 1-cell socket contributes no extra words at all.
+    child_cells = f" {child_words}" if child_words else ""
+    parent_cells = f" {parent_words}" if parent_words else ""
     dts_path.write_text(
         textwrap.dedent(f"""\
         /dts-v1/;
@@ -767,7 +771,7 @@ def _self_consistent_adc_edt(tmp_path: Path, cells: int):
                 gpio-map = <0 0 &gpio0 0 0>;
 
                 #io-channel-cells = <{cells}>;
-                io-channel-map = <0{(' ' + child_words) if child_words else ''} &adcn 0{(' ' + parent_words) if parent_words else ''}>;
+                io-channel-map = <0{child_cells} &adcn 0{parent_cells}>;
             }};
         }};
         """)

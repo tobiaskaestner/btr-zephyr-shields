@@ -460,7 +460,8 @@ def test_cmake_alone_lotus_needs_bridle_module(tmp_path: Path) -> None:
     assert result.returncode != 0, (
         "expected cmake -DRIG=lotus_pwm WITHOUT -DEXTRA_ZEPHYR_MODULES to "
         "fail (seeeduino_lotus does not exist without bridle's board_root)\n"
-        f"--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
+        f"--- argv ---\n{render_argv(result)}\n"
+        f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
     )
     combined = f"{render_argv(result)}\n" + result.stdout + result.stderr
     assert "seeeduino_lotus" in combined, combined

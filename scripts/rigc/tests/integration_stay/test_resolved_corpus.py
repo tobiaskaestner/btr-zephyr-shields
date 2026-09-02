@@ -136,7 +136,8 @@ def test_resolved_accept_zephyr_dts(case: RigCase, tmp_path: Path) -> None:
     result = _run_build(case.name, build_dir, extra, board=case.board)
     assert result.returncode == 0, (
         f"{case.name}: expected `west build --cmake-only` to configure "
-        f"clean (an ACCEPT rig)\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
+        f"clean (an ACCEPT rig)\n--- argv ---\n{render_argv(result)}\n"
+        f"--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}"
     )
 
@@ -188,7 +189,8 @@ def _build_and_freeze_dts(rig_target: str, golden_name: str, board: str, tmp_pat
     result = _run_build(rig_target, build_dir, board=board)
     assert result.returncode == 0, (
         f"{rig_target}: expected `west build --cmake-only` to configure "
-        f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
+        f"clean\n--- argv ---\n{render_argv(result)}\n"
+        f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
     )
 
     candidate = build_dir / "zephyr" / "zephyr.dts"
@@ -212,7 +214,8 @@ def _build_and_freeze_dts(rig_target: str, golden_name: str, board: str, tmp_pat
     )
     assert check.returncode == 0, (
         f"{rig_target}: zephyr.dts not structurally equivalent to the "
-        f"golden (dts_equiv.py):\n--- argv ---\n{render_argv(check)}\n{check.stdout}\n{check.stderr}"
+        f"golden (dts_equiv.py):\n--- argv ---\n{render_argv(check)}\n"
+        f"{check.stdout}\n{check.stderr}"
     )
     return build_dir
 
@@ -356,7 +359,8 @@ def test_resolved_pilot_build_info_provenance(tmp_path: Path) -> None:
     result = _run_build("pilot_variants@2/variant_b", build_dir, board=RIG_BOARD["pilot_variants"])
     assert result.returncode == 0, (
         f"pilot_variants@2/variant_b: expected `west build --cmake-only` "
-        f"to configure clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n"
+        f"to configure clean\n--- argv ---\n{render_argv(result)}\n"
+        f"--- stdout ---\n{result.stdout}\n"
         f"--- stderr ---\n{result.stderr}"
     )
 
@@ -484,7 +488,8 @@ def test_resolved_lotus_pwm_semantic_pin(tmp_path: Path) -> None:
     result = _run_build("lotus_pwm", build_dir, extra, board=RIG_BOARD["lotus_pwm"])
     assert result.returncode == 0, (
         f"lotus_pwm: expected `west build --cmake-only` to configure "
-        f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
+        f"clean\n--- argv ---\n{render_argv(result)}\n"
+        f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
     )
 
     with open(build_dir / "zephyr" / "edt.pickle", "rb") as f:
@@ -532,7 +537,8 @@ def test_resolved_build_info_rig_provenance(tmp_path: Path) -> None:
     result = _run_build("frdm_eth_nest", build_dir, board=RIG_BOARD["frdm_eth_nest"])
     assert result.returncode == 0, (
         f"frdm_eth_nest: expected `west build --cmake-only` to configure "
-        f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
+        f"clean\n--- argv ---\n{render_argv(result)}\n"
+        f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
     )
 
     with open(build_dir / "build_info.yml") as f:
@@ -634,7 +640,8 @@ def test_resolved_rig_depends_provenance(tmp_path: Path) -> None:
     result = _run_build("lotus_pwm", build_dir, extra, board=RIG_BOARD["lotus_pwm"])
     assert result.returncode == 0, (
         f"lotus_pwm: expected `west build --cmake-only` to configure "
-        f"clean\n--- argv ---\n{render_argv(result)}\n--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
+        f"clean\n--- argv ---\n{render_argv(result)}\n"
+        f"--- stdout ---\n{result.stdout}\n--- stderr ---\n{result.stderr}"
     )
 
     context_cmake = (build_dir / "rig" / "context.cmake").read_text()

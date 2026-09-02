@@ -53,12 +53,10 @@ from __future__ import annotations
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 from ..deps import Deps, touch, union
 from ..diag import Diagnostic, LoadError, SourceRef, anchor_path, error
 from ..model import ConnectorType, Rig
-from ..unimplemented import Unimplemented
 from . import axes, binding, fragments
 from .axes import revision_fragment_name, variant_fragment_name
 from .binding import SocketBinding

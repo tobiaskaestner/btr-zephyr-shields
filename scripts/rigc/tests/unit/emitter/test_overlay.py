@@ -54,7 +54,7 @@ def _plain_dev(**kwargs: object) -> Device:
         cs_position=None,
     )
     defaults.update(kwargs)
-    return Device(**defaults)  # type: ignore[arg-type]
+    return Device(**defaults)
 
 
 def test_gpio_ref_flips_the_active_level_when_the_instance_inverts() -> None:

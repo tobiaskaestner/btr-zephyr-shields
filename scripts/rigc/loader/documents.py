@@ -68,10 +68,10 @@ def parse_marked(path: str) -> Val:
         with open(path) as f:
             try:
                 root = yaml.compose(f, yaml.SafeLoader)
-            except yaml.YAMLError:
-                raise Unimplemented(f"YAML parse failure in {path}")
-    except OSError:
-        raise Unimplemented(f"cannot read {path}")
+            except yaml.YAMLError as exc:
+                raise Unimplemented(f"YAML parse failure in {path}") from exc
+    except OSError as exc:
+        raise Unimplemented(f"cannot read {path}") from exc
     if root is None:
         raise Unimplemented(f"empty YAML document {path}")
     return _walk(root, "", path)

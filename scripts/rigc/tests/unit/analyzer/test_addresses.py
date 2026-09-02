@@ -38,7 +38,7 @@ def test_two_fixed_members_at_the_same_address_conflict() -> None:
     assert problems == [AddressProblem("conflict", "b", address=0x5F, first="a")]
 
 
-# ---------------------------------------------------------------- pinned resolves through its domain
+# ------------------------------------------- pinned resolves through its domain
 
 
 def test_pinned_member_resolves_through_its_domain() -> None:

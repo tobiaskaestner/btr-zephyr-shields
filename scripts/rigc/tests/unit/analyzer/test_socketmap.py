@@ -38,7 +38,7 @@ def test_for_slot_returns_none_for_an_unresolved_instance_entirely() -> None:
 
 
 def test_slots_of_lists_only_resolved_slots_in_authoring_order() -> None:
-    left, right = _socket("l"), _socket("r")
+    right = _socket("r")
     resolved = {"i1": {"right": right}}  # "left" never resolved
     inst = _inst({"left": "x", "right": "y"}, {"left": "t1", "right": "t2"})
     assert slots_of(resolved, inst) == ["right"]

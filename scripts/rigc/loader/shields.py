@@ -480,18 +480,17 @@ def _parse_device_addressing(
             addr_from = strap.name
 
     # exactly-one-of rule: forgot-reg is detectable, deferred is explicit
-    if is_bus_kind(bus, "i2c"):
-        if (reg is None) == (addr_from is None):
-            which = "both" if reg is not None else "neither"
-            diags.append(
-                error(
-                    "lang-addr-authority",
-                    f"device '{shield.name}/{node.name}' on an addressable bus "
-                    f"carries {which} of reg / shield,addr-from — exactly one "
-                    "is required (address authority rule)",
-                    (src_of(node),),
-                )
+    if is_bus_kind(bus, "i2c") and (reg is None) == (addr_from is None):
+        which = "both" if reg is not None else "neither"
+        diags.append(
+            error(
+                "lang-addr-authority",
+                f"device '{shield.name}/{node.name}' on an addressable bus "
+                f"carries {which} of reg / shield,addr-from — exactly one "
+                "is required (address authority rule)",
+                (src_of(node),),
             )
+        )
 
     # authored reg == unit-address (validated); symbolic
     # unit-address is a documentation marker linted against the addr-from

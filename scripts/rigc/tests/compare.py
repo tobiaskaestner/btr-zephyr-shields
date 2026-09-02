@@ -763,12 +763,15 @@ def compare_overlay(expected: str, actual: str) -> str | None:
 
     expected_lines = expected.splitlines()
     actual_lines = actual.splitlines()
-    if expected_lines and expected_lines[0] == _INCLUDES_LINE:
-        if not actual_lines or actual_lines[0] != _INCLUDES_LINE:
-            problems.append(
-                f"{_INCLUDES_LINE!r} must be the first line (quoted-include "
-                "resolution depends on it) but is missing or displaced"
-            )
+    if (
+        expected_lines
+        and expected_lines[0] == _INCLUDES_LINE
+        and (not actual_lines or actual_lines[0] != _INCLUDES_LINE)
+    ):
+        problems.append(
+            f"{_INCLUDES_LINE!r} must be the first line (quoted-include "
+            "resolution depends on it) but is missing or displaced"
+        )
 
     expected_annotations = _annotation_comments(expected)
     actual_annotations = _annotation_comments(actual)

@@ -134,9 +134,7 @@ def _known_qualified(token: str, connector_types: set[str]) -> bool:
         return True
     if BUS_PROP_RE.fullmatch(token):
         return True
-    if CS_POOL_PROP_RE.fullmatch(token):
-        return True
-    return False
+    return bool(CS_POOL_PROP_RE.fullmatch(token))
 
 
 def test_dts_vocabulary_forward_every_code_literal_is_documented() -> None:

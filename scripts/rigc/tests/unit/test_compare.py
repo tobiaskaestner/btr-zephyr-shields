@@ -204,7 +204,8 @@ SHEET_GOLDEN = textwrap.dedent("""\
 
     ## PWM / analog pin-mux (board-provided pinctrl)
 
-    The expander enables these controllers; the SoC pin-mux for each pin is board-provided and must be applied (stubbed):
+    The expander enables these controllers; the SoC pin-mux for each pin is
+    board-provided and must be applied (stubbed):
 
     - light_1/light (sock4 SIG0) → ADC adc ch0: mux the pin to the controller
 

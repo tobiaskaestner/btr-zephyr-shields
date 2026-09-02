@@ -30,7 +30,6 @@ import ast
 import textwrap
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Union
 
 import rigc
 
@@ -208,7 +207,7 @@ _WEST_BUILD_SUBCOMMANDS = frozenset({"build"})
 
 #: ast.parse never yields an AsyncFunctionDef for a `def`, but the isinstance
 #: check in _defs_by_name asks for both, so the dict value type must too.
-_FuncDef = Union[ast.FunctionDef, ast.AsyncFunctionDef]
+_FuncDef = ast.FunctionDef | ast.AsyncFunctionDef
 
 
 def _call_targets(node: ast.AST) -> Iterator[str]:

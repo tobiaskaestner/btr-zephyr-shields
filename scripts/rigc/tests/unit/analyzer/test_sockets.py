@@ -1001,7 +1001,7 @@ def test_resolve_sockets_skips_a_failed_instance_but_keeps_going() -> None:
     assert len(diags) == 1
 
 
-# ---------------------------------------------------------------- stacking census keyed by RESOLVED socket
+# ------------------------------------- stacking census keyed by RESOLVED socket
 
 
 def test_resolve_sockets_two_labels_for_one_socket_still_caught_as_not_stackable() -> None:
