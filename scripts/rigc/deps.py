@@ -13,12 +13,11 @@ compose upward as list concatenation."""
 from __future__ import annotations
 
 import os
-from typing import FrozenSet
 
 #: An immutable set of absolute paths -- deliberately a VALUE type (no
 #: `.add`/`.see` mutator), so the only way to grow one is to build a NEW
 #: value with `touch`/`union`.
-Deps = FrozenSet[str]
+Deps = frozenset[str]
 
 EMPTY: Deps = frozenset()
 

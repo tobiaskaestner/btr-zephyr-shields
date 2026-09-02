@@ -20,7 +20,6 @@ from rigc.loader.shields import parse_shields
 
 from .conftest import _PLURAL_TYPES, _TYPES, _dt, _one_shield
 
-
 # ---------------------------------------------------------------- parse_shields
 
 def test_no_shield_templates_root_yields_nothing(tmp_path) -> None:

@@ -60,11 +60,9 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict
 
 import pytest
 import yaml
-
 from corpus import RIG_BOARD
 from harness import (
     DTS_EQUIV,
@@ -87,7 +85,7 @@ _APP = "zephyr/samples/hello_world"
 _RIG = "nucleo_datalogger"
 
 
-def _cmake_alone_env() -> Dict[str, str]:
+def _cmake_alone_env() -> dict[str, str]:
     """A subprocess environment with west unresolvable on PATH, so a build
     that succeeds here provably did not reach for west anywhere:
     strip the directory hosting the west console-script from PATH (in this
@@ -139,7 +137,7 @@ def _cmake_alone_argv(build_dir: Path, extra_defines: list) -> list:
     ]
 
 
-def _run_cmake_alone(build_dir: Path, extra_defines: list) -> "subprocess.CompletedProcess[str]":
+def _run_cmake_alone(build_dir: Path, extra_defines: list) -> subprocess.CompletedProcess[str]:
     env = _cmake_alone_env()
     cmd = _cmake_alone_argv(build_dir, extra_defines)
     return subprocess.run(cmd, cwd=str(WEST_TOPDIR), env=env,

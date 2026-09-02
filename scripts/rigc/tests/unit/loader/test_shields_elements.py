@@ -10,11 +10,10 @@ fixtures every module here shares.
 """
 from __future__ import annotations
 
-from rigc.model import Jumper, Pad, Strap
 from rigc.loader.shields import parse_shields
+from rigc.model import Jumper, Pad, Strap
 
 from .conftest import _PLURAL_TYPES, _dt, _one_shield
-
 
 # ---------------------------------------------------------------- pads/straps/jumpers
 

@@ -41,18 +41,16 @@ file), never by editing its own assertion.
 """
 from __future__ import annotations
 
-from pathlib import Path
-from typing import List
-
 import textwrap
+from pathlib import Path
 
 import pytest
 
 from rigc.board import project
 from rigc.board.census import scan_socket_nodes
+from rigc.board.edt_build import ensure_devicetree_on_path
 from rigc.diag import LoadError
 from rigc.dtsio import MODULE_ROOT
-from rigc.board.edt_build import ensure_devicetree_on_path
 from rigc.tests.conftest import FIXTURES_DIR, assert_fixture_local
 
 _BOARD_DTS = FIXTURES_DIR / "boards" / "fixture_board.dts"
@@ -827,7 +825,7 @@ def test_gpio_map_controller_label_is_the_defining_label() -> None:
 # comparison only -- never inside the shared scanner.
 
 
-def _conventional_label_offenders(text: str) -> List[str]:
+def _conventional_label_offenders(text: str) -> list[str]:
     """The defining label of every socket,* node in text whose label set
     carries NO label matching its type's convention -- "<type>" or
     "<type>_<anything>". Empty when every node conforms."""

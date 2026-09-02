@@ -41,7 +41,7 @@ _VENV_PYTHON = WEST_TOPDIR / ".venv" / "bin" / "python3"
 _CMAKEFORMAT = "{NAME};{DIR};{BOARD};{REVISION};{VARIANT};{PROMOTED}"
 
 
-def _run(*args: str) -> "subprocess.CompletedProcess[str]":
+def _run(*args: str) -> subprocess.CompletedProcess[str]:
     cmd = [str(_VENV_PYTHON), str(_LIST_RIGS),
            f"--board-root={REPO_ROOT}", *args]
     return subprocess.run(cmd, cwd=str(REPO_ROOT), capture_output=True,

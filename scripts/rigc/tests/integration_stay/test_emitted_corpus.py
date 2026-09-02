@@ -41,11 +41,9 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import List
 
 import pytest
 import yaml
-
 from corpus import (
     ALL_CASES,
     ARD_DATALOGGER_FRDM_BOARD,
@@ -53,9 +51,8 @@ from corpus import (
     RIG_BOARD,
     RIGS_DIR,
     RigCase,
-    rig_dir,
-    SHIELD_DIR,
     plain_build_for,
+    rig_dir,
     run_expand,
 )
 from harness import (
@@ -120,8 +117,8 @@ def test_no_rig_declares_a_board() -> None:
 
     rglob, not a flat glob("*/rig.yml") -- five rigs live one level
     deeper, under boards/rigs/clash/."""
-    def _board_key_paths(node: object, path: str) -> List[str]:
-        found: List[str] = []
+    def _board_key_paths(node: object, path: str) -> list[str]:
+        found: list[str] = []
         if isinstance(node, dict):
             for key, value in node.items():
                 sub_path = f"{path}.{key}" if path else str(key)
@@ -223,7 +220,7 @@ def test_every_overlay_golden_has_semantic_coverage() -> None:
 @pytest.mark.build
 @pytest.mark.parametrize("case", ALL_CASES, ids=lambda c: c.name)
 def test_emitted_golden(case: RigCase, tmp_path: Path,
-                      tmp_path_factory: "pytest.TempPathFactory") -> None:
+                      tmp_path_factory: pytest.TempPathFactory) -> None:
     board = case.board
     plain_build = plain_build_for(board, tmp_path_factory)
     out_dir = tmp_path / "out"
@@ -309,7 +306,7 @@ def test_not_rig_enabled_golden(tmp_path: Path) -> None:
 
 @pytest.mark.build
 def test_pwm_nonzero_flags_golden(tmp_path: Path,
-                                  tmp_path_factory: "pytest.TempPathFactory") -> None:
+                                  tmp_path_factory: pytest.TempPathFactory) -> None:
     """Synthetic fixture: a servo shield authoring a nonzero PWM flags value
     (PWM_POLARITY_INVERTED) on a real PWM-capable Grove socket -- every
     corpus shield authors flags=0, so this is the only fixture locking the
@@ -381,7 +378,7 @@ def _pilot_golden(tmp_path, tmp_path_factory, golden_name, revision, variant):
 
 @pytest.mark.build
 def test_pilot_variant_b_golden(tmp_path: Path,
-                                tmp_path_factory: "pytest.TempPathFactory") -> None:
+                                tmp_path_factory: pytest.TempPathFactory) -> None:
     """variant_b @ revision 1 (the declared default revision, explicit
     variant): variant_b supplies BOTH a .overlay and a _defconfig, so this
     tuple exercises the DT collection chain the bare/default tuple
@@ -392,7 +389,7 @@ def test_pilot_variant_b_golden(tmp_path: Path,
 
 @pytest.mark.build
 def test_pilot_revision_2_golden(tmp_path: Path,
-                                 tmp_path_factory: "pytest.TempPathFactory") -> None:
+                                 tmp_path_factory: pytest.TempPathFactory) -> None:
     """variant_a (default) @ revision 2: exercises the revision Kconfig
     chain stacking onto the (still default) variant's own."""
     _pilot_golden(tmp_path, tmp_path_factory, "pilot_variants_2",
@@ -402,7 +399,7 @@ def test_pilot_revision_2_golden(tmp_path: Path,
 @pytest.mark.build
 def test_shield_rev_family_revision_2_golden(
         tmp_path: Path,
-        tmp_path_factory: "pytest.TempPathFactory") -> None:
+        tmp_path_factory: pytest.TempPathFactory) -> None:
     """The two revision axes composing: rig revision 2's delta moves the
     sensor instance to the SHIELD's revision 2, so the emitted overlay must
     carry revision 2's own compatible where the bare (revision 1) tuple
@@ -442,7 +439,7 @@ def test_shield_rev_family_revision_2_golden(
 
 @pytest.mark.build
 def test_pilot_variant_b_revision_2_golden(tmp_path: Path,
-                                           tmp_path_factory: "pytest.TempPathFactory") -> None:
+                                           tmp_path_factory: pytest.TempPathFactory) -> None:
     """variant_b @ revision 2 -- the fully qualified tuple, both chains and
     both axes stacking in the same build: variant_b's .overlay + _defconfig
     AND revision 2's _defconfig all collected together."""
@@ -452,7 +449,7 @@ def test_pilot_variant_b_revision_2_golden(tmp_path: Path,
 
 @pytest.mark.build
 def test_pilot_variant_c_golden(tmp_path: Path,
-                                tmp_path_factory: "pytest.TempPathFactory") -> None:
+                                tmp_path_factory: pytest.TempPathFactory) -> None:
     """variant_c @ revision 1 -- the TOPOLOGY-differing tuple: its own
     delta (pilot_variants_variant_c.yml) substitutes the logger instance's
     shield entirely (Adafruit Data Logger -> pilot_alt_button), the case
@@ -467,7 +464,7 @@ def test_pilot_variant_c_golden(tmp_path: Path,
 
 @pytest.mark.build
 def test_ard_datalogger_frdm_golden(tmp_path: Path,
-                                    tmp_path_factory: "pytest.TempPathFactory") -> None:
+                                    tmp_path_factory: pytest.TempPathFactory) -> None:
     """ard_datalogger on its SECOND board: this is not a variant --
     ard_datalogger declares no variants: axis at all, just a
     DIFFERENT --board injected against the identical rig.yml/content
@@ -502,7 +499,7 @@ def test_ard_datalogger_frdm_golden(tmp_path: Path,
 
 @pytest.mark.build
 def test_shield_uart_subset_reject_on_nucleo_golden(
-        tmp_path: Path, tmp_path_factory: "pytest.TempPathFactory") -> None:
+        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
     """A shield needing socket,uart, mated on the injected nucleo board:
     its Arduino socket deliberately exposes no socket,uart (subset
     exposure, declared by absence), so this must reject -- the same
@@ -536,7 +533,7 @@ def test_shield_uart_subset_reject_on_nucleo_golden(
 
 @pytest.mark.build
 def test_shield_uart_subset_accept_on_frdm_golden(
-        tmp_path: Path, tmp_path_factory: "pytest.TempPathFactory") -> None:
+        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
     """The other half of the pair above: the IDENTICAL rig, injected
     against frdm instead -- its Arduino socket exposes socket,uart
     (uart3), so the same rig accepts here. Proves the subset-exposure

@@ -12,9 +12,7 @@ exercised with synthetic roots).
 """
 from __future__ import annotations
 
-from rigc.diag import (Diagnostic, SourceRef, anchor_path, error,
-                       has_errors, render)
-
+from rigc.diag import Diagnostic, SourceRef, anchor_path, error, has_errors, render
 
 # ------------------------------------------------ the frozen render format
 

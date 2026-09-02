@@ -18,11 +18,10 @@ composer, which merges the two claim sets before calling check_nets."""
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Dict, List, NamedTuple, Optional, Tuple
+from typing import NamedTuple
 
 from ..diag import Diagnostic, SourceRef, error
-from ..model import (BoardSocket, ConnectorType, Device, FunctionRef, Instance,
-                     Jumper, Rig)
+from ..model import BoardSocket, ConnectorType, Device, FunctionRef, Instance, Jumper, Rig
 from .socketmap import Sockets, for_ref
 
 _DRIVER_HINTS = ("int", "irq")
@@ -42,24 +41,24 @@ _MAP_PROP = {"pwm": "pwm-map", "adc": "io-channel-map"}
 #: dedicated line the board fragment doesn't route; ("chan", controller
 #: label, channel) for a PWM/ADC controller CHANNEL (exclusive use of one
 #: timer/adc channel, independent of which pin reaches it).
-NetKey = Tuple[object, ...]
+NetKey = tuple[object, ...]
 
 
 @dataclass(frozen=True)
 class NetClaim:
     instance: Instance
-    device: Optional[Device]
+    device: Device | None
     what: str                       # "rtc@…: int1-gpios" / "sdhc: CS (copper-fixed)" / pad name
     role: str                       # driver | listener | dedicated
     socket: BoardSocket
     position: int
-    src: Optional[SourceRef] = None
+    src: SourceRef | None = None
 
 
 #: Every net's claims, keyed by NetKey -- composed upward by simple dict
 #: merge (`merge_nets`), the same way diagnostic lists compose by
 #: concatenation.
-Nets = Dict[NetKey, List[NetClaim]]
+Nets = dict[NetKey, list[NetClaim]]
 
 
 def merge_nets(*nets: Nets) -> Nets:
@@ -109,7 +108,7 @@ class ChannelResolution(NamedTuple):
     fn: str
     ctrl: str
     channel: int
-    period: Optional[int]
+    period: int | None
     flags: int
     position: int
 
@@ -117,16 +116,16 @@ class ChannelResolution(NamedTuple):
 @dataclass
 class GpioNets:
     nets: Nets = field(default_factory=dict)
-    positions: Dict[Tuple[str, str, str], int] = field(default_factory=dict)
-    jumpers_set: List[Tuple[Instance, Jumper, Optional[int], int]] = field(
+    positions: dict[tuple[str, str, str], int] = field(default_factory=dict)
+    jumpers_set: list[tuple[Instance, Jumper, int | None, int]] = field(
         default_factory=list)
-    channels: Dict[Tuple[str, str, str], ChannelResolution] = field(default_factory=dict)
-    controllers: Dict[str, str] = field(default_factory=dict)
+    channels: dict[tuple[str, str, str], ChannelResolution] = field(default_factory=dict)
+    controllers: dict[str, str] = field(default_factory=dict)
 
 
 def collect_gpio_nets(rig: Rig, sockets: Sockets,
-                      types: Dict[str, ConnectorType],
-                      ) -> Tuple[GpioNets, List[Diagnostic]]:
+                      types: dict[str, ConnectorType],
+                      ) -> tuple[GpioNets, list[Diagnostic]]:
     """The gpio/pwm/adc claim-collection pass: every device ref resolves
     through ITS OWN plug's socket (`ref.plug`, PER-REFERENCE granularity)
     into net claims -- a device sitting on one plug's bus may still
@@ -134,12 +133,12 @@ def collect_gpio_nets(rig: Rig, sockets: Sockets,
 
     Returns (nets, diagnostics): a fresh claim map the caller owns --
     later passes read it but must never append into its lists."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     result = GpioNets()
 
     def claim(key: NetKey, socket: BoardSocket, position: int,
-             inst: Instance, device: Optional[Device], what: str, role: str,
-             src: Optional[SourceRef]) -> None:
+             inst: Instance, device: Device | None, what: str, role: str,
+             src: SourceRef | None) -> None:
         result.nets.setdefault(key, []).append(NetClaim(
             instance=inst, device=device, what=what, role=role,
             socket=socket, position=position, src=src))
@@ -159,7 +158,7 @@ def collect_gpio_nets(rig: Rig, sockets: Sockets,
 
 
 def _collect_gpio(inst: Instance, dev: Device, ref: FunctionRef, socket: BoardSocket,
-                  ctype: ConnectorType, result: GpioNets, claim, diags: List[Diagnostic],
+                  ctype: ConnectorType, result: GpioNets, claim, diags: list[Diagnostic],
                   ) -> None:
     pos = ref.position
     if ref.jumper is not None:
@@ -175,7 +174,7 @@ def _collect_gpio(inst: Instance, dev: Device, ref: FunctionRef, socket: BoardSo
 
 def _collect_channel(inst: Instance, dev: Device, ref: FunctionRef, socket: BoardSocket,
                      ctype: ConnectorType, result: GpioNets, claim,
-                     diags: List[Diagnostic]) -> None:
+                     diags: list[Diagnostic]) -> None:
     """PWM/ADC: the same position is reachable as a channel of a
     controller. Register TWO net claims -- the PIN (exclusive: the pin
     can't also be GPIO or another function) and the CHANNEL (exclusive:
@@ -224,7 +223,7 @@ def _collect_channel(inst: Instance, dev: Device, ref: FunctionRef, socket: Boar
 
 
 def _resolve_jumper(inst: Instance, dev: Device, ref: FunctionRef, ctype: ConnectorType,
-                    result: GpioNets, diags: List[Diagnostic]) -> Optional[int]:
+                    result: GpioNets, diags: list[Diagnostic]) -> int | None:
     """A routing jumper's position must be pinned by the rig (explicit
     config:; non-CS positions are never auto-allocated). Returns the
     resolved index or None (+ diagnostic)."""
@@ -252,7 +251,7 @@ def _resolve_jumper(inst: Instance, dev: Device, ref: FunctionRef, ctype: Connec
     return pos
 
 
-def _net_descr(key: NetKey, claims: List[NetClaim], types: Dict[str, ConnectorType]) -> str:
+def _net_descr(key: NetKey, claims: list[NetClaim], types: dict[str, ConnectorType]) -> str:
     """Describe where a net lives, from its identity key: a controller
     channel (pwm/adc), a single socket position, or a SoC pin shared
     across sockets."""
@@ -267,13 +266,13 @@ def _net_descr(key: NetKey, claims: List[NetClaim], types: Dict[str, ConnectorTy
     return "a shared net"
 
 
-def _claim_line(c: NetClaim, types: Dict[str, ConnectorType]) -> str:
+def _claim_line(c: NetClaim, types: dict[str, ConnectorType]) -> str:
     pos = types[c.socket.type_name].posname(c.position)
     return f"- {c.instance.name} (socket {c.socket.label}, {pos}): {c.what}"
 
 
-def _exclusive_verdict(key: NetKey, descr: str, claims: List[NetClaim],
-                       types: Dict[str, ConnectorType]) -> Optional[List[Diagnostic]]:
+def _exclusive_verdict(key: NetKey, descr: str, claims: list[NetClaim],
+                       types: dict[str, ConnectorType]) -> list[Diagnostic] | None:
     """The exclusive-resource half of one net's verdict: two exclusive
     claims conflict outright; one exclusive claim plus any signal claims
     on the same net is also a conflict, since an exclusive resource
@@ -294,8 +293,8 @@ def _exclusive_verdict(key: NetKey, descr: str, claims: List[NetClaim],
     return None
 
 
-def _driver_verdict(descr: str, claims: List[NetClaim],
-                    types: Dict[str, ConnectorType]) -> List[Diagnostic]:
+def _driver_verdict(descr: str, claims: list[NetClaim],
+                    types: dict[str, ConnectorType]) -> list[Diagnostic]:
     """The shared-net half of one net's verdict, reached only once the
     exclusive-resource check above found nothing: more than one DRIVER
     on a shared net is a conflict; 1 driver + N listeners, or MCU-driven
@@ -314,8 +313,8 @@ def _driver_verdict(descr: str, claims: List[NetClaim],
     return []
 
 
-def _net_verdict(key: NetKey, descr: str, claims: List[NetClaim],
-                 types: Dict[str, ConnectorType]) -> List[Diagnostic]:
+def _net_verdict(key: NetKey, descr: str, claims: list[NetClaim],
+                 types: dict[str, ConnectorType]) -> list[Diagnostic]:
     """One net's verdict (`check_nets`' own per-key logic, lifted out).
     At most one finding per net -- the driver check never runs once the
     exclusive-resource check already fired, matching `check_nets`' own
@@ -326,16 +325,16 @@ def _net_verdict(key: NetKey, descr: str, claims: List[NetClaim],
     return _driver_verdict(descr, claims, types)
 
 
-def check_nets(nets: Nets, types: Dict[str, ConnectorType]) -> List[Diagnostic]:
-    diags: List[Diagnostic] = []
+def check_nets(nets: Nets, types: dict[str, ConnectorType]) -> list[Diagnostic]:
+    diags: list[Diagnostic] = []
     for key, claims in sorted(nets.items(), key=lambda kv: str(kv[0])):
         descr = _net_descr(key, claims, types)
         diags += _net_verdict(key, descr, claims, types)
     return diags
 
 
-def _exclusive_conflict(key: NetKey, descr: str, claims: List[NetClaim],
-                        types: Dict[str, ConnectorType]) -> Diagnostic:
+def _exclusive_conflict(key: NetKey, descr: str, claims: list[NetClaim],
+                        types: dict[str, ConnectorType]) -> Diagnostic:
     """Two exclusive claims on one resource. The resource kind (from the
     net key) tailors the code and the fix hint."""
     if key[0] == "chan":

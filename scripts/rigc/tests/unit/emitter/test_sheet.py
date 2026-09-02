@@ -11,8 +11,18 @@ from __future__ import annotations
 from rigc.analyzer import Solved
 from rigc.diag import SourceRef
 from rigc.emitter.sheet import render_sheet
-from rigc.model import (BoardSocket, ConnectorType, Device, Instance, Jumper,
-                        Rig, Shield, Strap, Wire, WireEnd)
+from rigc.model import (
+    BoardSocket,
+    ConnectorType,
+    Device,
+    Instance,
+    Jumper,
+    Rig,
+    Shield,
+    Strap,
+    Wire,
+    WireEnd,
+)
 
 _SRC = SourceRef("f.yml", 1, "k")
 

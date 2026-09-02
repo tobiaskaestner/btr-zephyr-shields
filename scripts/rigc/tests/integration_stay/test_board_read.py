@@ -44,7 +44,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from corpus import BOARD_DTS, BOARDS, PlainBuild, plain_build_for
 from harness import REPO_ROOT
 
@@ -56,8 +55,8 @@ from rigc.diag import render  # noqa: E402
 
 
 @pytest.fixture(params=BOARDS, ids=BOARDS)
-def plain_build(request: "pytest.FixtureRequest",
-                tmp_path_factory: "pytest.TempPathFactory") -> PlainBuild:
+def plain_build(request: pytest.FixtureRequest,
+                tmp_path_factory: pytest.TempPathFactory) -> PlainBuild:
     """Per-board plain build, session-memoized by corpus.plain_build_for
     -- other test files (test_emitted_corpus.py) request the SAME cached
     build for their own rigs naming this board, rather than configuring it

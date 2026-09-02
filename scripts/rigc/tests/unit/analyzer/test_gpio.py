@@ -8,10 +8,26 @@ pass itself) gets one minimal constructed Rig, to pin position/jumper
 resolution and pwm/adc channel collection together."""
 from __future__ import annotations
 
-from rigc.analyzer.gpio import (NetClaim, Nets, check_nets, collect_gpio_nets,
-                               merge_nets, role_of, soc_net)
-from rigc.model import (BoardSocket, ConnectorType, Device, FunctionRef,
-                        Instance, Jumper, Position, Rig, Shield)
+from rigc.analyzer.gpio import (
+    NetClaim,
+    Nets,
+    check_nets,
+    collect_gpio_nets,
+    merge_nets,
+    role_of,
+    soc_net,
+)
+from rigc.model import (
+    BoardSocket,
+    ConnectorType,
+    Device,
+    FunctionRef,
+    Instance,
+    Jumper,
+    Position,
+    Rig,
+    Shield,
+)
 
 # ---------------------------------------------------------------- role_of
 

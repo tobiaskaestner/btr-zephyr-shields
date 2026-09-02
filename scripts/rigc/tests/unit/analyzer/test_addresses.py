@@ -13,8 +13,12 @@ concern, it is new coverage of a different subject, the same standard
 `test_cs.py` already meets for CS allocation."""
 from __future__ import annotations
 
-from rigc.analyzer.addresses import (AddressMember, AddressPlacement,
-                                     AddressProblem, allocate_scope_addresses)
+from rigc.analyzer.addresses import (
+    AddressMember,
+    AddressPlacement,
+    AddressProblem,
+    allocate_scope_addresses,
+)
 
 # ---------------------------------------------------------------- fixed wins outright
 

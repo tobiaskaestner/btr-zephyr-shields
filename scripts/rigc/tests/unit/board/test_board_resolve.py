@@ -17,16 +17,15 @@ frozen golden (no-recipe, missing-file) is instead verified by comparing
 this module's output against a hand-written reference by eye."""
 from __future__ import annotations
 
-from textwrap import dedent
-
 import os
 from pathlib import Path
+from textwrap import dedent
 
 import pytest
 
 from rigc.board import resolve
-from rigc.diag import LoadError, error
 from rigc.board.edt_build import BuildRecipe
+from rigc.diag import LoadError, error
 from rigc.model import Board, BoardSocket
 
 

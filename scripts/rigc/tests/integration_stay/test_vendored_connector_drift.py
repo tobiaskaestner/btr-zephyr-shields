@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Set
 
 from harness import FIXTURES_DIR, REPO_ROOT
 
@@ -51,7 +50,7 @@ _VENDORED_YAML_DIR = FIXTURES_DIR / "dts" / "unified-connectors"
 _VENDORED_HEADER_DIR = FIXTURES_DIR / "include" / "dt-bindings" / "connector"
 
 
-def _yaml_stems(directory: Path) -> Set[str]:
+def _yaml_stems(directory: Path) -> set[str]:
     """Every *.yaml basename (extension stripped) directly under
     directory -- a fresh set the caller owns."""
     return {p.stem for p in directory.glob("*.yaml")}
@@ -68,7 +67,7 @@ def test_registry_default_root_is_the_real_four_types() -> None:
     copy instead."""
     real_types, _deps = load_types()
     assert set(real_types) == _EXPECTED_TYPES
-    assert BINDINGS == str(REPO_ROOT / "dts" / "bindings" / "connectors")
+    assert str(REPO_ROOT / "dts" / "bindings" / "connectors") == BINDINGS
 
 
 def test_vendored_connector_membership_matches_production() -> None:

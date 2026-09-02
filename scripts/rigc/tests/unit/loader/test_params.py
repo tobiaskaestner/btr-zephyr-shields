@@ -19,8 +19,12 @@ from __future__ import annotations
 
 from rigc.diag import SourceRef
 from rigc.loader.documents import parse_marked
-from rigc.loader.params import (apply_config_block, apply_params_block,
-                               check_param_invariant, check_restate)
+from rigc.loader.params import (
+    apply_config_block,
+    apply_params_block,
+    check_param_invariant,
+    check_restate,
+)
 from rigc.model import Device, Instance, Jumper, Shield, Strap
 
 _SRC = SourceRef("synthetic", 1)

@@ -10,7 +10,6 @@ from __future__ import annotations
 
 from rigc.loader.binding import SocketBinding, resolve_board
 
-
 # ------------------------------------------------------------ SocketBinding
 
 def test_binding_maps_a_known_name() -> None:

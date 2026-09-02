@@ -56,8 +56,8 @@ from .sheet import render_sheet
 __all__ = ["emit", "write_artifacts"]
 
 
-def emit(rig: Rig, solved: Solved, types: Dict[str, ConnectorType], workdir: str,
-         include_dirs: Optional[List[str]] = None) -> Dict[str, bytes]:
+def emit(rig: Rig, solved: Solved, types: dict[str, ConnectorType], workdir: str,
+         include_dirs: list[str] | None = None) -> dict[str, bytes]:
     """Compute the rig artifacts (never context.cmake -- that is
     `context.render`, a build-glue concern kept out of this function by
     design) as a `{filename: bytes}` mapping. `include_dirs` is the cpp
@@ -90,7 +90,7 @@ def emit(rig: Rig, solved: Solved, types: Dict[str, ConnectorType], workdir: str
     return outputs
 
 
-def _needed_param_includes(rig: Rig) -> List[str]:
+def _needed_param_includes(rig: Rig) -> list[str]:
     """Every header this rig's own per-instance parameter assignments
     actually need cpp to see: the union, across every instance (sorted by
     name) and every device label it assigns params to (sorted), of the
@@ -117,7 +117,7 @@ def _needed_param_includes(rig: Rig) -> List[str]:
     result is deterministic regardless of authoring order.
 
     rig is read-only; returns a fresh list the caller owns."""
-    headers: List[str] = []
+    headers: list[str] = []
     for inst in sorted(rig.instances, key=lambda i: i.name):
         devices_by_label = {d.label: d for d in inst.shield.devices}
         for dev_label, props in sorted(inst.params.items()):
@@ -130,7 +130,7 @@ def _needed_param_includes(rig: Rig) -> List[str]:
     return headers
 
 
-def _render_includes_dtsi(headers: List[str]) -> str:
+def _render_includes_dtsi(headers: list[str]) -> str:
     """The fourth generated artifact: nothing but the needed #include
     lines (`_needed_param_includes`). rig-gen.overlay pulls this in via a
     QUOTED include at the top of the file -- quoted-include resolution
@@ -144,7 +144,7 @@ def _render_includes_dtsi(headers: List[str]) -> str:
     return "\n".join(out)
 
 
-def write_artifacts(out_dir: str, artifacts: Dict[str, bytes]) -> None:
+def write_artifacts(out_dir: str, artifacts: dict[str, bytes]) -> None:
     """The ONE shell that performs every artifact write, binary mode --
     the IO-at-the-edges boundary: every renderer above and
     `context.render` computes bytes as a pure value, and this is the

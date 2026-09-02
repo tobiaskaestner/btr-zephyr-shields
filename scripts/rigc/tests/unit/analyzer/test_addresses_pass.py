@@ -10,8 +10,7 @@ already uses for its own pass."""
 from __future__ import annotations
 
 from rigc.analyzer.addresses import allocate_addresses
-from rigc.model import (BoardSocket, BusRef, Device, Instance, Rig, Shield,
-                        Strap)
+from rigc.model import BoardSocket, BusRef, Device, Instance, Rig, Shield, Strap
 
 
 def _socket(path: str = "/i2c1") -> BoardSocket:

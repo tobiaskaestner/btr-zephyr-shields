@@ -56,15 +56,14 @@ unit-testable directly against a synthetic, cpp-free `.dts` text parsed
 with `dtsio.get_dtlib().DT(path)`."""
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 from ..buskind import BUS_PROP_RE as _BUS_PROP_RE
 from ..buskind import CS_POOL_PROP_RE as _CS_POOL_PROP_RE
 from ..buskind import bus_kind_of, is_bus_kind
-from ..diag import Diagnostic, SourceRef, error, warning
+from ..diag import Diagnostic, error, warning
 from ..dtsio import get_dtlib, render_prop, src_of, words
-from ..model import (ConnectorType, Device, ExposedSocket, FunctionRef, Jumper,
-                     Pad, Shield, Strap)
+from ..model import ConnectorType, Device, ExposedSocket, FunctionRef, Jumper, Pad, Shield, Strap
 
 #: socket,<kind> or socket,<kind>-<role> -- an exposed socket's own bus
 #: vocabulary is the qualified multi-bus pattern, the same shared pattern
@@ -93,16 +92,16 @@ _MODEL_PROPS = {"reg", "compatible", "shield,addr-from", "shield,cs-position",
 #: `_parse_pos_ref` resolves a phandle against to decide which slot a
 #: reference names and to validate its position, so a reference may name
 #: "one of the shield's plugs" rather than assuming there is only one.
-PlugsByPath = Dict[str, Tuple[str, Optional[ConnectorType]]]
+PlugsByPath = dict[str, tuple[str, ConnectorType | None]]
 
 
-def parse_shields(dt, types: Dict[str, ConnectorType],
-                  ) -> Tuple[Dict[str, Shield], List[Diagnostic]]:
+def parse_shields(dt, types: dict[str, ConnectorType],
+                  ) -> tuple[dict[str, Shield], list[Diagnostic]]:
     """Every `.shield` file has exactly one shield node under the
     `shield-templates` wrapper (a marker that distinguishes a TEMPLATE
     from a real Zephyr shield's applied `<name>.overlay`)."""
-    shields: Dict[str, Shield] = {}
-    diags: List[Diagnostic] = []
+    shields: dict[str, Shield] = {}
+    diags: list[Diagnostic] = []
     root = dt.root.nodes.get("shield-templates")
     if root is None:
         return shields, diags
@@ -122,7 +121,7 @@ def _is_exposed_node(g) -> bool:
         g.props["compatible"].to_string().startswith("socket,")
 
 
-def _require_label(node, kind: str, shield_name: str) -> Tuple[str, List[Diagnostic]]:
+def _require_label(node, kind: str, shield_name: str) -> tuple[str, list[Diagnostic]]:
     """The DTS label a rig->shield reference (`config:`/`wires:`/
     `socket:`) resolves against, for a device, pad, strap, jumper or
     exposed socket. A node with none is refused rather than silently
@@ -146,9 +145,9 @@ def _require_label(node, kind: str, shield_name: str) -> Tuple[str, List[Diagnos
         (src_of(node),))]
 
 
-def _parse_shield(node, types: Dict[str, ConnectorType],
-                  ) -> Tuple[Shield, List[Diagnostic]]:
-    diags: List[Diagnostic] = []
+def _parse_shield(node, types: dict[str, ConnectorType],
+                  ) -> tuple[Shield, list[Diagnostic]]:
+    diags: list[Diagnostic] = []
     label = node.labels[0] if node.labels else node.name
     plugs_prop = node.props.get("shield,plugs")
     plug_children = [c for c in node.nodes.values() if _is_plug_node(c)]
@@ -223,16 +222,16 @@ def _parse_shield(node, types: Dict[str, ConnectorType],
     return shield, diags
 
 
-def _parse_plugs(plug_children, shield: Shield, types: Dict[str, ConnectorType],
-                 ) -> Tuple[Dict[str, Optional[ConnectorType]], Dict[str, Any],
-                            PlugsByPath, List[Diagnostic]]:
+def _parse_plugs(plug_children, shield: Shield, types: dict[str, ConnectorType],
+                 ) -> tuple[dict[str, ConnectorType | None], dict[str, Any],
+                            PlugsByPath, list[Diagnostic]]:
     """Every plug child in authoring order: validates its cell counts and
     resolves its connector type, and records `shield.plugs[slot]` (in that
     same order -- shield.plugs' own ordering contract) alongside the three
     lookup maps the rest of `_parse_shield` walks against."""
-    diags: List[Diagnostic] = []
-    ctypes_by_slot: Dict[str, Optional[ConnectorType]] = {}
-    nodes_by_slot: Dict[str, Any] = {}
+    diags: list[Diagnostic] = []
+    ctypes_by_slot: dict[str, ConnectorType | None] = {}
+    nodes_by_slot: dict[str, Any] = {}
     plugs_by_path: PlugsByPath = {}
     for child in plug_children:
         slot = child.name
@@ -272,12 +271,12 @@ def _parse_plugs(plug_children, shield: Shield, types: Dict[str, ConnectorType],
     return ctypes_by_slot, nodes_by_slot, plugs_by_path, diags
 
 
-def _parse_pads_and_config(node, shield: Shield) -> List[Diagnostic]:
+def _parse_pads_and_config(node, shield: Shield) -> list[Diagnostic]:
     """The `pads` and `config` template-level groups, in that authoring
     order. A `config` child with `shield,position-domain` is a routing
     jumper (refused above one plug); every other `config` child is a
     strap."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     for group in node.nodes.values():
         if group.name == "pads":
             for pnode in group.nodes.values():
@@ -310,14 +309,14 @@ def _parse_pads_and_config(node, shield: Shield) -> List[Diagnostic]:
 
 
 def _parse_template_groups(node, shield: Shield, plug_children,
-                           ctypes_by_slot: Dict[str, Optional[ConnectorType]],
+                           ctypes_by_slot: dict[str, ConnectorType | None],
                            plugs_by_path: PlugsByPath,
-                           only_slot: Optional[str]) -> List[Diagnostic]:
+                           only_slot: str | None) -> list[Diagnostic]:
     """Plug-agnostic device groups at template level. A bus-shaped group
     here is rejected -- bus groups nest under their owning plug -- but its
     devices are still parsed, so a misplaced group's own diagnostics don't
     mask its devices' problems."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     for group in node.nodes.values():
         if group.name in _RESERVED or _is_exposed_node(group) or group in plug_children:
             continue
@@ -342,14 +341,14 @@ def _parse_template_groups(node, shield: Shield, plug_children,
     return diags
 
 
-def _parse_plug_groups(shield: Shield, nodes_by_slot: Dict[str, Any],
-                       ctypes_by_slot: Dict[str, Optional[ConnectorType]],
-                       plugs_by_path: PlugsByPath) -> List[Diagnostic]:
+def _parse_plug_groups(shield: Shield, nodes_by_slot: dict[str, Any],
+                       ctypes_by_slot: dict[str, ConnectorType | None],
+                       plugs_by_path: PlugsByPath) -> list[Diagnostic]:
     """Each plug's own nested groups, matched against its own connector
     type's bus_proxies. A group that is neither an allowed bus proxy nor
     bus-kind-named at all is a plain group in the wrong place; either way
     its devices are still parsed and attributed to this plug."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     for slot, plug_node in nodes_by_slot.items():
         ctype = ctypes_by_slot[slot]
         for group in plug_node.nodes.values():
@@ -384,9 +383,9 @@ def _parse_plug_groups(shield: Shield, nodes_by_slot: Dict[str, Any],
 
 def _parse_exposed_sockets(node, shield: Shield, plug_children,
                            plugs_by_path: PlugsByPath,
-                           types: Dict[str, ConnectorType]) -> List[Diagnostic]:
+                           types: dict[str, ConnectorType]) -> list[Diagnostic]:
     """Every re-exported socket at template level, in authoring order."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     for group in node.nodes.values():
         if group.name in _RESERVED or not _is_exposed_node(group) or group in plug_children:
             continue
@@ -398,7 +397,7 @@ def _parse_exposed_sockets(node, shield: Shield, plug_children,
 
 
 def _parse_device_addressing(node, shield: Shield, bus, unit: str,
-                             ) -> Tuple[Optional[int], Optional[str], List[Diagnostic]]:
+                             ) -> tuple[int | None, str | None, list[Diagnostic]]:
     """reg / shield,addr-from / unit-address, together: the address
     authority rule requires exactly one of reg / addr-from on an
     addressable bus, and the unit-address (when present) must agree with
@@ -406,7 +405,7 @@ def _parse_device_addressing(node, shield: Shield, bus, unit: str,
 
     Returns (reg, addr_from, diagnostics): addr_from is the strap's own
     name when shield,addr-from resolves, else None."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     reg = node.props["reg"].to_num() if "reg" in node.props else None
     addr_from = None
     if "shield,addr-from" in node.props:
@@ -458,8 +457,8 @@ def _parse_device_addressing(node, shield: Shield, bus, unit: str,
 
 
 def _parse_device(node, shield: Shield, plugs_by_path: PlugsByPath, bus, group,
-                  dev_plug: Optional[str]) -> Tuple[Device, List[Diagnostic]]:
-    diags: List[Diagnostic] = []
+                  dev_plug: str | None) -> tuple[Device, list[Diagnostic]]:
+    diags: list[Diagnostic] = []
     name, _, unit = node.name.partition("@")
     compat = node.props["compatible"].to_string() if "compatible" in node.props else None
 
@@ -474,7 +473,7 @@ def _parse_device(node, shield: Shield, plugs_by_path: PlugsByPath, bus, group,
     if "shield,collect" in node.props:
         collect = node.props["shield,collect"].to_string()
 
-    declared_params: List[str] = []
+    declared_params: list[str] = []
     if "shield,params" in node.props:
         declared_params = list(node.props["shield,params"].to_strings())
 
@@ -482,7 +481,7 @@ def _parse_device(node, shield: Shield, plugs_by_path: PlugsByPath, bus, group,
     # device-node property, sibling to shield,params, since the header
     # is a contract of the parameter, not an accident of what the
     # template happened to #include.
-    declared_param_includes: List[str] = []
+    declared_param_includes: list[str] = []
     if "shield,param-includes" in node.props:
         declared_param_includes = list(node.props["shield,param-includes"].to_strings())
 
@@ -529,7 +528,7 @@ _FUNCTION_CELLS = {"gpio": "#gpio-cells", "pwm": "#pwm-cells", "adc": "#io-chann
 _FUNCTION_DEFAULT_CELLS = {"gpio": 2, "pwm": 3, "adc": 1}
 
 
-def _function_of(prop_name: str) -> Optional[str]:
+def _function_of(prop_name: str) -> str | None:
     """Which function-nexus a property resolves through, by name."""
     if prop_name == "gpios" or prop_name.endswith("-gpios"):
         return "gpio"
@@ -541,15 +540,15 @@ def _function_of(prop_name: str) -> Optional[str]:
 
 
 def _parse_pos_ref(prop, function: str, shield: Shield, plugs_by_path: PlugsByPath,
-                   ) -> Tuple[List[FunctionRef], List[Diagnostic]]:
+                   ) -> tuple[list[FunctionRef], list[Diagnostic]]:
     """Nexus-aware position reference, per function. A plug is a
     multi-function nexus: a claim reads the plug's #<fn>-cells cells.
     Granularity is PER-REFERENCE: the phandle names WHICH of the
     shield's plugs this claim resolves through, independent of which
     plug the surrounding device's own bus binds to -- a cross-plug
     reference is zero new syntax, just a wider set of valid targets."""
-    refs: List[FunctionRef] = []
-    diags: List[Diagnostic] = []
+    refs: list[FunctionRef] = []
+    diags: list[Diagnostic] = []
     cells = words(prop)
     dt = prop.node.dt
     i = 0
@@ -610,7 +609,7 @@ def _ncells(node, function: str) -> int:
     return _FUNCTION_DEFAULT_CELLS[function]
 
 
-def _valid_position(prop, pos: int, ctype) -> Tuple[bool, List[Diagnostic]]:
+def _valid_position(prop, pos: int, ctype) -> tuple[bool, list[Diagnostic]]:
     if ctype and pos not in ctype.index2name:
         return False, [error(
             "lang-position",
@@ -626,12 +625,12 @@ def _valid_position(prop, pos: int, ctype) -> Tuple[bool, List[Diagnostic]]:
 
 
 def _parse_gpio_map(node, plugs_by_path: PlugsByPath, is_plural: bool,
-                    ) -> Tuple[Dict[int, Tuple[str, int, int]], List[Diagnostic]]:
+                    ) -> tuple[dict[int, tuple[str, int, int]], list[Diagnostic]]:
     """gpio-map's own 5-cell rows: child pos, child flags, phandle, parent
     pos, parent flags. Each phandle must land on one of the carrier's own
     plugs (pass-through); RECORDS which slot it named, per row."""
-    diags: List[Diagnostic] = []
-    gpio_map: Dict[int, Tuple[str, int, int]] = {}
+    diags: list[Diagnostic] = []
+    gpio_map: dict[int, tuple[str, int, int]] = {}
     if "gpio-map" in node.props:
         cells = words(node.props["gpio-map"])
         dt = node.dt
@@ -653,14 +652,14 @@ def _parse_gpio_map(node, plugs_by_path: PlugsByPath, is_plural: bool,
 
 
 def _parse_exposed_buses(node, shield: Shield, plugs_by_path: PlugsByPath,
-                         ctype: Optional[ConnectorType], type_name: str,
+                         ctype: ConnectorType | None, type_name: str,
                          is_plural: bool,
-                         ) -> Tuple[Dict[str, Tuple[str, str]], List[Diagnostic]]:
+                         ) -> tuple[dict[str, tuple[str, str]], list[Diagnostic]]:
     """The socket,<bus> (and role-qualified) properties, in sorted
     property-name order: each is either a pass-through of one of the
     carrier's plugs or a new scope rooted at a device of the shield."""
-    diags: List[Diagnostic] = []
-    buses: Dict[str, Tuple[str, str]] = {}
+    diags: list[Diagnostic] = []
+    buses: dict[str, tuple[str, str]] = {}
     qualified_props = sorted(name for name in node.props if _BUS_PROP_RE.match(name))
     for prop_name in qualified_props:
         kind = prop_name[len("socket,"):]
@@ -692,8 +691,8 @@ def _parse_exposed_buses(node, shield: Shield, plugs_by_path: PlugsByPath,
 
 
 def _parse_exposed(node, plugs_by_path: PlugsByPath, shield: Shield,
-                   types: Dict[str, ConnectorType],
-                   ) -> Tuple[ExposedSocket, List[Diagnostic]]:
+                   types: dict[str, ConnectorType],
+                   ) -> tuple[ExposedSocket, list[Diagnostic]]:
     """A re-exported socket, potentially composed from SEVERAL named
     parents. gpio-map binds exposed positions to ONE of the carrier's own
     plug positions (pass-through) -- RECORDING which slot the phandle
@@ -707,7 +706,7 @@ def _parse_exposed(node, plugs_by_path: PlugsByPath, shield: Shield,
     whichever parent-side bus a pass-through eventually selects (that
     selection is compose_socket's own job, by KIND, once the parent is a
     real resolved socket)."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     type_name = node.props["compatible"].to_string().split(",", 1)[1]
     ctype = types.get(type_name)
     is_plural = len(plugs_by_path) > 1
@@ -726,7 +725,7 @@ def _parse_exposed(node, plugs_by_path: PlugsByPath, shield: Shield,
         node, shield, plugs_by_path, ctype, type_name, is_plural)
     diags += d
 
-    cs_pool: Dict[str, List[int]] = {}
+    cs_pool: dict[str, list[int]] = {}
     if "socket,cs-pool" in node.props:
         cs_pool["spi"] = list(node.props["socket,cs-pool"].to_nums())
     for prop_name in sorted(node.props):
@@ -749,8 +748,8 @@ def _parse_exposed(node, plugs_by_path: PlugsByPath, shield: Shield,
 
 def _parse_channel_map(node, prop_name: str, cells_prop: str, function: str,
                        plugs_by_path: PlugsByPath, is_plural: bool,
-                       ) -> Tuple[Dict[int, Tuple[str, int, int]], Optional[int],
-                                  List[Diagnostic]]:
+                       ) -> tuple[dict[int, tuple[str, int, int]], int | None,
+                                  list[Diagnostic]]:
     """The pwm-map / io-channel-map twin of gpio-map's own loop above,
     factored out because PWM and ADC share this one function's shape end
     to end and because their STRIDE, unlike gpio-map's, is not a
@@ -772,7 +771,7 @@ def _parse_channel_map(node, prop_name: str, cells_prop: str, function: str,
     Returns (map, declared_cells, diagnostics): map is `{}`/declared_cells
     is None when the node authors neither property (declared by absence,
     matching gpio_map's own convention) or when parsing fails outright."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     has_map = prop_name in node.props
     has_cells = cells_prop in node.props
     if has_map and not has_cells:
@@ -797,7 +796,7 @@ def _parse_channel_map(node, prop_name: str, cells_prop: str, function: str,
     declared_cells = node.props[cells_prop].to_num()
     cells = words(node.props[prop_name])
     dt = node.dt
-    result: Dict[int, Tuple[str, int, int]] = {}
+    result: dict[int, tuple[str, int, int]] = {}
     i = 0
     while i < len(cells):
         if i + declared_cells + 1 > len(cells):
@@ -837,8 +836,8 @@ def _parse_channel_map(node, prop_name: str, cells_prop: str, function: str,
     return result, declared_cells, diags
 
 
-def _parse_pad(node, shield_name: str) -> Tuple[Pad, List[Diagnostic]]:
-    diags: List[Diagnostic] = []
+def _parse_pad(node, shield_name: str) -> tuple[Pad, list[Diagnostic]]:
+    diags: list[Diagnostic] = []
     role = node.props["shield,role"].to_string() if "shield,role" in node.props else "bidir"
     if role not in ("driver", "listener", "bidir"):
         diags.append(error(
@@ -853,7 +852,7 @@ def _parse_pad(node, shield_name: str) -> Tuple[Pad, List[Diagnostic]]:
     return Pad(name=node.name, label=label, role=role, of=of, src=src_of(node)), diags
 
 
-def _parse_strap(node, shield_name: str) -> Tuple[Strap, List[Diagnostic]]:
+def _parse_strap(node, shield_name: str) -> tuple[Strap, list[Diagnostic]]:
     dom = node.props["shield,domain"].to_nums()
     domain = [(dom[i], dom[i + 1]) for i in range(0, len(dom), 2)]
     label, diags = _require_label(node, "strap", shield_name)
@@ -861,7 +860,7 @@ def _parse_strap(node, shield_name: str) -> Tuple[Strap, List[Diagnostic]]:
                 sheet_label=_sheet_label(node), src=src_of(node)), diags
 
 
-def _parse_jumper(node, shield_name: str) -> Tuple[Jumper, List[Diagnostic]]:
+def _parse_jumper(node, shield_name: str) -> tuple[Jumper, list[Diagnostic]]:
     dom = node.props["shield,position-domain"].to_nums()
     domain = [(dom[i], dom[i + 1]) for i in range(0, len(dom), 2)]
     label, diags = _require_label(node, "jumper", shield_name)

@@ -10,19 +10,25 @@ import os
 import shutil
 import textwrap
 from pathlib import Path
-from typing import List, Tuple
 
 from rigc import loader
 from rigc.diag import has_errors
 from rigc.dtsio import MODULE_ROOT
 from rigc.model import Device, Shield
-from rigc.promote import (ParsedPromotionOpts, ShieldInfo, both_paths_error,
-                          check_list_no_duplicate_elements, check_promotable,
-                          parse_promotion_opts, discover_shields,
-                          list_element_is_a_rig_error,
-                          list_element_not_a_shield_error, promote_shield,
-                          promote_shield_list,
-                          shield_declares_required_params)
+from rigc.promote import (
+    ParsedPromotionOpts,
+    ShieldInfo,
+    both_paths_error,
+    check_list_no_duplicate_elements,
+    check_promotable,
+    discover_shields,
+    list_element_is_a_rig_error,
+    list_element_not_a_shield_error,
+    parse_promotion_opts,
+    promote_shield,
+    promote_shield_list,
+    shield_declares_required_params,
+)
 from rigc.registry import load_types
 
 # ---------------------------------------------------------------- promote_shield
@@ -312,8 +318,8 @@ def test_promoted_shield_round_trips_through_the_loader_with_no_diagnostics(
 
 # ---------------------------------------------------------------- census predicate
 
-def _device(label: str, declared_params: List[str],
-           extra_props: List[Tuple[str, str]]) -> Device:
+def _device(label: str, declared_params: list[str],
+           extra_props: list[tuple[str, str]]) -> Device:
     return Device(name=label, label=label, compatible="vnd,fixture",
                   bus=None, group=None, reg=None, addr_from=None,
                   cs_position=None, declared_params=declared_params,

@@ -109,7 +109,7 @@ _BOARD_DTS = FIXTURES_DIR / "boards" / "mainboards" / "emitted_rejects_board.dts
 
 
 def _run_promoted(target: str, out_dir: Path, board: str, board_dts: Path,
-                  ) -> "subprocess.CompletedProcess[str]":
+                  ) -> subprocess.CompletedProcess[str]:
     """`python -m rigc expand --promote <target>`, the promoted-side
     counterpart to `run_expand`'s positional rig.yml path -- every OTHER
     reject fixture in this module compares an AUTHORED rig.yml by path,

@@ -28,8 +28,8 @@ discovery order, which only a single shared pass can guarantee."""
 from __future__ import annotations
 
 import logging
+from collections.abc import Sequence
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Sequence, Tuple
 
 from ..buskind import is_bus_kind
 from ..diag import Diagnostic, error
@@ -39,7 +39,7 @@ from .socketmap import Sockets, for_bus_device
 
 #: One scope member ready for grouping: the rig-model triple every group
 #: (fixed/pinned/free) sorts and translates the same way.
-_ScopeMember = Tuple[Instance, Device, BoardSocket]
+_ScopeMember = tuple[Instance, Device, BoardSocket]
 
 log = logging.getLogger(__name__)
 
@@ -59,16 +59,16 @@ class AddressMember:
     allocates freely; empty when the member is not free."""
 
     identity: str
-    fixed: Optional[int] = None
-    pin: Optional[Tuple[int, Tuple[Tuple[int, int], ...]]] = None
-    free: Tuple[Tuple[int, int], ...] = ()
+    fixed: int | None = None
+    pin: tuple[int, tuple[tuple[int, int], ...]] | None = None
+    free: tuple[tuple[int, int], ...] = ()
 
 
 @dataclass(frozen=True)
 class AddressPlacement:
     identity: str
     address: int
-    state: Optional[int]       # the strap state claimed (pinned/free); None for fixed
+    state: int | None       # the strap state claimed (pinned/free); None for fixed
     kind: str                  # "fixed" | "pinned" | "free"
 
 
@@ -85,13 +85,13 @@ class AddressProblem:
 
     kind: str
     identity: str
-    address: Optional[int] = None
-    first: Optional[str] = None
-    occupied: Tuple[Tuple[int, str], ...] = ()
+    address: int | None = None
+    first: str | None = None
+    occupied: tuple[tuple[int, str], ...] = ()
 
 
 def allocate_scope_addresses(members: Sequence[AddressMember],
-                             ) -> Tuple[List[AddressPlacement], List[AddressProblem]]:
+                             ) -> tuple[list[AddressPlacement], list[AddressProblem]]:
     """The address-allocation contract: given a scope's members in
     allocation order, each already carrying its own address(es), assign
     every member an address -- or report why not. Members are processed
@@ -99,11 +99,11 @@ def allocate_scope_addresses(members: Sequence[AddressMember],
     placed, so a conflict or an exhaustion always sees exactly what
     every EARLIER member (of any kind) in this same call already
     claimed."""
-    taken: Dict[int, str] = {}
-    placements: List[AddressPlacement] = []
-    problems: List[AddressProblem] = []
+    taken: dict[int, str] = {}
+    placements: list[AddressPlacement] = []
+    problems: list[AddressProblem] = []
 
-    def claim(address: int, state: Optional[int], kind: str, identity: str) -> None:
+    def claim(address: int, state: int | None, kind: str, identity: str) -> None:
         if address in taken:
             problems.append(AddressProblem(
                 "conflict", identity, address=address, first=taken[address]))
@@ -133,16 +133,16 @@ def allocate_scope_addresses(members: Sequence[AddressMember],
 
 @dataclass
 class AddressAllocation:
-    addr: Dict[Tuple[str, str], int] = field(default_factory=dict)         # (inst, dev) -> address
-    straps: List[Tuple[Instance, Strap, int, int]] = field(default_factory=list)   # (inst, strap, state, addr)
-    bus_label: Dict[str, str] = field(default_factory=dict)                # bus path -> label
+    addr: dict[tuple[str, str], int] = field(default_factory=dict)         # (inst, dev) -> address
+    straps: list[tuple[Instance, Strap, int, int]] = field(default_factory=list)   # (inst, strap, state, addr)
+    bus_label: dict[str, str] = field(default_factory=dict)                # bus path -> label
 
 
 def allocate_addresses(rig: Rig, sockets: Sockets,
-                       ) -> Tuple[AddressAllocation, List[Diagnostic]]:
-    diags: List[Diagnostic] = []
+                       ) -> tuple[AddressAllocation, list[Diagnostic]]:
+    diags: list[Diagnostic] = []
     result = AddressAllocation()
-    scopes: Dict[str, List[Tuple[Instance, Device, BoardSocket]]] = {}
+    scopes: dict[str, list[tuple[Instance, Device, BoardSocket]]] = {}
     for inst in rig.instances:
         for dev in inst.shield.devices:
             if not is_bus_kind(dev.bus, "i2c"):
@@ -160,7 +160,7 @@ def allocate_addresses(rig: Rig, sockets: Sockets,
 
 
 def _address_member(kind: str, inst: Instance, dev: Device,
-                    ) -> Optional[Tuple[AddressMember, Optional[Strap]]]:
+                    ) -> tuple[AddressMember, Strap | None] | None:
     """Build one member's `AddressMember` plus the strap its domain comes
     from (None for a fixed member, which has no domain to consult), or
     None to skip the member entirely -- a "free" member with no
@@ -182,8 +182,8 @@ def _address_member(kind: str, inst: Instance, dev: Device,
     return AddressMember(identity=identity, free=tuple(free_strap.domain)), free_strap
 
 
-def _how(identity: str, by_identity: Dict[str, _ScopeMember],
-        kind_of: Dict[str, str], strap_of: Dict[str, Strap]) -> str:
+def _how(identity: str, by_identity: dict[str, _ScopeMember],
+        kind_of: dict[str, str], strap_of: dict[str, Strap]) -> str:
     """How one member came to hold its address, for a conflict/exhaustion
     diagnostic's own two-sided listing."""
     inst, dev, _socket = by_identity[identity]
@@ -196,14 +196,14 @@ def _how(identity: str, by_identity: Dict[str, _ScopeMember],
     return f"allocated (strap '{strap_of[identity].name}')"
 
 
-def _address_problem_diagnostics(bus_label: str, problems: List[AddressProblem],
-                                 by_identity: Dict[str, _ScopeMember],
-                                 kind_of: Dict[str, str],
-                                 strap_of: Dict[str, Strap]) -> List[Diagnostic]:
+def _address_problem_diagnostics(bus_label: str, problems: list[AddressProblem],
+                                 by_identity: dict[str, _ScopeMember],
+                                 kind_of: dict[str, str],
+                                 strap_of: dict[str, Strap]) -> list[Diagnostic]:
     """Translate the core's problems (already in discovery order) into
     this pass's own diagnostics -- the only place strap names, device
     labels, and bus labels enter the picture."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     for problem in problems:
         inst, dev, socket = by_identity[problem.identity]
         if problem.kind == "out-of-domain":
@@ -248,21 +248,21 @@ def _address_problem_diagnostics(bus_label: str, problems: List[AddressProblem],
     return diags
 
 
-def _allocate_scope(bus_path: str, members: List[_ScopeMember],
-                    result: AddressAllocation) -> List[Diagnostic]:
+def _allocate_scope(bus_path: str, members: list[_ScopeMember],
+                    result: AddressAllocation) -> list[Diagnostic]:
     """Build this scope's `AddressMember` list in allocation order
     (fixed, then pinned, then free -- three separately-sorted groups,
     concatenated), call the value-shaped core, and translate its
     placements/problems into diagnostics plus this pass's own
     `AddressAllocation` fields."""
     bus_label = result.bus_label[bus_path]
-    by_identity: Dict[str, _ScopeMember] = {}
-    kind_of: Dict[str, str] = {}
-    strap_of: Dict[str, Strap] = {}
+    by_identity: dict[str, _ScopeMember] = {}
+    kind_of: dict[str, str] = {}
+    strap_of: dict[str, Strap] = {}
 
-    fixed_scope: List[_ScopeMember] = []
-    pinned_scope: List[_ScopeMember] = []
-    free_scope: List[_ScopeMember] = []
+    fixed_scope: list[_ScopeMember] = []
+    pinned_scope: list[_ScopeMember] = []
+    free_scope: list[_ScopeMember] = []
     for inst, dev, socket in members:
         if dev.reg is not None:
             fixed_scope.append((inst, dev, socket))
@@ -271,7 +271,7 @@ def _allocate_scope(bus_path: str, members: List[_ScopeMember],
         else:
             free_scope.append((inst, dev, socket))
 
-    address_members: List[AddressMember] = []
+    address_members: list[AddressMember] = []
     for group, kind in ((fixed_scope, "fixed"), (pinned_scope, "pinned"),
                        (free_scope, "free")):
         for inst, dev, socket in sorted(group, key=lambda m: allocation_key(m[0], m[1], m[2])):

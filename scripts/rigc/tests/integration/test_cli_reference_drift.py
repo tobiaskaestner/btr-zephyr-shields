@@ -100,10 +100,9 @@ import ast
 import re
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Set, cast
+from typing import Any, cast
 
 import yaml
-
 from harness import REPO_ROOT, zephyr_base
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
@@ -154,11 +153,11 @@ _DOC_TERM_RE = re.compile(r"^``(--[a-z][a-z0-9-]*)")
 _INHERITED_FROM_WEST_BUILD = {"--board", "--shield"}
 
 
-def _declared_options() -> Set[str]:
+def _declared_options() -> set[str]:
     """Every long option the three real surfaces declare: rigc's own
     parser (interrogated), plus the two west commands and the shared
     resolver argument block (scanned). A fresh set the caller owns."""
-    found: Set[str] = set()
+    found: set[str] = set()
     for action in _expand_parser()._actions:
         found.update(opt for opt in action.option_strings if opt.startswith("--"))
     for path in WEST_COMMANDS:
@@ -198,17 +197,17 @@ def _shared_resolver_args() -> str:
         "this test is scanning nothing")
 
 
-def _documented_options() -> Set[str]:
+def _documented_options() -> set[str]:
     """Every option token anywhere on the page, prose included."""
     return set(_DOC_RE.findall(DOC_PAGE.read_text()))
 
 
-def _documented_entries() -> Set[str]:
+def _documented_entries() -> set[str]:
     """Every option with an ENTRY of its own on the page: a list-table
     row's first cell, or a definition-list term (an option at column 0
     whose next line is indented -- reST's own definition of one). A subset
     of `_documented_options()`."""
-    found: Set[str] = set()
+    found: set[str] = set()
     lines = DOC_PAGE.read_text().splitlines()
     for i, line in enumerate(lines):
         cell = _DOC_CELL_RE.match(line)
@@ -272,7 +271,7 @@ _DOC_WEST_PROMPT_RE = re.compile(r"^\s*\$\s+west\s+([a-z][a-z0-9_-]*)",
 _DOC_WEST_LITERAL_RE = re.compile(r"``west\s+([a-z][a-z0-9_-]*)")
 
 
-def _repo_declared_west_commands() -> Set[str]:
+def _repo_declared_west_commands() -> set[str]:
     """Every subcommand name THIS repo's own scripts/west-commands.yml
     declares -- `rigs`, today. Read the same way west itself reads it
     (yaml, the `west-commands:` -> `commands:` -> `name:` shape), never
@@ -284,7 +283,7 @@ def _repo_declared_west_commands() -> Set[str]:
            for cmd in entry["commands"]}
 
 
-def _upstream_west_builtin_commands() -> Set[str]:
+def _upstream_west_builtin_commands() -> set[str]:
     """Every command name west's OWN package ships built in -- `init`,
     `update`, `list`, `manifest`, ... Interrogated by instantiating each
     class `west.app.main.BUILTIN_COMMAND_GROUPS` registers and reading its
@@ -301,11 +300,11 @@ def _upstream_west_builtin_commands() -> Set[str]:
     # classes in BUILTIN_COMMAND_GROUPS.items(): [cls() for cls in
     # classes]`) rather than let that untyped collapse leak into a
     # `# type: ignore` at every call site.
-    groups = cast(Dict[str, List[Any]], BUILTIN_COMMAND_GROUPS)
+    groups = cast(dict[str, list[Any]], BUILTIN_COMMAND_GROUPS)
     return {cls().name for cls_list in groups.values() for cls in cls_list}
 
 
-def _upstream_west_extension_commands() -> Set[str]:
+def _upstream_west_extension_commands() -> set[str]:
     """Every command name Zephyr ITSELF contributes as a west extension --
     `build`, `flash`, `boards`, `shields`, ... -- read from
     `$ZEPHYR_BASE/scripts/west-commands.yml`, the identical manifest shape
@@ -320,7 +319,7 @@ def _upstream_west_extension_commands() -> Set[str]:
            for cmd in entry["commands"]}
 
 
-def _known_west_commands() -> Set[str]:
+def _known_west_commands() -> set[str]:
     """The union of all three real sources: this repo's own, west's
     builtins, and Zephyr's own extensions. A fresh set the caller owns."""
     return (_repo_declared_west_commands()
@@ -328,13 +327,13 @@ def _known_west_commands() -> Set[str]:
            | _upstream_west_extension_commands())
 
 
-def _doc_west_mentions() -> Set[str]:
+def _doc_west_mentions() -> set[str]:
     """Every `west <subcommand>` mentioned anywhere under doc/, in either
     of the two shapes this doc set actually spells a command in (a `$
     west ...` prompt line, or a `` ``west ...`` `` inline literal) --
     never a bare "west" in running prose, which names no subcommand at
     all. A fresh set the caller owns."""
-    found: Set[str] = set()
+    found: set[str] = set()
     for page in sorted((REPO_ROOT / "doc").rglob("*.rst")):
         if "_build" in page.parts:
             continue

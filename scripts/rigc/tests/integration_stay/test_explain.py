@@ -10,11 +10,10 @@ import subprocess
 import textwrap
 
 import yaml
-
 from harness import REPO_ROOT, WEST_EXE, WEST_TOPDIR, subprocess_timeout
 
 
-def _run(*args: str) -> "subprocess.CompletedProcess[str]":
+def _run(*args: str) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     return subprocess.run(
         [WEST_EXE, "rigs", *args], cwd=str(WEST_TOPDIR), env=env,

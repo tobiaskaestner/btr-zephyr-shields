@@ -26,16 +26,15 @@ import json
 import sys
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Dict, List, Tuple
 
 
-def parse_junit(path: Path) -> Dict[str, float]:
+def parse_junit(path: Path) -> dict[str, float]:
     """nodeid -> wall time (seconds), one entry per <testcase>. nodeid is
     reconstructed as classname::name -- junitxml's own two-field split of
     what pytest otherwise renders as a single node id -- so it matches
     across runs regardless of how the suite was invoked."""
     tree = ET.parse(path)
-    times: Dict[str, float] = {}
+    times: dict[str, float] = {}
     for case in tree.getroot().iter("testcase"):
         classname = case.get("classname", "")
         name = case.get("name", "")
@@ -44,11 +43,11 @@ def parse_junit(path: Path) -> Dict[str, float]:
     return times
 
 
-def slowest(times: Dict[str, float], n: int) -> List[Tuple[str, float]]:
+def slowest(times: dict[str, float], n: int) -> list[tuple[str, float]]:
     return sorted(times.items(), key=lambda kv: kv[1], reverse=True)[:n]
 
 
-def write_baseline(path: Path, times: Dict[str, float]) -> None:
+def write_baseline(path: Path, times: dict[str, float]) -> None:
     total = sum(times.values()) or 1.0
     baseline = {
         "total_seconds": total,
@@ -59,7 +58,7 @@ def write_baseline(path: Path, times: Dict[str, float]) -> None:
     path.write_text(json.dumps(baseline, indent=2, sort_keys=True) + "\n")
 
 
-def diff_against_baseline(times: Dict[str, float], baseline_path: Path,
+def diff_against_baseline(times: dict[str, float], baseline_path: Path,
                           threshold: float) -> bool:
     """Print every test whose share of the suite total grew by more than
     threshold (a fraction of the suite -- 0.02 means 2 percentage points)
@@ -85,7 +84,7 @@ def diff_against_baseline(times: Dict[str, float], baseline_path: Path,
     return regressed
 
 
-def main(argv: List[str]) -> int:
+def main(argv: list[str]) -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("junitxml", type=Path)

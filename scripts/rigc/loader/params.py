@@ -18,17 +18,14 @@ header list, not something threaded down from rig.yml.
 """
 from __future__ import annotations
 
-from typing import Dict, List, Optional, Tuple
-
 from ..deps import Deps, touch, union
 from ..diag import Diagnostic, SourceRef, error
-from ..dtsio import (MODULE_INC, check_include, is_int_literal,
-                    resolve_token, zephyr_inc)
+from ..dtsio import MODULE_INC, check_include, is_int_literal, resolve_token, zephyr_inc
 from ..model import Device, Shield, Strap
 from .documents import Val
 
 
-def device_required_params(dev: Device) -> List[str]:
+def device_required_params(dev: Device) -> list[str]:
     """The subset of `dev.declared_params` (`shield,params` names) with NO
     authored default -- i.e. no matching entry in `dev.extra_props` -- the
     exact per-device rule `check_param_invariant` applies to every
@@ -41,7 +38,7 @@ def device_required_params(dev: Device) -> List[str]:
             if not any(name == pname for name, _ in dev.extra_props)]
 
 
-def check_param_invariant(instances) -> List[Diagnostic]:
+def check_param_invariant(instances) -> list[Diagnostic]:
     """The per-stage invariant, re-checked fresh after EVERY delta
     stage: every instance's EFFECTIVE shield/params must have every
     declared, no-default-authored parameter ASSIGNED. Covers all three
@@ -52,7 +49,7 @@ def check_param_invariant(instances) -> List[Diagnostic]:
 
     Returns one error per required-but-unassigned parameter; instances
     are read-only."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     for inst in instances:
         shield = inst.shield
         assigned = inst.params
@@ -73,11 +70,11 @@ def check_param_invariant(instances) -> List[Diagnostic]:
     return diags
 
 
-def check_param_token(raw: str, param_includes: List[str], workdir: str,
+def check_param_token(raw: str, param_includes: list[str], workdir: str,
                       tag: str, inst_name: str, dev_label: str,
                       shield_name: str, prop_name: str, ref: SourceRef,
-                      include_dirs: Optional[List[str]] = None,
-                      ) -> Tuple[List[Diagnostic], Deps]:
+                      include_dirs: list[str] | None = None,
+                      ) -> tuple[list[Diagnostic], Deps]:
     """The per-instance-parameter header and token-resolution checks,
     collapsed into one shape now that the vocabulary is the owning
     device's own, not a rig-level list: every header in
@@ -104,7 +101,7 @@ def check_param_token(raw: str, param_includes: List[str], workdir: str,
     when it does not. Inputs are read-only; the caller owns the returned
     Deps."""
     deps: Deps = frozenset()
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     searched = ", ".join([*(include_dirs or []), zephyr_inc(), MODULE_INC])
     for i, header in enumerate(param_includes):
         detail, files = check_include(
@@ -132,13 +129,13 @@ def check_param_token(raw: str, param_includes: List[str], workdir: str,
     return diags, deps
 
 
-def apply_params_block(params_v: Optional[Val], inst_name: str, shield: Shield,
+def apply_params_block(params_v: Val | None, inst_name: str, shield: Shield,
                        workdir: str, tag_prefix: str,
-                       unknown_device_context: Optional[str] = None,
-                       include_dirs: Optional[List[str]] = None,
-                       ) -> Tuple[Dict[str, Dict[str, str]],
-                                 Dict[str, Dict[str, SourceRef]],
-                                 List[Diagnostic], Deps]:
+                       unknown_device_context: str | None = None,
+                       include_dirs: list[str] | None = None,
+                       ) -> tuple[dict[str, dict[str, str]],
+                                 dict[str, dict[str, SourceRef]],
+                                 list[Diagnostic], Deps]:
     """Parse ONE params: block -- the base assignment, OR a delta's
     wholesale replacement -- into (params, param_refs, diagnostics, deps),
     a PURE function of its inputs: never mutates the Instance it
@@ -164,10 +161,10 @@ def apply_params_block(params_v: Optional[Val], inst_name: str, shield: Shield,
     touched."""
     if params_v is None:
         return {}, {}, [], frozenset()
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     deps: Deps = frozenset()
-    params: Dict[str, Dict[str, str]] = {}
-    param_refs: Dict[str, Dict[str, SourceRef]] = {}
+    params: dict[str, dict[str, str]] = {}
+    param_refs: dict[str, dict[str, SourceRef]] = {}
     devices_by_label = {d.label: d for d in shield.devices}
     for dev_label, props_v in params_v.value.items():
         dev = devices_by_label.get(dev_label)
@@ -205,10 +202,10 @@ def apply_params_block(params_v: Optional[Val], inst_name: str, shield: Shield,
     return params, param_refs, diags, deps
 
 
-def apply_config_block(config_v: Optional[Val], inst_name: str, shield: Shield,
-                       ) -> Tuple[Dict[str, int], Dict[str, SourceRef],
-                                 Dict[str, object], Dict[str, SourceRef],
-                                 List[Diagnostic]]:
+def apply_config_block(config_v: Val | None, inst_name: str, shield: Shield,
+                       ) -> tuple[dict[str, int], dict[str, SourceRef],
+                                 dict[str, object], dict[str, SourceRef],
+                                 list[Diagnostic]]:
     """config: {config-element-LABEL: value} -- shared by the base parse
     and a delta's instances: patch (which resets straps/jumpers first, so
     this always starts from empty when called from a patch). PURE:
@@ -225,11 +222,11 @@ def apply_config_block(config_v: Optional[Val], inst_name: str, shield: Shield,
 
     Returns (straps, strap_refs, jumpers, jumper_refs, diagnostics), all
     fresh values the caller owns."""
-    straps: Dict[str, int] = {}
-    strap_refs: Dict[str, SourceRef] = {}
-    jumpers: Dict[str, object] = {}
-    jumper_refs: Dict[str, SourceRef] = {}
-    diags: List[Diagnostic] = []
+    straps: dict[str, int] = {}
+    strap_refs: dict[str, SourceRef] = {}
+    jumpers: dict[str, object] = {}
+    jumper_refs: dict[str, SourceRef] = {}
+    diags: list[Diagnostic] = []
     if config_v is None:
         return straps, strap_refs, jumpers, jumper_refs, diags
     for cfg_label, val_v in config_v.value.items():
@@ -256,8 +253,8 @@ def apply_config_block(config_v: Optional[Val], inst_name: str, shield: Shield,
     return straps, strap_refs, jumpers, jumper_refs, diags
 
 
-def check_restate(params_v: Val, prior_params: Dict[str, Dict[str, str]],
-                  inst_name: str) -> List[Diagnostic]:
+def check_restate(params_v: Val, prior_params: dict[str, dict[str, str]],
+                  inst_name: str) -> list[Diagnostic]:
     """The restate rule: if a delta supplies params for an instance whose
     shield it does NOT change, it must RESTATE every property the effective
     topology had already assigned; omitting one is an error naming it --
@@ -272,7 +269,7 @@ def check_restate(params_v: Val, prior_params: Dict[str, Dict[str, str]],
         for dev_label, props_v in params_v.value.items()
         for prop_name in props_v.value
     }
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     for dev_label, props in prior_params.items():
         for prop_name in props:
             if (dev_label, prop_name) not in restated:

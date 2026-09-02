@@ -11,8 +11,7 @@ diagnostics stay ordered pass-by-pass."""
 from __future__ import annotations
 
 from rigc.analyzer import analyze
-from rigc.model import (Board, BoardSocket, ConnectorType, Device, Instance,
-                        Rig, Shield)
+from rigc.model import Board, BoardSocket, ConnectorType, Device, Instance, Rig, Shield
 
 
 def _ctype() -> ConnectorType:

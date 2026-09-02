@@ -29,7 +29,6 @@ from __future__ import annotations
 
 import glob
 import os
-from typing import Dict, List, Optional, Tuple
 
 import yaml
 
@@ -55,7 +54,7 @@ BINDINGS = os.path.join(MODULE_ROOT, "dts", "bindings", "connectors")
 #: it lives there rather than as a third verbatim copy.
 
 
-def _socket_facts(binding: dict) -> Tuple[bool, Dict[str, List[int]]]:
+def _socket_facts(binding: dict) -> tuple[bool, dict[str, list[int]]]:
     """(stackable, cs_pool) -- the socket-side type facts, read off the
     unified binding's own schema: mating multiplicity = presence of
     socket,stackable in the schema; default CS candidate lists, keyed by
@@ -64,7 +63,7 @@ def _socket_facts(binding: dict) -> Tuple[bool, Dict[str, List[int]]]:
     socket,<kind>-<role>-cs-pool is a named bus's own."""
     sprops = binding.get("properties", {})
     stackable = "socket,stackable" in sprops
-    cs_pool: Dict[str, List[int]] = {}
+    cs_pool: dict[str, list[int]] = {}
     legacy = sprops.get("socket,cs-pool")
     if legacy is not None:
         cs_pool["spi"] = list(legacy.get("default", []))
@@ -76,9 +75,9 @@ def _socket_facts(binding: dict) -> Tuple[bool, Dict[str, List[int]]]:
     return bool(stackable), cs_pool
 
 
-def load_types(connector_dirs: Optional[List[str]] = None,
-              header_dirs: Optional[List[str]] = None,
-              ) -> Tuple[Dict[str, ConnectorType], Deps]:
+def load_types(connector_dirs: list[str] | None = None,
+              header_dirs: list[str] | None = None,
+              ) -> tuple[dict[str, ConnectorType], Deps]:
     """Assemble every connector type found under connector_dirs (default:
     [BINDINGS]). header_dirs is the search list parse_header_indices
     resolves each type's <type>.h against (deliberately the SAME list a
@@ -115,7 +114,7 @@ def load_types(connector_dirs: Optional[List[str]] = None,
             "from a workspace where rigc's own source no longer sits "
             "alongside the real connector-type bindings it needs"))
     dirs = connector_dirs if connector_dirs is not None else [BINDINGS]
-    types: Dict[str, ConnectorType] = {}
+    types: dict[str, ConnectorType] = {}
     deps: Deps = frozenset()
     for directory in dirs:
         for path in sorted(glob.glob(os.path.join(directory, "*.yaml"))):

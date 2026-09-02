@@ -1,0 +1,43 @@
+# Ruff configuration, adopted from tiacsys/bridle so that this repo lints the
+# transpiler under exactly the rules its migration destination enforces.
+#
+# bridle runs `ruff check` AND `ruff format --diff` over every python file a PR
+# touches (scripts/ci/check_compliance.py::Ruff). Everything that travels with
+# scripts/rigc/ must therefore be clean under these settings BEFORE it moves --
+# and it is conformed here, not there, because only this repo can prove the
+# result under the full gate (scripts/check-extended.sh's build tier reaches
+# real boards; the travelling gate cannot).
+#
+# Kept byte-comparable to bridle's own .ruff.toml below the header, minus its
+# `extend = ".ruff-excludes.toml"` -- that file is bridle's grandfather list for
+# code that predates ruff, and nothing here belongs on it.
+
+line-length = 100
+target-version = "py310"
+
+# claude/ holds design papers plus the frozen rigexp trial that the cutover
+# retired; neither travels and neither is maintained code.
+exclude = ["claude"]
+
+[lint]
+select = [
+    # zephyr-keep-sorted-start
+    "B",      # flake8-bugbear
+    "E",      # pycodestyle
+    "F",      # pyflakes
+    "I",      # isort
+    "SIM",    # flake8-simplify
+    "UP",     # pyupgrade
+    "W",      # pycodestyle warnings
+    # zephyr-keep-sorted-stop
+]
+
+ignore = [
+    # zephyr-keep-sorted-start
+    "SIM108", # Allow if-else blocks instead of forcing ternary operator
+    # zephyr-keep-sorted-stop
+]
+
+[format]
+quote-style = "preserve"
+line-ending = "lf"

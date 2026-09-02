@@ -65,9 +65,9 @@ from __future__ import annotations
 import glob
 import os
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass, field, replace
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Tuple
 
 import yaml
 
@@ -111,10 +111,10 @@ class SocketNode:
     MEMBERSHIP only, never a resolved target (a text scan cannot follow a
     phandle to the controller it names)."""
 
-    labels: List[str]
+    labels: list[str]
     name: str
     type_name: str
-    buses: List[str]
+    buses: list[str]
     filename: str
     line: int
 
@@ -154,11 +154,11 @@ class CensusBoard:
     below), never a stand-in for a real project.Board."""
 
     target: str
-    dir: Optional[Path]
+    dir: Path | None
     board: Board
 
 
-def board_targets(board_yml_text: str) -> Tuple[Optional[str], List[str]]:
+def board_targets(board_yml_text: str) -> tuple[str | None, list[str]]:
     """The invocation coordinates one board.yml's raw YAML declares, as
     (extended board name, targets). Pure over its one string argument.
 
@@ -195,8 +195,8 @@ def board_targets(board_yml_text: str) -> Tuple[Optional[str], List[str]]:
     return (extend if targets else None), targets
 
 
-def census_board(board_yml_text: str, fragments: List[Tuple[str, str]],
-                 ) -> List[CensusBoard]:
+def census_board(board_yml_text: str, fragments: list[tuple[str, str]],
+                 ) -> list[CensusBoard]:
     """Pure over text values: `board_yml_text` is one
     board.yml's raw YAML; `fragments` is [(filename, text), ...] for every
     *.dts/*.dtsi the caller found directly beside it (census_boards' own
@@ -221,8 +221,8 @@ def census_board(board_yml_text: str, fragments: List[Tuple[str, str]],
     if extend is None:
         return []
 
-    sockets: Dict[str, BoardSocket] = {}
-    aliases: Dict[str, str] = {}
+    sockets: dict[str, BoardSocket] = {}
+    aliases: dict[str, str] = {}
     for filename, text in fragments:
         for node in scan_socket_nodes(filename, text):
             label = node.labels[0]
@@ -244,7 +244,7 @@ def census_board(board_yml_text: str, fragments: List[Tuple[str, str]],
     return [CensusBoard(target=t, dir=None, board=board) for t in targets]
 
 
-def census_boards(board_roots: Optional[List[str]] = None) -> List[CensusBoard]:
+def census_boards(board_roots: list[str] | None = None) -> list[CensusBoard]:
     """The edge: globs `<root>/boards/**/board.yml` for
     every root in `board_roots` (default: [MODULE_ROOT], btr-shields' own
     tree), reads each board.yml plus every *.dts/*.dtsi directly beside it
@@ -265,7 +265,7 @@ def census_boards(board_roots: Optional[List[str]] = None) -> List[CensusBoard]:
     Returns every CensusBoard census_board built, across every matched
     board.yml, sorted by target; the caller owns the list."""
     roots = board_roots if board_roots is not None else [MODULE_ROOT]
-    out: List[CensusBoard] = []
+    out: list[CensusBoard] = []
     for root in roots:
         pattern = os.path.join(str(root), "boards", "**", "board.yml")
         for board_yml in sorted(glob.glob(pattern, recursive=True)):
@@ -295,11 +295,11 @@ class BoardVerdict:
 
     target: str
     conforms: bool
-    diags: List[Diagnostic] = field(default_factory=list)
+    diags: list[Diagnostic] = field(default_factory=list)
 
 
-def boards_for(rig: Rig, types: Dict[str, ConnectorType],
-               boards: List[CensusBoard]) -> List[BoardVerdict]:
+def boards_for(rig: Rig, types: dict[str, ConnectorType],
+               boards: list[CensusBoard]) -> list[BoardVerdict]:
     """Runs `resolve_sockets(rig, cb.board, types)` for every `cb` in
     `boards` -- pure over its arguments (rig, types and every
     CensusBoard.board are read-only to this call). Returns one

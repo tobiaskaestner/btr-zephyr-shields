@@ -32,7 +32,6 @@ import re
 import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
 
 from .diag import SourceRef
 from .loader.library import load_shield_library
@@ -59,8 +58,8 @@ class ShieldInfo:
     has_yml: bool
 
 
-def discover_shields(shield_dirs: Optional[List[str]] = None,
-                     ) -> Dict[str, ShieldInfo]:
+def discover_shields(shield_dirs: list[str] | None = None,
+                     ) -> dict[str, ShieldInfo]:
     """Every name `loader/library.py`'s own scan discovers, keyed by
     name -- every resolvable rig template (`lib.pending`) UNION every
     name any shield.yml under `shield_dirs` declares (`lib.ymls`), since
@@ -94,7 +93,7 @@ def discover_shields(shield_dirs: Optional[List[str]] = None,
     what surfaces them. Returns a dict the caller owns."""
     lib, _diags, _deps = load_shield_library(
         "<rigc-promote-discovery-unused>", shield_dirs)
-    out: Dict[str, ShieldInfo] = {}
+    out: dict[str, ShieldInfo] = {}
     for name in set(lib.pending) | set(lib.ymls):
         has_yml = name in lib.ymls
         shield_dir = (lib.pending[name].shield_dir if name in lib.pending
@@ -173,15 +172,15 @@ class ParsedPromotionOpts:
     in its own field.
 
     All four are fresh dicts/mappings the caller owns."""
-    fixed: Dict[str, str]
-    params: Dict[str, Dict[str, str]]
-    sockets: Dict[str, str] = field(default_factory=dict)
-    config: Dict[str, str] = field(default_factory=dict)
+    fixed: dict[str, str]
+    params: dict[str, dict[str, str]]
+    sockets: dict[str, str] = field(default_factory=dict)
+    config: dict[str, str] = field(default_factory=dict)
 
 
-def parse_promotion_opts(opts: Optional[str], target: str,
-                         shield: Optional[Shield] = None,
-                         ) -> Union[ParsedPromotionOpts, str]:
+def parse_promotion_opts(opts: str | None, target: str,
+                         shield: Shield | None = None,
+                         ) -> ParsedPromotionOpts | str:
     """Parse the `:`-separated assignment list a promotion target may
     carry -- `<shield>[@rev][:<key>=<value>[:<key>=<value>...]]` -- into
     a `ParsedPromotionOpts` for the ONE desugared instance.
@@ -240,10 +239,10 @@ def parse_promotion_opts(opts: Optional[str], target: str,
     parameter)."""
     if not opts:
         return ParsedPromotionOpts(fixed={}, params={}, sockets={}, config={})
-    fixed: Dict[str, str] = {}
-    params: Dict[str, Dict[str, str]] = {}
-    sockets: Dict[str, str] = {}
-    config: Dict[str, str] = {}
+    fixed: dict[str, str] = {}
+    params: dict[str, dict[str, str]] = {}
+    sockets: dict[str, str] = {}
+    config: dict[str, str] = {}
     plural = shield is not None and shield_is_multiplug(shield)
     for assignment in opts.split(":"):
         key, sep, value = assignment.partition("=")
@@ -278,9 +277,9 @@ def parse_promotion_opts(opts: Optional[str], target: str,
 
 
 def _route_dotted_promotion_assignment(
-        key: str, value: str, target: str, shield: Optional[Shield],
-        plural: bool, sockets: Dict[str, str], config: Dict[str, str],
-        params: Dict[str, Dict[str, str]]) -> Optional[str]:
+        key: str, value: str, target: str, shield: Shield | None,
+        plural: bool, sockets: dict[str, str], config: dict[str, str],
+        params: dict[str, dict[str, str]]) -> str | None:
     """Route one dotted `<label>.<name>=<value>` promotion assignment
     (`key` already confirmed to contain a `.`) to whichever of
     sockets/config/params its label half selects -- `socket` and
@@ -304,8 +303,8 @@ def _route_dotted_promotion_assignment(
 
 
 def _parse_socket_slot_assignment(
-        slot_name: str, value: str, target: str, shield: Optional[Shield],
-        plural: bool, sockets: Dict[str, str]) -> Optional[str]:
+        slot_name: str, value: str, target: str, shield: Shield | None,
+        plural: bool, sockets: dict[str, str]) -> str | None:
     """Route one `socket.<slot>=<value>` assignment against `shield`'s
     real slots -- reserved unconditionally, never checked against a
     shield's real device labels. Mutates sockets in place; shield is
@@ -331,7 +330,7 @@ def _parse_socket_slot_assignment(
 
 def _parse_config_label_assignment(
         label_name: str, value: str, target: str,
-        config: Dict[str, str]) -> Optional[str]:
+        config: dict[str, str]) -> str | None:
     """Route one `config.<label>=<value>` assignment -- `socket`'s exact
     analogue, reserved unconditionally and never validated against the
     shield's real config elements here (`rigc.loader.params.
@@ -350,7 +349,7 @@ def _parse_config_label_assignment(
 
 def _parse_promotion_param_assignment(
         dev_label: str, prop_name: str, value: str, target: str,
-        params: Dict[str, Dict[str, str]]) -> Optional[str]:
+        params: dict[str, dict[str, str]]) -> str | None:
     """Route one `<device>.<prop>=<value>` parameter assignment -- the
     residual dotted-key case once `socket`/`config` are ruled out.
     Mutates params in place. Returns an error message on a duplicate or
@@ -365,11 +364,11 @@ def _parse_promotion_param_assignment(
     return None
 
 
-def _render_instance(name: str, revision: Optional[str] = None,
-                     socket: Optional[str] = None,
-                     sockets: Optional[Dict[str, str]] = None,
-                     config: Optional[Dict[str, str]] = None,
-                     params: Optional[Dict[str, Dict[str, str]]] = None,
+def _render_instance(name: str, revision: str | None = None,
+                     socket: str | None = None,
+                     sockets: dict[str, str] | None = None,
+                     config: dict[str, str] | None = None,
+                     params: dict[str, dict[str, str]] | None = None,
                      ) -> str:
     """One `instances:` list entry, exactly the text `promote_shield`
     prints for its single instance -- factored out so `promote_shield`
@@ -411,11 +410,11 @@ def _render_instance(name: str, revision: Optional[str] = None,
     return block
 
 
-def promote_shield(name: str, revision: Optional[str] = None,
-                   socket: Optional[str] = None,
-                   sockets: Optional[Dict[str, str]] = None,
-                   config: Optional[Dict[str, str]] = None,
-                   params: Optional[Dict[str, Dict[str, str]]] = None,
+def promote_shield(name: str, revision: str | None = None,
+                   socket: str | None = None,
+                   sockets: dict[str, str] | None = None,
+                   config: dict[str, str] | None = None,
+                   params: dict[str, dict[str, str]] | None = None,
                    ) -> PromotedRig:
     """The natural mapping `a -> [a]`, written out: a rig.yml with NO
     `board:` (a promoted rig's board reaches it only by INJECTION;
@@ -511,7 +510,7 @@ def promote_shield(name: str, revision: Optional[str] = None,
 
 
 def promote_shield_list(
-        elements: List[Tuple[str, Optional[str], "ParsedPromotionOpts"]],
+        elements: list[tuple[str, str | None, ParsedPromotionOpts]],
         ) -> PromotedRig:
     """The list generalization of `promote_shield`'s `a -> [a]` mapping:
     N `(name, revision, parsed opts)` triples -- one per `;`-separated
@@ -557,8 +556,8 @@ def shield_is_multiplug(shield: Shield) -> bool:
     return len(shield.plugs) > 1
 
 
-def resolve_for_promotion(name: str, shield_dirs: Optional[List[str]] = None,
-                          ) -> Optional[Shield]:
+def resolve_for_promotion(name: str, shield_dirs: list[str] | None = None,
+                          ) -> Shield | None:
     """Resolve `name`'s own template -- the IO edge a promotion caller
     reaches for when it needs a fact `discover_shields`'s cheap scan does
     not carry (its real slot names, for `parse_promotion_opts`'s
@@ -587,7 +586,7 @@ def resolve_for_promotion(name: str, shield_dirs: Optional[List[str]] = None,
 
 
 def check_promotable(name: str, info: ShieldInfo,
-                     variant: Optional[str]) -> Optional[str]:
+                     variant: str | None) -> str | None:
     """Whether `name` -- already known to `discover_shields` (`info` is
     its own entry, read-only to this call) -- may be promoted at all, in
     the order a user's own target string is checked: a `/variant` names
@@ -658,7 +657,7 @@ def both_paths_error(name: str, rig_dir: Path, shield_dir: str) -> str:
 
 
 def list_element_is_a_rig_error(name: str, target: str,
-                                rig_dir: Union[str, Path]) -> str:
+                                rig_dir: str | Path) -> str:
     """The list-promotion grammar's own "every element must be a SHIELD"
     ruling, spelled out for the specific element `name` of the
     `;`-separated `target` that names a persisted
@@ -694,8 +693,8 @@ def list_element_not_a_shield_error(name: str, target: str) -> str:
             f"discoverable shield")
 
 
-def check_list_no_duplicate_elements(names: List[str],
-                                     target: str) -> Optional[str]:
+def check_list_no_duplicate_elements(names: list[str],
+                                     target: str) -> str | None:
     """`[a, a]` is REFUSED, not desugared -- a repeated shield name has no
     instance-naming rule yet (instance name = shield name is the
     singleton desugaring's own fixed convention, and two instances
@@ -734,7 +733,7 @@ def check_list_no_duplicate_elements(names: List[str],
 _LIST_ELEMENT_RE = re.compile(r"^([^@:]+)(@[^@:]+)?(:(.+))?$")
 
 
-def _split_list_element(element: str) -> Tuple[str, Optional[str], Optional[str]]:
+def _split_list_element(element: str) -> tuple[str, str | None, str | None]:
     """Parse one list-promotion element into (name, revision, opt_text).
     A malformed element (the regex fails to match at all -- practically
     unreachable via the west/cmake front doors, which already validated
@@ -755,8 +754,8 @@ def _split_list_element(element: str) -> Tuple[str, Optional[str], Optional[str]
 
 
 def parse_promotion_list(
-        target: str, shield_dirs: Optional[List[str]] = None,
-        ) -> Union[List[Tuple[str, Optional[str], ParsedPromotionOpts]], str]:
+        target: str, shield_dirs: list[str] | None = None,
+        ) -> list[tuple[str, str | None, ParsedPromotionOpts]] | str:
     """Parse a `;`-separated `--promote` LIST target into one (name,
     revision, parsed opts) triple per element, in the given order.
 
@@ -776,7 +775,7 @@ def parse_promotion_list(
     uses) naming the first element that failed to parse or the first
     duplicate name. shield_dirs is read-only; the returned list and its
     elements are the caller's own."""
-    elements: List[Tuple[str, Optional[str], ParsedPromotionOpts]] = []
+    elements: list[tuple[str, str | None, ParsedPromotionOpts]] = []
     for element in target.split(";"):
         shield_name, elem_revision, opt_text = _split_list_element(element)
         resolved = resolve_for_promotion(shield_name, shield_dirs)

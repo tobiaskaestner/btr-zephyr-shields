@@ -16,15 +16,20 @@ full message text (see its own header comment).
 """
 from __future__ import annotations
 
+from pathlib import Path
 from textwrap import dedent
 
-from pathlib import Path
-
 from rigc.diag import SourceRef
-from rigc.loader.axes import (check_axis_collision, normalize_revision,
-                              revision_fragment_name, variant_fragment_name,
-                              parse_revision_decl, parse_variant_decl,
-                              resolve_axis, resolve_axis_selection)
+from rigc.loader.axes import (
+    check_axis_collision,
+    normalize_revision,
+    parse_revision_decl,
+    parse_variant_decl,
+    resolve_axis,
+    resolve_axis_selection,
+    revision_fragment_name,
+    variant_fragment_name,
+)
 from rigc.loader.documents import Val, parse_marked
 from rigc.model import AxisDecl
 

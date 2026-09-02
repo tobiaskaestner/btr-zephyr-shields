@@ -32,11 +32,18 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
-
 from corpus import SHIELD_DIR, plain_build_for, run_expand
-from harness import (FIXTURES_DIR, REPO_ROOT, WEST_EXE, WEST_TOPDIR,
-                     assert_fixture_local, render_argv, subprocess_timeout,
-                     write_rerun_script, zephyr_base)
+from harness import (
+    FIXTURES_DIR,
+    REPO_ROOT,
+    WEST_EXE,
+    WEST_TOPDIR,
+    assert_fixture_local,
+    render_argv,
+    subprocess_timeout,
+    write_rerun_script,
+    zephyr_base,
+)
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
@@ -63,7 +70,7 @@ _REJECT_RIG = (FIXTURES_DIR / "boards" / "rigs" / "multiplug-carrier-sockets-rej
 
 
 def _run_carrier_fixture(rig_yml: Path, out_dir: Path,
-                         ) -> "subprocess.CompletedProcess[str]":
+                         ) -> subprocess.CompletedProcess[str]:
     assert_fixture_local([_CARRIER_BOARD_DTS, _CARRIER_CONNECTOR_BINDINGS,
                           _MULTIBUS_CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE,
                           _CARRIER_SHIELDS, _MULTIBUS_SHIELDS])
@@ -131,8 +138,8 @@ def test_combined_spi_reject_parent_lacking_spi_is_slot_qualified_phys_subset(
 
 
 def _run_mikrobus_span_adapter(out_dir: Path,
-                               tmp_path_factory: "pytest.TempPathFactory",
-                               ) -> "subprocess.CompletedProcess[str]":
+                               tmp_path_factory: pytest.TempPathFactory,
+                               ) -> subprocess.CompletedProcess[str]:
     plain_build = plain_build_for(_QUAIL_BOARD, tmp_path_factory)
     rig_dir = out_dir.parent / "rig"
     rig_dir.mkdir(exist_ok=True)
@@ -157,7 +164,7 @@ def _run_mikrobus_span_adapter(out_dir: Path,
 
 @pytest.mark.build
 def test_mikrobus_span_adapter_cross_plug_cs_and_nexus(
-        tmp_path: Path, tmp_path_factory: "pytest.TempPathFactory") -> None:
+        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
     """Marked build (test_layer_discipline.py's own static rule): reaches
     plain_build_for's cached real `west build --cmake-only` of quail
     (memoized per board for the whole session, shared with
@@ -207,7 +214,7 @@ def test_mikrobus_span_adapter_cross_plug_cs_and_nexus(
 
 @pytest.mark.build
 def test_mikrobus_span_adapter_build_round_trip(
-        tmp_path: Path, tmp_path_factory: "pytest.TempPathFactory") -> None:
+        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
     """The expand+build round trip for the real corpus example -- quail is
     a REAL, already-supported board (no fixture-board substitution
     needed), mirroring test_can_span_click_build_round_trip's own shape:
@@ -265,9 +272,13 @@ def test_mikrobus_span_adapter_is_now_promotable_with_explicit_slot_options() ->
     two), mirroring can_span_click's own case in
     test_multiplug_shield.py (test_singleton_identity_law.py pins the
     census side: EXCLUDED == set())."""
-    from rigc.promote import (check_promotable, discover_shields,
-                              parse_promotion_opts, resolve_for_promotion,
-                              shield_is_multiplug)
+    from rigc.promote import (
+        check_promotable,
+        discover_shields,
+        parse_promotion_opts,
+        resolve_for_promotion,
+        shield_is_multiplug,
+    )
 
     shields = discover_shields([str(SHIELD_DIR)])
     assert "mikrobus_span_adapter" in shields

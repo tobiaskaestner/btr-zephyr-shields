@@ -16,13 +16,11 @@ starts on the first entry's line, one below its key).
 """
 from __future__ import annotations
 
+from pathlib import Path
 from textwrap import dedent
 
-from pathlib import Path
-
 from rigc.diag import Diagnostic, SourceRef
-from rigc.loader.documents import (Val, content_file_name, parse_marked,
-                                   require)
+from rigc.loader.documents import Val, content_file_name, parse_marked, require
 
 
 def _ref(d: Diagnostic, i: int = 0) -> SourceRef:

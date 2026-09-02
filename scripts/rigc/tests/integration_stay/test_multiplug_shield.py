@@ -27,11 +27,19 @@ from pathlib import Path
 from textwrap import dedent
 
 import pytest
-
 from corpus import SHIELD_DIR, plain_build_for, run_expand
-from harness import (FIXTURES_DIR, REPO_ROOT, RIG_EXPAND_COMPILE, WEST_EXE,
-                     WEST_TOPDIR, assert_fixture_local, render_argv,
-                     subprocess_timeout, write_rerun_script, zephyr_base)
+from harness import (
+    FIXTURES_DIR,
+    REPO_ROOT,
+    RIG_EXPAND_COMPILE,
+    WEST_EXE,
+    WEST_TOPDIR,
+    assert_fixture_local,
+    render_argv,
+    subprocess_timeout,
+    write_rerun_script,
+    zephyr_base,
+)
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 
@@ -49,7 +57,7 @@ _INFERENCE_RIG = FIXTURES_DIR / "boards" / "rigs" / "multiplug-sockets" / "rig.y
 
 
 def _run_fixture(rig_yml: Path, out_dir: Path, board: str, board_dts: Path,
-                 ) -> "subprocess.CompletedProcess[str]":
+                 ) -> subprocess.CompletedProcess[str]:
     assert_fixture_local([board_dts, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE,
                           _MP_SHIELDS])
     return run_expand(
@@ -245,8 +253,8 @@ def test_sockets_unknown_slot_is_rejected(tmp_path: Path) -> None:
 # ---------------------------------------------------------------- the real corpus example
 
 
-def _run_can_span_click(out_dir: Path, tmp_path_factory: "pytest.TempPathFactory",
-                        ) -> "subprocess.CompletedProcess[str]":
+def _run_can_span_click(out_dir: Path, tmp_path_factory: pytest.TempPathFactory,
+                        ) -> subprocess.CompletedProcess[str]:
     plain_build = plain_build_for(_QUAIL_BOARD, tmp_path_factory)
     rig_dir = out_dir.parent / "rig"
     rig_dir.mkdir(exist_ok=True)
@@ -268,7 +276,7 @@ def _run_can_span_click(out_dir: Path, tmp_path_factory: "pytest.TempPathFactory
 
 @pytest.mark.build
 def test_can_span_click_cross_plug_cs_and_nexus(
-        tmp_path: Path, tmp_path_factory: "pytest.TempPathFactory") -> None:
+        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
     """Marked build (test_layer_discipline.py's own static rule): this
     reaches `plain_build_for`, the cached-plain-build pattern's own real
     `west build --cmake-only` (memoized per board for the whole session,
@@ -319,8 +327,8 @@ def test_can_span_click_cross_plug_cs_and_nexus(
 
 
 def _run_can_span_click_shared_controller(
-        out_dir: Path, tmp_path_factory: "pytest.TempPathFactory",
-        ) -> "subprocess.CompletedProcess[str]":
+        out_dir: Path, tmp_path_factory: pytest.TempPathFactory,
+        ) -> subprocess.CompletedProcess[str]:
     """Same shield, same helper shape as `_run_can_span_click`, but the two
     slots land on quail_sock1/quail_sock2 -- the shared-controller variant
     (both wire socket,spi = &spi1, mikrobus_sockets.dtsi:50,72), rather than
@@ -346,7 +354,7 @@ def _run_can_span_click_shared_controller(
 
 @pytest.mark.build
 def test_can_span_click_shared_controller_two_slot_contract(
-        tmp_path: Path, tmp_path_factory: "pytest.TempPathFactory") -> None:
+        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
     """Marked build for the same reason as test_can_span_click_cross_plug_
     cs_and_nexus above: reaches plain_build_for (memoized per board, so this
     shares quail's ONE cached plain configure with every other test in this
@@ -424,9 +432,13 @@ def test_can_span_click_is_now_promotable_with_explicit_slot_options() -> None:
     bare socket= is refused for a DIFFERENT reason (the plural-shield
     grammar refusal, parse_promotion_opts's own sentence), pinned here
     too so the two refusal reasons are never confused for one another."""
-    from rigc.promote import (check_promotable, discover_shields,
-                              parse_promotion_opts, resolve_for_promotion,
-                              shield_is_multiplug)
+    from rigc.promote import (
+        check_promotable,
+        discover_shields,
+        parse_promotion_opts,
+        resolve_for_promotion,
+        shield_is_multiplug,
+    )
 
     shields = discover_shields([str(SHIELD_DIR)])
     assert "can_span_click" in shields
@@ -462,7 +474,7 @@ def test_can_span_click_is_now_promotable_with_explicit_slot_options() -> None:
 
 @pytest.mark.build
 def test_can_span_click_build_round_trip(
-        tmp_path: Path, tmp_path_factory: "pytest.TempPathFactory") -> None:
+        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
     """The expand+build round trip for the real corpus example. Unlike
     test_multibus_socket's own build test, quail is a REAL, already-
     supported board (no fixture-board substitution needed): the
@@ -521,8 +533,8 @@ def test_can_span_click_build_round_trip(
 
 
 def _run_can_span_click_promoted(
-        out_dir: Path, tmp_path_factory: "pytest.TempPathFactory",
-        ) -> "subprocess.CompletedProcess[str]":
+        out_dir: Path, tmp_path_factory: pytest.TempPathFactory,
+        ) -> subprocess.CompletedProcess[str]:
     """The --promote counterpart of _run_can_span_click: the SAME two
     board sockets (quail_sock2/quail_sock3), named via the slot-optioned
     promotion grammar instead of a
@@ -551,7 +563,7 @@ def _run_can_span_click_promoted(
 
 @pytest.mark.build
 def test_can_span_click_promoted_round_trip_matches_the_persisted_cross_plug_facts(
-        tmp_path: Path, tmp_path_factory: "pytest.TempPathFactory") -> None:
+        tmp_path: Path, tmp_path_factory: pytest.TempPathFactory) -> None:
     """The
     promoted form of can_span_click, given the ONLY spelling its own
     four-candidate-per-slot ambiguity leaves it (explicit

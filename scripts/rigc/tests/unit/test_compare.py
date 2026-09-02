@@ -579,8 +579,7 @@ def _generated_sheet() -> str:
     from rigc.analyzer import Solved
     from rigc.diag import SourceRef
     from rigc.emitter.sheet import render_sheet
-    from rigc.model import (BoardSocket, ConnectorType, Device, Instance, Rig,
-                            Shield, Wire, WireEnd)
+    from rigc.model import BoardSocket, ConnectorType, Device, Instance, Rig, Shield, Wire, WireEnd
 
     src = SourceRef("f.yml", 1, "k")
     ctype = ConnectorType(
@@ -651,8 +650,7 @@ def _generated_overlay() -> str:
     from rigc.analyzer import Solved
     from rigc.diag import SourceRef
     from rigc.emitter.overlay import render_overlay
-    from rigc.model import (BoardSocket, ConnectorType, Device, FunctionRef,
-                            Instance, Rig, Shield)
+    from rigc.model import BoardSocket, ConnectorType, Device, FunctionRef, Instance, Rig, Shield
 
     src = SourceRef("f.yml", 1, "k")
     # TWO gpio refs, so a test can swap their trailing comments and prove

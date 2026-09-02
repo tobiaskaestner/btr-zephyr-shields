@@ -19,8 +19,9 @@ constant -- so unit tests exercise it with synthetic roots."""
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
-from typing import Iterable, Literal, Optional, Sequence
+from typing import Literal
 
 #: Severity vocabulary, closed at the TYPE level: this is the module
 #: where a severity typo becomes wrong frozen bytes, so mypy gets to
@@ -52,18 +53,18 @@ class Diagnostic:
     # None entries are LEGAL and skipped at render time: callers pass
     # (dev.src, inst.src)-shaped tuples whose members may be absent
     # without filtering at every site.
-    refs: tuple[Optional[SourceRef], ...] = ()
+    refs: tuple[SourceRef | None, ...] = ()
 
 
 def error(code: str, message: str,
-          refs: Sequence[Optional[SourceRef]] = ()) -> Diagnostic:
+          refs: Sequence[SourceRef | None] = ()) -> Diagnostic:
     """Returns one ERROR-severity Diagnostic value; refs may contain
     None entries (skipped at render time). The caller owns the value."""
     return Diagnostic(ERROR, code, message, tuple(refs))
 
 
 def warning(code: str, message: str,
-           refs: Sequence[Optional[SourceRef]] = ()) -> Diagnostic:
+           refs: Sequence[SourceRef | None] = ()) -> Diagnostic:
     """Returns one WARNING-severity Diagnostic value; same refs contract
     as error()."""
     return Diagnostic(WARNING, code, message, tuple(refs))

@@ -46,7 +46,6 @@ that schema changes, nothing here does either.
 from __future__ import annotations
 
 import re
-from typing import Optional, Tuple
 
 from ..diag import Diagnostic, SourceRef, error
 from ..model import AxisDecl
@@ -125,7 +124,7 @@ def _format_matches(fmt: str, value: str) -> bool:
     return pattern is None or bool(pattern.match(value))
 
 
-def _revision_sort_key(fmt: str, value: str) -> Tuple[int, ...]:
+def _revision_sort_key(fmt: str, value: str) -> tuple[int, ...]:
     """The per-format ordering hwmv2's nearest-lower match compares by
     (extensions.cmake:1133-1152's VERSION_/STRGREATER/GREATER split):
     `number` and `major.minor.patch` compare numerically component by
@@ -139,14 +138,14 @@ def _revision_sort_key(fmt: str, value: str) -> Tuple[int, ...]:
     return (ord(value),)
 
 
-def _nearest_lower(fmt: str, declared: list[str], candidate: str) -> Optional[str]:
+def _nearest_lower(fmt: str, declared: list[str], candidate: str) -> str | None:
     """The highest declared revision <= candidate, per-format compared --
     hwmv2's nearest-lower match (extensions.cmake:1133-1152). None when
     every declared revision is greater than candidate (no fallback
     exists); declared values are read-only."""
     candidate_key = _revision_sort_key(fmt, candidate)
-    best: Optional[str] = None
-    best_key: Optional[Tuple[int, ...]] = None
+    best: str | None = None
+    best_key: tuple[int, ...] | None = None
     for value in declared:
         key = _revision_sort_key(fmt, value)
         if key <= candidate_key and (best_key is None or key > best_key):
@@ -156,7 +155,7 @@ def _nearest_lower(fmt: str, declared: list[str], candidate: str) -> Optional[st
 
 def parse_variant_decl(container_v: Val, key: str = "variants",
                        owner: str = "rig",
-                       ) -> tuple[Optional[AxisDecl], list[Diagnostic]]:
+                       ) -> tuple[AxisDecl | None, list[Diagnostic]]:
     """A rig's `variants:` declaration block: {default:, list: []}.
     Absent key -> no axis declared (None, no diagnostics). `list:` must be
     non-empty and `default:` (if given) must be one of its own members --
@@ -208,7 +207,7 @@ def parse_variant_decl(container_v: Val, key: str = "variants",
     return AxisDecl(values=values, default=default), diags
 
 
-def _parse_revision_entries(list_v: Optional[Val], fmt: str, key: str,
+def _parse_revision_entries(list_v: Val | None, fmt: str, key: str,
                             owner: str) -> tuple[list[str], list[Diagnostic]]:
     """Each `revisions:` list entry: a mapping {name:} whose name: is a
     quoted string matching `fmt`'s own pattern. An unquoted numeric-
@@ -256,7 +255,7 @@ def _parse_revision_entries(list_v: Optional[Val], fmt: str, key: str,
 
 def parse_revision_decl(container_v: Val, key: str = "revision",
                         owner: str = "rig",
-                        ) -> tuple[Optional[AxisDecl], list[Diagnostic]]:
+                        ) -> tuple[AxisDecl | None, list[Diagnostic]]:
     """A rig.yml `revision:` declaration block (singular key): upstream's
     own board.yml shape -- `format:` (required, one of letter/number/
     major.minor.patch/custom), `default:`, optional `exact:`, and a
@@ -340,7 +339,7 @@ def parse_revision_decl(container_v: Val, key: str = "revision",
 
 def parse_legacy_revision_decl(container_v: Val, key: str = "revisions",
                                owner: str = "rig",
-                               ) -> tuple[Optional[AxisDecl], list[Diagnostic]]:
+                               ) -> tuple[AxisDecl | None, list[Diagnostic]]:
     """shield.yml's `revisions:` declaration, kept in its PRE-hwmv2 shape
     (`{default:, list: []}`, bare scalar ids only) -- NOT the hwmv2
     `revision:` block `parse_revision_decl` gives rig.yml.
@@ -400,8 +399,8 @@ def parse_legacy_revision_decl(container_v: Val, key: str = "revisions",
     return AxisDecl(values=values, default=default), diags
 
 
-def check_axis_collision(rig_name: str, variants: Optional[AxisDecl],
-                         revisions: Optional[AxisDecl],
+def check_axis_collision(rig_name: str, variants: AxisDecl | None,
+                         revisions: AxisDecl | None,
                          src: SourceRef) -> list[Diagnostic]:
     """The fragment-stem collision check: no two distinct (variant,
     revision) SELECTIONS may construct the same fragment stem.
@@ -444,8 +443,8 @@ def check_axis_collision(rig_name: str, variants: Optional[AxisDecl],
 
 def _resolve_revision_selection(owner_kind: str, owner_name: str,
                                 axis_kind: str, code: str, decl: AxisDecl,
-                                selected: Optional[str], src: SourceRef,
-                                ) -> tuple[Optional[str], list[Diagnostic]]:
+                                selected: str | None, src: SourceRef,
+                                ) -> tuple[str | None, list[Diagnostic]]:
     """The hwmv2 revision-resolution machinery (extensions.cmake:1048
     family), reached only once `decl.format is not None`: `format:
     custom` is rejected loudly the moment the axis is used at all, even
@@ -505,9 +504,9 @@ def _resolve_revision_selection(owner_kind: str, owner_name: str,
 
 
 def resolve_axis_selection(owner_kind: str, owner_name: str, axis_kind: str,
-                           decl_key: str, decl: Optional[AxisDecl],
-                           selected: Optional[str], src: SourceRef,
-                           ) -> tuple[Optional[str], list[Diagnostic]]:
+                           decl_key: str, decl: AxisDecl | None,
+                           selected: str | None, src: SourceRef,
+                           ) -> tuple[str | None, list[Diagnostic]]:
     """The shared decision a qualifier-axis resolution makes, over values
     -- shared by a rig's own axis resolution (`resolve_axis`, below) and
     `ShieldLibrary.resolve` (`loader/library.py`).
@@ -600,8 +599,8 @@ def resolve_axis_selection(owner_kind: str, owner_name: str, axis_kind: str,
 
 
 def resolve_axis(rig_name: str, axis_kind: str, decl_key: str,
-                 decl: Optional[AxisDecl], selected: Optional[str],
-                 src: SourceRef) -> tuple[Optional[str], list[Diagnostic]]:
+                 decl: AxisDecl | None, selected: str | None,
+                 src: SourceRef) -> tuple[str | None, list[Diagnostic]]:
     """Resolve ONE of a rig's own qualifier axes (`revision` or
     `variant`) to its final RESOLVED value -- the rig-owned instance of
     `resolve_axis_selection`'s shared decision (`owner_kind="rig"`). For

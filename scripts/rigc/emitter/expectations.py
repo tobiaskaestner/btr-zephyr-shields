@@ -8,8 +8,6 @@ sheet.py's Wires section.
 """
 from __future__ import annotations
 
-from typing import Optional, Tuple
-
 from ..analyzer import Solved
 from ..analyzer.socketmap import for_bus_device
 from ..model import Device, Instance, Rig
@@ -17,7 +15,7 @@ from . import GEN
 
 
 def _find_instance_device(rig: Rig, inst_name: str, dev_name: str,
-                          ) -> Tuple[Optional[Instance], Optional[Device]]:
+                          ) -> tuple[Instance | None, Device | None]:
     """The Instance/Device objects (inst_name, dev_name) name, recovered by
     name since Solved.addr/Solved.cs key by plain strings, never the
     objects themselves. Either may be None when `rig` carries no matching

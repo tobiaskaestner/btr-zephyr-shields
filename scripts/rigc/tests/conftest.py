@@ -9,8 +9,8 @@ grow a second copy of it.
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable, Union
 
 #: rigc's own fixture tree. A value derived from this file's location --
 #: no environment lookup at module scope anywhere in this package, which
@@ -18,7 +18,7 @@ from typing import Iterable, Union
 FIXTURES_DIR = Path(__file__).resolve().parent / "fixtures"
 
 
-def assert_fixture_local(paths: Iterable[Union[Path, str]],
+def assert_fixture_local(paths: Iterable[Path | str],
                          fixtures_dir: Path = FIXTURES_DIR) -> None:
     """Structural proof of hermeticity: every path a test hands to the
     code under test resolves under fixtures_dir -- never a real Zephyr

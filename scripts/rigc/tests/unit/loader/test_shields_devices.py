@@ -11,11 +11,10 @@ synthetic connector-type/DT fixtures every module here shares.
 """
 from __future__ import annotations
 
-from rigc.model import ConnectorType
 from rigc.loader.shields import parse_shields
+from rigc.model import ConnectorType
 
 from .conftest import _dt, _one_shield
-
 
 # ---------------------------------------------------------------- devices
 

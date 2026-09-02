@@ -9,8 +9,8 @@ never a real corpus one.
 from __future__ import annotations
 
 from rigc.dtsio import get_dtlib
-from rigc.model import ConnectorType, Position
 from rigc.loader.shields import parse_shields
+from rigc.model import ConnectorType, Position
 
 _PLUG_TYPE = ConnectorType(
     name="fixture-type",

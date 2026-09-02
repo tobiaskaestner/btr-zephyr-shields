@@ -27,10 +27,8 @@ import shlex
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Optional, Union
 
 import pytest
-import yaml
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,7 +45,7 @@ FIXTURES_DIR = TESTS_DIR / "fixtures"
 DTS_EQUIV = REPO_ROOT / "scripts" / "dts_equiv.py"
 
 
-def assert_fixture_local(paths: List[Union[Path, str]]) -> None:
+def assert_fixture_local(paths: list[Path | str]) -> None:
     """Structural proof of hermeticity for a test that claims to need no
     real Zephyr tree and no repo-production devicetree content: every
     path it hands to board/edtlib as a --board-dts/--bindings-dir/
@@ -100,7 +98,7 @@ REFREEZE = bool(os.environ.get("RIGC_REFREEZE"))
 RIG_EXPAND_COMPILE = os.environ.get("RIG_EXPAND_COMPILE", "rigc")
 
 
-def subprocess_timeout(default: int) -> Optional[int]:
+def subprocess_timeout(default: int) -> int | None:
     """The default for every long-running subprocess.run() timeout across
     the integration tests, overridable via RIGC_SUBPROCESS_TIMEOUT (seconds;
     0 disables the timeout). subprocess.run's timeout clock runs in the
@@ -159,7 +157,7 @@ def zephyr_base() -> str:
     return value
 
 
-def normalize(text: str, zb: Optional[str]) -> str:
+def normalize(text: str, zb: str | None) -> str:
     """Replace machine-/run-specific absolute paths with stable placeholders
     before freezing/comparing: the expander's own temp workdir,
     $ZEPHYR_BASE, and the repo root (in that order — repo root and zephyr
@@ -181,7 +179,7 @@ def normalize(text: str, zb: Optional[str]) -> str:
     return text
 
 
-def render_argv(result: "subprocess.CompletedProcess[str]") -> str:
+def render_argv(result: subprocess.CompletedProcess[str]) -> str:
     """Shell-quoted rendering of a completed subprocess's own argv, for a
     failure assertion to interpolate alongside stdout/stderr -- .args is
     exactly what subprocess.run was given, so this needs no extra plumbing
@@ -191,8 +189,8 @@ def render_argv(result: "subprocess.CompletedProcess[str]") -> str:
     return shlex.join(str(part) for part in result.args)
 
 
-def write_rerun_script(script_dir: Path, cwd: Path, cmd: List[str],
-                       env: Dict[str, str]) -> Path:
+def write_rerun_script(script_dir: Path, cwd: Path, cmd: list[str],
+                       env: dict[str, str]) -> Path:
     """Write an executable rerun.sh into script_dir: a standalone re-run of
     this exact subprocess invocation, mirroring cmake/dts.cmake's own
     rerun-expand.sh (shebang, set -e, the env-then-argv shape) -- written
@@ -329,21 +327,25 @@ def assert_absent_or_refreeze(golden_path: Path) -> None:
 # than byte-for-byte.
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigc.tests.compare import (  # noqa: E402
-    compare_config_sheet, compare_context_cmake, compare_includes_dtsi,
-    compare_overlay, overlay_is_byte_compared)
+    compare_config_sheet,
+    compare_context_cmake,
+    compare_includes_dtsi,
+    compare_overlay,
+    overlay_is_byte_compared,
+)
 
 
 def run_expand(rig_yml: Path, out_dir: Path,
-               shield_dirs: Optional[List[Path]] = None,
-               board: Optional[str] = None,
-               board_dts: Optional[Path] = None,
-               build_info: Optional[Path] = None,
-               bindings_dirs: Optional[List[Path]] = None,
-               include_dirs: Optional[List[Path]] = None,
-               revision: Optional[str] = None,
-               variant: Optional[str] = None,
-               connector_dirs: Optional[List[Path]] = None,
-               ) -> "subprocess.CompletedProcess[str]":
+               shield_dirs: list[Path] | None = None,
+               board: str | None = None,
+               board_dts: Path | None = None,
+               build_info: Path | None = None,
+               bindings_dirs: list[Path] | None = None,
+               include_dirs: list[Path] | None = None,
+               revision: str | None = None,
+               variant: str | None = None,
+               connector_dirs: list[Path] | None = None,
+               ) -> subprocess.CompletedProcess[str]:
     """Run python -m <RIG_EXPAND_COMPILE> expand exactly as dts.cmake does
     (modulo the recipe form: dts.cmake passes --include-dir/--bindings-dir
     explicitly;

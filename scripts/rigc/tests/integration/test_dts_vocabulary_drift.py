@@ -47,12 +47,9 @@ confirmed while re-deriving this page's own vocabulary from the parsers.
 from __future__ import annotations
 
 import re
-from pathlib import Path
-from typing import Set
+import sys
 
 from harness import REPO_ROOT
-
-import sys
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from rigc.buskind import BUS_KINDS, BUS_PROP_RE, CS_POOL_PROP_RE  # noqa: E402
@@ -94,10 +91,10 @@ def _production_py_files():
         yield path
 
 
-def _code_literals() -> Set[str]:
+def _code_literals() -> set[str]:
     """Every `shield,*`/`plug,*`/`socket,*` string literal in scripts/rigc/'s
     own PRODUCTION source (never tests/) -- a fresh set the caller owns."""
-    found: Set[str] = set()
+    found: set[str] = set()
     for path in _production_py_files():
         found.update(_LITERAL_RE.findall(path.read_text()))
     return found
@@ -121,11 +118,11 @@ def _heading_text() -> str:
     return "\n".join(headings)
 
 
-def _doc_tokens(text: str) -> Set[str]:
+def _doc_tokens(text: str) -> set[str]:
     return set(_DOC_TOKEN_RE.findall(text))
 
 
-def _known_qualified(token: str, connector_types: Set[str]) -> bool:
+def _known_qualified(token: str, connector_types: set[str]) -> bool:
     """Whether `token` is a legitimately-shaped qualified/pattern member --
     a real connector-type socket compatible, a bare bus-kind proxy, or a
     name matching one of buskind.py's own two qualified-family regexes --

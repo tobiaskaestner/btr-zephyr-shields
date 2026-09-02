@@ -10,8 +10,16 @@ subject."""
 from __future__ import annotations
 
 from rigc.analyzer.sockets import compose_socket, mating_ok, resolve_sockets, subset_gaps
-from rigc.model import (Board, BoardSocket, BusRef, ConnectorType,
-                        ExposedSocket, Instance, Rig, Shield)
+from rigc.model import (
+    Board,
+    BoardSocket,
+    BusRef,
+    ConnectorType,
+    ExposedSocket,
+    Instance,
+    Rig,
+    Shield,
+)
 
 # ---------------------------------------------------------------- mating_ok / subset_gaps
 
@@ -889,7 +897,6 @@ def _ctype(name: str = "arduino-r3", stackable: bool = True) -> ConnectorType:
 
 
 def _plural_shield(plugs: dict, devices=None) -> Shield:
-    from rigc.model import Device
     return Shield(name="sh", label="sh", plugs=dict(plugs),
                   devices=list(devices) if devices else [])
 

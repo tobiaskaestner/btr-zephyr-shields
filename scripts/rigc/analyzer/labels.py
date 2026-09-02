@@ -7,19 +7,17 @@ needing no board/socket information at all, so it is not one of the
 passes skip-don't-abort applies to."""
 from __future__ import annotations
 
-from typing import Dict, List
-
 from ..diag import Diagnostic, error
 from ..model import Instance, Rig
 
 
-def check_labels(rig: Rig) -> List[Diagnostic]:
+def check_labels(rig: Rig) -> list[Diagnostic]:
     """Emission feasibility: composed output labels
     (<instance>_<shield-local-label>) must be unique across the rig.
 
     Returns the label findings (phys-label); rig is read-only."""
-    diags: List[Diagnostic] = []
-    seen: Dict[str, Instance] = {}
+    diags: list[Diagnostic] = []
+    seen: dict[str, Instance] = {}
     for inst in rig.instances:
         for dev in inst.shield.devices:
             label = f"{inst.name}_{dev.label}"

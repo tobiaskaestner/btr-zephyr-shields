@@ -13,8 +13,7 @@ contract needs no larger scenario to exercise: a reject here is not a unit
 concern, it is new coverage of a different subject."""
 from __future__ import annotations
 
-from rigc.analyzer.cs import (CsMember, CsPlacement, allocate_cs_positions,
-                              effective_cs_pool)
+from rigc.analyzer.cs import CsMember, CsPlacement, allocate_cs_positions, effective_cs_pool
 
 # ---------------------------------------------------------------- copper-fixed precedence
 

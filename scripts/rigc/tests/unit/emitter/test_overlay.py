@@ -8,15 +8,21 @@ rewrite, not coverage.
 """
 from __future__ import annotations
 
-from typing import Dict, Optional, Tuple
-
 import pytest
 
 from rigc.analyzer import ChannelResolution, Solved
 from rigc.diag import SourceRef
 from rigc.emitter.overlay import render_overlay
-from rigc.model import (BoardSocket, BusRef, ConnectorType, Device, FunctionRef,
-                        Instance, Rig, Shield)
+from rigc.model import (
+    BoardSocket,
+    BusRef,
+    ConnectorType,
+    Device,
+    FunctionRef,
+    Instance,
+    Rig,
+    Shield,
+)
 
 _SRC = SourceRef("f.yml", 1, "k")
 
@@ -26,7 +32,7 @@ def _ctype() -> ConnectorType:
                         stackable=False, cs_pool={})
 
 
-def _socket(pwm_cells: Optional[int] = None) -> BoardSocket:
+def _socket(pwm_cells: int | None = None) -> BoardSocket:
     return BoardSocket(label="sock", path="/s", type_name="t", gpio_map={},
                        buses={}, pwm_cells=pwm_cells)
 
@@ -269,7 +275,7 @@ def test_render_overlay_is_deterministic_under_a_shuffled_instance_order() -> No
     assert make(["alpha", "bravo"]) == make(["bravo", "alpha"])
 
 
-def _mux_rig_and_solved(channel_order: list[int]) -> Tuple[Rig, Solved]:
+def _mux_rig_and_solved(channel_order: list[int]) -> tuple[Rig, Solved]:
     """One I2C mux instance whose scopes: entries are inserted in
     channel_order -- the mux-channel counterpart of the shuffled instance
     list above (each channel is a NEW address scope)."""
@@ -279,7 +285,7 @@ def _mux_rig_and_solved(channel_order: list[int]) -> Tuple[Rig, Solved]:
     inst = Instance(name="i1", shield=shield, sockets={"plug": "sock"})
     socket = BoardSocket(label="sock", path="/s", type_name="t", gpio_map={},
                          buses={"i2c": BusRef(label="i2c1", path="/i2c1")})
-    scopes: Dict[str, Tuple[str, int]] = {
+    scopes: dict[str, tuple[str, int]] = {
         f"/i2c1/ch{channel}": ("i1_mux", channel) for channel in channel_order}
     return (Rig(name="r", instances=[inst]),
             Solved(sockets={"i1": {"plug": socket}}, addr={("i1", "mux"): 0x70},

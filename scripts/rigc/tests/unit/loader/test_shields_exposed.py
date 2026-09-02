@@ -13,7 +13,6 @@ from rigc.loader.shields import parse_shields
 
 from .conftest import _PLURAL_TYPES, _dt, _one_shield
 
-
 # ---------------------------------------------------------------- exposed sockets
 
 

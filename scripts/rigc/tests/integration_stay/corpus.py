@@ -46,13 +46,19 @@ import os
 import shlex
 import subprocess
 from pathlib import Path
-from typing import Dict, List, Optional
 
 import pytest
-
-from harness import (RIG_EXPAND_COMPILE, WEST_EXE, WEST_TOPDIR, REPO_ROOT,
-                     render_argv, run_expand as _harness_run_expand,
-                     subprocess_timeout, write_rerun_script, zephyr_base)
+from harness import (
+    REPO_ROOT,
+    RIG_EXPAND_COMPILE,
+    WEST_EXE,
+    WEST_TOPDIR,
+    render_argv,
+    subprocess_timeout,
+    write_rerun_script,
+    zephyr_base,
+)
+from harness import run_expand as _harness_run_expand
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,7 +66,7 @@ SHIELD_DIR = REPO_ROOT / "boards" / "shields"
 RIGS_DIR = REPO_ROOT / "boards" / "rigs"
 
 
-@functools.lru_cache(maxsize=None)
+@functools.cache
 def rig_dir(name: str) -> Path:
     """The on-disk directory for corpus rig `name`, wherever it actually
     lives under boards/rigs/ -- flat (every rig but five) or one level
@@ -99,7 +105,7 @@ def rig_dir(name: str) -> Path:
 # NOT carry -- every build path naming this board must thread
 # -DEXTRA_ZEPHYR_MODULES=<bridle_root()> (see board_extra_defines
 # below), or the board does not exist at all.
-BOARD_DTS: Dict[str, str] = {
+BOARD_DTS: dict[str, str] = {
     "nucleo_f401re/stm32f401xe/rig":
         "boards/extend/st/nucleo_f401re/nucleo_f401re_stm32f401xe_rig.dts",
     "mikroe_quail/stm32f427xx/rig":
@@ -111,7 +117,7 @@ BOARD_DTS: Dict[str, str] = {
     "m5stack_nanoc6/esp32c6/hpcore/rig":
         "boards/extend/m5stack/m5stack_nanoc6/m5stack_nanoc6_esp32c6_hpcore_rig.dts",
 }
-BOARDS: List[str] = list(BOARD_DTS)
+BOARDS: list[str] = list(BOARD_DTS)
 
 # The one board needing bridle threaded onto EXTRA_ZEPHYR_MODULES -- a
 # case-level mechanism, not a global flag: every OTHER board's goldens must
@@ -135,7 +141,7 @@ def bridle_root() -> Path:
     return root
 
 
-def board_extra_defines(board: str) -> List[str]:
+def board_extra_defines(board: str) -> list[str]:
     """Per-board extra -D cmake defines every build path (plain build,
     the resolved-corpus `west build --cmake-only -- -DRIG=`, cmake-alone)
     must thread through identically.
@@ -180,12 +186,12 @@ class RigCase:
     name: str
     board: str
     accept: bool
-    category: Optional[str] = None   # expected phys-* code, reject rigs only
+    category: str | None = None   # expected phys-* code, reject rigs only
 
 
 # The full corpus of rigs this suite freezes goldens for, with the board
 # each one builds against and the verdict each one is expected to produce.
-ACCEPT_CASES: List[RigCase] = [
+ACCEPT_CASES: list[RigCase] = [
     RigCase("nucleo_datalogger", "nucleo_f401re/stm32f401xe/rig", True),
     RigCase("quail_temp_farm", "mikroe_quail/stm32f427xx/rig", True),
     RigCase("quail_sockets", "mikroe_quail/stm32f427xx/rig", True),
@@ -250,7 +256,7 @@ ACCEPT_CASES: List[RigCase] = [
     RigCase("nucleo_grove_farm", "nucleo_f401re/stm32f401xe/rig", True),
 ]
 
-REJECT_CASES: List[RigCase] = [
+REJECT_CASES: list[RigCase] = [
     RigCase("nucleo_wifi_logger", "nucleo_f401re/stm32f401xe/rig", False, "phys-net"),
     RigCase("quail_dup_th", "mikroe_quail/stm32f427xx/rig", False, "phys-addr"),
     RigCase("frdm_cs_clash", "frdm_k64f/mk64f12/rig", False, "phys-cs"),
@@ -258,14 +264,14 @@ REJECT_CASES: List[RigCase] = [
     RigCase("lotus_pwm_clash", "seeeduino_lotus/samd21g18a/rig", False, "phys-channel"),
 ]
 
-ALL_CASES: List[RigCase] = ACCEPT_CASES + REJECT_CASES
+ALL_CASES: list[RigCase] = ACCEPT_CASES + REJECT_CASES
 
 # Convenience lookup for the handful of call sites that need a corpus rig's
 # board OUTSIDE a parametrized RigCase (a case object already carries its
 # own .board directly) -- e.g. the pilot/shield-revision family's shared
 # helpers below, which build against a fixed board regardless of which
 # qualifier tuple is under test.
-RIG_BOARD: Dict[str, str] = {c.name: c.board for c in ALL_CASES}
+RIG_BOARD: dict[str, str] = {c.name: c.board for c in ALL_CASES}
 
 # ard_datalogger's SECOND board -- deliberately NOT in RIG_BOARD/RigCase,
 # which carry exactly one board per rig; this is the one rig actually
@@ -309,10 +315,10 @@ class PlainBuild:
 # own reference app (see test_resolved_corpus.py).
 _PLAIN_BUILD_APP = "zephyr/samples/hello_world"
 
-_plain_build_cache: Dict[str, PlainBuild] = {}
+_plain_build_cache: dict[str, PlainBuild] = {}
 
 
-def _run_plain_build(board: str, build_dir: Path) -> "subprocess.CompletedProcess[str]":
+def _run_plain_build(board: str, build_dir: Path) -> subprocess.CompletedProcess[str]:
     """west build --cmake-only -b <board> of hello_world — deliberately
     PLAIN: no --shield, no -DRIG, so this exercises the legacy/plain
     board path a rig-enabling board change must never break. Threads
@@ -338,7 +344,7 @@ def _run_plain_build(board: str, build_dir: Path) -> "subprocess.CompletedProces
                            timeout=subprocess_timeout(600))
 
 
-def plain_build_for(board: str, tmp_path_factory: "pytest.TempPathFactory") -> PlainBuild:
+def plain_build_for(board: str, tmp_path_factory: pytest.TempPathFactory) -> PlainBuild:
     """The cached-plain-build pattern: build board once per test session
     (memoized across every test in every file that asks for it — a plain
     function rather than a @pytest.fixture(params=...), so a rig case can
@@ -360,16 +366,16 @@ def plain_build_for(board: str, tmp_path_factory: "pytest.TempPathFactory") -> P
 
 
 def run_expand(rig_yml: Path, out_dir: Path,
-               shield_dirs: Optional[List[Path]] = None,
-               board: Optional[str] = None,
-               board_dts: Optional[Path] = None,
-               build_info: Optional[Path] = None,
-               bindings_dirs: Optional[List[Path]] = None,
-               include_dirs: Optional[List[Path]] = None,
-               revision: Optional[str] = None,
-               variant: Optional[str] = None,
-               connector_dirs: Optional[List[Path]] = None,
-               ) -> "subprocess.CompletedProcess[str]":
+               shield_dirs: list[Path] | None = None,
+               board: str | None = None,
+               board_dts: Path | None = None,
+               build_info: Path | None = None,
+               bindings_dirs: list[Path] | None = None,
+               include_dirs: list[Path] | None = None,
+               revision: str | None = None,
+               variant: str | None = None,
+               connector_dirs: list[Path] | None = None,
+               ) -> subprocess.CompletedProcess[str]:
     """harness.run_expand, with the repo-shield tether restored: when
     shield_dirs is None this defaults to [SHIELD_DIR] rather than harness's
     own no-default -- this default IS the corpus tether that keeps every

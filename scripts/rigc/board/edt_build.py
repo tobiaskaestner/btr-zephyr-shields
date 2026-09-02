@@ -32,7 +32,7 @@ import shlex
 import subprocess
 import sys
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 import yaml
 
@@ -71,8 +71,8 @@ class BuildRecipe:
     bindings_dirs:
       Directories edtlib recursively globs for .yaml binding files.
     """
-    include_dirs: List[str]
-    bindings_dirs: List[str]
+    include_dirs: list[str]
+    bindings_dirs: list[str]
 
 
 def recipe_from_build_info(build_info_path: str) -> BuildRecipe:
@@ -108,7 +108,7 @@ def recipe_from_build_info(build_info_path: str) -> BuildRecipe:
         bindings_dirs=list(devicetree["bindings-dirs"]))
 
 
-def preprocess(dts_path: str, include_dirs: List[str], out_path: str) -> None:
+def preprocess(dts_path: str, include_dirs: list[str], out_path: str) -> None:
     """cpp dts_path, exactly as a real board-DTS preprocess does: no
     standard include path, one -isystem per include_dirs entry, and
     -D__DTS__ (the sole macro Zephyr's own board-DTS cpp step defines).
@@ -124,7 +124,7 @@ def preprocess(dts_path: str, include_dirs: List[str], out_path: str) -> None:
         raise RuntimeError(f"cpp failed on {dts_path}:\n{result.stderr}")
 
 
-def build_edt(dts_path: str, recipe: BuildRecipe, workdir: str) -> "edtlib.EDT":
+def build_edt(dts_path: str, recipe: BuildRecipe, workdir: str) -> edtlib.EDT:
     """Build a standalone edtlib.EDT over one .dts file -- no app, no
     overlay: this pass reads only the board's own devicetree, never app or
     overlay context.

@@ -22,8 +22,14 @@ from textwrap import dedent
 
 from rigc.diag import SourceRef
 from rigc.loader.binding import SocketBinding
-from rigc.loader.delta import (Topology, apply_delta, find_wire,
-                               parse_instance, parse_wire, resolve_dotted)
+from rigc.loader.delta import (
+    Topology,
+    apply_delta,
+    find_wire,
+    parse_instance,
+    parse_wire,
+    resolve_dotted,
+)
 from rigc.loader.documents import Val, parse_marked
 from rigc.loader.library import ShieldLibrary
 from rigc.model import Device, Instance, Pad, Shield, Strap, Wire, WireEnd

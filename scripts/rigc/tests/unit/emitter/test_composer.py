@@ -17,8 +17,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from rigc.analyzer import Solved
-from rigc.emitter import (GEN, _needed_param_includes, _render_includes_dtsi,
-                          emit, write_artifacts)
+from rigc.emitter import GEN, _needed_param_includes, _render_includes_dtsi, emit, write_artifacts
 from rigc.model import BoardSocket, ConnectorType, Device, Instance, Rig, Shield
 
 
@@ -124,7 +123,7 @@ def test_every_artifact_is_utf8_encoded_bytes() -> None:
 
     for name, content in out.items():
         assert isinstance(content, bytes), name
-    assert "—".encode("utf-8") in out["config-sheet.md"]
+    assert "—".encode() in out["config-sheet.md"]
 
 
 def test_emit_is_deterministic_under_a_shuffled_instance_order() -> None:

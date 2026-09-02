@@ -8,9 +8,8 @@ python-devicetree's test_edtlib.py coverage shape (BSD-3): module-level
 test_* functions, plain asserts, no rigc product imports."""
 from __future__ import annotations
 
-from textwrap import dedent
-
 from pathlib import Path
+from textwrap import dedent
 
 from rigc.board import edt_build
 

@@ -16,8 +16,7 @@ below are no-ops for sockets without one.
 """
 from __future__ import annotations
 
-from typing import (TYPE_CHECKING, Dict, FrozenSet, List, Optional, Tuple,
-                    cast)
+from typing import TYPE_CHECKING, cast
 
 # $ZEPHYR_BASE is what locates the devicetree package, so requiring it at
 # IMPORT time would make merely importing this module -- which pytest does
@@ -57,7 +56,7 @@ def load_board(name: str, dts_path: str, recipe: BuildRecipe,
     return project_edt(edt, name)
 
 
-def project_edt(edt: "edtlib.EDT", name: str) -> Board:
+def project_edt(edt: edtlib.EDT, name: str) -> Board:
     """Project an ALREADY-BUILT edtlib.EDT (fresh, or unpickled from a real
     build's edt.pickle) into a model.Board. Split out from load_board so
     both a fresh read and a real build's own edt.pickle can share this
@@ -71,8 +70,8 @@ def project_edt(edt: "edtlib.EDT", name: str) -> Board:
     connector type's conventional label (e.g. "arduino_r3") alongside the
     board-prefixed one it already had ("nucleo_ard") without renaming
     anything. The EDT is read-only."""
-    sockets: Dict[str, BoardSocket] = {}
-    aliases: Dict[str, str] = {}
+    sockets: dict[str, BoardSocket] = {}
+    aliases: dict[str, str] = {}
     for node in edt.nodes:
         compat = node.matching_compat
         if compat is None or not compat.startswith("socket,"):
@@ -84,7 +83,7 @@ def project_edt(edt: "edtlib.EDT", name: str) -> Board:
     return Board(name=name, sockets=sockets, aliases=aliases)
 
 
-def _project_socket(node: "edtlib.Node", compat: str) -> BoardSocket:
+def _project_socket(node: edtlib.Node, compat: str) -> BoardSocket:
     if not node.labels:
         raise ValueError(
             f"socket node {node.path} has no label -- rig socket: "
@@ -92,7 +91,7 @@ def _project_socket(node: "edtlib.Node", compat: str) -> BoardSocket:
     label = node.labels[0]
     type_name = compat.split(",", 1)[1]
 
-    gpio_map: Dict[int, Tuple[str, int, int]] = {}
+    gpio_map: dict[int, tuple[str, int, int]] = {}
     for entry in node.maps.get("gpio", []):
         pos, _pos_flags = entry.child_specifiers
         pin, flags = entry.parent_specifiers
@@ -107,17 +106,17 @@ def _project_socket(node: "edtlib.Node", compat: str) -> BoardSocket:
     # applies to SPI; "socket,<kind>-<role>-cs-pool" is a named bus's own.
     # Built before buses so each BusRef below can carry its own value at
     # construction time.
-    cs_pools: Dict[str, List[int]] = {}
+    cs_pools: dict[str, list[int]] = {}
     legacy_cs_prop = node.props.get("socket,cs-pool")
     if legacy_cs_prop is not None:
         assert isinstance(legacy_cs_prop.val, list)
-        cs_pools["spi"] = cast(List[int], legacy_cs_prop.val)
+        cs_pools["spi"] = cast(list[int], legacy_cs_prop.val)
     for prop_name, prop in node.props.items():
         m = _CS_POOL_PROP_RE.match(prop_name)
         if m is None:
             continue
         assert isinstance(prop.val, list)
-        cs_pools[m.group(1)] = cast(List[int], prop.val)
+        cs_pools[m.group(1)] = cast(list[int], prop.val)
 
     # edtlib back-fills the binding default here when the socket doesn't
     # author its own cs-pool property, provided the type's binding
@@ -145,7 +144,7 @@ def _project_socket(node: "edtlib.Node", compat: str) -> BoardSocket:
     # there regardless of the connector type's binding default OR of
     # what the parent socket's own bus happens to carry, so the
     # analyzer's ctype-fallback branch is very much alive for that path.
-    buses: Dict[str, BusRef] = {}
+    buses: dict[str, BusRef] = {}
     for prop_name, prop in node.props.items():
         m = _BUS_PROP_RE.match(prop_name)
         if m is None:
@@ -186,7 +185,7 @@ def _project_socket(node: "edtlib.Node", compat: str) -> BoardSocket:
 #: guess). Widening this set to add a shape means widening
 #: `supported_desc`/`unsupported_note` alongside it -- both describe
 #: EVERY member of `supported`, not just the smallest.
-_CHANNEL_FN: Dict[str, Dict[str, object]] = {
+_CHANNEL_FN: dict[str, dict[str, object]] = {
     "pwm": {
         "cells_prop": "#pwm-cells",
         "supported": frozenset({2, 3}),
@@ -206,8 +205,8 @@ _CHANNEL_FN: Dict[str, Dict[str, object]] = {
 }
 
 
-def _project_channel_map(node: "edtlib.Node", label: str, specifier_space: str,
-                         fn: str) -> Tuple[Dict[int, Tuple[str, int]], Optional[int]]:
+def _project_channel_map(node: edtlib.Node, label: str, specifier_space: str,
+                         fn: str) -> tuple[dict[int, tuple[str, int]], int | None]:
     """pwm_map / adc_map's shared checked read: replaces a bare
     `pos, _pos_period = entry.child_specifiers` /
     `channel, _channel_period = entry.parent_specifiers` destructuring --
@@ -229,9 +228,9 @@ def _project_channel_map(node: "edtlib.Node", label: str, specifier_space: str,
     actually used); a socket authoring no map for this specifier space
     yields `({}, None)` (declared by absence, never a placeholder count)."""
     spec = _CHANNEL_FN[fn]
-    supported = cast(FrozenSet[int], spec["supported"])
-    result: Dict[int, Tuple[str, int]] = {}
-    cells: Optional[int] = None
+    supported = cast(frozenset[int], spec["supported"])
+    result: dict[int, tuple[str, int]] = {}
+    cells: int | None = None
     for entry in node.maps.get(specifier_space, []):
         ctrl = entry.parent
         ctrl_label = ctrl.labels[0] if ctrl.labels else ctrl.path
@@ -270,7 +269,7 @@ def _project_channel_map(node: "edtlib.Node", label: str, specifier_space: str,
     return result, cells
 
 
-def _controller_label(node: "edtlib.Node") -> str:
+def _controller_label(node: edtlib.Node) -> str:
     """The controller's DEFINING label for a *-map target: node.labels[0],
     the label the node's own declaring dtsi gives it (dtlib's label list is
     append-only and never reordered, so index 0 is permanently the

@@ -15,18 +15,20 @@ metadata for a variant to differ on.
 from __future__ import annotations
 
 from rigc.diag import SourceRef
-from rigc.loader.fragments import (FragmentPresence,
-                                   check_fragment_presence,
-                                   revision_contribution_names,
-                                   variant_contribution_names)
+from rigc.loader.fragments import (
+    FragmentPresence,
+    check_fragment_presence,
+    revision_contribution_names,
+    variant_contribution_names,
+)
 from rigc.model import AxisDecl, Rig
 
 _SRC = SourceRef("synthetic", 1, "rig")
 
 
-def _rig(variant: "str | None" = None, revision: "str | None" = None,
-        variants: "AxisDecl | None" = None,
-        revisions: "AxisDecl | None" = None) -> Rig:
+def _rig(variant: str | None = None, revision: str | None = None,
+        variants: AxisDecl | None = None,
+        revisions: AxisDecl | None = None) -> Rig:
     return Rig(name="r", variant=variant, revision=revision,
               variants=variants, revisions=revisions)
 

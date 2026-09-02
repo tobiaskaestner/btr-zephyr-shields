@@ -16,8 +16,6 @@ instance gets one row per slot, its socket cell spelled
 """
 from __future__ import annotations
 
-from typing import Dict, List, Optional
-
 from ..analyzer import Solved
 from ..analyzer.socketmap import for_bus_device, for_ref, for_slot
 from ..dtsio import is_int_literal, resolve_token
@@ -52,16 +50,16 @@ def _strap_owner_slot(inst: Instance, strap: Strap) -> str:
     return next(iter(inst.shield.plugs), "plug")
 
 
-def _find_instance(rig: Rig, name: str) -> Optional[Instance]:
+def _find_instance(rig: Rig, name: str) -> Instance | None:
     return next((i for i in rig.instances if i.name == name), None)
 
 
-def _find_device(inst: Instance, name: str) -> Optional[Device]:
+def _find_device(inst: Instance, name: str) -> Device | None:
     return next((d for d in inst.shield.devices if d.name == name), None)
 
 
 def _device_socket(rig: Rig, s: Solved, inst_name: str, dev_name: str,
-                   ) -> Optional[BoardSocket]:
+                   ) -> BoardSocket | None:
     """The resolved socket `dev_name`'s own bus binds to, recovered by
     name since `Solved.cs` keys by plain strings, never the Device
     object itself -- the same recovery `emitter/expectations.py`'s
@@ -75,7 +73,7 @@ def _device_socket(rig: Rig, s: Solved, inst_name: str, dev_name: str,
 
 
 def _ref_socket(rig: Rig, s: Solved, inst_name: str, dev_name: str, prop: str,
-                ) -> Optional[BoardSocket]:
+                ) -> BoardSocket | None:
     """The resolved socket the `prop` gpio/pwm/adc ref of `dev_name`
     claims through -- per-reference granularity, so a cross-plug ref's
     own slot is what this recovers, never the device's bus slot."""
@@ -89,7 +87,7 @@ def _ref_socket(rig: Rig, s: Solved, inst_name: str, dev_name: str, prop: str,
     return for_ref(s.sockets, inst, ref)
 
 
-def _socket_table(rig: Rig, s: Solved) -> List[str]:
+def _socket_table(rig: Rig, s: Solved) -> list[str]:
     """The Socket assignment table: one row per single-plug instance, one
     row per slot for a plural instance. rig/s are read-only; returns fresh
     lines the caller owns."""
@@ -107,7 +105,7 @@ def _socket_table(rig: Rig, s: Solved) -> List[str]:
     return out
 
 
-def _straps_section(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[str]:
+def _straps_section(rig: Rig, s: Solved, types: dict[str, ConnectorType]) -> list[str]:
     """The Straps / jumpers section: one bullet per resolved strap, then one
     per set routing jumper. rig/s/types are read-only; returns fresh lines
     the caller owns, empty when there is nothing to report."""
@@ -137,7 +135,7 @@ def _straps_section(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> Lis
     return out
 
 
-def _channels_section(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[str]:
+def _channels_section(rig: Rig, s: Solved, types: dict[str, ConnectorType]) -> list[str]:
     """The PWM / analog pin-mux section: one bullet per resolved channel
     claim. rig/s/types are read-only; returns fresh lines the caller owns,
     empty when there are no channels."""
@@ -159,7 +157,7 @@ def _channels_section(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> L
     return out
 
 
-def _wires_section(s: Solved) -> List[str]:
+def _wires_section(s: Solved) -> list[str]:
     """The Wires section: one bullet per resolved wire, reading only
     `s.wires` (never `rig.wires`, see the module docstring). s is
     read-only; returns fresh lines the caller owns, empty when there are
@@ -176,7 +174,7 @@ def _wires_section(s: Solved) -> List[str]:
     return out
 
 
-def _cs_section(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[str]:
+def _cs_section(rig: Rig, s: Solved, types: dict[str, ConnectorType]) -> list[str]:
     """The Chip-selects section: one bullet per resolved CS index. rig/s/
     types are read-only; returns fresh lines the caller owns, empty when
     there are no chip-selects."""
@@ -193,8 +191,8 @@ def _cs_section(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[st
     return out
 
 
-def render_sheet(rig: Rig, s: Solved, types: Dict[str, ConnectorType], workdir: str,
-                 include_dirs: Optional[List[str]] = None) -> str:
+def render_sheet(rig: Rig, s: Solved, types: dict[str, ConnectorType], workdir: str,
+                 include_dirs: list[str] | None = None) -> str:
     """config-sheet.md's full text. rig/s/types are read-only; returns a
     fresh string the caller owns. workdir/include_dirs feed the params
     table's own token resolution (a synthetic cpp/dtlib TU, the same
@@ -213,7 +211,7 @@ def render_sheet(rig: Rig, s: Solved, types: Dict[str, ConnectorType], workdir: 
 
 
 def _params_table(rig: Rig, workdir: str,
-                  include_dirs: Optional[List[str]] = None) -> List[str]:
+                  include_dirs: list[str] | None = None) -> list[str]:
     """Per-instance parameter assignments: the ONE place a symbol's
     resolved value is shown to a human -- emission itself never resolves
     anything, so without this table a rig-assigned INPUT_KEY_1 would

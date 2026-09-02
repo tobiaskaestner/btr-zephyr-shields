@@ -61,16 +61,15 @@ import glob
 import logging
 import os
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Set, Tuple
 
 from ..deps import Deps, touch, union
 from ..diag import Diagnostic, LoadError, SourceRef, error
 from ..dtsio import MODULE_ROOT, parse_tu, source_files
 from ..model import AxisDecl, ConnectorType, Shield
 from ..registry import load_types
-from .shields import parse_shields
 from .axes import normalize_revision, parse_legacy_revision_decl, resolve_axis_selection
 from .documents import Val, parse_marked, require
+from .shields import parse_shields
 
 log = logging.getLogger(__name__)
 
@@ -94,8 +93,8 @@ class _Pending:
 
     shield_dir: str
     base_file: str
-    decl: Optional[AxisDecl]
-    yml_path: Optional[str] = None
+    decl: AxisDecl | None
+    yml_path: str | None = None
 
 
 @dataclass
@@ -113,26 +112,26 @@ class ShieldLibrary:
     resolved) -- never by the `.shield` DT node name alone, which is
     IDENTICAL across a shield's own revisions."""
 
-    shields: Dict[str, Shield]
-    axes: Dict[str, Optional[AxisDecl]]
-    pending: Dict[str, _Pending]
+    shields: dict[str, Shield]
+    axes: dict[str, AxisDecl | None]
+    pending: dict[str, _Pending]
     # name -> shield.yml, for EVERY name any shield.yml declares -- a rig
     # template's own metadata (also in `pending`) as well as a legacy
     # shield's (declared, but never a template): the wider set
     # `promote.discover_shields`'s census reads. `resolve()` only ever
     # looks a name up here after finding it in `axes` first, so a
     # non-template name's presence here is inert to everything below.
-    ymls: Dict[str, str]
-    types: Dict[str, ConnectorType]
+    ymls: dict[str, str]
+    types: dict[str, ConnectorType]
     workdir: str
-    include_dirs: Optional[List[str]] = None
+    include_dirs: list[str] | None = None
     #: Axis-less shields whose base parse has already failed once (a
     #: template that defines no node matching its folder name) -- checked
     #: before a second reference would re-run cpp and re-report the same
     #: defect. `_resolve_revision`'s own failures are deliberately NOT
     #: recorded here (see its docstring): this asymmetry is a decision,
     #: not an oversight.
-    failed: Set[str] = field(default_factory=set)
+    failed: set[str] = field(default_factory=set)
     # Every name `ymls` carries, mapped to THIS ENTRY's own `template:`
     # flag -- read once, at scan time, from the SAME shield.yml parse
     # `ymls`/`axes`/`pending` already did, so `promote.discover_shields`
@@ -146,10 +145,10 @@ class ShieldLibrary:
     # scan's own lang-shield-template finding is what reports that case,
     # and `check_promotable` defers to it rather than inventing a second
     # vocabulary for the same defect.
-    promotable: Dict[str, bool] = field(default_factory=dict)
+    promotable: dict[str, bool] = field(default_factory=dict)
 
     def resolve(self, ref: str, ctx: str, src: SourceRef,
-               ) -> Tuple[Optional[Shield], List[Diagnostic], Deps]:
+               ) -> tuple[Shield | None, list[Diagnostic], Deps]:
         """`<name>` or `<name>@<rev>` -> the Shield, parsing a
         not-yet-parsed template on first use --
         the base template of an axis-less shield exactly like a
@@ -220,9 +219,9 @@ class ShieldLibrary:
         shield, d, rdeps = self._resolve_revision(name, value, requested, decl, src)
         return shield, d, union(deps, rdeps)
 
-    def _resolve_revision(self, name: str, rev: str, requested: Optional[str],
+    def _resolve_revision(self, name: str, rev: str, requested: str | None,
                           decl: AxisDecl, src: SourceRef,
-                          ) -> Tuple[Optional[Shield], List[Diagnostic], Deps]:
+                          ) -> tuple[Shield | None, list[Diagnostic], Deps]:
         """A single revision's own lazy parse -- deliberately UNMEMOIZED
         on failure (unlike the axis-less base parse `resolve()` handles
         directly): a bad revision re-reports on every reference. This is
@@ -279,12 +278,12 @@ class ShieldLibrary:
         return shield, diags, deps
 
 
-def _parse_shield_template(name: str, template: str, includes: List[str],
+def _parse_shield_template(name: str, template: str, includes: list[str],
                           dts_name: str, workdir: str,
-                          include_dirs: Optional[List[str]],
-                          types: Dict[str, ConnectorType],
-                          yml_path: Optional[str],
-                          ) -> Tuple[Optional[Shield], List[Diagnostic], Deps]:
+                          include_dirs: list[str] | None,
+                          types: dict[str, ConnectorType],
+                          yml_path: str | None,
+                          ) -> tuple[Shield | None, list[Diagnostic], Deps]:
     """Build one shield translation unit (`parse_tu`) and pick its node
     (`_pick_shield`) -- the parse body `resolve()`'s axis-less path and
     `_resolve_revision` both need, factored so neither hand-duplicates
@@ -308,9 +307,9 @@ def _parse_shield_template(name: str, template: str, includes: List[str],
     return shield, diags + pd, deps
 
 
-def _pick_shield(parsed: Dict[str, Shield], name: str, template: str,
-                 yml_path: Optional[str] = None,
-                 ) -> Tuple[Optional[Shield], List[Diagnostic]]:
+def _pick_shield(parsed: dict[str, Shield], name: str, template: str,
+                 yml_path: str | None = None,
+                 ) -> tuple[Shield | None, list[Diagnostic]]:
     """The shield a template's translation unit defines, looked up by
     `name` -- the shield's DECLARED name, never whatever node name
     `parse_shields` happened to return. `yml_path`, when given, says
@@ -335,8 +334,8 @@ def _pick_shield(parsed: Dict[str, Shield], name: str, template: str,
 
 
 def _shield_yml_entries(shield_dir: str,
-                        ) -> Tuple[Optional[str], List[Tuple[str, Val, bool]],
-                                   List[Diagnostic]]:
+                        ) -> tuple[str | None, list[tuple[str, Val, bool]],
+                                   list[Diagnostic]]:
     """The declared names one folder's shield.yml carries, if it has one
     at all -- the SOLE IO this discovery rule performs per folder beside
     the `<name>.shield` presence probes its own caller does. One entry
@@ -366,10 +365,10 @@ def _shield_yml_entries(shield_dir: str,
     doc = parse_marked(yml_path)      # Unimplemented on a YAML parse
                                        # failure -- no frozen golden
                                        # covers this shape
-    diags: List[Diagnostic] = []
-    out: List[Tuple[str, Val, bool]] = []
+    diags: list[Diagnostic] = []
+    out: list[tuple[str, Val, bool]] = []
     shield_v = doc.value.get("shield")
-    raw: List[Tuple[str, Val]]
+    raw: list[tuple[str, Val]]
     if shield_v is not None:
         raw = [("shield", shield_v)]
     else:
@@ -390,7 +389,7 @@ def _shield_yml_entries(shield_dir: str,
                     "shield.yml: 'shields' must be a list of shield "
                     "entries -- use 'shield' for a single shield",
                     (plural_v.src,)))
-    seen: Set[str] = set()
+    seen: set[str] = set()
     for key, entry_v in raw:
         name_v, d = require(entry_v, "name", f"shield.yml {key} entry")
         diags += d
@@ -411,10 +410,10 @@ def _shield_yml_entries(shield_dir: str,
     return yml_path, out, diags
 
 
-def load_shield_library(workdir: str, shield_dirs: Optional[List[str]] = None,
-                        types: Optional[Dict[str, ConnectorType]] = None,
-                        include_dirs: Optional[List[str]] = None,
-                        ) -> Tuple[ShieldLibrary, List[Diagnostic], Deps]:
+def load_shield_library(workdir: str, shield_dirs: list[str] | None = None,
+                        types: dict[str, ConnectorType] | None = None,
+                        include_dirs: list[str] | None = None,
+                        ) -> tuple[ShieldLibrary, list[Diagnostic], Deps]:
     """Load every shield template. Each `.shield` file (base + any
     resolved revision fragment) is its OWN translation unit -- labels
     are shield-scoped, no cross-shield prefix discipline needed.
@@ -434,16 +433,16 @@ def load_shield_library(workdir: str, shield_dirs: Optional[List[str]] = None,
     `shield_dirs`, template or not, plus the connector-type registry) --
     a discovered `.shield` template is not itself a dependency until
     something references it (Sec 2.3). The caller owns all three."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     deps: Deps = frozenset()
     if types is None:
         types, tdeps = load_types()
         deps = union(deps, tdeps)
-    shields: Dict[str, Shield] = {}
-    axes: Dict[str, Optional[AxisDecl]] = {}
-    pending: Dict[str, _Pending] = {}
-    ymls: Dict[str, str] = {}
-    promotable: Dict[str, bool] = {}
+    shields: dict[str, Shield] = {}
+    axes: dict[str, AxisDecl | None] = {}
+    pending: dict[str, _Pending] = {}
+    ymls: dict[str, str] = {}
+    promotable: dict[str, bool] = {}
     directories = shield_dirs if shield_dirs is not None else [SHIELDS_DIR]
     # A malformed member hard-errors the whole scan, but the members
     # already scanned may have reported findings of their own.

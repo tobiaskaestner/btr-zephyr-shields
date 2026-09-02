@@ -41,7 +41,6 @@ source, together) rather than any one unit.
 from __future__ import annotations
 
 import re
-from typing import Dict, List, Set
 
 from harness import REPO_ROOT
 
@@ -53,7 +52,7 @@ _AUTOMODULE_RE = re.compile(r"^\.\.\s+automodule::\s+([A-Za-z_][\w.]*)\s*$",
                             re.MULTILINE)
 
 
-def _production_modules() -> Set[str]:
+def _production_modules() -> set[str]:
     """Every importable module name under scripts/rigc/, tests excluded --
     `rigc`, `rigc.cli`, `rigc.loader`, ... A package is named by its
     directory (`rigc.loader`), never by its `__init__` (there is no
@@ -61,7 +60,7 @@ def _production_modules() -> Set[str]:
     itself uses.
 
     Returns a fresh set the caller owns."""
-    names: Set[str] = set()
+    names: set[str] = set()
     for path in PROD_ROOT.rglob("*.py"):
         rel = path.relative_to(PROD_ROOT)
         if "tests" in rel.parts:
@@ -73,11 +72,11 @@ def _production_modules() -> Set[str]:
     return names
 
 
-def _documented_modules() -> Dict[str, List[str]]:
+def _documented_modules() -> dict[str, list[str]]:
     """Every `automodule` target across doc/reference/api/, mapped to the
     page filename(s) naming it -- a list, so a module named twice is
     visible as such rather than collapsed."""
-    found: Dict[str, List[str]] = {}
+    found: dict[str, list[str]] = {}
     for page in sorted(API_DIR.glob("*.rst")):
         for name in _AUTOMODULE_RE.findall(page.read_text()):
             found.setdefault(name, []).append(page.name)

@@ -27,13 +27,12 @@ from __future__ import annotations
 import glob
 import os
 import sys
-from typing import Dict
 
 from harness import FIXTURES_DIR, REPO_ROOT, assert_fixture_local, zephyr_base
 
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
-from rigc.registry import load_types  # noqa: E402
 from rigc.board.edt_build import ensure_devicetree_on_path  # noqa: E402
+from rigc.registry import load_types  # noqa: E402
 
 ensure_devicetree_on_path()
 from devicetree import edtlib  # noqa: E402
@@ -42,7 +41,7 @@ _VENDORED = FIXTURES_DIR / "dts" / "unified-connectors"
 _HEADER_DIR = FIXTURES_DIR / "include"
 
 
-def _fname2path() -> Dict[str, str]:
+def _fname2path() -> dict[str, str]:
     """Basename→path over zephyr's OWN bindings tree, enough to resolve
     the include: chains of the vendored connector bindings (gpio-nexus.yaml,
     base.yaml -- both upstream Zephyr bindings, never repo-production
@@ -51,7 +50,7 @@ def _fname2path() -> Dict[str, str]:
     no entry for tests/fixtures/dts/unified-connectors/ itself is needed
     here; $ZEPHYR_BASE is not FIXTURES_DIR-local content and is not asserted
     hermetic (see harness.assert_fixture_local's own docstring)."""
-    mapping: Dict[str, str] = {}
+    mapping: dict[str, str] = {}
     root = os.path.join(zephyr_base(), "dts", "bindings")
     for path in glob.glob(os.path.join(root, "**", "*.yaml"), recursive=True):
         mapping.setdefault(os.path.basename(path), path)

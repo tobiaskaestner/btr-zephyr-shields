@@ -5,8 +5,7 @@ message text, keeping wording out of unit tests."""
 from __future__ import annotations
 
 from rigc.diag import SourceRef
-from rigc.model import (ConnectorType, Instance, Pad, Position, Rig, Shield,
-                        Wire, WireEnd)
+from rigc.model import ConnectorType, Instance, Pad, Position, Rig, Shield, Wire, WireEnd
 
 _SRC = SourceRef("f.yml", 1, "w")
 
@@ -91,7 +90,7 @@ def test_wire_with_two_drivers_is_phys_wire() -> None:
 
 
 def test_route_via_a_position_name_resolves_to_its_index() -> None:
-    from rigc.analyzer.sockets import SocketResolution   # noqa: F401 (doc anchor)
+    from rigc.analyzer.sockets import SocketResolution  # noqa: F401 (doc anchor)
     from rigc.analyzer.wires import check_wires
     from rigc.model import BoardSocket
 

@@ -28,20 +28,22 @@ scanning stays subprocess-free unconditionally.
 """
 from __future__ import annotations
 
-from textwrap import dedent
-
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from textwrap import dedent
 
 import pytest
 
 from rigc.deps import Deps
 from rigc.diag import Diagnostic, SourceRef, error
-from rigc.model import AxisDecl, ConnectorType, Shield
 from rigc.loader.axes import parse_legacy_revision_decl
-from rigc.loader.library import (ShieldLibrary, _Pending,
-                                 _pick_shield, _shield_yml_entries,
-                                 load_shield_library)
+from rigc.loader.library import (
+    ShieldLibrary,
+    _Pending,
+    _pick_shield,
+    _shield_yml_entries,
+    load_shield_library,
+)
+from rigc.model import AxisDecl, ConnectorType, Shield
 
 _SRC = SourceRef("synthetic", 1, "instance 'x'")
 
@@ -388,17 +390,17 @@ def test_resolve_no_dependency_when_the_shield_has_no_yml() -> None:
 # compose around it -- stays verifiable without a subprocess, the same
 # seam-substitution idiom test_board_resolve.py uses for project.load_board.
 
-def _fake_parse_template(shield: Optional[Shield], diags: List[Diagnostic],
-                         deps: Deps, calls: List[str],
+def _fake_parse_template(shield: Shield | None, diags: list[Diagnostic],
+                         deps: Deps, calls: list[str],
                          ):
     """A stand-in for `_parse_shield_template`: records every name it was
     called with (`calls`) and returns a fixed (shield, diags, deps)
     regardless of arguments -- enough to prove resolve() calls it AT MOST
     ONCE per name, never enough to need a real translation unit."""
-    def _fake(name: str, template: str, includes: List[str], dts_name: str,
-             workdir: str, include_dirs: Optional[List[str]],
-             types: Dict[str, ConnectorType], yml_path: Optional[str],
-             ) -> Tuple[Optional[Shield], List[Diagnostic], Deps]:
+    def _fake(name: str, template: str, includes: list[str], dts_name: str,
+             workdir: str, include_dirs: list[str] | None,
+             types: dict[str, ConnectorType], yml_path: str | None,
+             ) -> tuple[Shield | None, list[Diagnostic], Deps]:
         calls.append(name)
         return shield, diags, deps
     return _fake
@@ -412,7 +414,7 @@ def test_axis_less_shield_parses_on_first_reference_and_caches_after(
     second, never reparsing. Negative control: an unmemoized
     implementation would call the helper (and therefore parse_tu/cpp) a
     second time too, doubling the call count this asserts is 1."""
-    calls: List[str] = []
+    calls: list[str] = []
     parsed = _shield("fx")
     monkeypatch.setattr(
         "rigc.loader.library._parse_shield_template",
@@ -439,7 +441,7 @@ def test_axis_less_shield_base_parse_failure_is_memoized_and_reports_once(
     Negative control: an implementation that memoizes only SUCCESSFUL
     parses (mirroring `_resolve_revision`'s own cache, which has nothing
     for a failure) calls the helper -- and reports -- twice."""
-    calls: List[str] = []
+    calls: list[str] = []
     failure = [error("lang-shield-name", "boom", (SourceRef("/some/fx/fx.shield", 1),))]
     monkeypatch.setattr(
         "rigc.loader.library._parse_shield_template",
@@ -501,12 +503,12 @@ def test_resolve_shield_side_nearest_lower_stem_follows_the_resolved_value(
     'fx_1_0_0...'-shaped lookup is ever attempted, never 'fx_1_5...'."""
     decl = AxisDecl(values=["1.0.0", "2.0.0"], default="1.0.0",
                     format="major.minor.patch")
-    calls: List[str] = []
+    calls: list[str] = []
 
-    def _fake(name: str, template: str, includes: List[str], dts_name: str,
-             workdir: str, include_dirs: Optional[List[str]],
-             types: Dict[str, ConnectorType], yml_path: Optional[str],
-             ) -> Tuple[Optional[Shield], List[Diagnostic], Deps]:
+    def _fake(name: str, template: str, includes: list[str], dts_name: str,
+             workdir: str, include_dirs: list[str] | None,
+             types: dict[str, ConnectorType], yml_path: str | None,
+             ) -> tuple[Shield | None, list[Diagnostic], Deps]:
         calls.append(dts_name)
         return _shield(name), [], frozenset()
 
@@ -534,12 +536,12 @@ def test_resolve_nearest_lower_memoizes_under_the_resolved_key(
     (and re-run cpp) twice."""
     decl = AxisDecl(values=["1.0.0", "2.0.0"], default="1.0.0",
                     format="major.minor.patch")
-    calls: List[str] = []
+    calls: list[str] = []
 
-    def _fake(name: str, template: str, includes: List[str], dts_name: str,
-             workdir: str, include_dirs: Optional[List[str]],
-             types: Dict[str, ConnectorType], yml_path: Optional[str],
-             ) -> Tuple[Optional[Shield], List[Diagnostic], Deps]:
+    def _fake(name: str, template: str, includes: list[str], dts_name: str,
+             workdir: str, include_dirs: list[str] | None,
+             types: dict[str, ConnectorType], yml_path: str | None,
+             ) -> tuple[Shield | None, list[Diagnostic], Deps]:
         calls.append(dts_name)
         return _shield(name), [], frozenset()
 

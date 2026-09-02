@@ -9,16 +9,14 @@ already resolved, so the pass composes like every other one here
 (`(its piece, diagnostics)`), never writing into a Rig it was handed."""
 from __future__ import annotations
 
-from typing import Dict, List, Tuple, Union
-
 from ..diag import Diagnostic, error
 from ..model import ConnectorType, Instance, Rig, Wire
 from .socketmap import Sockets, for_slot
 
 
-def _resolve_via_route(wire: Wire, route: str, by_name: Dict[str, Instance],
-                       sockets: Sockets, types: Dict[str, ConnectorType],
-                       ) -> Tuple[Union[str, int], List[Diagnostic]]:
+def _resolve_via_route(wire: Wire, route: str, by_name: dict[str, Instance],
+                       sockets: Sockets, types: dict[str, ConnectorType],
+                       ) -> tuple[str | int, list[Diagnostic]]:
     """The `route: via <position name>` branch of `check_wires`, lifted
     out: resolved to the connector type's own position INDEX, through
     the FROM end's socket. Ambiguous for a plural FROM instance (which
@@ -26,7 +24,7 @@ def _resolve_via_route(wire: Wire, route: str, by_name: Dict[str, Instance],
     refused loudly rather than guessed at. Returns the route UNCHANGED
     (still the raw name) whenever it does not resolve, so the caller
     always builds the same Wire either way, refusal or not."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     frm_inst = by_name.get(wire.frm.instance_name)
     if frm_inst is not None and len(frm_inst.shield.plugs) > 1:
         diags.append(error(
@@ -49,8 +47,8 @@ def _resolve_via_route(wire: Wire, route: str, by_name: Dict[str, Instance],
 
 
 def check_wires(rig: Rig, sockets: Sockets,
-                types: Dict[str, ConnectorType],
-                ) -> Tuple[List[Wire], List[Diagnostic]]:
+                types: dict[str, ConnectorType],
+                ) -> tuple[list[Wire], list[Diagnostic]]:
     """The wire pass: endpoints checked against resolved sockets, route
     names resolved to positions.
 
@@ -58,9 +56,9 @@ def check_wires(rig: Rig, sockets: Sockets,
     rig.wires is never mutated, which is why the emitter must read
     solved.wires, never rig.wires (they differ: resolved route vs raw
     via name)."""
-    diags: List[Diagnostic] = []
-    by_name: Dict[str, Instance] = {i.name: i for i in rig.instances}
-    resolved: List[Wire] = []
+    diags: list[Diagnostic] = []
+    by_name: dict[str, Instance] = {i.name: i for i in rig.instances}
+    resolved: list[Wire] = []
 
     for wire in rig.wires:
         roles = []

@@ -10,8 +10,14 @@ from __future__ import annotations
 
 import textwrap
 
-from rigc.board.census import (BoardVerdict, CensusBoard, board_targets,
-                               boards_for, census_board, scan_socket_nodes)
+from rigc.board.census import (
+    BoardVerdict,
+    CensusBoard,
+    board_targets,
+    boards_for,
+    census_board,
+    scan_socket_nodes,
+)
 from rigc.model import Board, BoardSocket, Device, Rig, Shield
 from rigc.tests.unit.analyzer.test_sockets import _ctype, _inst, _parent, _shield
 

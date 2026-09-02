@@ -9,8 +9,7 @@ own pass."""
 from __future__ import annotations
 
 from rigc.analyzer.cs import allocate_cs
-from rigc.model import (BoardSocket, BusRef, ConnectorType, Device,
-                        Instance, Rig, Shield)
+from rigc.model import BoardSocket, BusRef, ConnectorType, Device, Instance, Rig, Shield
 
 
 def _socket(cs_pool=None, gpio_map=None, path="/spi0") -> BoardSocket:

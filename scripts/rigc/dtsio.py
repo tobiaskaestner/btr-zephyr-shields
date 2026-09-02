@@ -26,7 +26,6 @@ import re
 import shlex
 import subprocess
 import sys
-from typing import List, Optional, Tuple
 
 from .deps import Deps, touch
 from .diag import LoadError, SourceRef, error
@@ -83,7 +82,7 @@ def src_of(obj) -> SourceRef:
 
 
 def run_cpp(dts_path: str, out_path: str,
-           include_dirs: Optional[List[str]] = None) -> None:
+           include_dirs: list[str] | None = None) -> None:
     """include_dirs is searched FIRST, in order, exactly as gcc searches a
     -I list; ZEPHYR_INC/MODULE_INC are always appended last, so a caller
     passing none sees exactly the two-directory search path.
@@ -120,7 +119,7 @@ def run_cpp(dts_path: str, out_path: str,
 
 
 def parse_dts(dts_path: str, workdir: str,
-             include_dirs: Optional[List[str]] = None):
+             include_dirs: list[str] | None = None):
     """CPP + stock dtlib. dtlib reads the CPP linemarkers, so node/prop
     source references point at the ORIGINAL .shield files, not the
     generated translation unit -- free provenance for diagnostics.
@@ -137,8 +136,8 @@ def parse_dts(dts_path: str, workdir: str,
         raise LoadError(error("lang-parse", str(e))) from e
 
 
-def parse_tu(includes: List[str], workdir: str, name: str,
-            include_dirs: Optional[List[str]] = None):
+def parse_tu(includes: list[str], workdir: str, name: str,
+            include_dirs: list[str] | None = None):
     """Build + parse a one-off translation unit that includes the given
     files -- the shield-TU entry point (one base `.shield` plus an
     optional resolved revision fragment, cpp-included into ONE unit
@@ -162,8 +161,8 @@ _DEFINE_RE = re.compile(r"^\s*#define\s+(\w+)\s+(\d+|0x[0-9a-fA-F]+)\s*$", re.M)
 
 
 def parse_header_indices(type_name: str,
-                         header_dirs: Optional[List[str]] = None,
-                         ) -> Tuple[dict, Deps]:
+                         header_dirs: list[str] | None = None,
+                         ) -> tuple[dict, Deps]:
     """dt-bindings/connector/<type>.h -- the position-index single source
     of truth for connector type_name. Returns ({short position name:
     index}, Deps) with the common macro prefix stripped
@@ -184,7 +183,7 @@ def parse_header_indices(type_name: str,
     return indices, touch(path)
 
 
-def source_files(dt, exclude_dir: str) -> List[str]:
+def source_files(dt, exclude_dir: str) -> list[str]:
     """Every REAL source-tree file dt was parsed from, recovered from cpp
     linemarkers via each Node/Property's own .filename. EXCLUDES
     exclude_dir (and anything under it): the synthesized translation unit
@@ -209,7 +208,7 @@ def source_files(dt, exclude_dir: str) -> List[str]:
 _LINEMARKER_RE = re.compile(r'^# \d+ "([^"]*)"', re.M)
 
 
-def linemarker_files(pre_text: str, exclude_dir: str) -> List[str]:
+def linemarker_files(pre_text: str, exclude_dir: str) -> list[str]:
     """source_files' sibling for callers that never get a parsed dtlib.DT
     at all -- a preprocess that fails partway (dtlib itself rejects the
     result, or a NESTED #include inside the named file is what actually
@@ -238,7 +237,7 @@ def linemarker_files(pre_text: str, exclude_dir: str) -> List[str]:
         and not os.path.realpath(name).startswith(exclude + os.sep))
 
 
-def words(prop) -> List[int]:
+def words(prop) -> list[int]:
     """Raw 32-bit cells of a property value. Only for
     Type.PHANDLES_AND_NUMS -- dtlib has no typed accessor for that shape;
     every other cell shape goes through to_num/to_nums directly."""
@@ -246,7 +245,7 @@ def words(prop) -> List[int]:
     return [int.from_bytes(v[i:i + 4], "big") for i in range(0, len(v) - len(v) % 4, 4)]
 
 
-def render_prop(prop) -> Optional[str]:
+def render_prop(prop) -> str | None:
     """Generic passthrough rendering for props the rig model doesn't
     interpret (compatible, spi-max-frequency, jedec-id, ...). Returns a
     complete "name = value;" string, or None if the type can't
@@ -283,8 +282,8 @@ def is_int_literal(text: str) -> bool:
 
 
 def check_include(header: str, workdir: str, tag: str,
-                  include_dirs: Optional[List[str]] = None,
-                  ) -> Tuple[Optional[str], List[str]]:
+                  include_dirs: list[str] | None = None,
+                  ) -> tuple[str | None, list[str]]:
     """Confirm one declared header (a shield device's own
     shield,param-includes entry) is real and preprocesses cleanly on its
     own (the "lang-dt-include" diagnostic).
@@ -308,7 +307,7 @@ def check_include(header: str, workdir: str, tag: str,
         parse_dts(tu, workdir, include_dirs)
     except LoadError as e:
         detail = e.diags[-1].message
-    files: List[str] = []
+    files: list[str] = []
     if os.path.isfile(pre):
         # Only the linemarkers are wanted, and those are ASCII paths --
         # decode leniently rather than let an undecodable byte somewhere
@@ -318,8 +317,8 @@ def check_include(header: str, workdir: str, tag: str,
     return detail, files
 
 
-def resolve_token(token: str, headers: List[str], workdir: str, tag: str,
-                  include_dirs: Optional[List[str]] = None) -> Optional[int]:
+def resolve_token(token: str, headers: list[str], workdir: str, tag: str,
+                  include_dirs: list[str] | None = None) -> int | None:
     """cpp+dtlib-resolve one assigned parameter TOKEN against a synthetic
     TU that includes exactly headers -- the owning shield device's own
     declared_param_includes vocabulary, in order. Returns None if cpp

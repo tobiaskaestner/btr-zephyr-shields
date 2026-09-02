@@ -45,10 +45,8 @@ import sys
 import tempfile
 import textwrap
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
 
 import pytest
-
 from harness import REPO_ROOT, RIG_EXPAND_COMPILE, zephyr_base
 
 # This module carries no __init__.py (see harness.py's own docstring on
@@ -60,11 +58,13 @@ from rigc.diag import SourceRef  # noqa: E402
 from rigc.loader.library import SHIELDS_DIR, load_shield_library  # noqa: E402
 from rigc.loader.params import device_required_params  # noqa: E402
 from rigc.model import Shield  # noqa: E402
-from rigc.promote import (discover_shields,  # noqa: E402
-                          shield_declares_required_params)
+from rigc.promote import discover_shields, shield_declares_required_params  # noqa: E402
 from rigc.registry import load_types  # noqa: E402
-from rigc.tests.compare import (compare_context_cmake,  # noqa: E402
-                                parse_context_cmake, split_dependency_set)
+from rigc.tests.compare import (  # noqa: E402
+    compare_context_cmake,
+    parse_context_cmake,
+    split_dependency_set,
+)
 
 _FIXTURES_DIR = REPO_ROOT / "scripts" / "rigc" / "tests" / "fixtures"
 _TEMPLATE_DIR = _FIXTURES_DIR / "boards" / "rigs" / "singleton-law-template"
@@ -109,7 +109,7 @@ _SHIELD_DIRS = [SHIELDS_DIR]
 # param NOT listed here stays EXCLUDED: the value a required token
 # resolves to (which macro, off which header) is shield-specific domain
 # knowledge this census has no way to invent on its own.
-_REQUIRED_PARAM_ASSIGNMENTS: Dict[str, Dict[str, Dict[str, str]]] = {
+_REQUIRED_PARAM_ASSIGNMENTS: dict[str, dict[str, dict[str, str]]] = {
     "grove_btn": {"gb_key": {"zephyr,code": "INPUT_KEY_0"}},
     "pilot_alt_button": {"pab_key": {"zephyr,code": "INPUT_KEY_0"}},
 }
@@ -135,7 +135,7 @@ _REQUIRED_PARAM_ASSIGNMENTS: Dict[str, Dict[str, Dict[str, str]]] = {
 # error) -- every candidate board is slot-ambiguous
 # for them by construction, so an
 # explicit assignment is mandatory, not a style choice.
-_SOCKET_ASSIGNMENTS: Dict[str, Dict[str, str]] = {
+_SOCKET_ASSIGNMENTS: dict[str, dict[str, str]] = {
     "eth_click": {"plug": "nexus_mikrobus"},
     "flash_click": {"plug": "nexus_mikrobus"},
     "temp_click": {"plug": "nexus_mikrobus"},
@@ -160,12 +160,12 @@ _SOCKET_ASSIGNMENTS: Dict[str, Dict[str, str]] = {
 # one, which is the point of the law; D7 would ALSO be legal (it is the
 # domain's default position) and realizable on this fixture board, since
 # nothing else here claims D7.
-_CONFIG_ASSIGNMENTS: Dict[str, Dict[str, str]] = {
+_CONFIG_ASSIGNMENTS: dict[str, dict[str, str]] = {
     "adafruit_winc1500": {"w_irq_jmp": "D2"},
 }
 
 
-def _socket_promotion_opts(shield: str) -> List[str]:
+def _socket_promotion_opts(shield: str) -> list[str]:
     """The `:`-separated promotion-option fragments `_SOCKET_ASSIGNMENTS`
     contributes for `shield` -- the single-plug spelling (bare
     `socket=<label>`) when the entry's one key is the default slot name
@@ -180,7 +180,7 @@ def _socket_promotion_opts(shield: str) -> List[str]:
     return [f"socket.{slot}={label}" for slot, label in assignment.items()]
 
 
-def _config_promotion_opts(shield: str) -> List[str]:
+def _config_promotion_opts(shield: str) -> list[str]:
     """The `config.<label>=<value>` fragments `_CONFIG_ASSIGNMENTS`
     contributes for `shield` -- one fragment per assigned label, empty
     for a shield with no entry. A fresh list the caller owns."""
@@ -253,7 +253,7 @@ EMITTED_FILES = ("rig-gen.overlay", "config-sheet.md", "expectations.yml",
 
 
 def _assignment_covers_every_required_param(
-        shield: Shield, assignment: Dict[str, Dict[str, str]]) -> bool:
+        shield: Shield, assignment: dict[str, dict[str, str]]) -> bool:
     """Whether `assignment` (a `_REQUIRED_PARAM_ASSIGNMENTS` entry) names
     every one of `shield`'s own required, no-default parameters -- the
     same per-device rule `check_param_invariant` applies, checked here so
@@ -265,7 +265,7 @@ def _assignment_covers_every_required_param(
         for dev in shield.devices)
 
 
-def _census() -> Tuple[List[str], Set[str]]:
+def _census() -> tuple[list[str], set[str]]:
     """Every discovered, promotable (`template: true`) shield, split into
     the singleton law's own domain: ELIGIBLE (no device
     declares a required, no-default `shield,params` -- OR one that does,
@@ -287,8 +287,8 @@ def _census() -> Tuple[List[str], Set[str]]:
     infos = discover_shields(_SHIELD_DIRS)
     templated = sorted(name for name, info in infos.items() if info.template)
     types, _deps = load_types()
-    eligible: List[str] = []
-    excluded: Set[str] = set()
+    eligible: list[str] = []
+    excluded: set[str] = set()
     # The workdir is this census's OWN scratch space for the shield
     # library's cpp output, and nothing outside the loop reads it: a
     # resolved Shield carries its devices as values. Removed on the way
@@ -334,7 +334,7 @@ def test_excluded_set_is_now_empty() -> None:
     `set()`. This assertion can only grow again
     the day a new required-param shield lands with no entry supplied for
     it yet."""
-    assert EXCLUDED == set(), (
+    assert set() == EXCLUDED, (
         f"excluded set is {sorted(EXCLUDED)}, expected set() -- a "
         "non-empty set names a NEW required-param shield with no "
         "_REQUIRED_PARAM_ASSIGNMENTS entry yet (or an existing entry that "
@@ -401,7 +401,7 @@ def _materialize_fixture(name: str, tmp_path: Path) -> Path:
     return rig_yml
 
 
-def _run(*args: str, out_dir: Path) -> "subprocess.CompletedProcess[str]":
+def _run(*args: str, out_dir: Path) -> subprocess.CompletedProcess[str]:
     """`python -m rigc expand`, common board/bindings/include recipe
     shared by both sides of the law -- the fixture board's own sockets
     need edtlib bindings for the connector types themselves
@@ -428,7 +428,7 @@ def _run(*args: str, out_dir: Path) -> "subprocess.CompletedProcess[str]":
                           capture_output=True, text=True, timeout=60)
 
 
-def _context_cmake_mismatch(expected: str, actual: str, name: str) -> Optional[str]:
+def _context_cmake_mismatch(expected: str, actual: str, name: str) -> str | None:
     """compare_context_cmake's own contract (RIG_DEPENDS as a set, every
     other key exact), PLUS one declared exemption: each side's
     own two rig documents (rig.yml / f"{name}.yml") dropped from ITS OWN
@@ -444,7 +444,7 @@ def _context_cmake_mismatch(expected: str, actual: str, name: str) -> Optional[s
     except Exception as exc:  # pragma: no cover - defensive, mirrors compare.py
         return f"context.cmake failed to parse: {exc}"
 
-    def _drop_own(raw: str) -> Set[str]:
+    def _drop_own(raw: str) -> set[str]:
         return {p for p in split_dependency_set(raw)
                if os.path.basename(p) not in own}
 

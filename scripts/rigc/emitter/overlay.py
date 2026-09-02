@@ -14,7 +14,7 @@ sheet's human-facing display value), not this module's.
 """
 from __future__ import annotations
 
-from typing import Dict, Iterator, List, Optional, Tuple
+from collections.abc import Iterator
 
 from ..analyzer import ChannelResolution, Solved
 from ..analyzer.socketmap import for_bus_device, for_ref, slots_of
@@ -30,7 +30,7 @@ def _nexus(socket: BoardSocket) -> str:
     return socket.nexus_label or socket.label
 
 
-def _instance_extra_props(inst: Instance, dev: Device) -> List[Tuple[str, str]]:
+def _instance_extra_props(inst: Instance, dev: Device) -> list[tuple[str, str]]:
     """dev.extra_props, with this INSTANCE's rig-assigned params:
     substituted in: a property the rig assigns REPLACES the shield's own
     rendering of it (a default being overridden) or is simply ADDED (the
@@ -48,17 +48,17 @@ def _instance_extra_props(inst: Instance, dev: Device) -> List[Tuple[str, str]]:
     return kept + added
 
 
-def _i2c_scopes(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[str]:
+def _i2c_scopes(rig: Rig, s: Solved, types: dict[str, ConnectorType]) -> list[str]:
     """The I2C scopes block: one `&bus {...};` per physical I2C bus in use,
     each device node emitted directly or, for a mux interposer, nested
     under its own synthesized channel scopes. rig/s/types are read-only;
     returns fresh lines the caller owns, one bus scope's lines appended
     after another in `s.bus_label` order."""
-    out: List[str] = []
+    out: list[str] = []
     # I2C scopes -- expander is the sole author of reg + unit-address, always
     # as a matching pair (address authority rule). A mux's channels are NEW
     # scopes emitted nested inside their mux device, not at the top level.
-    mux_channels: Dict[str, List[Tuple[int, str]]] = {}
+    mux_channels: dict[str, list[tuple[int, str]]] = {}
     for path, (root, channel) in s.scopes.items():
         mux_channels.setdefault(root, []).append((channel, path))
     for bus_path in sorted(s.bus_label):
@@ -82,13 +82,13 @@ def _i2c_scopes(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[st
     return out
 
 
-def _spi_scopes(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[str]:
+def _spi_scopes(rig: Rig, s: Solved, types: dict[str, ConnectorType]) -> list[str]:
     """The SPI scopes block: one `&bus {...};` per physical SPI bus with
     chip-selects, its cs-gpios array and each child device's reg written
     together. rig/s/types are read-only; returns fresh lines the caller
     owns, one bus scope's lines appended after another in `s.cs_gpios`
     order."""
-    out: List[str] = []
+    out: list[str] = []
     # SPI scopes -- cs-gpios array and child reg written together
     for bus_path, entries in sorted(s.cs_gpios.items()):
         devs = list(_bus_devices(rig, s, "spi", bus_path))
@@ -107,12 +107,12 @@ def _spi_scopes(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[st
     return out
 
 
-def _plain_groups(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[str]:
+def _plain_groups(rig: Rig, s: Solved, types: dict[str, ConnectorType]) -> list[str]:
     """The plain non-bus device groups block: one `/ { <instance> {...}; };`
     container per instance that has neither a bus nor a collected device.
     rig/s/types are read-only; returns fresh lines the caller owns, empty
     when no instance has a plain device."""
-    root_nodes: List[str] = []
+    root_nodes: list[str] = []
     for inst in sorted(rig.instances, key=lambda i: i.name):
         plain_devs = [d for d in inst.shield.devices
                      if d.bus is None and d.collect is None]
@@ -128,8 +128,8 @@ def _plain_groups(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[
     return ["/ {", *root_nodes, "};", ""]
 
 
-def render_overlay(rig: Rig, s: Solved, types: Dict[str, ConnectorType],
-                   needed_includes: Optional[List[str]] = None) -> str:
+def render_overlay(rig: Rig, s: Solved, types: dict[str, ConnectorType],
+                   needed_includes: list[str] | None = None) -> str:
     """rig-gen.overlay's full text. rig/s/types are read-only; returns a
     fresh string the caller owns. `needed_includes`
     (`emitter._needed_param_includes`) is the caller's own decision about
@@ -159,7 +159,7 @@ def render_overlay(rig: Rig, s: Solved, types: Dict[str, ConnectorType],
     return "\n".join(out)
 
 
-def _controllers(s: Solved) -> List[str]:
+def _controllers(s: Solved) -> list[str]:
     """Enable the timer/adc controllers a PWM/ADC claim resolved to, and NOTE
     the board-provided pin-mux each needs (the expander names the pinctrl
     requirement; applying the SoC-specific fragment is the board's job,
@@ -179,12 +179,12 @@ def _sanitize(compat: str) -> str:
     return "".join(c if c.isalnum() else "_" for c in compat)
 
 
-def _collections(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[str]:
+def _collections(rig: Rig, s: Solved, types: dict[str, ConnectorType]) -> list[str]:
     """Aggregate collected entries (shield,collect) by their collection
     compatible into one node each -- the idiomatic gpio-keys/gpio-leds shape,
     where the compatible sits on the parent and each module is a child entry.
     (Merging into a board-provided collection of the same compatible: parked.)"""
-    groups: Dict[str, List[Tuple[Instance, Device]]] = {}
+    groups: dict[str, list[tuple[Instance, Device]]] = {}
     for inst in rig.instances:
         if not slots_of(s.sockets, inst):
             continue
@@ -205,8 +205,8 @@ def _collections(rig: Rig, s: Solved, types: Dict[str, ConnectorType]) -> List[s
     return out
 
 
-def _collection_entry(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
-                      dev: Device) -> List[str]:
+def _collection_entry(s: Solved, types: dict[str, ConnectorType], inst: Instance,
+                      dev: Device) -> list[str]:
     """One child of a collection node: the module's function ref(s) (gpio,
     pwm, or adc). Node name and label are the composed <instance>_<shield
     label> -- unique per (instance, device), so an instance may contribute
@@ -227,7 +227,7 @@ def _collection_entry(s: Solved, types: Dict[str, ConnectorType], inst: Instance
 
 
 def _bus_devices(rig: Rig, s: Solved, kind: str, bus_path: str,
-                 ) -> Iterator[Tuple[Instance, Device, BoardSocket]]:
+                 ) -> Iterator[tuple[Instance, Device, BoardSocket]]:
     """Every (instance, device, socket) of `kind` ("i2c" or "spi") whose
     device sits on the physical bus `bus_path` identifies -- matched
     through the device's OWN qualified Device.bus name against its
@@ -266,7 +266,7 @@ def _ref_socket(s: Solved, inst: Instance, ref: FunctionRef) -> BoardSocket:
     return socket
 
 
-def _render_ref(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
+def _render_ref(s: Solved, types: dict[str, ConnectorType], inst: Instance,
                 dev: Device, ref: FunctionRef) -> str:
     """One rendered property line for a single device reference (gpio, pwm,
     or adc) -- the per-ref half of a device node's body, shared by every
@@ -353,9 +353,9 @@ def _render_ref(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
     return f"\t\t{ref.prop} = <&{_nexus(socket)} {pos}>;\t/* {ctype.posname(pos)} */"
 
 
-def _mux_node(rig: Rig, s: Solved, types: Dict[str, ConnectorType], inst: Instance,
+def _mux_node(rig: Rig, s: Solved, types: dict[str, ConnectorType], inst: Instance,
              dev: Device, addr: int,
-             channels: List[Tuple[int, str]]) -> List[str]:
+             channels: list[tuple[int, str]]) -> list[str]:
     """A scope-creating interposer device (an I2C mux): the device node on
     the parent bus, with one child channel bus per scope, each hosting that
     scope's modules. Per-scope address uniqueness means 0x48 can recur
@@ -380,9 +380,9 @@ def _mux_node(rig: Rig, s: Solved, types: Dict[str, ConnectorType], inst: Instan
     return lines
 
 
-def _device_node(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
-                 dev: Device, unit: Optional[str] = None,
-                 reg: Optional[str] = None) -> List[str]:
+def _device_node(s: Solved, types: dict[str, ConnectorType], inst: Instance,
+                 dev: Device, unit: str | None = None,
+                 reg: str | None = None) -> list[str]:
     label = f"{inst.name}_{dev.label}"
     name = f"{dev.name}@{unit}" if unit is not None else dev.name
     lines = [f"\t{label}: {name} {{"]
@@ -420,14 +420,14 @@ def _device_node(s: Solved, types: Dict[str, ConnectorType], inst: Instance,
     return lines
 
 
-def _synth_nexus_nodes(s: Solved) -> List[str]:
+def _synth_nexus_nodes(s: Solved) -> list[str]:
     """Emit a gpio-nexus node for each carrier-exported socket in use,
     chaining to its parent's nexus. Matches hand-written nested overlays:
     a click's <&carrier_nexus pos> resolves through the carrier to the
     host board pin, keeping the routing visible in the artifact."""
-    synth: Dict[str, BoardSocket] = {}
+    synth: dict[str, BoardSocket] = {}
 
-    def visit(sock: Optional[BoardSocket]) -> None:
+    def visit(sock: BoardSocket | None) -> None:
         # skip board sockets (no rows of ANY kind -- nexus_label is None)
         # and sockets with nothing to route at all. An analog-only exposed
         # socket (adc/pwm rows, no gpio -- e.g. a carrier's grove_a* with
@@ -482,7 +482,7 @@ def _synth_nexus_nodes(s: Solved) -> List[str]:
 
 
 def _channel_nexus_block(cells_prop_base: str, map_prop: str, cells: int,
-                         rows: List[Tuple[int, str, int]]) -> List[str]:
+                         rows: list[tuple[int, str, int]]) -> list[str]:
     """The pwm-map / io-channel-map lines of a synthesized nexus node: the
     same mask/pass-thru idiom `boards/extend/seeed/seeeduino_lotus/
     grove_sockets.dtsi` authors by hand on a real board socket, generated

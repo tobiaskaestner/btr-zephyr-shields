@@ -62,8 +62,7 @@ from . import axes, binding, fragments
 from .axes import revision_fragment_name, variant_fragment_name
 from .binding import SocketBinding
 from .delta import Topology, apply_delta, parse_instance, parse_wire
-from .documents import (Val, as_mapping, content_file_name,
-                        parse_marked, require)
+from .documents import Val, as_mapping, content_file_name, parse_marked, require
 from .library import ShieldLibrary, load_shield_library
 from .params import check_param_invariant
 
@@ -96,13 +95,13 @@ class MetadataResult:
     an unresolved axis) still produces a Rig plus diagnostics naming
     what is wrong."""
 
-    rig: Optional[Rig]
+    rig: Rig | None
     binding: SocketBinding = field(default_factory=SocketBinding)
 
 
-def _resolve_metadata(doc: Val, revision: Optional[str], variant: Optional[str],
-                      board: Optional[str] = None,
-                      ) -> Tuple[MetadataResult, List[Diagnostic]]:
+def _resolve_metadata(doc: Val, revision: str | None, variant: str | None,
+                      board: str | None = None,
+                      ) -> tuple[MetadataResult, list[Diagnostic]]:
     """The rig shell and its qualifier axes (declaration, collision,
     resolution). Entirely cpp-free -- reads `doc`'s own parsed YAML tree
     alone, so a synthetic Val tree exercises every branch here with no
@@ -115,7 +114,7 @@ def _resolve_metadata(doc: Val, revision: Optional[str], variant: Optional[str],
     its own; `rig.board` is "" when omitted, which is legal here (see
     binding.resolve_board) and becomes a diagnostic only where a real
     board devicetree is actually needed, downstream in cli.py."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     rig_v, d = require(doc, "rig", "top level")
     diags += d
     if rig_v is None:
@@ -165,8 +164,8 @@ class Deltas:
     as a value rather than two loose fields on `ContentResult`, since
     phase 3 applies them as a PAIR in that one fixed order."""
 
-    variant_v: Optional[Val] = None
-    revision_v: Optional[Val] = None
+    variant_v: Val | None = None
+    revision_v: Val | None = None
 
 
 @dataclass(frozen=True)
@@ -179,7 +178,7 @@ class ContentResult:
 
 
 def _gather_content(rig: Rig, rig_dir: str,
-                    ) -> Tuple[Optional[ContentResult], List[Diagnostic], Deps]:
+                    ) -> tuple[ContentResult | None, list[Diagnostic], Deps]:
     """The rig's REQUIRED content file, its two qualifier delta
     fragments (looked up by the constructed stems `loader.axes` builds,
     never `${RIG}` literally), and the contributes-nothing check (a
@@ -199,7 +198,7 @@ def _gather_content(rig: Rig, rig_dir: str,
     itself and whichever of the two qualifier delta fragments actually
     exist -- the RIG_DEPENDS handoff's own closure over this phase."""
     assert rig.src is not None   # phase 1 always sets it before returning a Rig
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     deps: Deps = frozenset()
     content_path = os.path.join(rig_dir, content_file_name(rig.name))
     if not os.path.isfile(content_path):
@@ -208,14 +207,14 @@ def _gather_content(rig: Rig, rig_dir: str,
     deps = union(deps, touch(content_path))
     content_v = parse_marked(content_path)
 
-    variant_delta_v: Optional[Val] = None
+    variant_delta_v: Val | None = None
     if rig.variant is not None:
         p = os.path.join(rig_dir, variant_fragment_name(rig.name, rig.variant))
         if os.path.isfile(p):
             deps = union(deps, touch(p))
             variant_delta_v = parse_marked(p)
 
-    revision_delta_v: Optional[Val] = None
+    revision_delta_v: Val | None = None
     if rig.revision is not None:
         p = os.path.join(rig_dir, revision_fragment_name(rig.name, rig.revision))
         if os.path.isfile(p):
@@ -257,8 +256,8 @@ def _gather_content(rig: Rig, rig_dir: str,
 
 def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
                     content: ContentResult, workdir: str,
-                    include_dirs: Optional[List[str]],
-                    ) -> Tuple[Topology, List[Diagnostic], Deps]:
+                    include_dirs: list[str] | None,
+                    ) -> tuple[Topology, list[Diagnostic], Deps]:
     """Stage 0 (the base content's instances:/wires:, order preserved,
     the per-stage invariant checked per instance as it is parsed), then
     the variant delta stage, then the revision delta stage -- each
@@ -280,7 +279,7 @@ def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
     resolution (of the shield the variant replaced) in this union,
     because that resolution genuinely happened -- RIG_DEPENDS records
     resolution HISTORY, not final topology."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     deps: Deps = frozenset()
     try:
         content_map = as_mapping(
@@ -338,13 +337,13 @@ def _build_topology(rig: Rig, sock_binding: SocketBinding, lib: ShieldLibrary,
 
 
 def load(rig_path: str, workdir: str,
-        shield_dirs: Optional[List[str]] = None,
-        revision: Optional[str] = None,
-        variant: Optional[str] = None,
-        board: Optional[str] = None,
-        types: Optional[Dict[str, ConnectorType]] = None,
-        include_dirs: Optional[List[str]] = None,
-        ) -> Tuple[Optional[Rig], List[Diagnostic], Deps]:
+        shield_dirs: list[str] | None = None,
+        revision: str | None = None,
+        variant: str | None = None,
+        board: str | None = None,
+        types: dict[str, ConnectorType] | None = None,
+        include_dirs: list[str] | None = None,
+        ) -> tuple[Rig | None, list[Diagnostic], Deps]:
     """Load rig_path (absolute) as far as rigc's loader reaches, returning
     the built Rig (best-effort; None only when nothing further could be
     attempted at all) alongside every diagnostic found. Loading CONTINUES
@@ -380,7 +379,7 @@ def load(rig_path: str, workdir: str,
     # raise would otherwise drop every diagnostic gathered before it;
     # THIS boundary catches instead and returns everything gathered so
     # far plus what the exception carries, so no finding is lost.
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     deps: Deps = frozenset()
     try:
         lib, diags, lib_deps = load_shield_library(

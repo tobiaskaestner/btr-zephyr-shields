@@ -20,11 +20,17 @@ import subprocess
 from pathlib import Path
 
 import pytest
-
 from corpus import run_expand
-from harness import (FIXTURES_DIR, WEST_EXE, WEST_TOPDIR,
-                     assert_fixture_local, render_argv, subprocess_timeout,
-                     write_rerun_script, zephyr_base)
+from harness import (
+    FIXTURES_DIR,
+    WEST_EXE,
+    WEST_TOPDIR,
+    assert_fixture_local,
+    render_argv,
+    subprocess_timeout,
+    write_rerun_script,
+    zephyr_base,
+)
 
 _BOARD_DTS = FIXTURES_DIR / "boards" / "mainboards" / "multibus_board.dts"
 # A directory of its own, deliberately separate from
@@ -38,7 +44,7 @@ _SHIELDS = FIXTURES_DIR / "boards" / "rigs" / "multibus-sockets" / "shields"
 _ACCEPT_RIG = FIXTURES_DIR / "boards" / "rigs" / "multibus-sockets" / "rig.yml"
 
 
-def _run(rig_yml: Path, out_dir: Path) -> "subprocess.CompletedProcess[str]":
+def _run(rig_yml: Path, out_dir: Path) -> subprocess.CompletedProcess[str]:
     assert_fixture_local([_BOARD_DTS, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE,
                           _SHIELDS])
     return run_expand(

@@ -9,8 +9,6 @@ caller already has -- no Rig needed, which is what makes it a value
 function on its own."""
 from __future__ import annotations
 
-from typing import Tuple
-
 from ..model import BoardSocket, Device, Instance
 
 #: The stable allocation order: (the sort key's socket component, then
@@ -21,7 +19,7 @@ from ..model import BoardSocket, Device, Instance
 #: falls back to the resolved label, since it has no authored string to
 #: sort by (the same declared-else-resolved shape config-sheet.md's
 #: socket column uses).
-AllocationKey = Tuple[str, str, str]
+AllocationKey = tuple[str, str, str]
 
 
 def allocation_key(inst: Instance, dev: Device, socket: BoardSocket) -> AllocationKey:

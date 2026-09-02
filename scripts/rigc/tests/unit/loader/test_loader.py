@@ -15,13 +15,11 @@ eager-parse branch); every scenario here stays inside the cpp-free
 subset on purpose, so the unit suite's hermeticity holds."""
 from __future__ import annotations
 
+from pathlib import Path
 from textwrap import dedent
 
-from pathlib import Path
-
 from rigc.diag import SourceRef
-from rigc.loader import (ContentResult, Deltas, _build_topology,
-                         _gather_content, _resolve_metadata)
+from rigc.loader import ContentResult, Deltas, _build_topology, _gather_content, _resolve_metadata
 from rigc.loader.binding import SocketBinding
 from rigc.loader.documents import Val, parse_marked
 from rigc.loader.library import ShieldLibrary
@@ -264,7 +262,7 @@ def test_build_topology_resolves_an_instance_from_an_already_cached_shield(
     `.shields` (`.axes[name] is None` -- no declared revisions: axis)
     without ever calling `parse_tu` (cpp) -- so a real Instance parse,
     including a wire between two of its nodes, stays cpp-free here."""
-    from rigc.model import Device, Pad, Shield
+    from rigc.model import Pad, Shield
 
     shield = Shield(name="sh", label="sh", plugs={"plug": "fixture-type"},
                     pads={"a": Pad(name="a", label="a", role="driver", of=None),

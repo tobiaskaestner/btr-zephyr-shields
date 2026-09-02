@@ -10,12 +10,10 @@ import subprocess
 
 import pytest
 import yaml
-
-from harness import (REPO_ROOT, WEST_EXE, WEST_TOPDIR, subprocess_timeout,
-                     zephyr_base)
+from harness import REPO_ROOT, WEST_EXE, WEST_TOPDIR, subprocess_timeout, zephyr_base
 
 
-def _run(*args: str) -> "subprocess.CompletedProcess[str]":
+def _run(*args: str) -> subprocess.CompletedProcess[str]:
     env = dict(os.environ)
     env["ZEPHYR_BASE"] = zephyr_base()
     return subprocess.run(

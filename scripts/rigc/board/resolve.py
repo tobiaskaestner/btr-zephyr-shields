@@ -27,7 +27,6 @@ import logging
 import os
 import sys
 from pathlib import Path
-from typing import List, Optional, Tuple
 
 from ..deps import Deps, touch
 from ..diag import Diagnostic, LoadError, anchor_path, error
@@ -40,9 +39,9 @@ log = logging.getLogger(__name__)
 
 
 def load_board(name: str, workdir: str,
-               board_dts: Optional[str] = None,
-               recipe: Optional[BuildRecipe] = None,
-               ) -> Tuple[Optional[Board], List[Diagnostic], Deps]:
+               board_dts: str | None = None,
+               recipe: BuildRecipe | None = None,
+               ) -> tuple[Board | None, list[Diagnostic], Deps]:
     """Resolve board name to a model.Board, or (None, diagnostics) if it
     can't be read at all.
 
@@ -109,7 +108,7 @@ def load_board(name: str, workdir: str,
     return board, [], deps
 
 
-def _discover_board_dts(name: str) -> Tuple[Optional[str], List[Diagnostic]]:
+def _discover_board_dts(name: str) -> tuple[str | None, list[Diagnostic]]:
     """Standalone/CLI fallback: resolve a board NAME to its own .dts by
     consuming zephyr's own scripts/list_boards.py (not forking it). Searches
     only this module's own board root (MODULE_ROOT) -- a narrower catalog

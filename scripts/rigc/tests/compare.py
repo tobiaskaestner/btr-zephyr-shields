@@ -56,7 +56,6 @@ from __future__ import annotations
 import itertools
 import re
 from dataclasses import dataclass
-from typing import Dict, FrozenSet, List, Optional, Tuple
 
 _SET_HEAD_RE = re.compile(r'set\((\w+)\s*"')
 
@@ -69,7 +68,7 @@ class ContextCmakeParseError(ValueError):
     happened to produce."""
 
 
-def _scan_quoted_value(line: str, start: int) -> Tuple[str, int]:
+def _scan_quoted_value(line: str, start: int) -> tuple[str, int]:
     """Scan a set(VAR "...")'s quoted value, starting right after the
     opening quote, honoring CMake's backslash escaping so an escaped
     quote never terminates the value early.
@@ -78,7 +77,7 @@ def _scan_quoted_value(line: str, start: int) -> Tuple[str, int]:
     the concern of whoever interprets a specific variable's contract,
     not of finding where the literal ends) and the index of the line
     immediately after the closing quote."""
-    chars: List[str] = []
+    chars: list[str] = []
     i = start
     escaped = False
     while i < len(line):
@@ -97,7 +96,7 @@ def _scan_quoted_value(line: str, start: int) -> Tuple[str, int]:
     raise ContextCmakeParseError(f"unterminated quoted value: {line!r}")
 
 
-def parse_context_cmake(text: str) -> Dict[str, str]:
+def parse_context_cmake(text: str) -> dict[str, str]:
     """Parse context.cmake source into {VAR: raw value}, one entry per
     set(VAR "value") line. VAR is verbatim; value is the literal quoted
     content with CMake's list-escaping (backslash-backslash, backslash-
@@ -113,7 +112,7 @@ def parse_context_cmake(text: str) -> Dict[str, str]:
 
     Returns a fresh dict the caller owns; text is read-only and never
     mutated."""
-    mapping: Dict[str, str] = {}
+    mapping: dict[str, str] = {}
     for lineno, raw_line in enumerate(text.splitlines(), start=1):
         line = raw_line.strip()
         if not line or line.startswith("#"):
@@ -133,7 +132,7 @@ def parse_context_cmake(text: str) -> Dict[str, str]:
     return mapping
 
 
-def split_dependency_set(raw_value: str) -> FrozenSet[str]:
+def split_dependency_set(raw_value: str) -> frozenset[str]:
     """Split RIG_DEPENDS' raw (still list-escaped) value into its
     dependency-path elements, undoing emitter/context.py's
     _cmake_list_escape per element in one left-to-right scan -- so an
@@ -142,8 +141,8 @@ def split_dependency_set(raw_value: str) -> FrozenSet[str]:
 
     Returned as a frozenset: RIG_DEPENDS is a SET by contract, and a
     dependency listed twice is exactly as satisfied as one listed once."""
-    elements: List[str] = []
-    current: List[str] = []
+    elements: list[str] = []
+    current: list[str] = []
     escaped = False
     for ch in raw_value:
         if escaped:
@@ -166,7 +165,7 @@ def split_dependency_set(raw_value: str) -> FrozenSet[str]:
 _UNORDERED_SET_VARS = frozenset({"RIG_DEPENDS"})
 
 
-def compare_context_cmake(expected: str, actual: str) -> Optional[str]:
+def compare_context_cmake(expected: str, actual: str) -> str | None:
     """Compare two context.cmake texts against the artifact's real
     contract instead of byte-for-byte:
 
@@ -197,7 +196,7 @@ def compare_context_cmake(expected: str, actual: str) -> Optional[str]:
     except ContextCmakeParseError as exc:
         return f"actual context.cmake failed to parse: {exc}"
 
-    problems: List[str] = []
+    problems: list[str] = []
     for name in sorted(set(expected_vars) | set(actual_vars)):
         if name not in actual_vars:
             problems.append(f"{name}: present in golden, absent from actual")
@@ -263,7 +262,7 @@ class ConfigSheetFacts:
 
     rig_name: str
     board: str
-    sections: Dict[str, Tuple[Tuple[str, ...], ...]]
+    sections: dict[str, tuple[tuple[str, ...], ...]]
 
 
 _TITLE_RE = re.compile(r"^#\s+.*`(?P<name>[^`]+)`\s*$")
@@ -287,7 +286,7 @@ _CS_RE = re.compile(
     r"(?: → SoC (?P<ctrl>\S+) pin (?P<pin>\S+))?$")
 
 
-def _split_table_row(line: str, lineno: int) -> Tuple[str, ...]:
+def _split_table_row(line: str, lineno: int) -> tuple[str, ...]:
     """Split one "| a | b | c |" line into its cell values, stripped.
     Column HEADER TEXT is never the contract -- only how many
     columns a row carries, which is what tells socket-assignment's table
@@ -311,7 +310,7 @@ def _is_table_separator(line: str) -> bool:
     return all(cell.strip() != "" and set(cell.strip()) <= {"-", ":"} for cell in cells)
 
 
-def _match_bullet(line: str, lineno: int) -> Tuple[str, Tuple[str, ...]]:
+def _match_bullet(line: str, lineno: int) -> tuple[str, tuple[str, ...]]:
     """Match one bullet line against every recognised shape and return
     (section kind, fact tuple). Raises ConfigSheetParseError when none of
     the shapes match -- an unrecognised bullet is a mismatch, never a
@@ -343,8 +342,8 @@ def _match_bullet(line: str, lineno: int) -> Tuple[str, Tuple[str, ...]]:
 
 
 def _parse_table_section(
-        lines: List[str], i: int, n: int,
-        ) -> Tuple[str, Tuple[Tuple[str, ...], ...], int]:
+        lines: list[str], i: int, n: int,
+        ) -> tuple[str, tuple[tuple[str, ...], ...], int]:
     header_lineno = i + 1
     header_cells = _split_table_row(lines[i], i + 1)
     ncols = len(header_cells)
@@ -353,7 +352,7 @@ def _parse_table_section(
         raise ConfigSheetParseError(
             f"line {i + 1}: expected a table separator row after the header")
     i += 1
-    rows: List[Tuple[str, ...]] = []
+    rows: list[tuple[str, ...]] = []
     while i < n and lines[i].strip() != "" and lines[i].lstrip().startswith("|"):
         row = _split_table_row(lines[i], i + 1)
         if len(row) != ncols:
@@ -373,10 +372,10 @@ def _parse_table_section(
 
 
 def _parse_bullet_section(
-        lines: List[str], i: int, n: int,
-        ) -> Tuple[str, Tuple[Tuple[str, ...], ...], int]:
-    kind: Optional[str] = None
-    rows: List[Tuple[str, ...]] = []
+        lines: list[str], i: int, n: int,
+        ) -> tuple[str, tuple[tuple[str, ...], ...], int]:
+    kind: str | None = None
+    rows: list[tuple[str, ...]] = []
     while i < n and lines[i].strip() != "" and lines[i].lstrip().startswith("- "):
         bullet_kind, fact = _match_bullet(lines[i].strip(), i + 1)
         if kind is None:
@@ -391,15 +390,15 @@ def _parse_bullet_section(
     return kind, tuple(rows), i
 
 
-def _skip_blank(lines: List[str], i: int, n: int) -> int:
+def _skip_blank(lines: list[str], i: int, n: int) -> int:
     while i < n and lines[i].strip() == "":
         i += 1
     return i
 
 
 def _parse_section_body(
-        lines: List[str], i: int, n: int,
-        ) -> Tuple[str, Tuple[Tuple[str, ...], ...], int]:
+        lines: list[str], i: int, n: int,
+        ) -> tuple[str, tuple[tuple[str, ...], ...], int]:
     """Dispatch a section's body by its actual shape, never its heading
     text (heading wording is never the contract). A table starts with
     "|"; bullets start with "- ".
@@ -486,7 +485,7 @@ def parse_config_sheet(text: str) -> ConfigSheetFacts:
     board = m.group("board")
     i = skip_blank(i + 1)
 
-    sections: Dict[str, Tuple[Tuple[str, ...], ...]] = {}
+    sections: dict[str, tuple[tuple[str, ...], ...]] = {}
     while i < n:
         if not _HEADING_RE.match(lines[i]):
             raise ConfigSheetParseError(
@@ -507,8 +506,8 @@ def parse_config_sheet(text: str) -> ConfigSheetFacts:
 
 
 def _describe_section_mismatch(
-        kind: str, expected_rows: Tuple[Tuple[str, ...], ...],
-        actual_rows: Tuple[Tuple[str, ...], ...]) -> str:
+        kind: str, expected_rows: tuple[tuple[str, ...], ...],
+        actual_rows: tuple[tuple[str, ...], ...]) -> str:
     lines = [f"section {kind!r}: rows differ (order is contract)"]
     for idx, (exp, act) in enumerate(
             itertools.zip_longest(expected_rows, actual_rows, fillvalue=None)):
@@ -517,7 +516,7 @@ def _describe_section_mismatch(
     return "\n".join(lines)
 
 
-def compare_config_sheet(expected: str, actual: str) -> Optional[str]:
+def compare_config_sheet(expected: str, actual: str) -> str | None:
     """Compare two config-sheet.md texts against the sheet's real
     contract -- the facts a reader relies on -- instead of byte-for-byte:
 
@@ -549,7 +548,7 @@ def compare_config_sheet(expected: str, actual: str) -> Optional[str]:
     except ConfigSheetParseError as exc:
         return f"actual config-sheet.md failed to parse: {exc}"
 
-    problems: List[str] = []
+    problems: list[str] = []
     if expected_facts.rig_name != actual_facts.rig_name:
         problems.append(
             f"rig name: golden {expected_facts.rig_name!r} != actual "
@@ -662,7 +661,7 @@ def overlay_is_byte_compared(rig_name: str) -> bool:
     return rig_name in _BYTE_COMPARED_OVERLAY_RIGS
 
 
-def _param_tokens(text: str) -> FrozenSet[Tuple[str, str]]:
+def _param_tokens(text: str) -> frozenset[tuple[str, str]]:
     """Every (property name, verbatim macro token) pair rig-gen.overlay
     carries -- a token that has been resolved to a bare number, or
     dropped outright, is simply absent from the returned set; there is
@@ -673,7 +672,7 @@ def _param_tokens(text: str) -> FrozenSet[Tuple[str, str]]:
         for m in _PARAM_TOKEN_RE.finditer(text))
 
 
-def _annotation_comments(text: str) -> FrozenSet[Tuple[str, str, str]]:
+def _annotation_comments(text: str) -> frozenset[tuple[str, str, str]]:
     """Every gpio/pwm/adc trailing annotation rig-gen.overlay carries, as
     (property name, position cell, literal "/* ... */" comment) triples,
     plus each cs-gpios entry's inline ACTIVE_LOW annotation as a
@@ -694,7 +693,7 @@ def _annotation_comments(text: str) -> FrozenSet[Tuple[str, str, str]]:
     return frozenset(triples)
 
 
-def compare_overlay(expected: str, actual: str) -> Optional[str]:
+def compare_overlay(expected: str, actual: str) -> str | None:
     """Compare two rig-gen.overlay texts against only the facts this
     artifact carries that a post-resolution zephyr.dts comparison
     structurally cannot see -- everything else (node/property presence,
@@ -718,7 +717,7 @@ def compare_overlay(expected: str, actual: str) -> Optional[str]:
     this never reports a parse failure -- rig-gen.overlay is not parsed
     into a full fact set here at all, only scanned for these three
     specific shapes."""
-    problems: List[str] = []
+    problems: list[str] = []
 
     lost_tokens = _param_tokens(expected) - _param_tokens(actual)
     if lost_tokens:
@@ -780,7 +779,7 @@ class IncludesDtsiParseError(ValueError):
     the rest of the text happens to carry."""
 
 
-def parse_includes_dtsi(text: str) -> Tuple[str, ...]:
+def parse_includes_dtsi(text: str) -> tuple[str, ...]:
     """Parse rig-gen-includes.dtsi into the ORDERED tuple of headers the
     rig's own parameter assignments needed
     (emitter._needed_param_includes), in the order the declaring shield
@@ -805,7 +804,7 @@ def parse_includes_dtsi(text: str) -> Tuple[str, ...]:
             "expected the provenance banner comment (/* ... */) as the "
             "first non-blank line")
     i += 1
-    headers: List[str] = []
+    headers: list[str] = []
     while i < n:
         line = lines[i].strip()
         if line == "":
@@ -821,7 +820,7 @@ def parse_includes_dtsi(text: str) -> Tuple[str, ...]:
     return tuple(headers)
 
 
-def compare_includes_dtsi(expected: str, actual: str) -> Optional[str]:
+def compare_includes_dtsi(expected: str, actual: str) -> str | None:
     """Compare two rig-gen-includes.dtsi texts against the artifact's real
     contract -- the ordered header list -- instead of byte-for-byte.
 

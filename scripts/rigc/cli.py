@@ -62,12 +62,12 @@ import logging
 import os
 import shutil
 import sys
-from typing import List, Optional, Tuple, Union
 
 from . import analyzer, loader, promote
 from .board import BuildRecipe, load_board, recipe_from_build_info
 from .deps import union as deps_union
-from .diag import Diagnostic, LoadError, error as diag_error, has_errors, render
+from .diag import Diagnostic, LoadError, has_errors, render
+from .diag import error as diag_error
 from .emitter import context, emit, write_artifacts
 from .registry import load_types
 from .unimplemented import Unimplemented
@@ -108,7 +108,7 @@ def _configure_logging(verbosity: int = 0) -> None:
     for h in list(root.handlers):
         if getattr(h, _OWN_HANDLER, False):
             root.removeHandler(h)
-    level_name: Optional[str]
+    level_name: str | None
     if verbosity >= 2:
         level_name = "DEBUG"
     elif verbosity == 1:
@@ -129,10 +129,10 @@ def _configure_logging(verbosity: int = 0) -> None:
 
 
 def _resolve_recipe(
-    include_dirs: Optional[List[str]],
-    bindings_dirs: Optional[List[str]],
-    build_info: Optional[str],
-) -> Optional[BuildRecipe]:
+    include_dirs: list[str] | None,
+    bindings_dirs: list[str] | None,
+    build_info: str | None,
+) -> BuildRecipe | None:
     """--build-info wins if given (one path, no per-dir bookkeeping); else
     an explicit --include-dir/--bindings-dir pair, if either was given;
     else None -- the caller (load_board) turns a still-None recipe
@@ -246,7 +246,7 @@ def build_parser() -> argparse.ArgumentParser:
     return ap
 
 
-def _abspath_dirs(dirs: Optional[List[str]]) -> Optional[List[str]]:
+def _abspath_dirs(dirs: list[str] | None) -> list[str] | None:
     """Absolutize a repeatable --xxx-dir flag's value, or None when the
     flag was never given -- the identical pattern every repeatable
     directory option in this module's argv surface (--shield-dir,
@@ -255,7 +255,7 @@ def _abspath_dirs(dirs: Optional[List[str]]) -> Optional[List[str]]:
     return [os.path.abspath(d) for d in dirs] if dirs else None
 
 
-def _reject(diags: List[Diagnostic]) -> int:
+def _reject(diags: list[Diagnostic]) -> int:
     """Render diags to stderr and return the reject exit code -- the ONE
     place every `_expand()` rejection funnels through, so the verdict log
     line and the exit code can never drift apart."""
@@ -267,8 +267,8 @@ def _reject(diags: List[Diagnostic]) -> int:
 def _materialize_promotion(
     args: argparse.Namespace,
     workdir: str,
-    shield_dirs: Optional[List[str]],
-) -> Union[Tuple[str, Optional[str]], List[Diagnostic]]:
+    shield_dirs: list[str] | None,
+) -> tuple[str, str | None] | list[Diagnostic]:
     """--promote materializes promote.promote_shield's own two
     documents into THIS run's workdir and loads them by path --
     everything past this point (loader, deps, diagnostics, emitter)

@@ -30,8 +30,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Tuple
 
 from ..diag import Diagnostic
-from ..model import (Board, BoardSocket, ConnectorType, Instance, Jumper,
-                     Rig, Strap, Wire)
+from ..model import Board, BoardSocket, ConnectorType, Instance, Jumper, Rig, Strap, Wire
 from .addresses import allocate_addresses
 from .cs import allocate_cs
 from .gpio import ChannelResolution, Nets, check_nets, collect_gpio_nets, merge_nets
@@ -59,24 +58,24 @@ class Solved:
     # and emitter module reaches a socket through `for_ref`/
     # `for_bus_device`/`for_slot`/`slots_of`, never a bare per-instance
     # dict lookup of this map's own two levels.
-    sockets: Dict[str, Dict[str, BoardSocket]] = field(default_factory=dict)
-    addr: Dict[Tuple[str, str], int] = field(default_factory=dict)         # (inst, dev) -> address
-    straps: List[Tuple[Instance, Strap, int, int]] = field(default_factory=list)   # (inst, strap, state, addr)
-    cs: Dict[Tuple[str, str], Tuple[int, int]] = field(default_factory=dict)       # (inst, dev) -> (index, position)
-    cs_gpios: Dict[str, List[Tuple[BoardSocket, int]]] = field(default_factory=dict)  # bus path -> [(socket, pos)]
-    bus_label: Dict[str, str] = field(default_factory=dict)                # bus path -> label
+    sockets: dict[str, dict[str, BoardSocket]] = field(default_factory=dict)
+    addr: dict[tuple[str, str], int] = field(default_factory=dict)         # (inst, dev) -> address
+    straps: list[tuple[Instance, Strap, int, int]] = field(default_factory=list)   # (inst, strap, state, addr)
+    cs: dict[tuple[str, str], tuple[int, int]] = field(default_factory=dict)       # (inst, dev) -> (index, position)
+    cs_gpios: dict[str, list[tuple[BoardSocket, int]]] = field(default_factory=dict)  # bus path -> [(socket, pos)]
+    bus_label: dict[str, str] = field(default_factory=dict)                # bus path -> label
     nets: Nets = field(default_factory=dict)                               # net key -> [NetClaim]
-    positions: Dict[Tuple[str, str, str], int] = field(default_factory=dict)       # (inst, dev, prop) -> resolved position
-    jumpers_set: List[Tuple[Instance, Jumper, Optional[int], int]] = field(default_factory=list)
-    channels: Dict[Tuple[str, str, str], ChannelResolution] = \
+    positions: dict[tuple[str, str, str], int] = field(default_factory=dict)       # (inst, dev, prop) -> resolved position
+    jumpers_set: list[tuple[Instance, Jumper, int | None, int]] = field(default_factory=list)
+    channels: dict[tuple[str, str, str], ChannelResolution] = \
         field(default_factory=dict)                                        # (inst, dev, prop) -> resolved channel claim
-    controllers: Dict[str, str] = field(default_factory=dict)              # ctrl label -> function (timer/adc to enable)
-    scopes: Dict[str, Tuple[str, int]] = field(default_factory=dict)       # scope bus path -> (mux output label, channel)
-    wires: List[Wire] = field(default_factory=list)                        # route-resolved (see module docstring)
+    controllers: dict[str, str] = field(default_factory=dict)              # ctrl label -> function (timer/adc to enable)
+    scopes: dict[str, tuple[str, int]] = field(default_factory=dict)       # scope bus path -> (mux output label, channel)
+    wires: list[Wire] = field(default_factory=list)                        # route-resolved (see module docstring)
 
 
-def analyze(rig: Rig, board: Board, types: Dict[str, ConnectorType],
-           ) -> Tuple[Solved, List[Diagnostic]]:
+def analyze(rig: Rig, board: Board, types: dict[str, ConnectorType],
+           ) -> tuple[Solved, list[Diagnostic]]:
     """Run every pass over `rig` against the already-loaded `board`,
     composing their pieces into one Solved value. Board resolution itself
     (board.load_board) happens BEFORE this is ever called -- its own
@@ -89,7 +88,7 @@ def analyze(rig: Rig, board: Board, types: Dict[str, ConnectorType],
     Returns (solved, diagnostics): the Solved model, assembled once
     from the passes' returned pieces, plus every finding in pass
     order. The caller owns both; rig/board/types are read-only here."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
 
     log.info("analyze(): pass 'sockets'")
     resolution, d = resolve_sockets(rig, board, types)

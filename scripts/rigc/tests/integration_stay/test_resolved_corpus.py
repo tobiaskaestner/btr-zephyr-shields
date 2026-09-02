@@ -39,11 +39,9 @@ import pickle
 import subprocess
 import sys
 from pathlib import Path
-from typing import List, Optional
 
 import pytest
 import yaml
-
 from corpus import (
     ACCEPT_CASES,
     ARD_DATALOGGER_FRDM_BOARD,
@@ -84,8 +82,8 @@ _APP = "zephyr/samples/hello_world"
 
 
 def _run_build(rig_name: str, build_dir: Path,
-                extra_defines: Optional[List[str]] = None,
-                board: Optional[str] = None) -> "subprocess.CompletedProcess[str]":
+                extra_defines: list[str] | None = None,
+                board: str | None = None) -> subprocess.CompletedProcess[str]:
     """west build --cmake-only for one rig, with -DRIG=<rig_name> threaded
     after -- -- the surviving cmake entry point now that `west build-rig`
     is retired. Equivalent BY CONSTRUCTION, not merely by intent: that

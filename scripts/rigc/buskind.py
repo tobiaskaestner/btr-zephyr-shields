@@ -17,7 +17,6 @@ copies drifting apart one edit at a time."""
 from __future__ import annotations
 
 import re
-from typing import Optional
 
 #: Every socket bus kind the schema recognizes -- the vocabulary
 #: `bus_kind_of` matches a qualified name against, in order.
@@ -37,14 +36,14 @@ BUS_PROP_RE = re.compile(r"^socket,(i2c|spi|uart)(?:-\w+)?$")
 CS_POOL_PROP_RE = re.compile(r"^socket,((?:i2c|spi|uart)-\w+)-cs-pool$")
 
 
-def is_bus_kind(bus: Optional[str], kind: str) -> bool:
+def is_bus_kind(bus: str | None, kind: str) -> bool:
     """Whether `bus` names `kind` -- bare, or `kind` suffixed with a role
     ("-sensors", "-motors", ...). `bus` may be absent (a device with no
     bus at all), which never matches any kind."""
     return bus is not None and (bus == kind or bus.startswith(f"{kind}-"))
 
 
-def bus_kind_of(name: Optional[str]) -> Optional[str]:
+def bus_kind_of(name: str | None) -> str | None:
     """Which of `BUS_KINDS` `name` names, bare or role-suffixed, else
     None -- the general form of `is_bus_kind` for a caller that must
     recognize ANY of the schema's kinds rather than one it already

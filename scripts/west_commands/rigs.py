@@ -52,8 +52,8 @@ def _add_zephyr_scripts():
 
 _add_zephyr_scripts()
 
-from zephyr_ext_common import ZEPHYR_BASE  # noqa: E402
 import zephyr_module  # noqa: E402
+from zephyr_ext_common import ZEPHYR_BASE  # noqa: E402
 
 
 class Rigs(WestCommand):

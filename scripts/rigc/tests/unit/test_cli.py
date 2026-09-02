@@ -19,13 +19,11 @@ supplies one (`glob.glob` on a directory that does not exist just returns
 """
 from __future__ import annotations
 
-from textwrap import dedent
-
 import argparse
 import logging
 import re
 from pathlib import Path
-from typing import List
+from textwrap import dedent
 
 import pytest
 

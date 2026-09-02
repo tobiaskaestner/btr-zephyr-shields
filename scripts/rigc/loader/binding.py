@@ -9,7 +9,6 @@ change to how a board reaches this pipeline touches only this module.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -30,7 +29,7 @@ class SocketBinding:
         return self._map.get(name, name)
 
 
-def resolve_board(injected_board: Optional[str] = None) -> str:
+def resolve_board(injected_board: str | None = None) -> str:
     """The board this rig actually builds: the invocation's own
     `--board`, unconditionally, or "" when none was given.
 

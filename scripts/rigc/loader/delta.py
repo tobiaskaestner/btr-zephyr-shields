@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
 
 from ..deps import Deps, union
 from ..diag import Diagnostic, error
@@ -40,18 +39,18 @@ class Topology:
     never a mutable accumulator -- and the same discipline extends
     naturally to the value the diagnostics accompany."""
 
-    effective: Dict[str, Instance] = field(default_factory=dict)
-    order: List[str] = field(default_factory=list)
-    wires: List[Wire] = field(default_factory=list)
-    removed_by: Dict[str, str] = field(default_factory=dict)
+    effective: dict[str, Instance] = field(default_factory=dict)
+    order: list[str] = field(default_factory=list)
+    wires: list[Wire] = field(default_factory=list)
+    removed_by: dict[str, str] = field(default_factory=dict)
 
-    def instances(self) -> List[Instance]:
+    def instances(self) -> list[Instance]:
         return [self.effective[n] for n in self.order if n in self.effective]
 
 
-def _build_plural_sockets_map(sockets_v: Optional[Val], shield: Shield,
+def _build_plural_sockets_map(sockets_v: Val | None, shield: Shield,
                               binding: SocketBinding, inst_name: str,
-                              ) -> Tuple[Dict[str, Optional[str]], List[Diagnostic]]:
+                              ) -> tuple[dict[str, str | None], list[Diagnostic]]:
     """`sockets:`'s slot -> reference map (the plural shape): one entry
     per slot of `shield.plugs`, each resolved through `binding.get`. An
     unknown slot name is a loud error listing the shield's real slots;
@@ -59,8 +58,8 @@ def _build_plural_sockets_map(sockets_v: Optional[Val], shield: Shield,
 
     Returns (sockets, diagnostics); sockets is a fresh dict the caller
     owns."""
-    diags: List[Diagnostic] = []
-    raw: Dict[str, str] = {}
+    diags: list[Diagnostic] = []
+    raw: dict[str, str] = {}
     if sockets_v is not None and isinstance(sockets_v.value, dict):
         for slot_name, slot_v in sockets_v.value.items():
             if slot_name not in shield.plugs:
@@ -76,8 +75,8 @@ def _build_plural_sockets_map(sockets_v: Optional[Val], shield: Shield,
 
 
 def _parse_sockets_block(item: Val, shield: Shield, binding: SocketBinding,
-                         inst_name: str) -> Tuple[Dict[str, Optional[str]],
-                                                  List[Diagnostic]]:
+                         inst_name: str) -> tuple[dict[str, str | None],
+                                                  list[Diagnostic]]:
     """`socket:`/`sockets:` -> `Instance.sockets`: a single-plug shield
     takes `socket:` (one entry keyed by the shield's own one slot name,
     `next(iter(shield.plugs))`, never the literal `"plug"`); a plural
@@ -104,7 +103,7 @@ def _parse_sockets_block(item: Val, shield: Shield, binding: SocketBinding,
             "-- mutually exclusive (socket: is the single-plug spelling, "
             "sockets: the plural one)", (item.src,))])
 
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     if socket_v is not None and plural:
         diags.append(error(
             "lang-instance-socket",
@@ -141,8 +140,8 @@ def _parse_sockets_block(item: Val, shield: Shield, binding: SocketBinding,
 
 def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
                    rig_name: str, workdir: str,
-                   include_dirs: Optional[List[str]] = None,
-                   ) -> Tuple[Optional[Instance], List[Diagnostic], Deps]:
+                   include_dirs: list[str] | None = None,
+                   ) -> tuple[Instance | None, list[Diagnostic], Deps]:
     """One `instances:` entry (base content, or an `add-instances:` item
     -- the identical shape): name/shield required, socket OPTIONAL --
     omitting it carries `None` through to `Instance.socket` unresolved,
@@ -191,9 +190,9 @@ def parse_instance(item: Val, binding: SocketBinding, lib: ShieldLibrary,
 
 def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
                           lib: ShieldLibrary, stage: str, stage_value: str,
-                          variant: Optional[str], rig_name: str, workdir: str,
-                          include_dirs: Optional[List[str]] = None,
-                          ) -> Tuple[Instance, List[Diagnostic], Deps]:
+                          variant: str | None, rig_name: str, workdir: str,
+                          include_dirs: list[str] | None = None,
+                          ) -> tuple[Instance, list[Diagnostic], Deps]:
     """Shallow-replace an EXISTING instance's top-level keys: a GIVEN key
     REPLACES; an unspecified key INHERITS. shield/socket/invert/config/params
     are each the deepest merge unit -- no key merges into what was there
@@ -207,7 +206,7 @@ def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
     Returns a NEW Instance (never mutates the one it was handed), always
     preserving the ORIGINAL `src` -- so a diagnostic raised many delta
     stages later still anchors at the base instance's own declaration."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     deps: Deps = frozenset()
     shield = inst.shield
     shield_changed = False
@@ -286,8 +285,8 @@ def _apply_instance_patch(item: Val, inst: Instance, binding: SocketBinding,
     return new_inst, diags, deps
 
 
-def resolve_dotted(ref_v: Optional[Val], by_name: Dict[str, Instance],
-                   key: str) -> Tuple[Optional[WireEnd], List[Diagnostic]]:
+def resolve_dotted(ref_v: Val | None, by_name: dict[str, Instance],
+                   key: str) -> tuple[WireEnd | None, list[Diagnostic]]:
     """`<instance>.<node>` -- validates dotted FORM, instance EXISTENCE
     in the effective topology, and node existence/ambiguity WITHIN that
     instance's own resolved shield, via `Shield.by_name`.
@@ -326,8 +325,8 @@ def resolve_dotted(ref_v: Optional[Val], by_name: Dict[str, Instance],
     return WireEnd(instance_name=inst_name, node=node_name, src=ref_v.src), []
 
 
-def parse_wire(item: Val, by_name: Dict[str, Instance],
-              ) -> Tuple[Optional[Wire], List[Diagnostic]]:
+def parse_wire(item: Val, by_name: dict[str, Instance],
+              ) -> tuple[Wire | None, list[Diagnostic]]:
     """One wires: entry -- both endpoints resolved (resolve_dotted),
     route shape validated (a mapping route must name via:).
 
@@ -357,8 +356,8 @@ def parse_wire(item: Val, by_name: Dict[str, Instance],
     return Wire(frm=frm, to=to, route=route, src=item.src), diags
 
 
-def find_wire(wires: List[Wire], frm: Optional[str],
-             to: Optional[str]) -> Optional[Wire]:
+def find_wire(wires: list[Wire], frm: str | None,
+             to: str | None) -> Wire | None:
     """Match `remove-wires:` by RAW endpoint pair (`<instance>.<node>`
     strings on both sides) -- a wire carries no identity beyond its
     endpoints, so this is the only stable way to find one to remove.
@@ -375,18 +374,18 @@ def find_wire(wires: List[Wire], frm: Optional[str],
     return None
 
 
-def _apply_instances_key(doc: Dict[str, Val], code: str, stage: str,
-                         stage_value: str, effective: Dict[str, Instance],
+def _apply_instances_key(doc: dict[str, Val], code: str, stage: str,
+                         stage_value: str, effective: dict[str, Instance],
                          binding: SocketBinding, lib: ShieldLibrary,
-                         variant: Optional[str], rig_name: str, workdir: str,
-                         include_dirs: Optional[List[str]],
-                         ) -> Tuple[List[Diagnostic], Deps]:
+                         variant: str | None, rig_name: str, workdir: str,
+                         include_dirs: list[str] | None,
+                         ) -> tuple[list[Diagnostic], Deps]:
     """`instances:` -- matched by name against the EFFECTIVE topology; a
     non-match is always an error (additions are never implicit, that is
     what add-instances: is for).
 
     Returns (diagnostics, deps); mutates `effective` in place."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     deps: Deps = frozenset()
     instances_v = doc.get("instances")
     if instances_v is None:
@@ -414,18 +413,18 @@ def _apply_instances_key(doc: Dict[str, Val], code: str, stage: str,
     return diags, deps
 
 
-def _apply_add_instances_key(doc: Dict[str, Val], code: str, stage: str,
-                             stage_value: str, effective: Dict[str, Instance],
-                             order: List[str], binding: SocketBinding,
+def _apply_add_instances_key(doc: dict[str, Val], code: str, stage: str,
+                             stage_value: str, effective: dict[str, Instance],
+                             order: list[str], binding: SocketBinding,
                              lib: ShieldLibrary, rig_name: str, workdir: str,
-                             include_dirs: Optional[List[str]],
-                             ) -> Tuple[List[Diagnostic], Deps]:
+                             include_dirs: list[str] | None,
+                             ) -> tuple[list[Diagnostic], Deps]:
     """`add-instances:` -- full declarations; the name must NOT already
     exist.
 
     Returns (diagnostics, deps); mutates `effective` and `order` in
     place."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     deps: Deps = frozenset()
     add_v = doc.get("add-instances")
     if add_v is None:
@@ -449,15 +448,15 @@ def _apply_add_instances_key(doc: Dict[str, Val], code: str, stage: str,
     return diags, deps
 
 
-def _apply_remove_instances_key(doc: Dict[str, Val], code: str, stage: str,
-                                stage_value: str, effective: Dict[str, Instance],
-                                removed_by: Dict[str, str],
-                                ) -> List[Diagnostic]:
+def _apply_remove_instances_key(doc: dict[str, Val], code: str, stage: str,
+                                stage_value: str, effective: dict[str, Instance],
+                                removed_by: dict[str, str],
+                                ) -> list[Diagnostic]:
     """`remove-instances:` -- names must exist; if a prior stage already
     removed it, the message NAMES that stage so drift cannot hide.
 
     Returns diagnostics; mutates `effective` and `removed_by` in place."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     remove_v = doc.get("remove-instances")
     if remove_v is None:
         return diags
@@ -477,14 +476,14 @@ def _apply_remove_instances_key(doc: Dict[str, Val], code: str, stage: str,
     return diags
 
 
-def _apply_remove_wires_key(doc: Dict[str, Val], code: str, stage: str,
-                            stage_value: str, wires: List[Wire],
-                            ) -> List[Diagnostic]:
+def _apply_remove_wires_key(doc: dict[str, Val], code: str, stage: str,
+                            stage_value: str, wires: list[Wire],
+                            ) -> list[Diagnostic]:
     """`remove-wires:` -- matched by endpoint pair; a re-route is
     remove+add, there is no wire "replace".
 
     Returns diagnostics; mutates `wires` in place."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     remove_wires_v = doc.get("remove-wires")
     if remove_wires_v is None:
         return diags
@@ -505,13 +504,13 @@ def _apply_remove_wires_key(doc: Dict[str, Val], code: str, stage: str,
     return diags
 
 
-def _apply_add_wires_key(doc: Dict[str, Val], effective: Dict[str, Instance],
-                         wires: List[Wire]) -> List[Diagnostic]:
+def _apply_add_wires_key(doc: dict[str, Val], effective: dict[str, Instance],
+                         wires: list[Wire]) -> list[Diagnostic]:
     """`add-wires:` -- resolved the same way a base `wires:` entry is.
 
     Returns diagnostics; mutates `wires` in place; `effective` is
     read-only."""
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     add_wires_v = doc.get("add-wires")
     if add_wires_v is None:
         return diags
@@ -525,9 +524,9 @@ def _apply_add_wires_key(doc: Dict[str, Val], effective: Dict[str, Instance],
 
 def apply_delta(delta: Val, stage: str, stage_value: str,
                 topology: Topology, binding: SocketBinding, lib: ShieldLibrary,
-                variant: Optional[str], rig_name: str,
-                workdir: str, include_dirs: Optional[List[str]] = None,
-                ) -> Tuple[Topology, List[Diagnostic], Deps]:
+                variant: str | None, rig_name: str,
+                workdir: str, include_dirs: list[str] | None = None,
+                ) -> tuple[Topology, list[Diagnostic], Deps]:
     """Apply ONE delta stage ("variant" or "revision") onto the topology,
     returning a NEW Topology plus every diagnostic raised plus every real
     file this stage's shield resolutions touched. `stage_value` is the
@@ -540,7 +539,7 @@ def apply_delta(delta: Val, stage: str, stage_value: str,
     one is never mutated -- plus this stage's findings in document
     order and the files its shield resolutions touched."""
     code = "lang-variant" if stage == "variant" else "lang-rev"
-    diags: List[Diagnostic] = []
+    diags: list[Diagnostic] = []
     deps: Deps = frozenset()
 
     effective = dict(topology.effective)

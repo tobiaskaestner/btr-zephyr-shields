@@ -20,7 +20,6 @@ lives here beside the other corpus-level laws rather than in a
 `test_singleton_identity_law.py` is not named after a module either.
 """
 from pathlib import Path
-from typing import List, Tuple
 
 GOLDENS_DIR = Path(__file__).resolve().parents[1] / "goldens"
 
@@ -36,10 +35,10 @@ _FORBIDDEN = (
 )
 
 
-def _offending_lines(path: Path) -> List[Tuple[int, str]]:
+def _offending_lines(path: Path) -> list[tuple[int, str]]:
     """Every (1-based line number, line) in `path` carrying a forbidden
     fragment. Returns a fresh list the caller owns; empty means clean."""
-    hits: List[Tuple[int, str]] = []
+    hits: list[tuple[int, str]] = []
     for n, line in enumerate(path.read_text().splitlines(), start=1):
         if any(fragment in line for fragment in _FORBIDDEN):
             hits.append((n, line.strip()))

@@ -46,7 +46,7 @@ _REJECT_RIG = (FIXTURES_DIR / "boards" / "rigs" / "multibus-sockets-reject"
                / "rig.yml")
 
 
-def _run(rig_yml: Path, out_dir: Path) -> "subprocess.CompletedProcess[str]":
+def _run(rig_yml: Path, out_dir: Path) -> subprocess.CompletedProcess[str]:
     assert_fixture_local([_BOARD_DTS, _CONNECTOR_BINDINGS, _CONNECTOR_INCLUDE,
                           _SHIELDS])
     return run_expand(

@@ -47,8 +47,6 @@ test_cli_reference_drift.py's `--options`).
 from __future__ import annotations
 
 import re
-from pathlib import Path
-from typing import Set
 
 from harness import REPO_ROOT
 
@@ -73,17 +71,17 @@ def _production_py_files():
         yield path
 
 
-def _code_literals() -> Set[str]:
+def _code_literals() -> set[str]:
     """Every `lang-*`/`phys-*` code string literal in scripts/rigc/'s own
     PRODUCTION source (never tests/, so a golden directory name reusing
     the same spelling is never counted) -- a fresh set the caller owns."""
-    found: Set[str] = set()
+    found: set[str] = set()
     for path in _production_py_files():
         found.update(_CODE_LITERAL_RE.findall(path.read_text()))
     return found
 
 
-def _documented_codes() -> Set[str]:
+def _documented_codes() -> set[str]:
     """Every code named as its own double-backtick inline literal
     anywhere on doc/reference/diagnostics.rst -- a fresh set the caller
     owns."""

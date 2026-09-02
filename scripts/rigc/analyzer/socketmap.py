@@ -20,8 +20,6 @@ returned `BoardSocket` is owned by whichever pass built the map
 (analyzer/sockets.py's `resolve_sockets`), never by the caller."""
 from __future__ import annotations
 
-from typing import Dict, List, Optional
-
 from ..model import BoardSocket, Device, FunctionRef, Instance
 
 #: instance name -> slot name -> resolved board socket. A slot absent
@@ -29,10 +27,10 @@ from ..model import BoardSocket, Device, FunctionRef, Instance
 #: missing instance entry did before plurality) -- the analyzer already
 #: reported why, and every reader here treats absence as None rather
 #: than a KeyError.
-Sockets = Dict[str, Dict[str, BoardSocket]]
+Sockets = dict[str, dict[str, BoardSocket]]
 
 
-def slots_of(sockets: Sockets, inst: Instance) -> List[str]:
+def slots_of(sockets: Sockets, inst: Instance) -> list[str]:
     """Every slot of `inst` that resolved to a physical socket, in the
     shield's own plug authoring order (`Shield.plugs`' own dict order) --
     a slot missing from the result never resolved. Used by the per-slot
@@ -44,7 +42,7 @@ def slots_of(sockets: Sockets, inst: Instance) -> List[str]:
     return [slot for slot in inst.shield.plugs if slot in resolved]
 
 
-def for_ref(sockets: Sockets, inst: Instance, ref: FunctionRef) -> Optional[BoardSocket]:
+def for_ref(sockets: Sockets, inst: Instance, ref: FunctionRef) -> BoardSocket | None:
     """The resolved `BoardSocket` `ref` claims through -- keyed by
     `ref.plug`, the slot the reference's own phandle named
     (`loader/shields.py`'s `_parse_pos_ref`), NEVER the device's own bus slot: a
@@ -56,7 +54,7 @@ def for_ref(sockets: Sockets, inst: Instance, ref: FunctionRef) -> Optional[Boar
     return sockets.get(inst.name, {}).get(ref.plug)
 
 
-def for_bus_device(sockets: Sockets, inst: Instance, dev: Device) -> Optional[BoardSocket]:
+def for_bus_device(sockets: Sockets, inst: Instance, dev: Device) -> BoardSocket | None:
     """The resolved `BoardSocket` `dev`'s own BUS binds to -- keyed by
     `dev.plug`, the slot its bus group nests under. Calling this on a
     plain-group device (`dev.plug` is None, since it has no bus of its
@@ -70,7 +68,7 @@ def for_bus_device(sockets: Sockets, inst: Instance, dev: Device) -> Optional[Bo
     return sockets.get(inst.name, {}).get(dev.plug)
 
 
-def for_slot(sockets: Sockets, inst: Instance, slot: str) -> Optional[BoardSocket]:
+def for_slot(sockets: Sockets, inst: Instance, slot: str) -> BoardSocket | None:
     """The resolved `BoardSocket` of `inst`'s own named `slot`, directly --
     the primitive `for_ref`/`for_bus_device` both delegate to, and the one
     a caller reaches for when neither a `FunctionRef` nor a `Device` is in

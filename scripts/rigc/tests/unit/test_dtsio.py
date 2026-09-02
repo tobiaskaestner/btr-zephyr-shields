@@ -20,8 +20,7 @@ from __future__ import annotations
 import os
 from textwrap import dedent
 
-from rigc.dtsio import (get_dtlib, is_int_literal, linemarker_files,
-                       render_prop, src_of, words)
+from rigc.dtsio import get_dtlib, is_int_literal, linemarker_files, render_prop, src_of, words
 
 # ---------------------------------------------------------------- is_int_literal
 

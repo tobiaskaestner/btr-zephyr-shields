@@ -14,7 +14,6 @@ CMAKE_CONFIGURE_DEPENDS on top of its own static registrations.
 from __future__ import annotations
 
 import logging
-from typing import List
 
 from ..deps import Deps
 from ..model import Rig
@@ -59,8 +58,8 @@ def render(rig: Rig, deps: Deps) -> bytes:
     RIG_DEPENDS is always present, sorted, each element escaped for a
     CMake list literal (`_cmake_list_escape`)."""
     log.info("context.render(): rig '%s'", rig.name)
-    shields: List[str] = []
-    shield_revisions: List[str] = []
+    shields: list[str] = []
+    shield_revisions: list[str] = []
     for inst in rig.instances:
         if inst.shield.name not in shields:
             shields.append(inst.shield.name)

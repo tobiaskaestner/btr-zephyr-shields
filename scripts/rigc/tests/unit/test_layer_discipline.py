@@ -27,8 +27,9 @@ from __future__ import annotations
 
 import ast
 import textwrap
+from collections.abc import Iterator
 from pathlib import Path
-from typing import Dict, Iterator, List, Optional, Union
+from typing import Union
 
 import rigc
 
@@ -56,7 +57,7 @@ _LAYER_DIRS = ((("tests", "unit"),)
                + tuple(("tests", name) for name in _INTEGRATION_DIRS))
 
 
-def _python_files(root: Path) -> List[Path]:
+def _python_files(root: Path) -> list[Path]:
     return sorted(p for p in root.rglob("*.py") if "__pycache__" not in p.parts)
 
 
@@ -215,7 +216,7 @@ def _call_targets(node: ast.AST) -> Iterator[str]:
                 yield func.attr
 
 
-def _argv_head_name(elt: ast.expr) -> Optional[str]:
+def _argv_head_name(elt: ast.expr) -> str | None:
     """The bare identifier an argv element names, however it is spelled --
     a string literal ("cmake") or a Name (WEST_EXE). None for anything
     else (an f-string, a variable holding something other than a bare
@@ -256,13 +257,13 @@ def _launches_build_inline(node: ast.AST) -> bool:
     return False
 
 
-def _defs_by_name(tree: ast.Module) -> Dict[str, _FuncDef]:
+def _defs_by_name(tree: ast.Module) -> dict[str, _FuncDef]:
     return {n.name: n for n in tree.body
             if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef))}
 
 
-def _reaches_build_helper(name: str, defs: Dict[str, _FuncDef],
-                          memo: Dict[str, bool]) -> bool:
+def _reaches_build_helper(name: str, defs: dict[str, _FuncDef],
+                          memo: dict[str, bool]) -> bool:
     """Whether the module-local def `name` -- a test, a fixture, or a
     plain helper -- transitively reaches a _BUILD_HELPERS entry: by
     calling one directly, by calling another module-local def that does,
@@ -293,7 +294,7 @@ def _reaches_build_helper(name: str, defs: Dict[str, _FuncDef],
     return reached
 
 
-def _mark_names(nodes: List[ast.expr]) -> Iterator[str]:
+def _mark_names(nodes: list[ast.expr]) -> Iterator[str]:
     """The mark name(s) a list of attribute-chain expressions resolve to
     -- shared by a module-level `pytestmark = pytest.mark.x` (or a list of
     those) and a function's `@pytest.mark.x` decorators, both plain
@@ -327,13 +328,13 @@ def _is_build_marked(fn: _FuncDef, module_marked: bool) -> bool:
     return module_marked or "build" in _mark_names(fn.decorator_list)
 
 
-def _collect_unmarked_build_tests(path: Path, offenders: List[str]) -> None:
+def _collect_unmarked_build_tests(path: Path, offenders: list[str]) -> None:
     """Append `<module>::<test>` for every test in `path` that reaches a
     build and carries no build marker. Mutates the caller's list."""
     tree = ast.parse(path.read_text(), filename=str(path))
     defs = _defs_by_name(tree)
     module_marked = _module_build_mark(tree)
-    memo: Dict[str, bool] = {}
+    memo: dict[str, bool] = {}
     for fn_name, fn in defs.items():
         if not fn_name.startswith("test_"):
             continue
@@ -353,7 +354,7 @@ def test_every_build_reaching_integration_test_is_marked_build() -> None:
 
     See test_build_reaching_guard_detects_an_unmarked_build_test below for
     this guard's own negative control."""
-    offenders: List[str] = []
+    offenders: list[str] = []
     for layer in _INTEGRATION_DIRS:
         for path in _python_files(TESTS_DIR / layer):
             if not path.name.startswith("test_"):
@@ -379,7 +380,7 @@ def test_the_build_helper_set_is_exactly_the_known_launchers() -> None:
         "_build_and_freeze_dts",
         "_run_cmake_alone",
     }
-    assert _BUILD_HELPERS == expected, (
+    assert expected == _BUILD_HELPERS, (
         "the build-launcher set changed; add or remove its control here and "
         "in the reachability cases below, deliberately")
 
@@ -547,7 +548,7 @@ def _import_time_constants(tree: ast.Module) -> Iterator[ast.Constant]:
     with function/method bodies skipped (code inside them runs only when
     called) and bare-string docstring statements skipped."""
 
-    def visit(body: List[ast.stmt]) -> Iterator[ast.Constant]:
+    def visit(body: list[ast.stmt]) -> Iterator[ast.Constant]:
         for stmt in body:
             if isinstance(stmt, (ast.FunctionDef, ast.AsyncFunctionDef)):
                 continue
