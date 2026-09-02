@@ -42,7 +42,7 @@ _LOGGER = logging.getLogger(__name__)
 # exactly this depth for diag.anchor_path()'s "scripts/<module>/"-relative
 # rendering to reproduce every frozen anchor line byte-for-byte).
 TESTS_DIR = Path(__file__).resolve().parent.parent
-REPO_ROOT = TESTS_DIR.parents[2]  # scripts/rigc/tests -> btr-shields
+REPO_ROOT = TESTS_DIR.parents[2]  # scripts/rigc/tests -> the repo root
 GOLDENS_DIR = TESTS_DIR / "goldens"
 FIXTURES_DIR = TESTS_DIR / "fixtures"
 

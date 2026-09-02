@@ -257,7 +257,7 @@ def census_board(
 
 def census_boards(board_roots: list[str] | None = None) -> list[CensusBoard]:
     """The edge: globs `<root>/boards/**/board.yml` for
-    every root in `board_roots` (default: [MODULE_ROOT], btr-shields' own
+    every root in `board_roots` (default: [MODULE_ROOT], this module's own
     tree), reads each board.yml plus every *.dts/*.dtsi directly beside it
     -- NOT recursive: a board rig-extension keeps its
     socket fragment(s) beside its own board.yml, never in a subdirectory

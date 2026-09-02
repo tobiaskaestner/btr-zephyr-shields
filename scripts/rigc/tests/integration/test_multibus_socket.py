@@ -19,7 +19,8 @@ targets the specific fact under test rather than the whole artifact.
 
 The real-toolchain round trip (test_multibus_expand_and_build_round_trip,
 @pytest.mark.build) needs a real corpus board (nucleo_f401re/stm32f401xe/
-rig, a btr-shields board extension under boards/extend/st/nucleo_f401re/)
+rig, a board extension under boards/extend/st/nucleo_f401re/ in the
+repository the rigs are defined in)
 to supply the toolchain -- that dependency is exactly what this suite's
 integration/integration_stay split is drawn on, so that test lives on the
 stay side, in test_multibus_socket_build.py, alongside a small duplicated

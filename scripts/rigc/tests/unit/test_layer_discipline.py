@@ -45,7 +45,7 @@ _META_MODULES = {"test_layer_discipline"}
 #: The integration LAYER's two directories. The split is by TETHER, not by
 #: kind: integration/ holds the tests that read nothing outside
 #: tests/fixtures/, rigc/ and doc/, so they travel with the transpiler when
-#: it migrates out of btr-shields; integration_stay/ holds the ones that
+#: it is vendored into another repository; integration_stay/ holds the ones
 #: read this repo's own boards/rigs/, boards/shields/ or boards/extend/ and
 #: therefore stay behind with the hardware definitions. Every guard over
 #: "the integration layer" must walk BOTH -- a guard that walks only the
@@ -200,7 +200,8 @@ def test_no_pytest_markers_under_tests_unit() -> None:
 # subprocess" heuristic would misclassify every fixture that calls
 # harness.run_expand, which is a subprocess too but only the plain
 # expander -- never a build. All five live on the stay side today: a build
-# needs a real board, and every real board is a btr-shields extension.
+# needs a real board, and every real board is an extension defined
+# alongside the rigs.
 # `_run_build_rig` (test_cmake_alone_entry.py's own west-build-rig
 # reference path) retired along with `west build-rig` itself -- there is
 # no successor entry for it; `_run_build` below is NOT its replacement,
