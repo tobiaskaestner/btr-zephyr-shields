@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Unit: shields -- plug identity and the shield-template model's
 placement rules: which children of a template (or of a plug) may
 declare a bus group vs. a plain device group, at both plug counts (one

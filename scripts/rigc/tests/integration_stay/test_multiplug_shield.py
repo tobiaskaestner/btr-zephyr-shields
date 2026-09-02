@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Multi-plug shields: a shield
 mates more than one socket at once. Two halves, mirroring
 test_multibus_socket.py's own shape:

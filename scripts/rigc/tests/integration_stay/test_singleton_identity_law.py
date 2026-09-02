@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """The singleton identity law:
 
     --board b --rig <shield-name>

@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """list_rigs.py's own CLI: the
 `--rig=<target> --cmakeformat=...` line cmake/boards.cmake's and
 cmake/dts.cmake's forks actually read via `execute_process`, driven here

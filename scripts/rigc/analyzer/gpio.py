@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Net identity, GPIO/PWM/ADC claims, jumper resolution, and the final net
 conflict report, value-shaped throughout.
 

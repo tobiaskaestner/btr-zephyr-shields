@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """The analyzer: rig model + board -> solved rig.
 
 Each pass is a value function taking exactly the prior pieces it needs

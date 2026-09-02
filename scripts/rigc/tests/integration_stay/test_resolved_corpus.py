@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Resolved goldens: the real pass-2 zephyr.dts, via
 `west build --cmake-only -- -DRIG=<name>` -- the surviving cmake entry
 point now that `west build-rig` is retired (Tobi's ruling: no replacement

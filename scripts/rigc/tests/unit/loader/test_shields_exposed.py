@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Unit: shields -- exposed-socket parsing: gpio/pwm/adc channel maps,
 bus/channel resolution (scope vs. plug-slot markers), cs-pool overrides,
 and the plural-shield variants of each (a gpio-map row or socket,<bus>

@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """The rig model: syntax-free semantic representation of a rig, plus the
 shield-template model every instance's `shield:` reference resolves
 against.

@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Base topology parsing and the delta engine: instances, wires, and
 the four delta operations (`instances:`, `add-instances:`,
 `remove-instances:`, `add-wires:`/`remove-wires:`), all matched against

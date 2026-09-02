@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Dependency data: the real source-tree files one load actually touched
 (rig.yml, its content file, `.shield` templates + their cpp-included
 files, connector bindings, index headers) -- the input side of the

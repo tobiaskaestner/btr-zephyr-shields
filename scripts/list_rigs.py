@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# Copyright (c) 2026
+# Copyright (c) 2026 TiaC Systems
 # SPDX-License-Identifier: Apache-2.0
 
 # Mirrors zephyr/scripts/list_shields.py, adapted to the rig folder model:

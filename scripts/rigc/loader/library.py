@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """The shield library: scan, axes, lazy revision resolution.
 `resolve()` returns a REAL `Shield`, or diagnostics explaining why not.
 

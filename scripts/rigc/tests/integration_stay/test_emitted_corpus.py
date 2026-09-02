@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Emitted goldens: the corpus sweep, plus the synthetic fixtures whose
 own behavior still depends on real repo content.
 

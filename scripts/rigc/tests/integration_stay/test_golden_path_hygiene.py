@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Corpus-level property: no frozen golden carries a machine-specific path.
 
 A `zephyr.dts` golden's provenance comments name the build directory the

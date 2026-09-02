@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Bus-kind matching: whether a bus name (a `Device.bus` value, or a
 shield group/proxy name authored in a `.shield` file) names a given
 socket bus KIND -- bare ("spi"), or a named variant a multi-bus

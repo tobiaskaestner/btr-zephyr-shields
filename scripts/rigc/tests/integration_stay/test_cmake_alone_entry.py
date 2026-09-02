@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """cmake-alone rig entry: cmake -B <dir> -S <app> -DRIG=<name> -DBOARD=
 <target> with west absent entirely must configure clean. The rig and the
 board are INDEPENDENT coordinates: the rig names a topology, the

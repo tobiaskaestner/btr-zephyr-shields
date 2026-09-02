@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Board projection over a SYNTHETIC, cpp-free board DT:
 project.project_edt is called directly against an edtlib.EDT built from
 `tests/fixtures/boards/fixture_board.dts` -- purpose-built fixture data in

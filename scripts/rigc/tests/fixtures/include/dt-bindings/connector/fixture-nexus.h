@@ -1,3 +1,6 @@
+/* Copyright (c) 2026 TiaC Systems
+ * SPDX-License-Identifier: Apache-2.0
+ */
 /* Position indices for this fixture tree's own synthetic connector type
  * (socket,fixture-nexus). Not a copy of any real connector header under
  * include/dt-bindings/connector -- no real board or shield ever references

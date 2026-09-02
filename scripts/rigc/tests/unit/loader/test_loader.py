@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Unit: loader (loader/__init__.py) -- `load()`'s three-phase split:
 `_resolve_metadata` (steps 2-5, the rig
 shell), `_gather_content` (steps 6-9, the content file + delta

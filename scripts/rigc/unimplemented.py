@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """The loud-refusal channel for functionality rigc does not have yet.
 
 Such a path must fail DISTINCTLY: `rigc: not implemented: <what>` on

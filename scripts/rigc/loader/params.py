@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Params, config elements, per-instance-parameter vocabulary: `shield:`
 references resolve against a real `ShieldLibrary`, and this is where
 `params:`/`config:` apply fully against the resolved shield. The

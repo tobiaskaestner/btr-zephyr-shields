@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """The one @pytest.mark.build test extracted from test_multibus_socket.py
 (tests/integration/, where the rest of that module's own multi-bus-socket
 coverage still lives -- see its own docstring): this test alone needs a

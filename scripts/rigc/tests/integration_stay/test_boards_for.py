@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """`west rigs --boards-for` driven as a subprocess. NOT build-marked:
 `west rigs` itself runs in 0.3s, and
 nothing this command reaches configures cmake -- it censuses board

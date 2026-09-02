@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """The corpus of rigs under boards/rigs/, plus a set of synthetic fixtures,
 is frozen at two levels, named for the ARTIFACT each freezes rather than
 the order the two layers were built:

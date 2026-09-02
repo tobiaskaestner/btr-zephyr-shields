@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Unit: emitter/context -- context.cmake, the build-glue handoff kept
 OUT of `emit()`. Pinned here: the "no
 declaration, no artifact" rule for RIG_REVISION/RIG_VARIANT/

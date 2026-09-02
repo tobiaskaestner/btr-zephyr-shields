@@ -1,3 +1,4 @@
+# Copyright (c) 2026 TiaC Systems
 # SPDX-License-Identifier: Apache-2.0
 """A text-only census of board rig-extensions, and the query it answers:
 `west rigs --boards-for <target>`.

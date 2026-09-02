@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Unit: cli — the frozen front door.
 
 Two contracts live here, both cli.py's own: the frozen argv surface

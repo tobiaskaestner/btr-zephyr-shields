@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Unit: shields -- device attribution (bus membership, group placement,
 declared_params/param-includes) and address-authority/unit-address
 validation, plus position-ref resolution (gpio/pwm/adc claims onto the

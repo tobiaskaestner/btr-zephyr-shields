@@ -1,3 +1,4 @@
+# Copyright (c) 2026 TiaC Systems
 # SPDX-License-Identifier: BSD-3-Clause
 """Standalone edtlib.EDT construction over a single real devicetree file.
 

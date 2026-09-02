@@ -1,3 +1,6 @@
+/* Copyright (c) 2026 TiaC Systems
+ * SPDX-License-Identifier: Apache-2.0
+ */
 /* mikroBUS position indices — THE single source of truth shared by:
  * board socket gpio-map child pins, shield plug references, binding docs.
  * (Pattern: upstream include/zephyr/dt-bindings/gpio/arduino-header-r3.h;

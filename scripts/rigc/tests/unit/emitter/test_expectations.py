@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Unit: emitter/expectations -- expectations.yml. Same
 `solved.wires`-never-`rig.wires` contract as sheet.py, pinned
 here from the OTHER angle: since a wire's rendered line carries no route

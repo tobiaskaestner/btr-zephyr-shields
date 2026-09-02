@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Multi-plug carriers: a plural
 shield may declare an exposed socket, composed from SEVERAL named
 parents. Two halves, mirroring test_multiplug_shield.py's own shape:

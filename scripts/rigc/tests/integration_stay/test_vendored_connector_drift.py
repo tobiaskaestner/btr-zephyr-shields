@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """The production half of what used to be
 test_connector_bindings.py::test_fixture_nexus_type_is_registry_visible
 (tests/integration/), plus the drift guard that keeps

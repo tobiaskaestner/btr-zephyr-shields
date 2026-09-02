@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """The contributes-nothing check: a selected NON-DEFAULT axis value that
 contributes NOTHING -- the constructed-fragment-file contribution
 check. A variant declares nothing but its own name, so its only way to

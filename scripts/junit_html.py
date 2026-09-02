@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Render a pytest --junitxml file as one self-contained HTML page.
 
 Stdlib only, deliberately — the same no-new-dependency rule as driving

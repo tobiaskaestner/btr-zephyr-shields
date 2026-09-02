@@ -1,3 +1,6 @@
+/* Copyright (c) 2026 TiaC Systems
+ * SPDX-License-Identifier: Apache-2.0
+ */
 /* Connector type "i2c-port": a bare downstream I2C port (an I2C-mux channel,
  * or any board I2C header). No claimable gpio positions — just the bus, so
  * no position #defines. Kept for the connector-type registry's uniform

@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Structural devicetree equivalence check (rigs R2).
 
 Compares two `zephyr.dts` files for EQUIVALENCE, not byte-identity: labels,

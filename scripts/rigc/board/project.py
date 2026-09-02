@@ -1,3 +1,4 @@
+# Copyright (c) 2026 TiaC Systems
 # SPDX-License-Identifier: Apache-2.0
 """Board DT reader, edtlib-based -- the production reader resolve.load_board
 delegates to. It projects a real board's own devicetree, read via a

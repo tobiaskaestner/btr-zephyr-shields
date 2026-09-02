@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Unit: loader.fragments -- the fragment-presence contributes-nothing
 check.
 

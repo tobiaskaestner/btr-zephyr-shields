@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Corpus-level property: doc/reference/diagnostics.rst and the actual
 diagnostic codes scripts/rigc/'s own production code raises agree, in
 BOTH directions.

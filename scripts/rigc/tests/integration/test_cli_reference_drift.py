@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Corpus-level property: doc/reference/commands.rst and the two real
 argument parsers agree on what options exist, in BOTH directions.
 

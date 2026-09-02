@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Corpus-level property: the DTS reference pages
 (doc/reference/shield-template.rst, doc/reference/board-socket.rst) and
 scripts/rigc/'s own production code agree on the `shield,*`/`plug,*`/

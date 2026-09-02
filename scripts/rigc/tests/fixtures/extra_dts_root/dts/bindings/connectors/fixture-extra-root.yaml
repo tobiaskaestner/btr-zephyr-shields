@@ -1,3 +1,6 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
+
 # Fixture connector-type binding for test_cmake_alone_entry.py's own
 # test_cmake_alone_threads_connector_dir_per_dts_root: this file's own
 # CONTENT is never read by that test (it only asserts on

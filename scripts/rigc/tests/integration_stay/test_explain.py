@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """`west rigs --explain` driven as a subprocess. NOT build-marked:
 this command touches no cmake, no
 cpp, no board -- a promoted shield's two documents are pure text and a

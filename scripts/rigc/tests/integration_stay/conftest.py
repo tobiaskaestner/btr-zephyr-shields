@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """pytest wants a conftest.py in this directory too. The corpus-tethered
 tests here need harness.py's generic plumbing (path discovery, the
 expander subprocess runner, normalization, the freeze/assert primitives),

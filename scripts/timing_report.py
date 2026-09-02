@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Diff a pytest --junitxml run against a stored baseline, flagging any
 test whose SHARE of the suite's wall time grew past a threshold.
 

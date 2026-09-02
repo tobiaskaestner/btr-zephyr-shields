@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Unit: shields -- pads/straps/jumpers (config-block elements) and the
 label requirement shared by every rig-facing reference surface (device,
 pad, strap, jumper, exposed socket): each must resolve by DTS LABEL,

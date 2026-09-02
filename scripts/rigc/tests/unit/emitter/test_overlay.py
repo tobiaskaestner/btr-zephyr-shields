@@ -1,3 +1,5 @@
+# Copyright (c) 2026 TiaC Systems
+# SPDX-License-Identifier: Apache-2.0
 """Unit: emitter/overlay -- the device-node renderer. Stable contracts
 pinned here: gpio/pwm/adc idioms, the `inst.invert` flag flip,
 per-instance params substitution (replace vs add), the sdmmc child
