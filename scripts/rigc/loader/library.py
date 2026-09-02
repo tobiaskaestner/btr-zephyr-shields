@@ -182,7 +182,18 @@ class ShieldLibrary:
                     error(
                         "lang-instance-shield",
                         f"{ctx}: unknown shield '{name}'\n"
-                        f"known shields: {', '.join(sorted(self.axes))}",
+                        # An EMPTY library is the interesting case, and the
+                        # join alone rendered it as "known shields: " -- a
+                        # dangling label with trailing whitespace that told
+                        # the reader nothing. An empty library almost always
+                        # means the shield roots were wrong, so say that
+                        # instead of trailing off.
+                        + (
+                            f"known shields: {', '.join(sorted(self.axes))}"
+                            if self.axes
+                            else "no shields were found at all -- check the "
+                            "shield library roots (--shield-dir)"
+                        ),
                         (src,),
                     )
                 ],
